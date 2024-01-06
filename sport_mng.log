@@ -1,0 +1,2195 @@
+2024-01-03 17:42:17,739 - sport_mng - INFO - 初始化电子健康卡管理服务
+2024-01-04 10:51:00,230 - sport_mng - INFO - 初始化电子健康卡管理服务
+2024-01-04 10:51:01,284 - sport_mng - INFO - 初始化电子健康卡管理服务
+2024-01-04 10:58:57,908 - sport_mng - INFO - 初始化电子健康卡管理服务
+2024-01-04 10:58:58,465 - sport_mng - INFO - 初始化电子健康卡管理服务
+2024-01-04 11:10:47,854 - sport_mng - INFO - 初始化电子健康卡管理服务
+2024-01-04 11:12:47,276 - sport_mng - INFO - 初始化电子健康卡管理服务
+2024-01-04 11:13:05,351 - sport_mng - INFO - 初始化电子健康卡管理服务
+2024-01-04 11:13:29,574 - sport_mng - INFO - 初始化电子健康卡管理服务
+2024-01-04 11:16:28,439 - sport_mng - INFO - 初始化电子健康卡管理服务
+2024-01-04 11:18:20,878 - sport_mng - INFO - 初始化电子健康卡管理服务
+2024-01-04 11:50:37,863 - sport_mng - INFO - 初始化电子健康卡管理服务
+2024-01-04 11:50:39,032 - sport_mng - INFO - 初始化电子健康卡管理服务
+2024-01-04 11:56:16,635 - sport_mng - INFO - 初始化电子健康卡管理服务
+2024-01-04 11:56:17,203 - sport_mng - INFO - 初始化电子健康卡管理服务
+2024-01-04 11:59:17,332 - sport_mng - INFO - 初始化电子健康卡管理服务
+2024-01-04 11:59:17,870 - sport_mng - INFO - 初始化电子健康卡管理服务
+2024-01-04 11:59:50,398 - sport_mng - INFO - 初始化电子健康卡管理服务
+2024-01-04 12:01:11,340 - sport_mng - DEBUG - 根据 id_card_num: 110101199004076650 查询电子健康卡信息结果为: <Response>
+  <returncode>1</returncode>
+  <output></output>
+  <message>该设备未启用</message>
+</Response>
+2024-01-04 12:01:11,341 - sport_mng - DEBUG - Return data: {
+  "Response": {
+    "returncode": "1",
+    "output": null,
+    "message": "\u8be5\u8bbe\u5907\u672a\u542f\u7528"
+  }
+}
+2024-01-04 12:01:11,342 - sport_mng - DEBUG - Return code: 1
+2024-01-04 14:07:08,925 - sport_mng - INFO - 初始化电子健康卡管理服务
+2024-01-04 14:07:23,349 - sport_mng - INFO - 初始化电子健康卡管理服务
+2024-01-04 14:08:17,621 - sport_mng - INFO - 初始化电子健康卡管理服务
+2024-01-04 14:11:56,058 - sport_mng - INFO - 初始化电子健康卡管理服务
+2024-01-04 14:12:13,240 - sport_mng - INFO - 初始化电子健康卡管理服务
+2024-01-04 14:12:26,360 - sport_mng - INFO - 初始化电子健康卡管理服务
+2024-01-04 14:15:23,907 - sport_mng - INFO - 初始化电子健康卡管理服务
+2024-01-04 14:16:51,330 - sport_mng - INFO - 初始化电子健康卡管理服务
+2024-01-04 14:18:42,416 - sport_mng - INFO - 初始化电子健康卡管理服务
+2024-01-04 14:19:20,393 - sport_mng - INFO - 初始化电子健康卡管理服务
+2024-01-04 14:19:42,504 - sport_mng - INFO - 初始化电子健康卡管理服务
+2024-01-04 14:40:35,635 - sport_mng - INFO - 初始化电子健康卡管理服务
+2024-01-04 14:40:36,164 - sport_mng - INFO - 初始化电子健康卡管理服务
+2024-01-04 14:48:04,891 - sport_mng - INFO - 初始化电子健康卡管理服务
+2024-01-04 14:48:08,553 - sport_mng - INFO - 初始化电子健康卡管理服务
+2024-01-04 14:48:09,101 - sport_mng - INFO - 初始化电子健康卡管理服务
+2024-01-04 14:48:22,481 - sport_mng - DEBUG - 电子健康卡申领结果为: <Response>
+  <returncode>1</returncode>
+  <output></output>
+  <message>该设备未记录在案</message>
+</Response>
+2024-01-04 14:48:25,680 - sport_mng - DEBUG - Return data: {
+  "Response": {
+    "returncode": "1",
+    "output": null,
+    "message": "\u8be5\u8bbe\u5907\u672a\u8bb0\u5f55\u5728\u6848"
+  }
+}
+2024-01-04 14:48:25,681 - sport_mng - DEBUG - Return code: 1
+2024-01-04 14:48:25,681 - sport_mng - DEBUG - Return Message: 该设备未记录在案
+2024-01-04 14:52:53,354 - sport_mng - INFO - 初始化电子健康卡管理服务
+2024-01-04 14:52:53,896 - sport_mng - INFO - 初始化电子健康卡管理服务
+2024-01-04 14:53:00,439 - sport_mng - DEBUG - 电子健康卡申领结果为: <Response>
+  <returncode>1</returncode>
+  <output></output>
+  <message>该设备未记录在案</message>
+</Response>
+2024-01-04 14:53:02,598 - sport_mng - DEBUG - Return data: {
+  "Response": {
+    "returncode": "1",
+    "output": null,
+    "message": "\u8be5\u8bbe\u5907\u672a\u8bb0\u5f55\u5728\u6848"
+  }
+}
+2024-01-04 14:53:02,598 - sport_mng - DEBUG - Return code: 1
+2024-01-04 14:53:02,598 - sport_mng - DEBUG - Return Message: 该设备未记录在案
+2024-01-04 14:55:12,744 - sport_mng - INFO - 初始化电子健康卡管理服务
+2024-01-04 14:57:59,036 - sport_mng - INFO - 初始化电子健康卡管理服务
+2024-01-04 14:57:59,598 - sport_mng - INFO - 初始化电子健康卡管理服务
+2024-01-04 15:05:52,107 - sport_mng - DEBUG - 根据 id_card_num: 110101199004076650 查询电子健康卡信息结果为: <Response>
+  <returncode>1</returncode>
+  <output></output>
+  <message>该设备未记录在案</message>
+</Response>
+2024-01-04 15:05:52,109 - sport_mng - DEBUG - Return data: {
+  "Response": {
+    "returncode": "1",
+    "output": null,
+    "message": "\u8be5\u8bbe\u5907\u672a\u8bb0\u5f55\u5728\u6848"
+  }
+}
+2024-01-04 15:05:52,110 - sport_mng - DEBUG - Return code: 1
+2024-01-04 15:08:40,695 - sport_mng - INFO - 初始化电子健康卡管理服务
+2024-01-04 15:09:00,768 - sport_mng - INFO - 初始化电子健康卡管理服务
+2024-01-04 15:09:39,414 - sport_mng - INFO - 初始化电子健康卡管理服务
+2024-01-04 15:09:39,948 - sport_mng - INFO - 初始化电子健康卡管理服务
+2024-01-04 15:10:01,660 - sport_mng - DEBUG - 根据 id_card_num: 110101199001013451 查询电子健康卡信息结果为: <Response>
+  <returncode>1</returncode>
+  <output></output>
+  <message>该设备未记录在案</message>
+</Response>
+2024-01-04 15:10:01,662 - sport_mng - DEBUG - Return data: {
+  "Response": {
+    "returncode": "1",
+    "output": null,
+    "message": "\u8be5\u8bbe\u5907\u672a\u8bb0\u5f55\u5728\u6848"
+  }
+}
+2024-01-04 15:10:01,662 - sport_mng - DEBUG - Return code: 1
+2024-01-04 15:10:17,734 - sport_mng - DEBUG - 根据 id_card_num: 11010119900101345s 查询电子健康卡信息结果为: <Response>
+  <returncode>1</returncode>
+  <output></output>
+  <message>该设备未记录在案</message>
+</Response>
+2024-01-04 15:10:17,735 - sport_mng - DEBUG - Return data: {
+  "Response": {
+    "returncode": "1",
+    "output": null,
+    "message": "\u8be5\u8bbe\u5907\u672a\u8bb0\u5f55\u5728\u6848"
+  }
+}
+2024-01-04 15:10:17,735 - sport_mng - DEBUG - Return code: 1
+2024-01-04 15:10:21,190 - sport_mng - DEBUG - 根据 id_card_num: 110101199001013451 查询电子健康卡信息结果为: <Response>
+  <returncode>1</returncode>
+  <output></output>
+  <message>该设备未记录在案</message>
+</Response>
+2024-01-04 15:10:21,193 - sport_mng - DEBUG - Return data: {
+  "Response": {
+    "returncode": "1",
+    "output": null,
+    "message": "\u8be5\u8bbe\u5907\u672a\u8bb0\u5f55\u5728\u6848"
+  }
+}
+2024-01-04 15:10:21,194 - sport_mng - DEBUG - Return code: 1
+2024-01-04 15:10:37,434 - sport_mng - DEBUG - 电子健康卡申领结果为: <Response>
+  <returncode>1</returncode>
+  <output></output>
+  <message>该设备未记录在案</message>
+</Response>
+2024-01-04 15:10:39,023 - sport_mng - DEBUG - Return data: {
+  "Response": {
+    "returncode": "1",
+    "output": null,
+    "message": "\u8be5\u8bbe\u5907\u672a\u8bb0\u5f55\u5728\u6848"
+  }
+}
+2024-01-04 15:10:39,024 - sport_mng - DEBUG - Return code: 1
+2024-01-04 15:10:39,024 - sport_mng - DEBUG - Return Message: 该设备未记录在案
+2024-01-04 15:12:38,751 - sport_mng - DEBUG - 电子健康卡申领结果为: <Response>
+  <returncode>1</returncode>
+  <output></output>
+  <message>该设备未记录在案</message>
+</Response>
+2024-01-04 15:12:41,419 - sport_mng - DEBUG - Return data: {
+  "Response": {
+    "returncode": "1",
+    "output": null,
+    "message": "\u8be5\u8bbe\u5907\u672a\u8bb0\u5f55\u5728\u6848"
+  }
+}
+2024-01-04 15:12:41,420 - sport_mng - DEBUG - Return code: 1
+2024-01-04 15:12:41,420 - sport_mng - DEBUG - Return Message: 该设备未记录在案
+2024-01-04 15:16:20,734 - sport_mng - DEBUG - 根据 id_card_num: 110101199001013451 查询电子健康卡信息结果为: <Response>
+  <returncode>1</returncode>
+  <output></output>
+  <message>该设备未记录在案</message>
+</Response>
+2024-01-04 15:16:20,737 - sport_mng - DEBUG - Return data: {
+  "Response": {
+    "returncode": "1",
+    "output": null,
+    "message": "\u8be5\u8bbe\u5907\u672a\u8bb0\u5f55\u5728\u6848"
+  }
+}
+2024-01-04 15:16:20,737 - sport_mng - DEBUG - Return code: 1
+2024-01-04 15:16:45,292 - sport_mng - DEBUG - 电子健康卡申领结果为: <Response>
+  <returncode>1</returncode>
+  <output></output>
+  <message>该设备未记录在案</message>
+</Response>
+2024-01-04 15:16:45,294 - sport_mng - DEBUG - Return data: {
+  "Response": {
+    "returncode": "1",
+    "output": null,
+    "message": "\u8be5\u8bbe\u5907\u672a\u8bb0\u5f55\u5728\u6848"
+  }
+}
+2024-01-04 15:16:45,294 - sport_mng - DEBUG - Return code: 1
+2024-01-04 15:16:45,295 - sport_mng - DEBUG - Return Message: 该设备未记录在案
+2024-01-04 15:24:07,309 - sport_mng - INFO - 初始化电子健康卡管理服务
+2024-01-04 15:25:04,337 - sport_mng - INFO - 初始化电子健康卡管理服务
+2024-01-04 15:26:54,466 - sport_mng - INFO - 初始化电子健康卡管理服务
+2024-01-04 15:28:08,387 - sport_mng - INFO - 初始化电子健康卡管理服务
+2024-01-04 15:28:21,325 - sport_mng - INFO - 初始化电子健康卡管理服务
+2024-01-04 15:28:29,069 - sport_mng - INFO - 初始化电子健康卡管理服务
+2024-01-04 15:36:04,953 - sport_mng - INFO - 初始化电子健康卡管理服务
+2024-01-04 15:36:05,489 - sport_mng - INFO - 初始化电子健康卡管理服务
+2024-01-04 15:37:13,410 - sport_mng - DEBUG - connect db: host='192.168.3.12', port=3306, user='gyl', password='123456', database='nsyy_gyl'
+2024-01-04 15:37:13,434 - sport_mng - DEBUG - close db!
+2024-01-04 15:37:53,856 - sport_mng - DEBUG - connect db: host='192.168.3.12', port=3306, user='gyl', password='123456', database='nsyy_gyl'
+2024-01-04 15:37:53,905 - sport_mng - DEBUG - close db!
+2024-01-04 15:41:45,766 - sport_mng - INFO - 初始化电子健康卡管理服务
+2024-01-04 15:42:20,268 - sport_mng - INFO - 初始化电子健康卡管理服务
+2024-01-04 16:11:56,861 - sport_mng - INFO - 初始化电子健康卡管理服务
+2024-01-04 16:11:57,841 - sport_mng - INFO - 初始化电子健康卡管理服务
+2024-01-04 16:14:39,409 - sport_mng - DEBUG - connect db: host='192.168.3.12', port=3306, user='gyl', password='123456', database='nsyy_gyl'
+2024-01-04 16:14:39,429 - sport_mng - DEBUG - close db!
+2024-01-04 16:23:36,224 - sport_mng - INFO - 初始化电子健康卡管理服务
+2024-01-04 16:23:36,855 - sport_mng - INFO - 初始化电子健康卡管理服务
+2024-01-04 16:23:47,158 - sport_mng - DEBUG - connect db: host='192.168.3.12', port=3306, user='gyl', password='123456', database='nsyy_gyl'
+2024-01-04 16:23:47,190 - sport_mng - DEBUG - close db!
+2024-01-04 16:23:48,141 - sport_mng - DEBUG - connect db: host='192.168.3.12', port=3306, user='gyl', password='123456', database='nsyy_gyl'
+2024-01-04 16:23:48,205 - sport_mng - DEBUG - close db!
+2024-01-04 16:24:58,343 - sport_mng - INFO - 初始化电子健康卡管理服务
+2024-01-04 16:25:06,385 - sport_mng - INFO - 初始化电子健康卡管理服务
+2024-01-04 16:25:47,939 - sport_mng - DEBUG - connect db: host='192.168.3.12', port=3306, user='gyl', password='123456', database='nsyy_gyl'
+2024-01-04 16:25:47,991 - sport_mng - DEBUG - close db!
+2024-01-04 16:25:48,523 - sport_mng - DEBUG - connect db: host='192.168.3.12', port=3306, user='gyl', password='123456', database='nsyy_gyl'
+2024-01-04 16:25:48,612 - sport_mng - DEBUG - close db!
+2024-01-04 16:25:52,549 - sport_mng - DEBUG - connect db: host='192.168.3.12', port=3306, user='gyl', password='123456', database='nsyy_gyl'
+2024-01-04 16:25:52,607 - sport_mng - DEBUG - close db!
+2024-01-04 16:25:53,138 - sport_mng - DEBUG - connect db: host='192.168.3.12', port=3306, user='gyl', password='123456', database='nsyy_gyl'
+2024-01-04 16:25:53,193 - sport_mng - DEBUG - close db!
+2024-01-04 16:29:04,750 - sport_mng - INFO - 初始化电子健康卡管理服务
+2024-01-04 16:29:34,776 - sport_mng - DEBUG - connect db: host='192.168.3.12', port=3306, user='gyl', password='123456', database='nsyy_gyl'
+2024-01-04 16:29:34,792 - sport_mng - DEBUG - close db!
+2024-01-04 16:29:34,869 - sport_mng - DEBUG - connect db: host='192.168.3.12', port=3306, user='gyl', password='123456', database='nsyy_gyl'
+2024-01-04 16:29:34,891 - sport_mng - DEBUG - close db!
+2024-01-04 16:29:37,897 - sport_mng - DEBUG - connect db: host='192.168.3.12', port=3306, user='gyl', password='123456', database='nsyy_gyl'
+2024-01-04 16:29:37,913 - sport_mng - DEBUG - close db!
+2024-01-04 16:29:38,006 - sport_mng - DEBUG - connect db: host='192.168.3.12', port=3306, user='gyl', password='123456', database='nsyy_gyl'
+2024-01-04 16:29:38,032 - sport_mng - DEBUG - close db!
+2024-01-04 16:29:53,273 - sport_mng - DEBUG - connect db: host='192.168.3.12', port=3306, user='gyl', password='123456', database='nsyy_gyl'
+2024-01-04 16:29:53,293 - sport_mng - DEBUG - close db!
+2024-01-04 16:29:53,393 - sport_mng - DEBUG - connect db: host='192.168.3.12', port=3306, user='gyl', password='123456', database='nsyy_gyl'
+2024-01-04 16:29:53,418 - sport_mng - DEBUG - close db!
+2024-01-04 16:30:08,978 - sport_mng - DEBUG - connect db: host='192.168.3.12', port=3306, user='gyl', password='123456', database='nsyy_gyl'
+2024-01-04 16:30:09,009 - sport_mng - DEBUG - close db!
+2024-01-04 16:30:09,130 - sport_mng - DEBUG - connect db: host='192.168.3.12', port=3306, user='gyl', password='123456', database='nsyy_gyl'
+2024-01-04 16:30:09,160 - sport_mng - DEBUG - close db!
+2024-01-04 16:30:54,700 - sport_mng - DEBUG - connect db: host='192.168.3.12', port=3306, user='gyl', password='123456', database='nsyy_gyl'
+2024-01-04 16:30:54,715 - sport_mng - DEBUG - close db!
+2024-01-04 16:30:54,809 - sport_mng - DEBUG - connect db: host='192.168.3.12', port=3306, user='gyl', password='123456', database='nsyy_gyl'
+2024-01-04 16:30:54,834 - sport_mng - DEBUG - close db!
+2024-01-04 16:31:42,492 - sport_mng - DEBUG - connect db: host='192.168.3.12', port=3306, user='gyl', password='123456', database='nsyy_gyl'
+2024-01-04 16:31:42,521 - sport_mng - DEBUG - close db!
+2024-01-04 16:31:42,662 - sport_mng - DEBUG - connect db: host='192.168.3.12', port=3306, user='gyl', password='123456', database='nsyy_gyl'
+2024-01-04 16:31:42,685 - sport_mng - DEBUG - close db!
+2024-01-04 16:32:57,331 - sport_mng - DEBUG - connect db: host='192.168.3.12', port=3306, user='gyl', password='123456', database='nsyy_gyl'
+2024-01-04 16:32:57,357 - sport_mng - DEBUG - close db!
+2024-01-04 16:32:57,461 - sport_mng - DEBUG - connect db: host='192.168.3.12', port=3306, user='gyl', password='123456', database='nsyy_gyl'
+2024-01-04 16:32:57,485 - sport_mng - DEBUG - close db!
+2024-01-04 16:33:04,528 - sport_mng - INFO - 初始化电子健康卡管理服务
+2024-01-04 16:33:37,036 - sport_mng - INFO - 初始化电子健康卡管理服务
+2024-01-04 16:35:02,466 - sport_mng - DEBUG - connect db: host='192.168.3.12', port=3306, user='gyl', password='123456', database='nsyy_gyl'
+2024-01-04 16:35:02,486 - sport_mng - DEBUG - close db!
+2024-01-04 16:35:02,597 - sport_mng - DEBUG - connect db: host='192.168.3.12', port=3306, user='gyl', password='123456', database='nsyy_gyl'
+2024-01-04 16:35:02,622 - sport_mng - DEBUG - close db!
+2024-01-04 16:35:25,870 - sport_mng - DEBUG - connect db: host='192.168.3.12', port=3306, user='gyl', password='123456', database='nsyy_gyl'
+2024-01-04 16:35:25,891 - sport_mng - DEBUG - close db!
+2024-01-04 16:35:25,994 - sport_mng - DEBUG - connect db: host='192.168.3.12', port=3306, user='gyl', password='123456', database='nsyy_gyl'
+2024-01-04 16:35:26,025 - sport_mng - DEBUG - close db!
+2024-01-04 16:35:37,149 - sport_mng - DEBUG - connect db: host='192.168.3.12', port=3306, user='gyl', password='123456', database='nsyy_gyl'
+2024-01-04 16:35:37,168 - sport_mng - DEBUG - close db!
+2024-01-04 16:35:37,259 - sport_mng - DEBUG - connect db: host='192.168.3.12', port=3306, user='gyl', password='123456', database='nsyy_gyl'
+2024-01-04 16:35:37,291 - sport_mng - DEBUG - close db!
+2024-01-04 16:36:03,483 - sport_mng - DEBUG - connect db: host='192.168.3.12', port=3306, user='gyl', password='123456', database='nsyy_gyl'
+2024-01-04 16:36:03,517 - sport_mng - DEBUG - close db!
+2024-01-04 16:36:03,625 - sport_mng - DEBUG - connect db: host='192.168.3.12', port=3306, user='gyl', password='123456', database='nsyy_gyl'
+2024-01-04 16:36:03,651 - sport_mng - DEBUG - close db!
+2024-01-04 16:36:46,089 - sport_mng - DEBUG - connect db: host='192.168.3.12', port=3306, user='gyl', password='123456', database='nsyy_gyl'
+2024-01-04 16:36:46,104 - sport_mng - DEBUG - close db!
+2024-01-04 16:36:46,212 - sport_mng - DEBUG - connect db: host='192.168.3.12', port=3306, user='gyl', password='123456', database='nsyy_gyl'
+2024-01-04 16:36:46,235 - sport_mng - DEBUG - close db!
+2024-01-04 16:37:09,224 - sport_mng - DEBUG - connect db: host='192.168.3.12', port=3306, user='gyl', password='123456', database='nsyy_gyl'
+2024-01-04 16:37:09,239 - sport_mng - DEBUG - close db!
+2024-01-04 16:37:09,327 - sport_mng - DEBUG - connect db: host='192.168.3.12', port=3306, user='gyl', password='123456', database='nsyy_gyl'
+2024-01-04 16:37:09,356 - sport_mng - DEBUG - close db!
+2024-01-04 16:37:10,056 - sport_mng - INFO - 初始化电子健康卡管理服务
+2024-01-04 16:39:01,796 - sport_mng - DEBUG - connect db: host='192.168.3.12', port=3306, user='gyl', password='123456', database='nsyy_gyl'
+2024-01-04 16:39:01,826 - sport_mng - DEBUG - close db!
+2024-01-04 16:39:01,941 - sport_mng - DEBUG - connect db: host='192.168.3.12', port=3306, user='gyl', password='123456', database='nsyy_gyl'
+2024-01-04 16:39:01,980 - sport_mng - DEBUG - close db!
+2024-01-04 16:39:18,060 - sport_mng - INFO - 初始化电子健康卡管理服务
+2024-01-04 16:39:37,630 - sport_mng - DEBUG - connect db: host='192.168.3.12', port=3306, user='gyl', password='123456', database='nsyy_gyl'
+2024-01-04 16:39:37,645 - sport_mng - DEBUG - close db!
+2024-01-04 16:39:37,734 - sport_mng - DEBUG - connect db: host='192.168.3.12', port=3306, user='gyl', password='123456', database='nsyy_gyl'
+2024-01-04 16:39:37,755 - sport_mng - DEBUG - close db!
+2024-01-04 16:40:41,672 - sport_mng - INFO - 初始化电子健康卡管理服务
+2024-01-04 16:41:00,728 - sport_mng - INFO - 初始化电子健康卡管理服务
+2024-01-04 16:41:56,981 - sport_mng - INFO - 初始化电子健康卡管理服务
+2024-01-04 16:45:51,580 - sport_mng - DEBUG - 电子健康卡申领结果为: <Response>
+  <returncode>1</returncode>
+  <output></output>
+  <message>该设备未记录在案</message>
+</Response>
+2024-01-04 16:45:51,580 - sport_mng - DEBUG - Return data: {
+  "Response": {
+    "returncode": "1",
+    "output": null,
+    "message": "\u8be5\u8bbe\u5907\u672a\u8bb0\u5f55\u5728\u6848"
+  }
+}
+2024-01-04 16:45:51,581 - sport_mng - DEBUG - Return code: 1
+2024-01-04 16:45:51,581 - sport_mng - DEBUG - Return Message: 该设备未记录在案
+2024-01-04 16:46:14,246 - sport_mng - DEBUG - connect db: host='192.168.3.12', port=3306, user='gyl', password='123456', database='nsyy_gyl'
+2024-01-04 16:46:14,592 - sport_mng - DEBUG - close db!
+2024-01-04 16:46:14,810 - sport_mng - DEBUG - connect db: host='192.168.3.12', port=3306, user='gyl', password='123456', database='nsyy_gyl'
+2024-01-04 16:46:15,153 - sport_mng - DEBUG - close db!
+2024-01-04 16:46:24,971 - sport_mng - DEBUG - connect db: host='192.168.3.12', port=3306, user='gyl', password='123456', database='nsyy_gyl'
+2024-01-04 16:46:24,996 - sport_mng - DEBUG - close db!
+2024-01-04 16:46:25,152 - sport_mng - DEBUG - connect db: host='192.168.3.12', port=3306, user='gyl', password='123456', database='nsyy_gyl'
+2024-01-04 16:46:25,201 - sport_mng - DEBUG - close db!
+2024-01-04 16:46:42,972 - sport_mng - DEBUG - connect db: host='192.168.3.12', port=3306, user='gyl', password='123456', database='nsyy_gyl'
+2024-01-04 16:46:43,001 - sport_mng - DEBUG - close db!
+2024-01-04 16:46:43,149 - sport_mng - DEBUG - connect db: host='192.168.3.12', port=3306, user='gyl', password='123456', database='nsyy_gyl'
+2024-01-04 16:46:43,177 - sport_mng - DEBUG - close db!
+2024-01-04 16:46:45,136 - sport_mng - DEBUG - 根据 id_card_num: 110101199004076650 查询电子健康卡信息结果为: <Response>
+  <returncode>1</returncode>
+  <output></output>
+  <message>该设备未记录在案</message>
+</Response>
+2024-01-04 16:46:45,138 - sport_mng - DEBUG - Return data: {
+  "Response": {
+    "returncode": "1",
+    "output": null,
+    "message": "\u8be5\u8bbe\u5907\u672a\u8bb0\u5f55\u5728\u6848"
+  }
+}
+2024-01-04 16:46:45,138 - sport_mng - DEBUG - Return code: 1
+2024-01-04 16:47:32,753 - sport_mng - DEBUG - connect db: host='192.168.3.12', port=3306, user='gyl', password='123456', database='nsyy_gyl'
+2024-01-04 16:47:32,777 - sport_mng - DEBUG - close db!
+2024-01-04 16:47:32,973 - sport_mng - DEBUG - connect db: host='192.168.3.12', port=3306, user='gyl', password='123456', database='nsyy_gyl'
+2024-01-04 16:47:33,023 - sport_mng - DEBUG - close db!
+2024-01-04 16:47:43,317 - sport_mng - DEBUG - connect db: host='192.168.3.12', port=3306, user='gyl', password='123456', database='nsyy_gyl'
+2024-01-04 16:47:43,348 - sport_mng - DEBUG - close db!
+2024-01-04 16:47:43,543 - sport_mng - DEBUG - connect db: host='192.168.3.12', port=3306, user='gyl', password='123456', database='nsyy_gyl'
+2024-01-04 16:47:43,591 - sport_mng - DEBUG - close db!
+2024-01-04 16:47:49,328 - sport_mng - DEBUG - connect db: host='192.168.3.12', port=3306, user='gyl', password='123456', database='nsyy_gyl'
+2024-01-04 16:47:49,354 - sport_mng - DEBUG - close db!
+2024-01-04 16:47:49,476 - sport_mng - DEBUG - connect db: host='192.168.3.12', port=3306, user='gyl', password='123456', database='nsyy_gyl'
+2024-01-04 16:47:49,503 - sport_mng - DEBUG - close db!
+2024-01-04 16:48:33,283 - sport_mng - DEBUG - connect db: host='192.168.3.12', port=3306, user='gyl', password='123456', database='nsyy_gyl'
+2024-01-04 16:48:33,306 - sport_mng - DEBUG - close db!
+2024-01-04 16:48:33,419 - sport_mng - DEBUG - connect db: host='192.168.3.12', port=3306, user='gyl', password='123456', database='nsyy_gyl'
+2024-01-04 16:48:33,452 - sport_mng - DEBUG - close db!
+2024-01-04 16:48:59,370 - sport_mng - DEBUG - connect db: host='192.168.3.12', port=3306, user='gyl', password='123456', database='nsyy_gyl'
+2024-01-04 16:48:59,446 - sport_mng - DEBUG - close db!
+2024-01-04 16:49:25,094 - sport_mng - DEBUG - connect db: host='192.168.3.12', port=3306, user='gyl', password='123456', database='nsyy_gyl'
+2024-01-04 16:49:25,145 - sport_mng - DEBUG - close db!
+2024-01-04 16:49:56,871 - sport_mng - DEBUG - connect db: host='192.168.3.12', port=3306, user='gyl', password='123456', database='nsyy_gyl'
+2024-01-04 16:49:56,887 - sport_mng - DEBUG - close db!
+2024-01-04 16:49:56,999 - sport_mng - DEBUG - connect db: host='192.168.3.12', port=3306, user='gyl', password='123456', database='nsyy_gyl'
+2024-01-04 16:49:57,038 - sport_mng - DEBUG - close db!
+2024-01-04 16:51:00,333 - sport_mng - INFO - 初始化电子健康卡管理服务
+2024-01-04 16:51:00,913 - sport_mng - INFO - 初始化电子健康卡管理服务
+2024-01-04 16:52:16,776 - sport_mng - DEBUG - connect db: host='192.168.3.12', port=3306, user='gyl', password='123456', database='nsyy_gyl'
+2024-01-04 16:52:16,790 - sport_mng - DEBUG - close db!
+2024-01-04 16:52:23,614 - sport_mng - DEBUG - connect db: host='192.168.3.12', port=3306, user='gyl', password='123456', database='nsyy_gyl'
+2024-01-04 16:52:23,642 - sport_mng - DEBUG - close db!
+2024-01-04 16:52:23,801 - sport_mng - DEBUG - connect db: host='192.168.3.12', port=3306, user='gyl', password='123456', database='nsyy_gyl'
+2024-01-04 16:52:23,833 - sport_mng - DEBUG - close db!
+2024-01-04 16:52:43,083 - sport_mng - DEBUG - connect db: host='192.168.3.12', port=3306, user='gyl', password='123456', database='nsyy_gyl'
+2024-01-04 16:52:43,115 - sport_mng - DEBUG - close db!
+2024-01-04 16:52:43,281 - sport_mng - DEBUG - connect db: host='192.168.3.12', port=3306, user='gyl', password='123456', database='nsyy_gyl'
+2024-01-04 16:52:43,327 - sport_mng - DEBUG - close db!
+2024-01-04 16:54:07,552 - sport_mng - DEBUG - connect db: host='192.168.3.12', port=3306, user='gyl', password='123456', database='nsyy_gyl'
+2024-01-04 16:54:07,572 - sport_mng - DEBUG - close db!
+2024-01-04 16:54:07,694 - sport_mng - DEBUG - connect db: host='192.168.3.12', port=3306, user='gyl', password='123456', database='nsyy_gyl'
+2024-01-04 16:54:07,726 - sport_mng - DEBUG - close db!
+2024-01-04 16:55:23,486 - sport_mng - INFO - 初始化电子健康卡管理服务
+2024-01-04 16:56:33,518 - sport_mng - INFO - 初始化电子健康卡管理服务
+2024-01-04 16:58:18,321 - sport_mng - INFO - 初始化电子健康卡管理服务
+2024-01-04 16:59:49,994 - sport_mng - INFO - 初始化电子健康卡管理服务
+2024-01-04 17:11:04,252 - sport_mng - INFO - 初始化电子健康卡管理服务
+2024-01-04 17:11:04,802 - sport_mng - INFO - 初始化电子健康卡管理服务
+2024-01-04 17:11:28,498 - sport_mng - DEBUG - 根据 id_card_num: 411324199605164530 查询电子健康卡信息结果为: <Response>
+  <returncode>1</returncode>
+  <output></output>
+  <message>该设备未记录在案</message>
+</Response>
+2024-01-04 17:11:28,499 - sport_mng - DEBUG - Return data: {
+  "Response": {
+    "returncode": "1",
+    "output": null,
+    "message": "\u8be5\u8bbe\u5907\u672a\u8bb0\u5f55\u5728\u6848"
+  }
+}
+2024-01-04 17:11:28,499 - sport_mng - DEBUG - Return code: 1
+2024-01-04 17:17:13,316 - sport_mng - INFO - 初始化电子健康卡管理服务
+2024-01-04 17:17:13,975 - sport_mng - INFO - 初始化电子健康卡管理服务
+2024-01-04 17:17:29,781 - sport_mng - DEBUG - 根据 id_card_num: 411324199605164530 查询电子健康卡信息结果为: <Response>
+  <returncode>1</returncode>
+  <output></output>
+  <message>该设备未记录在案</message>
+</Response>
+2024-01-04 17:17:29,787 - sport_mng - DEBUG - Return data: {
+  "Response": {
+    "returncode": "1",
+    "output": null,
+    "message": "\u8be5\u8bbe\u5907\u672a\u8bb0\u5f55\u5728\u6848"
+  }
+}
+2024-01-04 17:17:29,788 - sport_mng - DEBUG - Return code: 1
+2024-01-04 17:17:33,888 - sport_mng - DEBUG - 根据 id_card_num: 411324199605164530 查询电子健康卡信息结果为: <Response>
+  <returncode>1</returncode>
+  <output></output>
+  <message>该设备未记录在案</message>
+</Response>
+2024-01-04 17:17:33,889 - sport_mng - DEBUG - Return data: {
+  "Response": {
+    "returncode": "1",
+    "output": null,
+    "message": "\u8be5\u8bbe\u5907\u672a\u8bb0\u5f55\u5728\u6848"
+  }
+}
+2024-01-04 17:17:33,889 - sport_mng - DEBUG - Return code: 1
+2024-01-04 17:17:35,733 - sport_mng - DEBUG - 根据 id_card_num: 411324199605164530 查询电子健康卡信息结果为: <Response>
+  <returncode>1</returncode>
+  <output></output>
+  <message>该设备未记录在案</message>
+</Response>
+2024-01-04 17:17:35,738 - sport_mng - DEBUG - Return data: {
+  "Response": {
+    "returncode": "1",
+    "output": null,
+    "message": "\u8be5\u8bbe\u5907\u672a\u8bb0\u5f55\u5728\u6848"
+  }
+}
+2024-01-04 17:17:35,738 - sport_mng - DEBUG - Return code: 1
+2024-01-04 17:17:36,671 - sport_mng - DEBUG - 根据 id_card_num: 411324199605164530 查询电子健康卡信息结果为: <Response>
+  <returncode>1</returncode>
+  <output></output>
+  <message>该设备未记录在案</message>
+</Response>
+2024-01-04 17:17:36,672 - sport_mng - DEBUG - Return data: {
+  "Response": {
+    "returncode": "1",
+    "output": null,
+    "message": "\u8be5\u8bbe\u5907\u672a\u8bb0\u5f55\u5728\u6848"
+  }
+}
+2024-01-04 17:17:36,672 - sport_mng - DEBUG - Return code: 1
+2024-01-04 17:17:37,482 - sport_mng - DEBUG - 根据 id_card_num: 411324199605164530 查询电子健康卡信息结果为: <Response>
+  <returncode>1</returncode>
+  <output></output>
+  <message>该设备未记录在案</message>
+</Response>
+2024-01-04 17:17:37,483 - sport_mng - DEBUG - Return data: {
+  "Response": {
+    "returncode": "1",
+    "output": null,
+    "message": "\u8be5\u8bbe\u5907\u672a\u8bb0\u5f55\u5728\u6848"
+  }
+}
+2024-01-04 17:17:37,484 - sport_mng - DEBUG - Return code: 1
+2024-01-04 17:20:11,217 - sport_mng - INFO - 初始化电子健康卡管理服务
+2024-01-04 17:20:24,818 - sport_mng - INFO - 初始化电子健康卡管理服务
+2024-01-04 17:20:25,370 - sport_mng - INFO - 初始化电子健康卡管理服务
+2024-01-04 17:20:29,342 - sport_mng - DEBUG - connect db: host='192.168.3.12', port=3306, user='gyl', password='123456', database='nsyy_gyl'
+2024-01-04 17:20:29,391 - sport_mng - DEBUG - close db!
+2024-01-04 17:21:00,643 - sport_mng - DEBUG - connect db: host='192.168.3.12', port=3306, user='gyl', password='123456', database='nsyy_gyl'
+2024-01-04 17:21:00,658 - sport_mng - DEBUG - close db!
+2024-01-04 17:21:07,515 - sport_mng - DEBUG - connect db: host='192.168.3.12', port=3306, user='gyl', password='123456', database='nsyy_gyl'
+2024-01-04 17:21:07,533 - sport_mng - DEBUG - close db!
+2024-01-04 17:22:11,678 - sport_mng - DEBUG - 根据 id_card_num: 411324199605164530 查询电子健康卡信息结果为: <Response>
+  <returncode>1</returncode>
+  <output></output>
+  <message>该设备未记录在案</message>
+</Response>
+2024-01-04 17:22:11,679 - sport_mng - DEBUG - Return data: {
+  "Response": {
+    "returncode": "1",
+    "output": null,
+    "message": "\u8be5\u8bbe\u5907\u672a\u8bb0\u5f55\u5728\u6848"
+  }
+}
+2024-01-04 17:22:11,679 - sport_mng - DEBUG - Return code: 1
+2024-01-04 17:27:42,753 - sport_mng - DEBUG - connect db: host='192.168.3.12', port=3306, user='gyl', password='123456', database='nsyy_gyl'
+2024-01-04 17:27:42,793 - sport_mng - DEBUG - close db!
+2024-01-04 17:27:42,970 - sport_mng - DEBUG - connect db: host='192.168.3.12', port=3306, user='gyl', password='123456', database='nsyy_gyl'
+2024-01-04 17:27:43,014 - sport_mng - DEBUG - close db!
+2024-01-04 17:30:02,872 - sport_mng - DEBUG - connect db: host='192.168.3.12', port=3306, user='gyl', password='123456', database='nsyy_gyl'
+2024-01-04 17:30:02,896 - sport_mng - DEBUG - close db!
+2024-01-04 17:30:03,006 - sport_mng - DEBUG - connect db: host='192.168.3.12', port=3306, user='gyl', password='123456', database='nsyy_gyl'
+2024-01-04 17:30:03,039 - sport_mng - DEBUG - close db!
+2024-01-04 17:30:14,215 - sport_mng - DEBUG - connect db: host='192.168.3.12', port=3306, user='gyl', password='123456', database='nsyy_gyl'
+2024-01-04 17:30:14,256 - sport_mng - DEBUG - close db!
+2024-01-04 17:30:14,363 - sport_mng - DEBUG - connect db: host='192.168.3.12', port=3306, user='gyl', password='123456', database='nsyy_gyl'
+2024-01-04 17:30:14,390 - sport_mng - DEBUG - close db!
+2024-01-04 17:32:38,290 - sport_mng - DEBUG - connect db: host='192.168.3.12', port=3306, user='gyl', password='123456', database='nsyy_gyl'
+2024-01-04 17:32:38,310 - sport_mng - DEBUG - close db!
+2024-01-04 17:32:38,424 - sport_mng - DEBUG - connect db: host='192.168.3.12', port=3306, user='gyl', password='123456', database='nsyy_gyl'
+2024-01-04 17:32:38,464 - sport_mng - DEBUG - close db!
+2024-01-04 17:35:15,283 - sport_mng - DEBUG - connect db: host='192.168.3.12', port=3306, user='gyl', password='123456', database='nsyy_gyl'
+2024-01-04 17:35:15,316 - sport_mng - DEBUG - close db!
+2024-01-04 17:35:15,465 - sport_mng - DEBUG - connect db: host='192.168.3.12', port=3306, user='gyl', password='123456', database='nsyy_gyl'
+2024-01-04 17:35:15,503 - sport_mng - DEBUG - close db!
+2024-01-04 17:35:21,512 - sport_mng - DEBUG - connect db: host='192.168.3.12', port=3306, user='gyl', password='123456', database='nsyy_gyl'
+2024-01-04 17:35:21,530 - sport_mng - DEBUG - close db!
+2024-01-04 17:35:21,619 - sport_mng - DEBUG - connect db: host='192.168.3.12', port=3306, user='gyl', password='123456', database='nsyy_gyl'
+2024-01-04 17:35:21,662 - sport_mng - DEBUG - close db!
+2024-01-04 17:35:33,923 - sport_mng - DEBUG - connect db: host='192.168.3.12', port=3306, user='gyl', password='123456', database='nsyy_gyl'
+2024-01-04 17:35:33,950 - sport_mng - DEBUG - close db!
+2024-01-04 17:35:34,084 - sport_mng - DEBUG - connect db: host='192.168.3.12', port=3306, user='gyl', password='123456', database='nsyy_gyl'
+2024-01-04 17:35:34,129 - sport_mng - DEBUG - close db!
+2024-01-04 17:35:46,721 - sport_mng - DEBUG - connect db: host='192.168.3.12', port=3306, user='gyl', password='123456', database='nsyy_gyl'
+2024-01-04 17:35:46,755 - sport_mng - DEBUG - close db!
+2024-01-04 17:35:46,914 - sport_mng - DEBUG - connect db: host='192.168.3.12', port=3306, user='gyl', password='123456', database='nsyy_gyl'
+2024-01-04 17:35:46,961 - sport_mng - DEBUG - close db!
+2024-01-04 17:36:57,365 - sport_mng - DEBUG - connect db: host='192.168.3.12', port=3306, user='gyl', password='123456', database='nsyy_gyl'
+2024-01-04 17:36:57,403 - sport_mng - DEBUG - close db!
+2024-01-04 17:36:57,544 - sport_mng - DEBUG - connect db: host='192.168.3.12', port=3306, user='gyl', password='123456', database='nsyy_gyl'
+2024-01-04 17:36:57,605 - sport_mng - DEBUG - close db!
+2024-01-04 17:37:06,143 - sport_mng - DEBUG - connect db: host='192.168.3.12', port=3306, user='gyl', password='123456', database='nsyy_gyl'
+2024-01-04 17:37:06,171 - sport_mng - DEBUG - close db!
+2024-01-04 17:37:06,340 - sport_mng - DEBUG - connect db: host='192.168.3.12', port=3306, user='gyl', password='123456', database='nsyy_gyl'
+2024-01-04 17:37:06,380 - sport_mng - DEBUG - close db!
+2024-01-04 17:37:16,714 - sport_mng - DEBUG - connect db: host='192.168.3.12', port=3306, user='gyl', password='123456', database='nsyy_gyl'
+2024-01-04 17:37:16,743 - sport_mng - DEBUG - close db!
+2024-01-04 17:37:16,873 - sport_mng - DEBUG - connect db: host='192.168.3.12', port=3306, user='gyl', password='123456', database='nsyy_gyl'
+2024-01-04 17:37:16,915 - sport_mng - DEBUG - close db!
+2024-01-04 17:37:29,248 - sport_mng - DEBUG - 根据 id_card_num: 411324199605164530 查询电子健康卡信息结果为: <Response>
+  <returncode>0</returncode>
+  <output><Response>
+  <currentAddress>无</currentAddress>
+  <domicileAddress>无</domicileAddress>
+  <ehcId>3DF32E3F25B54C48115D36A035927A5A37943FCB759E180F1379927013615A21</ehcId>
+  <idCardNum>411324199605164530</idCardNum>
+  <idCardType>01</idCardType>
+  <mainIndexId>79BCE476C1DF60B91946FBBDA07DF2C20041748879F50B3135D97E35D2A1B615</mainIndexId>
+  <status>1</status>
+  <telephone>13027751873</telephone>
+  <userName>高彦良</userName>
+  <userSex>男</userSex>
+  <birthday>1996-05-16</birthday>
+</Response></output>
+  <message>解析数据成功</message>
+</Response>
+2024-01-04 17:37:29,249 - sport_mng - DEBUG - Return data: {
+  "Response": {
+    "returncode": "0",
+    "output": {
+      "Response": {
+        "currentAddress": "\u65e0",
+        "domicileAddress": "\u65e0",
+        "ehcId": "3DF32E3F25B54C48115D36A035927A5A37943FCB759E180F1379927013615A21",
+        "idCardNum": "411324199605164530",
+        "idCardType": "01",
+        "mainIndexId": "79BCE476C1DF60B91946FBBDA07DF2C20041748879F50B3135D97E35D2A1B615",
+        "status": "1",
+        "telephone": "13027751873",
+        "userName": "\u9ad8\u5f66\u826f",
+        "userSex": "\u7537",
+        "birthday": "1996-05-16"
+      }
+    },
+    "message": "\u89e3\u6790\u6570\u636e\u6210\u529f"
+  }
+}
+2024-01-04 17:37:29,249 - sport_mng - DEBUG - Return code: 0
+2024-01-04 17:37:53,875 - sport_mng - DEBUG - connect db: host='192.168.3.12', port=3306, user='gyl', password='123456', database='nsyy_gyl'
+2024-01-04 17:37:53,909 - sport_mng - DEBUG - close db!
+2024-01-04 17:37:54,055 - sport_mng - DEBUG - connect db: host='192.168.3.12', port=3306, user='gyl', password='123456', database='nsyy_gyl'
+2024-01-04 17:37:54,114 - sport_mng - DEBUG - close db!
+2024-01-04 17:38:45,117 - sport_mng - DEBUG - connect db: host='192.168.3.12', port=3306, user='gyl', password='123456', database='nsyy_gyl'
+2024-01-04 17:38:45,140 - sport_mng - DEBUG - close db!
+2024-01-04 17:38:45,229 - sport_mng - DEBUG - connect db: host='192.168.3.12', port=3306, user='gyl', password='123456', database='nsyy_gyl'
+2024-01-04 17:38:45,272 - sport_mng - DEBUG - close db!
+2024-01-04 17:40:14,712 - sport_mng - DEBUG - connect db: host='192.168.3.12', port=3306, user='gyl', password='123456', database='nsyy_gyl'
+2024-01-04 17:40:14,752 - sport_mng - DEBUG - close db!
+2024-01-04 17:40:14,905 - sport_mng - DEBUG - connect db: host='192.168.3.12', port=3306, user='gyl', password='123456', database='nsyy_gyl'
+2024-01-04 17:40:14,976 - sport_mng - DEBUG - close db!
+2024-01-04 17:41:22,843 - sport_mng - DEBUG - connect db: host='192.168.3.12', port=3306, user='gyl', password='123456', database='nsyy_gyl'
+2024-01-04 17:41:22,866 - sport_mng - DEBUG - close db!
+2024-01-04 17:41:22,986 - sport_mng - DEBUG - connect db: host='192.168.3.12', port=3306, user='gyl', password='123456', database='nsyy_gyl'
+2024-01-04 17:41:23,030 - sport_mng - DEBUG - close db!
+2024-01-04 17:43:00,488 - sport_mng - DEBUG - connect db: host='192.168.3.12', port=3306, user='gyl', password='123456', database='nsyy_gyl'
+2024-01-04 17:43:00,518 - sport_mng - DEBUG - close db!
+2024-01-04 17:43:00,709 - sport_mng - DEBUG - connect db: host='192.168.3.12', port=3306, user='gyl', password='123456', database='nsyy_gyl'
+2024-01-04 17:43:00,737 - sport_mng - DEBUG - close db!
+2024-01-04 17:44:56,838 - sport_mng - DEBUG - connect db: host='192.168.3.12', port=3306, user='gyl', password='123456', database='nsyy_gyl'
+2024-01-04 17:44:57,245 - sport_mng - DEBUG - close db!
+2024-01-04 17:44:57,536 - sport_mng - DEBUG - connect db: host='192.168.3.12', port=3306, user='gyl', password='123456', database='nsyy_gyl'
+2024-01-04 17:44:57,608 - sport_mng - DEBUG - close db!
+2024-01-04 17:45:08,175 - sport_mng - DEBUG - connect db: host='192.168.3.12', port=3306, user='gyl', password='123456', database='nsyy_gyl'
+2024-01-04 17:45:08,211 - sport_mng - DEBUG - close db!
+2024-01-04 17:45:08,317 - sport_mng - DEBUG - connect db: host='192.168.3.12', port=3306, user='gyl', password='123456', database='nsyy_gyl'
+2024-01-04 17:45:08,366 - sport_mng - DEBUG - close db!
+2024-01-04 17:45:32,899 - sport_mng - DEBUG - connect db: host='192.168.3.12', port=3306, user='gyl', password='123456', database='nsyy_gyl'
+2024-01-04 17:45:32,930 - sport_mng - DEBUG - close db!
+2024-01-04 17:45:33,319 - sport_mng - DEBUG - connect db: host='192.168.3.12', port=3306, user='gyl', password='123456', database='nsyy_gyl'
+2024-01-04 17:45:33,373 - sport_mng - DEBUG - close db!
+2024-01-04 17:48:22,384 - sport_mng - INFO - 初始化电子健康卡管理服务
+2024-01-04 17:48:22,937 - sport_mng - INFO - 初始化电子健康卡管理服务
+2024-01-04 17:48:25,679 - sport_mng - DEBUG - connect db: host='192.168.3.12', port=3306, user='gyl', password='123456', database='nsyy_gyl'
+2024-01-04 17:48:25,709 - sport_mng - DEBUG - close db!
+2024-01-04 17:48:32,912 - sport_mng - DEBUG - connect db: host='192.168.3.12', port=3306, user='gyl', password='123456', database='nsyy_gyl'
+2024-01-04 17:48:32,945 - sport_mng - DEBUG - close db!
+2024-01-04 17:49:56,313 - sport_mng - DEBUG - connect db: host='192.168.3.12', port=3306, user='gyl', password='123456', database='nsyy_gyl'
+2024-01-04 17:49:56,344 - sport_mng - DEBUG - close db!
+2024-01-04 17:49:56,452 - sport_mng - DEBUG - connect db: host='192.168.3.12', port=3306, user='gyl', password='123456', database='nsyy_gyl'
+2024-01-04 17:49:56,483 - sport_mng - DEBUG - close db!
+2024-01-04 17:51:20,988 - sport_mng - DEBUG - connect db: host='192.168.3.12', port=3306, user='gyl', password='123456', database='nsyy_gyl'
+2024-01-04 17:51:21,010 - sport_mng - DEBUG - close db!
+2024-01-04 17:51:21,145 - sport_mng - DEBUG - connect db: host='192.168.3.12', port=3306, user='gyl', password='123456', database='nsyy_gyl'
+2024-01-04 17:51:21,182 - sport_mng - DEBUG - close db!
+2024-01-04 17:56:50,016 - sport_mng - DEBUG - connect db: host='192.168.3.12', port=3306, user='gyl', password='123456', database='nsyy_gyl'
+2024-01-04 17:56:50,065 - sport_mng - DEBUG - close db!
+2024-01-04 17:56:50,249 - sport_mng - DEBUG - connect db: host='192.168.3.12', port=3306, user='gyl', password='123456', database='nsyy_gyl'
+2024-01-04 17:56:50,266 - sport_mng - DEBUG - close db!
+2024-01-04 17:57:04,468 - sport_mng - DEBUG - connect db: host='192.168.3.12', port=3306, user='gyl', password='123456', database='nsyy_gyl'
+2024-01-04 17:57:04,492 - sport_mng - DEBUG - close db!
+2024-01-04 17:57:04,649 - sport_mng - DEBUG - connect db: host='192.168.3.12', port=3306, user='gyl', password='123456', database='nsyy_gyl'
+2024-01-04 17:57:04,688 - sport_mng - DEBUG - close db!
+2024-01-04 17:57:13,994 - sport_mng - DEBUG - connect db: host='192.168.3.12', port=3306, user='gyl', password='123456', database='nsyy_gyl'
+2024-01-04 17:57:14,027 - sport_mng - DEBUG - close db!
+2024-01-04 17:57:14,191 - sport_mng - DEBUG - connect db: host='192.168.3.12', port=3306, user='gyl', password='123456', database='nsyy_gyl'
+2024-01-04 17:57:14,236 - sport_mng - DEBUG - close db!
+2024-01-04 17:58:18,102 - sport_mng - DEBUG - connect db: host='192.168.3.12', port=3306, user='gyl', password='123456', database='nsyy_gyl'
+2024-01-04 17:58:18,240 - sport_mng - DEBUG - close db!
+2024-01-04 17:58:19,489 - sport_mng - DEBUG - connect db: host='192.168.3.12', port=3306, user='gyl', password='123456', database='nsyy_gyl'
+2024-01-04 17:58:19,778 - sport_mng - DEBUG - close db!
+2024-01-04 17:58:32,087 - sport_mng - DEBUG - connect db: host='192.168.3.12', port=3306, user='gyl', password='123456', database='nsyy_gyl'
+2024-01-04 17:58:32,135 - sport_mng - DEBUG - close db!
+2024-01-04 17:58:32,833 - sport_mng - DEBUG - connect db: host='192.168.3.12', port=3306, user='gyl', password='123456', database='nsyy_gyl'
+2024-01-04 17:58:33,082 - sport_mng - DEBUG - close db!
+2024-01-04 17:59:54,453 - sport_mng - DEBUG - connect db: host='192.168.3.12', port=3306, user='gyl', password='123456', database='nsyy_gyl'
+2024-01-04 17:59:54,801 - sport_mng - DEBUG - close db!
+2024-01-04 17:59:56,186 - sport_mng - DEBUG - connect db: host='192.168.3.12', port=3306, user='gyl', password='123456', database='nsyy_gyl'
+2024-01-04 17:59:56,418 - sport_mng - DEBUG - close db!
+2024-01-04 17:59:58,682 - sport_mng - DEBUG - connect db: host='192.168.3.12', port=3306, user='gyl', password='123456', database='nsyy_gyl'
+2024-01-04 17:59:58,972 - sport_mng - DEBUG - close db!
+2024-01-04 17:59:59,727 - sport_mng - DEBUG - connect db: host='192.168.3.12', port=3306, user='gyl', password='123456', database='nsyy_gyl'
+2024-01-04 17:59:59,832 - sport_mng - DEBUG - close db!
+2024-01-04 18:00:40,510 - sport_mng - DEBUG - connect db: host='192.168.3.12', port=3306, user='gyl', password='123456', database='nsyy_gyl'
+2024-01-04 18:00:45,991 - sport_mng - DEBUG - close db!
+2024-01-04 18:00:47,477 - sport_mng - DEBUG - connect db: host='192.168.3.12', port=3306, user='gyl', password='123456', database='nsyy_gyl'
+2024-01-04 18:00:47,590 - sport_mng - DEBUG - close db!
+2024-01-04 18:00:58,428 - sport_mng - DEBUG - connect db: host='192.168.3.12', port=3306, user='gyl', password='123456', database='nsyy_gyl'
+2024-01-04 18:00:58,657 - sport_mng - DEBUG - close db!
+2024-01-04 18:01:00,283 - sport_mng - DEBUG - connect db: host='192.168.3.12', port=3306, user='gyl', password='123456', database='nsyy_gyl'
+2024-01-04 18:01:01,108 - sport_mng - DEBUG - close db!
+2024-01-04 18:02:46,063 - sport_mng - DEBUG - connect db: host='192.168.3.12', port=3306, user='gyl', password='123456', database='nsyy_gyl'
+2024-01-04 18:02:46,095 - sport_mng - DEBUG - close db!
+2024-01-04 18:02:46,299 - sport_mng - DEBUG - connect db: host='192.168.3.12', port=3306, user='gyl', password='123456', database='nsyy_gyl'
+2024-01-04 18:02:46,394 - sport_mng - DEBUG - close db!
+2024-01-04 18:03:04,054 - sport_mng - DEBUG - connect db: host='192.168.3.12', port=3306, user='gyl', password='123456', database='nsyy_gyl'
+2024-01-04 18:03:04,101 - sport_mng - DEBUG - close db!
+2024-01-04 18:03:04,275 - sport_mng - DEBUG - connect db: host='192.168.3.12', port=3306, user='gyl', password='123456', database='nsyy_gyl'
+2024-01-04 18:03:04,322 - sport_mng - DEBUG - close db!
+2024-01-04 18:03:08,313 - sport_mng - DEBUG - connect db: host='192.168.3.12', port=3306, user='gyl', password='123456', database='nsyy_gyl'
+2024-01-04 18:03:08,366 - sport_mng - DEBUG - close db!
+2024-01-04 18:03:08,661 - sport_mng - DEBUG - connect db: host='192.168.3.12', port=3306, user='gyl', password='123456', database='nsyy_gyl'
+2024-01-04 18:03:08,720 - sport_mng - DEBUG - close db!
+2024-01-04 18:03:12,739 - sport_mng - DEBUG - connect db: host='192.168.3.12', port=3306, user='gyl', password='123456', database='nsyy_gyl'
+2024-01-04 18:03:12,791 - sport_mng - DEBUG - close db!
+2024-01-04 18:03:13,039 - sport_mng - DEBUG - connect db: host='192.168.3.12', port=3306, user='gyl', password='123456', database='nsyy_gyl'
+2024-01-04 18:03:13,091 - sport_mng - DEBUG - close db!
+2024-01-04 18:03:17,099 - sport_mng - DEBUG - connect db: host='192.168.3.12', port=3306, user='gyl', password='123456', database='nsyy_gyl'
+2024-01-04 18:03:17,127 - sport_mng - DEBUG - close db!
+2024-01-04 18:03:17,302 - sport_mng - DEBUG - connect db: host='192.168.3.12', port=3306, user='gyl', password='123456', database='nsyy_gyl'
+2024-01-04 18:03:17,345 - sport_mng - DEBUG - close db!
+2024-01-04 18:03:29,398 - sport_mng - DEBUG - connect db: host='192.168.3.12', port=3306, user='gyl', password='123456', database='nsyy_gyl'
+2024-01-04 18:03:29,425 - sport_mng - DEBUG - close db!
+2024-01-04 18:03:29,532 - sport_mng - DEBUG - connect db: host='192.168.3.12', port=3306, user='gyl', password='123456', database='nsyy_gyl'
+2024-01-04 18:03:29,567 - sport_mng - DEBUG - close db!
+2024-01-04 18:03:36,645 - sport_mng - DEBUG - connect db: host='192.168.3.12', port=3306, user='gyl', password='123456', database='nsyy_gyl'
+2024-01-04 18:03:36,667 - sport_mng - DEBUG - close db!
+2024-01-04 18:03:36,795 - sport_mng - DEBUG - connect db: host='192.168.3.12', port=3306, user='gyl', password='123456', database='nsyy_gyl'
+2024-01-04 18:03:36,847 - sport_mng - DEBUG - close db!
+2024-01-04 18:04:29,186 - sport_mng - DEBUG - connect db: host='192.168.3.12', port=3306, user='gyl', password='123456', database='nsyy_gyl'
+2024-01-04 18:04:29,205 - sport_mng - DEBUG - close db!
+2024-01-04 18:04:29,335 - sport_mng - DEBUG - connect db: host='192.168.3.12', port=3306, user='gyl', password='123456', database='nsyy_gyl'
+2024-01-04 18:04:29,395 - sport_mng - DEBUG - close db!
+2024-01-04 18:04:56,291 - sport_mng - DEBUG - connect db: host='192.168.3.12', port=3306, user='gyl', password='123456', database='nsyy_gyl'
+2024-01-04 18:04:56,322 - sport_mng - DEBUG - close db!
+2024-01-04 18:05:45,659 - sport_mng - DEBUG - connect db: host='192.168.3.12', port=3306, user='gyl', password='123456', database='nsyy_gyl'
+2024-01-04 18:05:45,681 - sport_mng - DEBUG - close db!
+2024-01-04 18:05:45,816 - sport_mng - DEBUG - connect db: host='192.168.3.12', port=3306, user='gyl', password='123456', database='nsyy_gyl'
+2024-01-04 18:05:45,844 - sport_mng - DEBUG - close db!
+2024-01-04 18:05:50,169 - sport_mng - DEBUG - connect db: host='192.168.3.12', port=3306, user='gyl', password='123456', database='nsyy_gyl'
+2024-01-04 18:05:50,193 - sport_mng - DEBUG - close db!
+2024-01-04 18:05:50,324 - sport_mng - DEBUG - connect db: host='192.168.3.12', port=3306, user='gyl', password='123456', database='nsyy_gyl'
+2024-01-04 18:05:50,378 - sport_mng - DEBUG - close db!
+2024-01-04 18:05:59,224 - sport_mng - DEBUG - connect db: host='192.168.3.12', port=3306, user='gyl', password='123456', database='nsyy_gyl'
+2024-01-04 18:05:59,239 - sport_mng - DEBUG - close db!
+2024-01-04 18:05:59,361 - sport_mng - DEBUG - connect db: host='192.168.3.12', port=3306, user='gyl', password='123456', database='nsyy_gyl'
+2024-01-04 18:05:59,388 - sport_mng - DEBUG - close db!
+2024-01-04 18:06:01,924 - sport_mng - DEBUG - connect db: host='192.168.3.12', port=3306, user='gyl', password='123456', database='nsyy_gyl'
+2024-01-04 18:06:01,940 - sport_mng - DEBUG - close db!
+2024-01-04 18:06:02,045 - sport_mng - DEBUG - connect db: host='192.168.3.12', port=3306, user='gyl', password='123456', database='nsyy_gyl'
+2024-01-04 18:06:02,081 - sport_mng - DEBUG - close db!
+2024-01-04 18:06:08,254 - sport_mng - DEBUG - connect db: host='192.168.3.12', port=3306, user='gyl', password='123456', database='nsyy_gyl'
+2024-01-04 18:06:08,290 - sport_mng - DEBUG - close db!
+2024-01-04 18:06:14,292 - sport_mng - INFO - 初始化电子健康卡管理服务
+2024-01-04 18:07:29,924 - sport_mng - DEBUG - connect db: host='192.168.3.12', port=3306, user='gyl', password='123456', database='nsyy_gyl'
+2024-01-04 18:07:29,955 - sport_mng - DEBUG - close db!
+2024-01-04 18:07:32,756 - sport_mng - DEBUG - connect db: host='192.168.3.12', port=3306, user='gyl', password='123456', database='nsyy_gyl'
+2024-01-04 18:07:32,784 - sport_mng - DEBUG - close db!
+2024-01-04 18:07:32,907 - sport_mng - DEBUG - connect db: host='192.168.3.12', port=3306, user='gyl', password='123456', database='nsyy_gyl'
+2024-01-04 18:07:32,956 - sport_mng - DEBUG - close db!
+2024-01-04 18:07:43,805 - sport_mng - DEBUG - connect db: host='192.168.3.12', port=3306, user='gyl', password='123456', database='nsyy_gyl'
+2024-01-04 18:07:43,882 - sport_mng - DEBUG - close db!
+2024-01-04 18:07:50,032 - sport_mng - DEBUG - connect db: host='192.168.3.12', port=3306, user='gyl', password='123456', database='nsyy_gyl'
+2024-01-04 18:08:26,546 - sport_mng - INFO - 初始化电子健康卡管理服务
+2024-01-04 18:08:27,116 - sport_mng - INFO - 初始化电子健康卡管理服务
+2024-01-04 18:08:39,330 - sport_mng - DEBUG - connect db: host='192.168.3.12', port=3306, user='gyl', password='123456', database='nsyy_gyl'
+2024-01-04 18:08:39,359 - sport_mng - DEBUG - close db!
+2024-01-04 18:08:39,468 - sport_mng - DEBUG - connect db: host='192.168.3.12', port=3306, user='gyl', password='123456', database='nsyy_gyl'
+2024-01-04 18:08:39,516 - sport_mng - DEBUG - close db!
+2024-01-04 18:08:43,478 - sport_mng - DEBUG - connect db: host='192.168.3.12', port=3306, user='gyl', password='123456', database='nsyy_gyl'
+2024-01-04 18:08:54,375 - sport_mng - DEBUG - connect db: host='192.168.3.12', port=3306, user='gyl', password='123456', database='nsyy_gyl'
+2024-01-04 18:08:54,412 - sport_mng - DEBUG - close db!
+2024-01-04 18:09:35,087 - sport_mng - DEBUG - close db!
+2024-01-04 18:09:35,721 - sport_mng - INFO - 初始化电子健康卡管理服务
+2024-01-04 18:09:36,304 - sport_mng - INFO - 初始化电子健康卡管理服务
+2024-01-04 18:09:45,096 - sport_mng - DEBUG - connect db: host='192.168.3.12', port=3306, user='gyl', password='123456', database='nsyy_gyl'
+2024-01-04 18:09:45,117 - sport_mng - DEBUG - close db!
+2024-01-04 18:14:04,611 - sport_mng - DEBUG - connect db: host='192.168.3.12', port=3306, user='gyl', password='123456', database='nsyy_gyl'
+2024-01-04 18:14:04,626 - sport_mng - DEBUG - close db!
+2024-01-04 18:14:04,732 - sport_mng - DEBUG - connect db: host='192.168.3.12', port=3306, user='gyl', password='123456', database='nsyy_gyl'
+2024-01-04 18:14:04,743 - sport_mng - DEBUG - close db!
+2024-01-04 18:14:31,014 - sport_mng - DEBUG - connect db: host='192.168.3.12', port=3306, user='gyl', password='123456', database='nsyy_gyl'
+2024-01-04 18:14:31,059 - sport_mng - DEBUG - close db!
+2024-01-04 18:14:31,302 - sport_mng - DEBUG - connect db: host='192.168.3.12', port=3306, user='gyl', password='123456', database='nsyy_gyl'
+2024-01-04 18:14:31,347 - sport_mng - DEBUG - close db!
+2024-01-04 18:15:14,642 - sport_mng - DEBUG - connect db: host='192.168.3.12', port=3306, user='gyl', password='123456', database='nsyy_gyl'
+2024-01-04 18:15:14,668 - sport_mng - DEBUG - close db!
+2024-01-04 18:15:14,758 - sport_mng - DEBUG - connect db: host='192.168.3.12', port=3306, user='gyl', password='123456', database='nsyy_gyl'
+2024-01-04 18:15:14,771 - sport_mng - DEBUG - close db!
+2024-01-04 18:15:30,543 - sport_mng - DEBUG - connect db: host='192.168.3.12', port=3306, user='gyl', password='123456', database='nsyy_gyl'
+2024-01-04 18:15:30,557 - sport_mng - DEBUG - close db!
+2024-01-04 18:15:30,659 - sport_mng - DEBUG - connect db: host='192.168.3.12', port=3306, user='gyl', password='123456', database='nsyy_gyl'
+2024-01-04 18:15:30,673 - sport_mng - DEBUG - close db!
+2024-01-04 18:20:22,870 - sport_mng - DEBUG - connect db: host='192.168.3.12', port=3306, user='gyl', password='123456', database='nsyy_gyl'
+2024-01-04 18:20:22,889 - sport_mng - DEBUG - close db!
+2024-01-04 18:20:23,616 - sport_mng - DEBUG - connect db: host='192.168.3.12', port=3306, user='gyl', password='123456', database='nsyy_gyl'
+2024-01-04 18:20:23,650 - sport_mng - DEBUG - close db!
+2024-01-04 18:23:22,941 - sport_mng - DEBUG - connect db: host='192.168.3.12', port=3306, user='gyl', password='123456', database='nsyy_gyl'
+2024-01-04 18:23:22,963 - sport_mng - DEBUG - close db!
+2024-01-04 18:23:23,053 - sport_mng - DEBUG - connect db: host='192.168.3.12', port=3306, user='gyl', password='123456', database='nsyy_gyl'
+2024-01-04 18:23:23,075 - sport_mng - DEBUG - close db!
+2024-01-04 18:23:25,033 - sport_mng - DEBUG - connect db: host='192.168.3.12', port=3306, user='gyl', password='123456', database='nsyy_gyl'
+2024-01-04 18:23:25,049 - sport_mng - DEBUG - close db!
+2024-01-04 18:23:25,144 - sport_mng - DEBUG - connect db: host='192.168.3.12', port=3306, user='gyl', password='123456', database='nsyy_gyl'
+2024-01-04 18:23:25,172 - sport_mng - DEBUG - close db!
+2024-01-04 18:24:52,438 - sport_mng - DEBUG - connect db: host='192.168.3.12', port=3306, user='gyl', password='123456', database='nsyy_gyl'
+2024-01-04 18:24:52,508 - sport_mng - DEBUG - close db!
+2024-01-04 18:25:50,063 - sport_mng - DEBUG - connect db: host='192.168.3.12', port=3306, user='gyl', password='123456', database='nsyy_gyl'
+2024-01-04 18:25:50,075 - sport_mng - DEBUG - close db!
+2024-01-04 18:25:50,183 - sport_mng - DEBUG - connect db: host='192.168.3.12', port=3306, user='gyl', password='123456', database='nsyy_gyl'
+2024-01-04 18:25:50,194 - sport_mng - DEBUG - close db!
+2024-01-04 18:26:00,315 - sport_mng - DEBUG - connect db: host='192.168.3.12', port=3306, user='gyl', password='123456', database='nsyy_gyl'
+2024-01-04 18:26:00,324 - sport_mng - DEBUG - close db!
+2024-01-04 18:26:00,407 - sport_mng - DEBUG - connect db: host='192.168.3.12', port=3306, user='gyl', password='123456', database='nsyy_gyl'
+2024-01-04 18:26:00,415 - sport_mng - DEBUG - close db!
+2024-01-04 18:26:02,885 - sport_mng - DEBUG - connect db: host='192.168.3.12', port=3306, user='gyl', password='123456', database='nsyy_gyl'
+2024-01-04 18:26:02,908 - sport_mng - DEBUG - close db!
+2024-01-04 18:26:04,719 - sport_mng - DEBUG - connect db: host='192.168.3.12', port=3306, user='gyl', password='123456', database='nsyy_gyl'
+2024-01-04 18:26:04,731 - sport_mng - DEBUG - close db!
+2024-01-04 18:26:05,779 - sport_mng - DEBUG - connect db: host='192.168.3.12', port=3306, user='gyl', password='123456', database='nsyy_gyl'
+2024-01-04 18:26:05,790 - sport_mng - DEBUG - close db!
+2024-01-04 18:26:44,719 - sport_mng - INFO - 初始化电子健康卡管理服务
+2024-01-04 18:28:41,151 - sport_mng - INFO - 初始化电子健康卡管理服务
+2024-01-04 18:28:41,750 - sport_mng - INFO - 初始化电子健康卡管理服务
+2024-01-04 18:29:07,372 - sport_mng - DEBUG - connect db: host='192.168.3.12', port=3306, user='gyl', password='123456', database='nsyy_gyl'
+2024-01-05 08:47:50,962 - sport_mng - INFO - 初始化电子健康卡管理服务
+2024-01-05 08:47:52,017 - sport_mng - INFO - 初始化电子健康卡管理服务
+2024-01-05 08:47:58,776 - sport_mng - DEBUG - connect db: host='192.168.3.12', port=3306, user='gyl', password='123456', database='nsyy_gyl'
+2024-01-05 08:48:27,363 - sport_mng - DEBUG - connect db: host='192.168.3.12', port=3306, user='gyl', password='123456', database='nsyy_gyl'
+2024-01-05 08:48:27,366 - sport_mng - DEBUG - close db!
+2024-01-05 08:48:27,395 - sport_mng - DEBUG - close db!
+2024-01-05 08:48:27,531 - sport_mng - DEBUG - connect db: host='192.168.3.12', port=3306, user='gyl', password='123456', database='nsyy_gyl'
+2024-01-05 08:48:27,574 - sport_mng - DEBUG - close db!
+2024-01-05 08:48:30,859 - sport_mng - DEBUG - connect db: host='192.168.3.12', port=3306, user='gyl', password='123456', database='nsyy_gyl'
+2024-01-05 08:48:30,885 - sport_mng - DEBUG - close db!
+2024-01-05 08:48:31,042 - sport_mng - DEBUG - connect db: host='192.168.3.12', port=3306, user='gyl', password='123456', database='nsyy_gyl'
+2024-01-05 08:48:31,088 - sport_mng - DEBUG - close db!
+2024-01-05 08:48:35,192 - sport_mng - DEBUG - connect db: host='192.168.3.12', port=3306, user='gyl', password='123456', database='nsyy_gyl'
+2024-01-05 08:48:35,242 - sport_mng - DEBUG - close db!
+2024-01-05 08:48:35,429 - sport_mng - DEBUG - connect db: host='192.168.3.12', port=3306, user='gyl', password='123456', database='nsyy_gyl'
+2024-01-05 08:48:35,442 - sport_mng - DEBUG - close db!
+2024-01-05 08:48:44,388 - sport_mng - DEBUG - connect db: host='192.168.3.12', port=3306, user='gyl', password='123456', database='nsyy_gyl'
+2024-01-05 08:49:09,580 - sport_mng - DEBUG - close db!
+2024-01-05 08:49:09,664 - sport_mng - DEBUG - connect db: host='192.168.3.12', port=3306, user='gyl', password='123456', database='nsyy_gyl'
+2024-01-05 08:49:09,784 - sport_mng - DEBUG - close db!
+2024-01-05 08:49:10,121 - sport_mng - DEBUG - connect db: host='192.168.3.12', port=3306, user='gyl', password='123456', database='nsyy_gyl'
+2024-01-05 08:49:10,227 - sport_mng - DEBUG - close db!
+2024-01-05 08:49:11,089 - sport_mng - DEBUG - connect db: host='192.168.3.12', port=3306, user='gyl', password='123456', database='nsyy_gyl'
+2024-01-05 08:49:11,214 - sport_mng - DEBUG - close db!
+2024-01-05 08:54:03,297 - sport_mng - INFO - 初始化电子健康卡管理服务
+2024-01-05 08:54:03,864 - sport_mng - INFO - 初始化电子健康卡管理服务
+2024-01-05 08:54:10,585 - sport_mng - DEBUG - connect db: host='192.168.3.12', port=3306, user='gyl', password='123456', database='nsyy_gyl'
+2024-01-05 08:56:29,768 - sport_mng - INFO - 初始化电子健康卡管理服务
+2024-01-05 08:56:30,349 - sport_mng - INFO - 初始化电子健康卡管理服务
+2024-01-05 08:56:37,505 - sport_mng - DEBUG - connect db: host='192.168.3.12', port=3306, user='gyl', password='123456', database='nsyy_gyl'
+2024-01-05 08:58:17,953 - sport_mng - INFO - 初始化电子健康卡管理服务
+2024-01-05 08:58:18,488 - sport_mng - INFO - 初始化电子健康卡管理服务
+2024-01-05 08:58:25,047 - sport_mng - DEBUG - connect db: host='192.168.3.12', port=3306, user='gyl', password='123456', database='nsyy_gyl'
+2024-01-05 08:59:50,606 - sport_mng - DEBUG - connect db: host='192.168.3.12', port=3306, user='gyl', password='123456', database='nsyy_gyl'
+2024-01-05 08:59:50,623 - sport_mng - DEBUG - close db!
+2024-01-05 08:59:50,628 - sport_mng - DEBUG - close db!
+2024-01-05 08:59:55,942 - sport_mng - DEBUG - connect db: host='192.168.3.12', port=3306, user='gyl', password='123456', database='nsyy_gyl'
+2024-01-05 08:59:56,020 - sport_mng - DEBUG - close db!
+2024-01-05 09:00:04,796 - sport_mng - DEBUG - connect db: host='192.168.3.12', port=3306, user='gyl', password='123456', database='nsyy_gyl'
+2024-01-05 09:00:04,821 - sport_mng - DEBUG - close db!
+2024-01-05 09:00:04,915 - sport_mng - DEBUG - connect db: host='192.168.3.12', port=3306, user='gyl', password='123456', database='nsyy_gyl'
+2024-01-05 09:00:04,950 - sport_mng - DEBUG - close db!
+2024-01-05 09:00:07,549 - sport_mng - DEBUG - connect db: host='192.168.3.12', port=3306, user='gyl', password='123456', database='nsyy_gyl'
+2024-01-05 09:00:07,645 - sport_mng - DEBUG - close db!
+2024-01-05 09:02:05,505 - sport_mng - DEBUG - connect db: host='192.168.3.12', port=3306, user='gyl', password='123456', database='nsyy_gyl'
+2024-01-05 09:02:05,549 - sport_mng - DEBUG - close db!
+2024-01-05 09:02:05,625 - sport_mng - DEBUG - connect db: host='192.168.3.12', port=3306, user='gyl', password='123456', database='nsyy_gyl'
+2024-01-05 09:02:05,663 - sport_mng - DEBUG - close db!
+2024-01-05 09:02:06,865 - sport_mng - DEBUG - connect db: host='192.168.3.12', port=3306, user='gyl', password='123456', database='nsyy_gyl'
+2024-01-05 09:02:06,899 - sport_mng - DEBUG - close db!
+2024-01-05 09:02:28,094 - sport_mng - DEBUG - connect db: host='192.168.3.12', port=3306, user='gyl', password='123456', database='nsyy_gyl'
+2024-01-05 09:02:28,165 - sport_mng - DEBUG - close db!
+2024-01-05 09:02:28,243 - sport_mng - DEBUG - connect db: host='192.168.3.12', port=3306, user='gyl', password='123456', database='nsyy_gyl'
+2024-01-05 09:02:28,305 - sport_mng - DEBUG - close db!
+2024-01-05 09:02:29,075 - sport_mng - DEBUG - connect db: host='192.168.3.12', port=3306, user='gyl', password='123456', database='nsyy_gyl'
+2024-01-05 09:02:29,113 - sport_mng - DEBUG - close db!
+2024-01-05 09:03:37,741 - sport_mng - DEBUG - connect db: host='192.168.3.12', port=3306, user='gyl', password='123456', database='nsyy_gyl'
+2024-01-05 09:03:37,791 - sport_mng - DEBUG - close db!
+2024-01-05 09:03:37,879 - sport_mng - DEBUG - connect db: host='192.168.3.12', port=3306, user='gyl', password='123456', database='nsyy_gyl'
+2024-01-05 09:03:37,917 - sport_mng - DEBUG - close db!
+2024-01-05 09:03:38,588 - sport_mng - DEBUG - connect db: host='192.168.3.12', port=3306, user='gyl', password='123456', database='nsyy_gyl'
+2024-01-05 09:03:38,657 - sport_mng - DEBUG - close db!
+2024-01-05 09:04:45,395 - sport_mng - DEBUG - connect db: host='192.168.3.12', port=3306, user='gyl', password='123456', database='nsyy_gyl'
+2024-01-05 09:04:45,454 - sport_mng - DEBUG - close db!
+2024-01-05 09:04:45,546 - sport_mng - DEBUG - connect db: host='192.168.3.12', port=3306, user='gyl', password='123456', database='nsyy_gyl'
+2024-01-05 09:04:45,599 - sport_mng - DEBUG - close db!
+2024-01-05 09:04:46,740 - sport_mng - DEBUG - connect db: host='192.168.3.12', port=3306, user='gyl', password='123456', database='nsyy_gyl'
+2024-01-05 09:04:46,776 - sport_mng - DEBUG - close db!
+2024-01-05 09:05:57,980 - sport_mng - INFO - 初始化电子健康卡管理服务
+2024-01-05 09:06:01,488 - sport_mng - INFO - 初始化电子健康卡管理服务
+2024-01-05 09:06:02,046 - sport_mng - INFO - 初始化电子健康卡管理服务
+2024-01-05 09:06:06,502 - sport_mng - DEBUG - connect db: host='192.168.3.12', port=3306, user='gyl', password='123456', database='nsyy_gyl'
+2024-01-05 09:06:06,586 - sport_mng - DEBUG - close db!
+2024-01-05 09:07:28,548 - sport_mng - DEBUG - connect db: host='192.168.3.12', port=3306, user='gyl', password='123456', database='nsyy_gyl'
+2024-01-05 09:07:28,594 - sport_mng - DEBUG - close db!
+2024-01-05 09:09:06,119 - sport_mng - DEBUG - connect db: host='192.168.3.12', port=3306, user='gyl', password='123456', database='nsyy_gyl'
+2024-01-05 09:10:28,710 - sport_mng - DEBUG - connect db: host='192.168.3.12', port=3306, user='gyl', password='123456', database='nsyy_gyl'
+2024-01-05 09:10:28,756 - sport_mng - DEBUG - close db!
+2024-01-05 09:10:50,339 - sport_mng - DEBUG - connect db: host='192.168.3.12', port=3306, user='gyl', password='123456', database='nsyy_gyl'
+2024-01-05 09:10:51,800 - sport_mng - DEBUG - close db!
+2024-01-05 09:12:02,987 - sport_mng - INFO - 初始化电子健康卡管理服务
+2024-01-05 09:12:03,532 - sport_mng - INFO - 初始化电子健康卡管理服务
+2024-01-05 09:12:12,231 - sport_mng - DEBUG - connect db: host='192.168.3.12', port=3306, user='gyl', password='123456', database='nsyy_gyl'
+2024-01-05 09:12:12,314 - sport_mng - DEBUG - close db!
+2024-01-05 09:12:26,159 - sport_mng - DEBUG - connect db: host='192.168.3.12', port=3306, user='gyl', password='123456', database='nsyy_gyl'
+2024-01-05 09:12:26,201 - sport_mng - DEBUG - close db!
+2024-01-05 09:12:26,284 - sport_mng - DEBUG - connect db: host='192.168.3.12', port=3306, user='gyl', password='123456', database='nsyy_gyl'
+2024-01-05 09:12:26,341 - sport_mng - DEBUG - close db!
+2024-01-05 09:12:27,639 - sport_mng - DEBUG - connect db: host='192.168.3.12', port=3306, user='gyl', password='123456', database='nsyy_gyl'
+2024-01-05 09:12:27,680 - sport_mng - DEBUG - close db!
+2024-01-05 09:12:32,070 - sport_mng - DEBUG - connect db: host='192.168.3.12', port=3306, user='gyl', password='123456', database='nsyy_gyl'
+2024-01-05 09:13:34,122 - sport_mng - INFO - 初始化电子健康卡管理服务
+2024-01-05 09:13:34,666 - sport_mng - INFO - 初始化电子健康卡管理服务
+2024-01-05 09:13:41,054 - sport_mng - DEBUG - connect db: host='192.168.3.12', port=3306, user='gyl', password='123456', database='nsyy_gyl'
+2024-01-05 09:13:41,145 - sport_mng - DEBUG - close db!
+2024-01-05 09:16:36,457 - sport_mng - INFO - 初始化电子健康卡管理服务
+2024-01-05 09:16:37,043 - sport_mng - INFO - 初始化电子健康卡管理服务
+2024-01-05 09:16:37,558 - sport_mng - DEBUG - connect db: host='192.168.3.12', port=3306, user='gyl', password='123456', database='nsyy_gyl'
+2024-01-05 09:16:37,603 - sport_mng - DEBUG - close db!
+2024-01-05 09:17:06,007 - sport_mng - DEBUG - connect db: host='192.168.3.12', port=3306, user='gyl', password='123456', database='nsyy_gyl'
+2024-01-05 09:17:06,126 - sport_mng - DEBUG - close db!
+2024-01-05 09:17:06,262 - sport_mng - DEBUG - connect db: host='192.168.3.12', port=3306, user='gyl', password='123456', database='nsyy_gyl'
+2024-01-05 09:17:06,356 - sport_mng - DEBUG - close db!
+2024-01-05 09:17:07,016 - sport_mng - DEBUG - connect db: host='192.168.3.12', port=3306, user='gyl', password='123456', database='nsyy_gyl'
+2024-01-05 09:17:07,066 - sport_mng - DEBUG - close db!
+2024-01-05 09:17:41,861 - sport_mng - DEBUG - connect db: host='192.168.3.12', port=3306, user='gyl', password='123456', database='nsyy_gyl'
+2024-01-05 09:17:41,918 - sport_mng - DEBUG - close db!
+2024-01-05 09:17:42,049 - sport_mng - DEBUG - connect db: host='192.168.3.12', port=3306, user='gyl', password='123456', database='nsyy_gyl'
+2024-01-05 09:17:42,121 - sport_mng - DEBUG - close db!
+2024-01-05 09:17:42,927 - sport_mng - DEBUG - connect db: host='192.168.3.12', port=3306, user='gyl', password='123456', database='nsyy_gyl'
+2024-01-05 09:17:43,001 - sport_mng - DEBUG - close db!
+2024-01-05 09:18:29,913 - sport_mng - DEBUG - connect db: host='192.168.3.12', port=3306, user='gyl', password='123456', database='nsyy_gyl'
+2024-01-05 09:18:30,002 - sport_mng - DEBUG - close db!
+2024-01-05 09:18:30,110 - sport_mng - DEBUG - connect db: host='192.168.3.12', port=3306, user='gyl', password='123456', database='nsyy_gyl'
+2024-01-05 09:18:30,175 - sport_mng - DEBUG - close db!
+2024-01-05 09:18:30,673 - sport_mng - DEBUG - connect db: host='192.168.3.12', port=3306, user='gyl', password='123456', database='nsyy_gyl'
+2024-01-05 09:18:30,724 - sport_mng - DEBUG - close db!
+2024-01-05 09:18:41,999 - sport_mng - DEBUG - connect db: host='192.168.3.12', port=3306, user='gyl', password='123456', database='nsyy_gyl'
+2024-01-05 09:18:42,061 - sport_mng - DEBUG - close db!
+2024-01-05 09:18:42,157 - sport_mng - DEBUG - connect db: host='192.168.3.12', port=3306, user='gyl', password='123456', database='nsyy_gyl'
+2024-01-05 09:18:42,228 - sport_mng - DEBUG - close db!
+2024-01-05 09:18:43,806 - sport_mng - DEBUG - connect db: host='192.168.3.12', port=3306, user='gyl', password='123456', database='nsyy_gyl'
+2024-01-05 09:18:43,853 - sport_mng - DEBUG - close db!
+2024-01-05 09:18:54,821 - sport_mng - DEBUG - connect db: host='192.168.3.12', port=3306, user='gyl', password='123456', database='nsyy_gyl'
+2024-01-05 09:18:54,935 - sport_mng - DEBUG - close db!
+2024-01-05 09:18:55,060 - sport_mng - DEBUG - connect db: host='192.168.3.12', port=3306, user='gyl', password='123456', database='nsyy_gyl'
+2024-01-05 09:18:55,161 - sport_mng - DEBUG - close db!
+2024-01-05 09:18:56,761 - sport_mng - DEBUG - connect db: host='192.168.3.12', port=3306, user='gyl', password='123456', database='nsyy_gyl'
+2024-01-05 09:18:56,839 - sport_mng - DEBUG - close db!
+2024-01-05 09:19:03,060 - sport_mng - DEBUG - connect db: host='192.168.3.12', port=3306, user='gyl', password='123456', database='nsyy_gyl'
+2024-01-05 09:19:03,076 - sport_mng - DEBUG - close db!
+2024-01-05 09:19:03,187 - sport_mng - DEBUG - connect db: host='192.168.3.12', port=3306, user='gyl', password='123456', database='nsyy_gyl'
+2024-01-05 09:19:03,220 - sport_mng - DEBUG - close db!
+2024-01-05 09:20:00,723 - sport_mng - INFO - 初始化电子健康卡管理服务
+2024-01-05 09:20:29,068 - sport_mng - INFO - 初始化电子健康卡管理服务
+2024-01-05 09:20:48,403 - sport_mng - DEBUG - connect db: host='192.168.3.12', port=3306, user='gyl', password='123456', database='nsyy_gyl'
+2024-01-05 09:20:48,498 - sport_mng - DEBUG - close db!
+2024-01-05 09:20:49,160 - sport_mng - DEBUG - connect db: host='192.168.3.12', port=3306, user='gyl', password='123456', database='nsyy_gyl'
+2024-01-05 09:20:49,235 - sport_mng - DEBUG - close db!
+2024-01-05 09:22:15,811 - sport_mng - INFO - 初始化电子健康卡管理服务
+2024-01-05 09:23:05,620 - sport_mng - DEBUG - connect db: host='192.168.3.12', port=3306, user='gyl', password='123456', database='nsyy_gyl'
+2024-01-05 09:23:05,673 - sport_mng - DEBUG - close db!
+2024-01-05 09:23:05,810 - sport_mng - DEBUG - connect db: host='192.168.3.12', port=3306, user='gyl', password='123456', database='nsyy_gyl'
+2024-01-05 09:23:05,838 - sport_mng - DEBUG - close db!
+2024-01-05 09:23:08,538 - sport_mng - INFO - 初始化电子健康卡管理服务
+2024-01-05 09:23:11,035 - sport_mng - DEBUG - connect db: host='192.168.3.12', port=3306, user='gyl', password='123456', database='nsyy_gyl'
+2024-01-05 09:23:11,058 - sport_mng - DEBUG - close db!
+2024-01-05 09:23:11,168 - sport_mng - DEBUG - connect db: host='192.168.3.12', port=3306, user='gyl', password='123456', database='nsyy_gyl'
+2024-01-05 09:23:11,201 - sport_mng - DEBUG - close db!
+2024-01-05 09:25:49,493 - sport_mng - DEBUG - connect db: host='192.168.3.12', port=3306, user='gyl', password='123456', database='nsyy_gyl'
+2024-01-05 09:25:49,513 - sport_mng - DEBUG - close db!
+2024-01-05 09:25:49,627 - sport_mng - DEBUG - connect db: host='192.168.3.12', port=3306, user='gyl', password='123456', database='nsyy_gyl'
+2024-01-05 09:25:49,650 - sport_mng - DEBUG - close db!
+2024-01-05 09:26:01,403 - sport_mng - DEBUG - connect db: host='192.168.3.12', port=3306, user='gyl', password='123456', database='nsyy_gyl'
+2024-01-05 09:26:01,420 - sport_mng - DEBUG - close db!
+2024-01-05 09:26:01,519 - sport_mng - DEBUG - connect db: host='192.168.3.12', port=3306, user='gyl', password='123456', database='nsyy_gyl'
+2024-01-05 09:26:01,563 - sport_mng - DEBUG - close db!
+2024-01-05 09:27:08,961 - sport_mng - INFO - 初始化电子健康卡管理服务
+2024-01-05 09:27:48,852 - sport_mng - DEBUG - connect db: host='192.168.3.12', port=3306, user='gyl', password='123456', database='nsyy_gyl'
+2024-01-05 09:27:48,875 - sport_mng - DEBUG - close db!
+2024-01-05 09:27:49,036 - sport_mng - DEBUG - connect db: host='192.168.3.12', port=3306, user='gyl', password='123456', database='nsyy_gyl'
+2024-01-05 09:27:49,059 - sport_mng - DEBUG - close db!
+2024-01-05 09:27:54,574 - sport_mng - DEBUG - connect db: host='192.168.3.12', port=3306, user='gyl', password='123456', database='nsyy_gyl'
+2024-01-05 09:27:54,593 - sport_mng - DEBUG - close db!
+2024-01-05 09:27:54,754 - sport_mng - DEBUG - connect db: host='192.168.3.12', port=3306, user='gyl', password='123456', database='nsyy_gyl'
+2024-01-05 09:27:54,787 - sport_mng - DEBUG - close db!
+2024-01-05 09:30:28,314 - sport_mng - INFO - 初始化电子健康卡管理服务
+2024-01-05 09:31:20,821 - sport_mng - INFO - 初始化电子健康卡管理服务
+2024-01-05 09:31:38,838 - sport_mng - INFO - 初始化电子健康卡管理服务
+2024-01-05 09:31:43,583 - sport_mng - INFO - 初始化电子健康卡管理服务
+2024-01-05 09:31:54,486 - sport_mng - INFO - 初始化电子健康卡管理服务
+2024-01-05 09:32:02,261 - sport_mng - INFO - 初始化电子健康卡管理服务
+2024-01-05 09:35:43,559 - sport_mng - INFO - 初始化电子健康卡管理服务
+2024-01-05 09:36:07,665 - sport_mng - INFO - 初始化电子健康卡管理服务
+2024-01-05 09:39:39,866 - sport_mng - DEBUG - connect db: host='192.168.3.12', port=3306, user='gyl', password='123456', database='nsyy_gyl'
+2024-01-05 09:39:39,932 - sport_mng - DEBUG - close db!
+2024-01-05 09:39:41,580 - sport_mng - DEBUG - connect db: host='192.168.3.12', port=3306, user='gyl', password='123456', database='nsyy_gyl'
+2024-01-05 09:39:41,712 - sport_mng - DEBUG - close db!
+2024-01-05 09:39:43,695 - sport_mng - DEBUG - connect db: host='192.168.3.12', port=3306, user='gyl', password='123456', database='nsyy_gyl'
+2024-01-05 09:39:43,766 - sport_mng - DEBUG - close db!
+2024-01-05 09:39:51,252 - sport_mng - DEBUG - connect db: host='192.168.3.12', port=3306, user='gyl', password='123456', database='nsyy_gyl'
+2024-01-05 09:39:51,317 - sport_mng - DEBUG - close db!
+2024-01-05 09:40:23,000 - sport_mng - INFO - 初始化电子健康卡管理服务
+2024-01-05 09:40:23,552 - sport_mng - INFO - 初始化电子健康卡管理服务
+2024-01-05 09:42:02,640 - sport_mng - INFO - 初始化电子健康卡管理服务
+2024-01-05 09:42:07,082 - sport_mng - INFO - 初始化电子健康卡管理服务
+2024-01-05 09:44:01,050 - sport_mng - DEBUG - connect db: host='192.168.3.12', port=3306, user='gyl', password='123456', database='nsyy_gyl'
+2024-01-05 09:44:01,515 - sport_mng - DEBUG - close db!
+2024-01-05 09:44:38,962 - sport_mng - DEBUG - connect db: host='192.168.3.12', port=3306, user='gyl', password='123456', database='nsyy_gyl'
+2024-01-05 09:45:58,017 - sport_mng - DEBUG - close db!
+2024-01-05 09:45:59,983 - sport_mng - DEBUG - connect db: host='192.168.3.12', port=3306, user='gyl', password='123456', database='nsyy_gyl'
+2024-01-05 09:46:00,163 - sport_mng - DEBUG - close db!
+2024-01-05 09:46:04,184 - sport_mng - DEBUG - connect db: host='192.168.3.12', port=3306, user='gyl', password='123456', database='nsyy_gyl'
+2024-01-05 09:46:04,456 - sport_mng - DEBUG - close db!
+2024-01-05 09:46:21,688 - sport_mng - DEBUG - connect db: host='192.168.3.12', port=3306, user='gyl', password='123456', database='nsyy_gyl'
+2024-01-05 09:46:22,485 - sport_mng - DEBUG - close db!
+2024-01-05 09:46:23,210 - sport_mng - DEBUG - connect db: host='192.168.3.12', port=3306, user='gyl', password='123456', database='nsyy_gyl'
+2024-01-05 09:46:23,390 - sport_mng - DEBUG - close db!
+2024-01-05 09:49:41,617 - sport_mng - INFO - 初始化电子健康卡管理服务
+2024-01-05 09:49:43,010 - sport_mng - INFO - 初始化电子健康卡管理服务
+2024-01-05 09:49:57,295 - sport_mng - DEBUG - connect db: host='192.168.3.12', port=3306, user='gyl', password='123456', database='nsyy_gyl'
+2024-01-05 09:49:57,822 - sport_mng - DEBUG - close db!
+2024-01-05 09:50:10,919 - sport_mng - DEBUG - connect db: host='192.168.3.12', port=3306, user='gyl', password='123456', database='nsyy_gyl'
+2024-01-05 09:50:11,159 - sport_mng - DEBUG - close db!
+2024-01-05 09:50:26,402 - sport_mng - DEBUG - connect db: host='192.168.3.12', port=3306, user='gyl', password='123456', database='nsyy_gyl'
+2024-01-05 09:50:26,612 - sport_mng - DEBUG - close db!
+2024-01-05 09:50:40,896 - sport_mng - DEBUG - connect db: host='192.168.3.12', port=3306, user='gyl', password='123456', database='nsyy_gyl'
+2024-01-05 09:51:36,313 - sport_mng - DEBUG - connect db: host='192.168.3.12', port=3306, user='gyl', password='123456', database='nsyy_gyl'
+2024-01-05 09:51:36,404 - sport_mng - DEBUG - close db!
+2024-01-05 09:51:36,409 - sport_mng - DEBUG - close db!
+2024-01-05 09:51:36,661 - sport_mng - DEBUG - connect db: host='192.168.3.12', port=3306, user='gyl', password='123456', database='nsyy_gyl'
+2024-01-05 09:51:36,745 - sport_mng - DEBUG - close db!
+2024-01-05 09:51:36,820 - sport_mng - DEBUG - connect db: host='192.168.3.12', port=3306, user='gyl', password='123456', database='nsyy_gyl'
+2024-01-05 09:51:36,835 - sport_mng - DEBUG - close db!
+2024-01-05 09:51:36,931 - sport_mng - DEBUG - connect db: host='192.168.3.12', port=3306, user='gyl', password='123456', database='nsyy_gyl'
+2024-01-05 09:51:36,992 - sport_mng - DEBUG - close db!
+2024-01-05 09:51:38,743 - sport_mng - DEBUG - connect db: host='192.168.3.12', port=3306, user='gyl', password='123456', database='nsyy_gyl'
+2024-01-05 09:51:38,808 - sport_mng - DEBUG - close db!
+2024-01-05 09:51:39,794 - sport_mng - DEBUG - connect db: host='192.168.3.12', port=3306, user='gyl', password='123456', database='nsyy_gyl'
+2024-01-05 09:51:39,869 - sport_mng - DEBUG - close db!
+2024-01-05 09:51:41,162 - sport_mng - DEBUG - connect db: host='192.168.3.12', port=3306, user='gyl', password='123456', database='nsyy_gyl'
+2024-01-05 09:51:42,880 - sport_mng - DEBUG - connect db: host='192.168.3.12', port=3306, user='gyl', password='123456', database='nsyy_gyl'
+2024-01-05 09:51:42,947 - sport_mng - DEBUG - close db!
+2024-01-05 09:52:38,721 - sport_mng - DEBUG - close db!
+2024-01-05 09:52:39,381 - sport_mng - INFO - 初始化电子健康卡管理服务
+2024-01-05 09:52:40,078 - sport_mng - INFO - 初始化电子健康卡管理服务
+2024-01-05 09:52:40,736 - sport_mng - DEBUG - connect db: host='192.168.3.12', port=3306, user='gyl', password='123456', database='nsyy_gyl'
+2024-01-05 09:52:40,813 - sport_mng - DEBUG - close db!
+2024-01-05 09:52:41,121 - sport_mng - DEBUG - connect db: host='192.168.3.12', port=3306, user='gyl', password='123456', database='nsyy_gyl'
+2024-01-05 09:52:41,354 - sport_mng - DEBUG - close db!
+2024-01-05 09:52:48,381 - sport_mng - DEBUG - connect db: host='192.168.3.12', port=3306, user='gyl', password='123456', database='nsyy_gyl'
+2024-01-05 09:52:51,634 - sport_mng - DEBUG - close db!
+2024-01-05 09:53:26,907 - sport_mng - DEBUG - connect db: host='192.168.3.12', port=3306, user='gyl', password='123456', database='nsyy_gyl'
+2024-01-05 09:53:26,959 - sport_mng - DEBUG - close db!
+2024-01-05 09:54:34,269 - sport_mng - DEBUG - connect db: host='192.168.3.12', port=3306, user='gyl', password='123456', database='nsyy_gyl'
+2024-01-05 09:54:34,358 - sport_mng - DEBUG - close db!
+2024-01-05 09:54:34,471 - sport_mng - DEBUG - connect db: host='192.168.3.12', port=3306, user='gyl', password='123456', database='nsyy_gyl'
+2024-01-05 09:54:34,534 - sport_mng - DEBUG - close db!
+2024-01-05 09:54:36,649 - sport_mng - DEBUG - connect db: host='192.168.3.12', port=3306, user='gyl', password='123456', database='nsyy_gyl'
+2024-01-05 09:54:36,726 - sport_mng - DEBUG - close db!
+2024-01-05 09:54:45,869 - sport_mng - DEBUG - connect db: host='192.168.3.12', port=3306, user='gyl', password='123456', database='nsyy_gyl'
+2024-01-05 09:54:45,930 - sport_mng - DEBUG - close db!
+2024-01-05 09:54:46,030 - sport_mng - DEBUG - connect db: host='192.168.3.12', port=3306, user='gyl', password='123456', database='nsyy_gyl'
+2024-01-05 09:54:46,123 - sport_mng - DEBUG - close db!
+2024-01-05 09:57:21,525 - sport_mng - DEBUG - connect db: host='192.168.3.12', port=3306, user='gyl', password='123456', database='nsyy_gyl'
+2024-01-05 09:57:21,650 - sport_mng - DEBUG - close db!
+2024-01-05 09:57:21,761 - sport_mng - DEBUG - connect db: host='192.168.3.12', port=3306, user='gyl', password='123456', database='nsyy_gyl'
+2024-01-05 09:57:21,844 - sport_mng - DEBUG - close db!
+2024-01-05 09:57:21,968 - sport_mng - DEBUG - connect db: host='192.168.3.12', port=3306, user='gyl', password='123456', database='nsyy_gyl'
+2024-01-05 09:57:22,052 - sport_mng - DEBUG - close db!
+2024-01-05 09:57:22,176 - sport_mng - DEBUG - connect db: host='192.168.3.12', port=3306, user='gyl', password='123456', database='nsyy_gyl'
+2024-01-05 09:57:22,245 - sport_mng - DEBUG - close db!
+2024-01-05 09:57:22,385 - sport_mng - DEBUG - connect db: host='192.168.3.12', port=3306, user='gyl', password='123456', database='nsyy_gyl'
+2024-01-05 09:57:22,476 - sport_mng - DEBUG - close db!
+2024-01-05 09:57:22,575 - sport_mng - DEBUG - connect db: host='192.168.3.12', port=3306, user='gyl', password='123456', database='nsyy_gyl'
+2024-01-05 09:57:22,668 - sport_mng - DEBUG - close db!
+2024-01-05 09:57:23,869 - sport_mng - DEBUG - connect db: host='192.168.3.12', port=3306, user='gyl', password='123456', database='nsyy_gyl'
+2024-01-05 09:57:23,972 - sport_mng - DEBUG - close db!
+2024-01-05 09:57:24,085 - sport_mng - DEBUG - connect db: host='192.168.3.12', port=3306, user='gyl', password='123456', database='nsyy_gyl'
+2024-01-05 09:57:24,156 - sport_mng - DEBUG - close db!
+2024-01-05 09:57:25,320 - sport_mng - DEBUG - connect db: host='192.168.3.12', port=3306, user='gyl', password='123456', database='nsyy_gyl'
+2024-01-05 09:57:25,399 - sport_mng - DEBUG - close db!
+2024-01-05 09:57:26,091 - sport_mng - DEBUG - connect db: host='192.168.3.12', port=3306, user='gyl', password='123456', database='nsyy_gyl'
+2024-01-05 09:57:26,145 - sport_mng - DEBUG - close db!
+2024-01-05 09:57:27,577 - sport_mng - DEBUG - connect db: host='192.168.3.12', port=3306, user='gyl', password='123456', database='nsyy_gyl'
+2024-01-05 09:57:27,604 - sport_mng - DEBUG - close db!
+2024-01-05 09:57:27,759 - sport_mng - DEBUG - connect db: host='192.168.3.12', port=3306, user='gyl', password='123456', database='nsyy_gyl'
+2024-01-05 09:57:27,801 - sport_mng - DEBUG - close db!
+2024-01-05 09:57:28,938 - sport_mng - DEBUG - connect db: host='192.168.3.12', port=3306, user='gyl', password='123456', database='nsyy_gyl'
+2024-01-05 09:57:29,019 - sport_mng - DEBUG - close db!
+2024-01-05 09:57:30,249 - sport_mng - DEBUG - connect db: host='192.168.3.12', port=3306, user='gyl', password='123456', database='nsyy_gyl'
+2024-01-05 09:57:30,330 - sport_mng - DEBUG - close db!
+2024-01-05 09:57:32,177 - sport_mng - DEBUG - connect db: host='192.168.3.12', port=3306, user='gyl', password='123456', database='nsyy_gyl'
+2024-01-05 09:57:32,261 - sport_mng - DEBUG - close db!
+2024-01-05 09:59:19,815 - sport_mng - DEBUG - connect db: host='192.168.3.12', port=3306, user='gyl', password='123456', database='nsyy_gyl'
+2024-01-05 09:59:19,916 - sport_mng - DEBUG - close db!
+2024-01-05 09:59:20,450 - sport_mng - DEBUG - connect db: host='192.168.3.12', port=3306, user='gyl', password='123456', database='nsyy_gyl'
+2024-01-05 09:59:20,583 - sport_mng - DEBUG - close db!
+2024-01-05 10:02:43,406 - sport_mng - DEBUG - connect db: host='192.168.3.12', port=3306, user='gyl', password='123456', database='nsyy_gyl'
+2024-01-05 10:02:44,906 - sport_mng - DEBUG - close db!
+2024-01-05 10:02:46,916 - sport_mng - DEBUG - connect db: host='192.168.3.12', port=3306, user='gyl', password='123456', database='nsyy_gyl'
+2024-01-05 10:02:48,252 - sport_mng - DEBUG - close db!
+2024-01-05 10:03:05,001 - sport_mng - DEBUG - connect db: host='192.168.3.12', port=3306, user='gyl', password='123456', database='nsyy_gyl'
+2024-01-05 10:03:05,400 - sport_mng - DEBUG - close db!
+2024-01-05 10:03:06,735 - sport_mng - DEBUG - connect db: host='192.168.3.12', port=3306, user='gyl', password='123456', database='nsyy_gyl'
+2024-01-05 10:03:07,172 - sport_mng - DEBUG - close db!
+2024-01-05 10:03:29,915 - sport_mng - DEBUG - connect db: host='192.168.3.12', port=3306, user='gyl', password='123456', database='nsyy_gyl'
+2024-01-05 10:03:30,769 - sport_mng - DEBUG - close db!
+2024-01-05 10:03:31,944 - sport_mng - DEBUG - connect db: host='192.168.3.12', port=3306, user='gyl', password='123456', database='nsyy_gyl'
+2024-01-05 10:03:32,601 - sport_mng - DEBUG - close db!
+2024-01-05 10:07:16,933 - sport_mng - DEBUG - connect db: host='192.168.3.12', port=3306, user='gyl', password='123456', database='nsyy_gyl'
+2024-01-05 10:07:17,073 - sport_mng - DEBUG - close db!
+2024-01-05 10:07:17,451 - sport_mng - DEBUG - connect db: host='192.168.3.12', port=3306, user='gyl', password='123456', database='nsyy_gyl'
+2024-01-05 10:07:17,885 - sport_mng - DEBUG - close db!
+2024-01-05 10:09:06,761 - sport_mng - DEBUG - connect db: host='192.168.3.12', port=3306, user='gyl', password='123456', database='nsyy_gyl'
+2024-01-05 10:09:07,506 - sport_mng - DEBUG - close db!
+2024-01-05 10:09:07,829 - sport_mng - DEBUG - connect db: host='192.168.3.12', port=3306, user='gyl', password='123456', database='nsyy_gyl'
+2024-01-05 10:09:08,271 - sport_mng - DEBUG - close db!
+2024-01-05 10:09:34,229 - sport_mng - DEBUG - connect db: host='192.168.3.12', port=3306, user='gyl', password='123456', database='nsyy_gyl'
+2024-01-05 10:09:34,408 - sport_mng - DEBUG - close db!
+2024-01-05 10:09:34,660 - sport_mng - DEBUG - connect db: host='192.168.3.12', port=3306, user='gyl', password='123456', database='nsyy_gyl'
+2024-01-05 10:09:34,823 - sport_mng - DEBUG - close db!
+2024-01-05 10:09:53,176 - sport_mng - DEBUG - connect db: host='192.168.3.12', port=3306, user='gyl', password='123456', database='nsyy_gyl'
+2024-01-05 10:09:53,250 - sport_mng - DEBUG - close db!
+2024-01-05 10:09:53,395 - sport_mng - DEBUG - connect db: host='192.168.3.12', port=3306, user='gyl', password='123456', database='nsyy_gyl'
+2024-01-05 10:09:53,473 - sport_mng - DEBUG - close db!
+2024-01-05 10:09:59,673 - sport_mng - DEBUG - connect db: host='192.168.3.12', port=3306, user='gyl', password='123456', database='nsyy_gyl'
+2024-01-05 10:09:59,755 - sport_mng - DEBUG - close db!
+2024-01-05 10:09:59,868 - sport_mng - DEBUG - connect db: host='192.168.3.12', port=3306, user='gyl', password='123456', database='nsyy_gyl'
+2024-01-05 10:09:59,944 - sport_mng - DEBUG - close db!
+2024-01-05 10:10:25,991 - sport_mng - DEBUG - connect db: host='192.168.3.12', port=3306, user='gyl', password='123456', database='nsyy_gyl'
+2024-01-05 10:10:26,092 - sport_mng - DEBUG - close db!
+2024-01-05 10:10:26,205 - sport_mng - DEBUG - connect db: host='192.168.3.12', port=3306, user='gyl', password='123456', database='nsyy_gyl'
+2024-01-05 10:10:26,300 - sport_mng - DEBUG - close db!
+2024-01-05 10:10:44,005 - sport_mng - DEBUG - connect db: host='192.168.3.12', port=3306, user='gyl', password='123456', database='nsyy_gyl'
+2024-01-05 10:10:44,104 - sport_mng - DEBUG - close db!
+2024-01-05 10:10:44,300 - sport_mng - DEBUG - connect db: host='192.168.3.12', port=3306, user='gyl', password='123456', database='nsyy_gyl'
+2024-01-05 10:10:44,385 - sport_mng - DEBUG - close db!
+2024-01-05 10:10:53,337 - sport_mng - DEBUG - connect db: host='192.168.3.12', port=3306, user='gyl', password='123456', database='nsyy_gyl'
+2024-01-05 10:10:53,411 - sport_mng - DEBUG - close db!
+2024-01-05 10:10:53,543 - sport_mng - DEBUG - connect db: host='192.168.3.12', port=3306, user='gyl', password='123456', database='nsyy_gyl'
+2024-01-05 10:10:53,611 - sport_mng - DEBUG - close db!
+2024-01-05 10:11:15,399 - sport_mng - DEBUG - connect db: host='192.168.3.12', port=3306, user='gyl', password='123456', database='nsyy_gyl'
+2024-01-05 10:11:15,495 - sport_mng - DEBUG - close db!
+2024-01-05 10:11:15,602 - sport_mng - DEBUG - connect db: host='192.168.3.12', port=3306, user='gyl', password='123456', database='nsyy_gyl'
+2024-01-05 10:11:15,686 - sport_mng - DEBUG - close db!
+2024-01-05 10:11:23,089 - sport_mng - DEBUG - connect db: host='192.168.3.12', port=3306, user='gyl', password='123456', database='nsyy_gyl'
+2024-01-05 10:11:23,171 - sport_mng - DEBUG - close db!
+2024-01-05 10:11:24,895 - sport_mng - DEBUG - connect db: host='192.168.3.12', port=3306, user='gyl', password='123456', database='nsyy_gyl'
+2024-01-05 10:11:24,994 - sport_mng - DEBUG - close db!
+2024-01-05 10:11:25,603 - sport_mng - DEBUG - connect db: host='192.168.3.12', port=3306, user='gyl', password='123456', database='nsyy_gyl'
+2024-01-05 10:11:25,680 - sport_mng - DEBUG - close db!
+2024-01-05 10:11:33,059 - sport_mng - DEBUG - connect db: host='192.168.3.12', port=3306, user='gyl', password='123456', database='nsyy_gyl'
+2024-01-05 10:11:33,151 - sport_mng - DEBUG - close db!
+2024-01-05 10:11:36,793 - sport_mng - DEBUG - connect db: host='192.168.3.12', port=3306, user='gyl', password='123456', database='nsyy_gyl'
+2024-01-05 10:11:36,878 - sport_mng - DEBUG - close db!
+2024-01-05 10:17:49,914 - sport_mng - DEBUG - connect db: host='192.168.3.12', port=3306, user='gyl', password='123456', database='nsyy_gyl'
+2024-01-05 10:17:50,085 - sport_mng - DEBUG - close db!
+2024-01-05 10:17:50,262 - sport_mng - DEBUG - connect db: host='192.168.3.12', port=3306, user='gyl', password='123456', database='nsyy_gyl'
+2024-01-05 10:17:50,375 - sport_mng - DEBUG - close db!
+2024-01-05 10:18:01,126 - sport_mng - DEBUG - connect db: host='192.168.3.12', port=3306, user='gyl', password='123456', database='nsyy_gyl'
+2024-01-05 10:18:01,198 - sport_mng - DEBUG - close db!
+2024-01-05 10:18:04,325 - sport_mng - DEBUG - connect db: host='192.168.3.12', port=3306, user='gyl', password='123456', database='nsyy_gyl'
+2024-01-05 10:18:04,460 - sport_mng - DEBUG - close db!
+2024-01-05 10:18:04,782 - sport_mng - DEBUG - connect db: host='192.168.3.12', port=3306, user='gyl', password='123456', database='nsyy_gyl'
+2024-01-05 10:18:04,881 - sport_mng - DEBUG - close db!
+2024-01-05 10:38:30,663 - sport_mng - DEBUG - connect db: host='192.168.3.12', port=3306, user='gyl', password='123456', database='nsyy_gyl'
+2024-01-05 10:38:30,932 - sport_mng - DEBUG - close db!
+2024-01-05 10:38:31,221 - sport_mng - DEBUG - connect db: host='192.168.3.12', port=3306, user='gyl', password='123456', database='nsyy_gyl'
+2024-01-05 10:38:31,454 - sport_mng - DEBUG - close db!
+2024-01-05 10:38:35,096 - sport_mng - DEBUG - connect db: host='192.168.3.12', port=3306, user='gyl', password='123456', database='nsyy_gyl'
+2024-01-05 10:38:35,167 - sport_mng - DEBUG - close db!
+2024-01-05 10:40:04,195 - sport_mng - DEBUG - connect db: host='192.168.3.12', port=3306, user='gyl', password='123456', database='nsyy_gyl'
+2024-01-05 10:40:04,324 - sport_mng - DEBUG - close db!
+2024-01-05 10:40:04,414 - sport_mng - DEBUG - connect db: host='192.168.3.12', port=3306, user='gyl', password='123456', database='nsyy_gyl'
+2024-01-05 10:40:04,507 - sport_mng - DEBUG - close db!
+2024-01-05 10:42:28,218 - sport_mng - DEBUG - connect db: host='192.168.3.12', port=3306, user='gyl', password='123456', database='nsyy_gyl'
+2024-01-05 10:42:28,280 - sport_mng - DEBUG - close db!
+2024-01-05 10:42:28,414 - sport_mng - DEBUG - connect db: host='192.168.3.12', port=3306, user='gyl', password='123456', database='nsyy_gyl'
+2024-01-05 10:42:28,494 - sport_mng - DEBUG - close db!
+2024-01-05 10:58:46,519 - sport_mng - DEBUG - connect db: host='192.168.3.12', port=3306, user='gyl', password='123456', database='nsyy_gyl'
+2024-01-05 10:58:46,632 - sport_mng - DEBUG - close db!
+2024-01-05 10:58:56,137 - sport_mng - DEBUG - connect db: host='192.168.3.12', port=3306, user='gyl', password='123456', database='nsyy_gyl'
+2024-01-05 10:58:56,207 - sport_mng - DEBUG - close db!
+2024-01-05 11:00:04,162 - sport_mng - DEBUG - connect db: host='192.168.3.12', port=3306, user='gyl', password='123456', database='nsyy_gyl'
+2024-01-05 11:00:04,246 - sport_mng - DEBUG - close db!
+2024-01-05 11:00:13,122 - sport_mng - DEBUG - connect db: host='192.168.3.12', port=3306, user='gyl', password='123456', database='nsyy_gyl'
+2024-01-05 11:00:13,193 - sport_mng - DEBUG - close db!
+2024-01-05 11:00:59,797 - sport_mng - DEBUG - connect db: host='192.168.3.12', port=3306, user='gyl', password='123456', database='nsyy_gyl'
+2024-01-05 11:00:59,866 - sport_mng - DEBUG - close db!
+2024-01-05 11:01:40,387 - sport_mng - DEBUG - connect db: host='192.168.3.12', port=3306, user='gyl', password='123456', database='nsyy_gyl'
+2024-01-05 11:01:40,681 - sport_mng - DEBUG - close db!
+2024-01-05 11:01:56,986 - sport_mng - DEBUG - connect db: host='192.168.3.12', port=3306, user='gyl', password='123456', database='nsyy_gyl'
+2024-01-05 11:01:57,079 - sport_mng - DEBUG - close db!
+2024-01-05 11:02:03,270 - sport_mng - DEBUG - connect db: host='192.168.3.12', port=3306, user='gyl', password='123456', database='nsyy_gyl'
+2024-01-05 11:02:03,348 - sport_mng - DEBUG - close db!
+2024-01-05 11:02:48,185 - sport_mng - DEBUG - connect db: host='192.168.3.12', port=3306, user='gyl', password='123456', database='nsyy_gyl'
+2024-01-05 11:02:48,280 - sport_mng - DEBUG - close db!
+2024-01-05 11:02:49,692 - sport_mng - DEBUG - connect db: host='192.168.3.12', port=3306, user='gyl', password='123456', database='nsyy_gyl'
+2024-01-05 11:02:50,066 - sport_mng - DEBUG - close db!
+2024-01-05 11:03:25,138 - sport_mng - DEBUG - connect db: host='192.168.3.12', port=3306, user='gyl', password='123456', database='nsyy_gyl'
+2024-01-05 11:03:25,204 - sport_mng - DEBUG - close db!
+2024-01-05 11:17:22,109 - sport_mng - DEBUG - connect db: host='192.168.3.12', port=3306, user='gyl', password='123456', database='nsyy_gyl'
+2024-01-05 11:17:22,184 - sport_mng - DEBUG - close db!
+2024-01-05 11:19:15,293 - sport_mng - DEBUG - connect db: host='192.168.3.12', port=3306, user='gyl', password='123456', database='nsyy_gyl'
+2024-01-05 11:19:15,376 - sport_mng - DEBUG - close db!
+2024-01-05 11:19:29,834 - sport_mng - DEBUG - connect db: host='192.168.3.12', port=3306, user='gyl', password='123456', database='nsyy_gyl'
+2024-01-05 11:19:29,934 - sport_mng - DEBUG - close db!
+2024-01-05 11:19:36,631 - sport_mng - DEBUG - connect db: host='192.168.3.12', port=3306, user='gyl', password='123456', database='nsyy_gyl'
+2024-01-05 11:19:36,724 - sport_mng - DEBUG - close db!
+2024-01-05 11:22:37,969 - sport_mng - DEBUG - connect db: host='192.168.3.12', port=3306, user='gyl', password='123456', database='nsyy_gyl'
+2024-01-05 11:22:38,043 - sport_mng - DEBUG - close db!
+2024-01-05 11:22:46,982 - sport_mng - DEBUG - connect db: host='192.168.3.12', port=3306, user='gyl', password='123456', database='nsyy_gyl'
+2024-01-05 11:22:47,067 - sport_mng - DEBUG - close db!
+2024-01-05 11:22:56,688 - sport_mng - DEBUG - connect db: host='192.168.3.12', port=3306, user='gyl', password='123456', database='nsyy_gyl'
+2024-01-05 11:22:56,750 - sport_mng - DEBUG - close db!
+2024-01-05 11:23:07,970 - sport_mng - DEBUG - connect db: host='192.168.3.12', port=3306, user='gyl', password='123456', database='nsyy_gyl'
+2024-01-05 11:23:08,058 - sport_mng - DEBUG - close db!
+2024-01-05 11:23:17,489 - sport_mng - DEBUG - connect db: host='192.168.3.12', port=3306, user='gyl', password='123456', database='nsyy_gyl'
+2024-01-05 11:23:17,574 - sport_mng - DEBUG - close db!
+2024-01-05 11:23:40,354 - sport_mng - DEBUG - connect db: host='192.168.3.12', port=3306, user='gyl', password='123456', database='nsyy_gyl'
+2024-01-05 11:23:40,453 - sport_mng - DEBUG - close db!
+2024-01-05 11:24:11,882 - sport_mng - DEBUG - connect db: host='192.168.3.12', port=3306, user='gyl', password='123456', database='nsyy_gyl'
+2024-01-05 11:24:11,943 - sport_mng - DEBUG - close db!
+2024-01-05 11:24:32,329 - sport_mng - DEBUG - connect db: host='192.168.3.12', port=3306, user='gyl', password='123456', database='nsyy_gyl'
+2024-01-05 11:24:32,410 - sport_mng - DEBUG - close db!
+2024-01-05 11:24:51,938 - sport_mng - DEBUG - connect db: host='192.168.3.12', port=3306, user='gyl', password='123456', database='nsyy_gyl'
+2024-01-05 11:24:52,014 - sport_mng - DEBUG - close db!
+2024-01-05 11:34:06,435 - sport_mng - DEBUG - connect db: host='192.168.3.12', port=3306, user='gyl', password='123456', database='nsyy_gyl'
+2024-01-05 11:34:06,686 - sport_mng - DEBUG - close db!
+2024-01-05 11:36:07,148 - sport_mng - INFO - 初始化电子健康卡管理服务
+2024-01-05 11:36:08,269 - sport_mng - INFO - 初始化电子健康卡管理服务
+2024-01-05 11:38:34,626 - sport_mng - INFO - 初始化电子健康卡管理服务
+2024-01-05 11:38:35,182 - sport_mng - INFO - 初始化电子健康卡管理服务
+2024-01-05 11:38:43,225 - sport_mng - DEBUG - connect db: host='192.168.3.12', port=3306, user='gyl', password='123456', database='nsyy_gyl'
+2024-01-05 11:38:43,390 - sport_mng - DEBUG - close db!
+2024-01-05 11:38:59,664 - sport_mng - DEBUG - connect db: host='192.168.3.12', port=3306, user='gyl', password='123456', database='nsyy_gyl'
+2024-01-05 11:38:59,781 - sport_mng - DEBUG - close db!
+2024-01-05 11:39:04,762 - sport_mng - DEBUG - connect db: host='192.168.3.12', port=3306, user='gyl', password='123456', database='nsyy_gyl'
+2024-01-05 11:39:04,764 - sport_mng - DEBUG - close db!
+2024-01-05 11:40:12,150 - sport_mng - DEBUG - connect db: host='192.168.3.12', port=3306, user='gyl', password='123456', database='nsyy_gyl'
+2024-01-05 11:40:12,238 - sport_mng - DEBUG - close db!
+2024-01-05 11:40:44,611 - sport_mng - DEBUG - connect db: host='192.168.3.12', port=3306, user='gyl', password='123456', database='nsyy_gyl'
+2024-01-05 11:40:44,687 - sport_mng - DEBUG - close db!
+2024-01-05 11:40:47,069 - sport_mng - DEBUG - connect db: host='192.168.3.12', port=3306, user='gyl', password='123456', database='nsyy_gyl'
+2024-01-05 11:40:47,122 - sport_mng - DEBUG - close db!
+2024-01-05 11:49:42,816 - sport_mng - DEBUG - connect db: host='192.168.3.12', port=3306, user='gyl', password='123456', database='nsyy_gyl'
+2024-01-05 11:49:42,890 - sport_mng - DEBUG - close db!
+2024-01-05 11:49:44,799 - sport_mng - DEBUG - connect db: host='192.168.3.12', port=3306, user='gyl', password='123456', database='nsyy_gyl'
+2024-01-05 11:49:44,859 - sport_mng - DEBUG - close db!
+2024-01-05 11:49:45,694 - sport_mng - DEBUG - connect db: host='192.168.3.12', port=3306, user='gyl', password='123456', database='nsyy_gyl'
+2024-01-05 11:49:45,774 - sport_mng - DEBUG - close db!
+2024-01-05 11:49:46,289 - sport_mng - DEBUG - connect db: host='192.168.3.12', port=3306, user='gyl', password='123456', database='nsyy_gyl'
+2024-01-05 11:49:46,421 - sport_mng - DEBUG - close db!
+2024-01-05 11:49:46,915 - sport_mng - DEBUG - connect db: host='192.168.3.12', port=3306, user='gyl', password='123456', database='nsyy_gyl'
+2024-01-05 11:49:46,983 - sport_mng - DEBUG - close db!
+2024-01-05 11:49:54,571 - sport_mng - DEBUG - connect db: host='192.168.3.12', port=3306, user='gyl', password='123456', database='nsyy_gyl'
+2024-01-05 11:49:54,632 - sport_mng - DEBUG - close db!
+2024-01-05 11:50:33,472 - sport_mng - DEBUG - connect db: host='192.168.3.12', port=3306, user='gyl', password='123456', database='nsyy_gyl'
+2024-01-05 11:50:33,538 - sport_mng - DEBUG - close db!
+2024-01-05 11:50:34,642 - sport_mng - DEBUG - connect db: host='192.168.3.12', port=3306, user='gyl', password='123456', database='nsyy_gyl'
+2024-01-05 11:50:34,704 - sport_mng - DEBUG - close db!
+2024-01-05 11:50:49,494 - sport_mng - DEBUG - connect db: host='192.168.3.12', port=3306, user='gyl', password='123456', database='nsyy_gyl'
+2024-01-05 11:50:49,583 - sport_mng - DEBUG - close db!
+2024-01-05 11:50:50,830 - sport_mng - DEBUG - connect db: host='192.168.3.12', port=3306, user='gyl', password='123456', database='nsyy_gyl'
+2024-01-05 11:50:50,933 - sport_mng - DEBUG - close db!
+2024-01-05 11:50:54,737 - sport_mng - DEBUG - connect db: host='192.168.3.12', port=3306, user='gyl', password='123456', database='nsyy_gyl'
+2024-01-05 11:50:54,903 - sport_mng - DEBUG - close db!
+2024-01-05 11:51:00,257 - sport_mng - DEBUG - connect db: host='192.168.3.12', port=3306, user='gyl', password='123456', database='nsyy_gyl'
+2024-01-05 11:51:00,455 - sport_mng - DEBUG - close db!
+2024-01-05 11:51:05,944 - sport_mng - DEBUG - connect db: host='192.168.3.12', port=3306, user='gyl', password='123456', database='nsyy_gyl'
+2024-01-05 11:51:06,007 - sport_mng - DEBUG - close db!
+2024-01-05 11:51:06,421 - sport_mng - DEBUG - connect db: host='192.168.3.12', port=3306, user='gyl', password='123456', database='nsyy_gyl'
+2024-01-05 11:51:06,487 - sport_mng - DEBUG - close db!
+2024-01-05 14:27:07,312 - sport_mng - DEBUG - connect db: host='192.168.3.12', port=3306, user='gyl', password='123456', database='nsyy_gyl'
+2024-01-05 14:27:07,394 - sport_mng - DEBUG - close db!
+2024-01-05 14:27:08,443 - sport_mng - DEBUG - connect db: host='192.168.3.12', port=3306, user='gyl', password='123456', database='nsyy_gyl'
+2024-01-05 14:27:08,529 - sport_mng - DEBUG - close db!
+2024-01-05 14:27:09,501 - sport_mng - DEBUG - connect db: host='192.168.3.12', port=3306, user='gyl', password='123456', database='nsyy_gyl'
+2024-01-05 14:27:09,627 - sport_mng - DEBUG - close db!
+2024-01-05 14:27:10,266 - sport_mng - DEBUG - connect db: host='192.168.3.12', port=3306, user='gyl', password='123456', database='nsyy_gyl'
+2024-01-05 14:27:10,373 - sport_mng - DEBUG - close db!
+2024-01-05 14:58:27,199 - sport_mng - DEBUG - connect db: host='192.168.3.12', port=3306, user='gyl', password='123456', database='nsyy_gyl'
+2024-01-05 14:58:27,297 - sport_mng - DEBUG - close db!
+2024-01-05 14:58:30,386 - sport_mng - DEBUG - connect db: host='192.168.3.12', port=3306, user='gyl', password='123456', database='nsyy_gyl'
+2024-01-05 14:58:30,465 - sport_mng - DEBUG - close db!
+2024-01-05 14:58:32,113 - sport_mng - DEBUG - connect db: host='192.168.3.12', port=3306, user='gyl', password='123456', database='nsyy_gyl'
+2024-01-05 14:58:32,194 - sport_mng - DEBUG - close db!
+2024-01-05 15:01:56,454 - sport_mng - DEBUG - connect db: host='192.168.3.12', port=3306, user='gyl', password='123456', database='nsyy_gyl'
+2024-01-05 15:01:56,792 - sport_mng - DEBUG - close db!
+2024-01-05 15:02:57,206 - sport_mng - DEBUG - connect db: host='192.168.3.12', port=3306, user='gyl', password='123456', database='nsyy_gyl'
+2024-01-05 15:02:57,317 - sport_mng - DEBUG - close db!
+2024-01-05 15:03:46,029 - sport_mng - DEBUG - connect db: host='192.168.3.12', port=3306, user='gyl', password='123456', database='nsyy_gyl'
+2024-01-05 15:03:46,101 - sport_mng - DEBUG - close db!
+2024-01-05 15:06:46,936 - sport_mng - DEBUG - connect db: host='192.168.3.12', port=3306, user='gyl', password='123456', database='nsyy_gyl'
+2024-01-05 15:06:46,998 - sport_mng - DEBUG - close db!
+2024-01-05 15:07:50,322 - sport_mng - DEBUG - connect db: host='192.168.3.12', port=3306, user='gyl', password='123456', database='nsyy_gyl'
+2024-01-05 15:07:50,416 - sport_mng - DEBUG - close db!
+2024-01-05 15:09:33,347 - sport_mng - DEBUG - connect db: host='192.168.3.12', port=3306, user='gyl', password='123456', database='nsyy_gyl'
+2024-01-05 15:09:33,493 - sport_mng - DEBUG - close db!
+2024-01-05 15:11:09,781 - sport_mng - DEBUG - connect db: host='192.168.3.12', port=3306, user='gyl', password='123456', database='nsyy_gyl'
+2024-01-05 15:11:09,819 - sport_mng - DEBUG - close db!
+2024-01-05 15:11:16,954 - sport_mng - DEBUG - connect db: host='192.168.3.12', port=3306, user='gyl', password='123456', database='nsyy_gyl'
+2024-01-05 15:11:17,016 - sport_mng - DEBUG - close db!
+2024-01-05 15:14:56,603 - sport_mng - INFO - 初始化电子健康卡管理服务
+2024-01-05 15:15:53,897 - sport_mng - INFO - 初始化电子健康卡管理服务
+2024-01-05 15:17:15,308 - sport_mng - INFO - 初始化电子健康卡管理服务
+2024-01-05 15:17:29,911 - sport_mng - DEBUG - connect db: host='192.168.3.12', port=3306, user='gyl', password='123456', database='nsyy_gyl'
+2024-01-05 15:17:29,956 - sport_mng - DEBUG - close db!
+2024-01-05 15:17:48,685 - sport_mng - INFO - 初始化电子健康卡管理服务
+2024-01-05 15:17:49,254 - sport_mng - INFO - 初始化电子健康卡管理服务
+2024-01-05 15:18:39,113 - sport_mng - DEBUG - connect db: host='192.168.3.12', port=3306, user='gyl', password='123456', database='nsyy_gyl'
+2024-01-05 15:18:39,213 - sport_mng - DEBUG - close db!
+2024-01-05 15:18:52,610 - sport_mng - DEBUG - connect db: host='192.168.3.12', port=3306, user='gyl', password='123456', database='nsyy_gyl'
+2024-01-05 15:18:52,678 - sport_mng - DEBUG - close db!
+2024-01-05 15:26:18,590 - sport_mng - DEBUG - connect db: host='192.168.3.12', port=3306, user='gyl', password='123456', database='nsyy_gyl'
+2024-01-05 15:26:18,724 - sport_mng - DEBUG - close db!
+2024-01-05 15:27:15,426 - sport_mng - DEBUG - connect db: host='192.168.3.12', port=3306, user='gyl', password='123456', database='nsyy_gyl'
+2024-01-05 15:27:15,493 - sport_mng - DEBUG - close db!
+2024-01-05 15:31:49,484 - sport_mng - DEBUG - connect db: host='192.168.3.12', port=3306, user='gyl', password='123456', database='nsyy_gyl'
+2024-01-05 15:31:49,800 - sport_mng - DEBUG - close db!
+2024-01-05 15:32:33,795 - sport_mng - DEBUG - connect db: host='192.168.3.12', port=3306, user='gyl', password='123456', database='nsyy_gyl'
+2024-01-05 15:32:33,891 - sport_mng - DEBUG - close db!
+2024-01-05 15:32:45,970 - sport_mng - DEBUG - connect db: host='192.168.3.12', port=3306, user='gyl', password='123456', database='nsyy_gyl'
+2024-01-05 15:32:46,072 - sport_mng - DEBUG - close db!
+2024-01-05 15:33:28,664 - sport_mng - DEBUG - connect db: host='192.168.3.12', port=3306, user='gyl', password='123456', database='nsyy_gyl'
+2024-01-05 15:33:28,852 - sport_mng - DEBUG - close db!
+2024-01-05 15:33:54,825 - sport_mng - DEBUG - connect db: host='192.168.3.12', port=3306, user='gyl', password='123456', database='nsyy_gyl'
+2024-01-05 15:33:54,919 - sport_mng - DEBUG - close db!
+2024-01-05 15:34:22,424 - sport_mng - DEBUG - connect db: host='192.168.3.12', port=3306, user='gyl', password='123456', database='nsyy_gyl'
+2024-01-05 15:34:22,518 - sport_mng - DEBUG - close db!
+2024-01-05 15:34:40,187 - sport_mng - DEBUG - connect db: host='192.168.3.12', port=3306, user='gyl', password='123456', database='nsyy_gyl'
+2024-01-05 15:34:40,272 - sport_mng - DEBUG - close db!
+2024-01-05 15:34:42,741 - sport_mng - DEBUG - connect db: host='192.168.3.12', port=3306, user='gyl', password='123456', database='nsyy_gyl'
+2024-01-05 15:34:42,832 - sport_mng - DEBUG - close db!
+2024-01-05 15:34:44,825 - sport_mng - DEBUG - connect db: host='192.168.3.12', port=3306, user='gyl', password='123456', database='nsyy_gyl'
+2024-01-05 15:34:45,000 - sport_mng - DEBUG - close db!
+2024-01-05 15:34:46,719 - sport_mng - DEBUG - connect db: host='192.168.3.12', port=3306, user='gyl', password='123456', database='nsyy_gyl'
+2024-01-05 15:34:46,819 - sport_mng - DEBUG - close db!
+2024-01-05 15:35:08,967 - sport_mng - DEBUG - connect db: host='192.168.3.12', port=3306, user='gyl', password='123456', database='nsyy_gyl'
+2024-01-05 15:35:09,036 - sport_mng - DEBUG - close db!
+2024-01-05 15:36:14,659 - sport_mng - DEBUG - connect db: host='192.168.3.12', port=3306, user='gyl', password='123456', database='nsyy_gyl'
+2024-01-05 15:36:14,765 - sport_mng - DEBUG - close db!
+2024-01-05 15:36:19,308 - sport_mng - DEBUG - connect db: host='192.168.3.12', port=3306, user='gyl', password='123456', database='nsyy_gyl'
+2024-01-05 15:36:19,415 - sport_mng - DEBUG - close db!
+2024-01-05 15:36:23,328 - sport_mng - DEBUG - connect db: host='192.168.3.12', port=3306, user='gyl', password='123456', database='nsyy_gyl'
+2024-01-05 15:36:23,595 - sport_mng - DEBUG - close db!
+2024-01-05 15:36:25,096 - sport_mng - DEBUG - connect db: host='192.168.3.12', port=3306, user='gyl', password='123456', database='nsyy_gyl'
+2024-01-05 15:36:25,154 - sport_mng - DEBUG - close db!
+2024-01-05 15:36:26,061 - sport_mng - DEBUG - connect db: host='192.168.3.12', port=3306, user='gyl', password='123456', database='nsyy_gyl'
+2024-01-05 15:36:26,193 - sport_mng - DEBUG - close db!
+2024-01-05 15:36:27,053 - sport_mng - DEBUG - connect db: host='192.168.3.12', port=3306, user='gyl', password='123456', database='nsyy_gyl'
+2024-01-05 15:36:27,128 - sport_mng - DEBUG - close db!
+2024-01-05 15:36:30,918 - sport_mng - DEBUG - connect db: host='192.168.3.12', port=3306, user='gyl', password='123456', database='nsyy_gyl'
+2024-01-05 15:36:31,029 - sport_mng - DEBUG - close db!
+2024-01-05 15:36:31,776 - sport_mng - DEBUG - connect db: host='192.168.3.12', port=3306, user='gyl', password='123456', database='nsyy_gyl'
+2024-01-05 15:36:31,836 - sport_mng - DEBUG - close db!
+2024-01-05 15:37:06,015 - sport_mng - DEBUG - connect db: host='192.168.3.12', port=3306, user='gyl', password='123456', database='nsyy_gyl'
+2024-01-05 15:37:06,200 - sport_mng - DEBUG - close db!
+2024-01-05 15:37:09,115 - sport_mng - DEBUG - connect db: host='192.168.3.12', port=3306, user='gyl', password='123456', database='nsyy_gyl'
+2024-01-05 15:37:09,234 - sport_mng - DEBUG - close db!
+2024-01-05 15:37:34,210 - sport_mng - DEBUG - connect db: host='192.168.3.12', port=3306, user='gyl', password='123456', database='nsyy_gyl'
+2024-01-05 15:37:34,292 - sport_mng - DEBUG - close db!
+2024-01-05 15:37:35,107 - sport_mng - DEBUG - connect db: host='192.168.3.12', port=3306, user='gyl', password='123456', database='nsyy_gyl'
+2024-01-05 15:37:35,169 - sport_mng - DEBUG - close db!
+2024-01-05 15:37:58,742 - sport_mng - DEBUG - connect db: host='192.168.3.12', port=3306, user='gyl', password='123456', database='nsyy_gyl'
+2024-01-05 15:37:58,871 - sport_mng - DEBUG - close db!
+2024-01-05 15:38:02,147 - sport_mng - DEBUG - connect db: host='192.168.3.12', port=3306, user='gyl', password='123456', database='nsyy_gyl'
+2024-01-05 15:38:02,231 - sport_mng - DEBUG - close db!
+2024-01-05 15:38:28,786 - sport_mng - DEBUG - connect db: host='192.168.3.12', port=3306, user='gyl', password='123456', database='nsyy_gyl'
+2024-01-05 15:38:28,913 - sport_mng - DEBUG - close db!
+2024-01-05 15:38:29,852 - sport_mng - DEBUG - connect db: host='192.168.3.12', port=3306, user='gyl', password='123456', database='nsyy_gyl'
+2024-01-05 15:38:29,950 - sport_mng - DEBUG - close db!
+2024-01-05 15:38:50,300 - sport_mng - DEBUG - connect db: host='192.168.3.12', port=3306, user='gyl', password='123456', database='nsyy_gyl'
+2024-01-05 15:38:50,384 - sport_mng - DEBUG - close db!
+2024-01-05 15:38:51,596 - sport_mng - DEBUG - connect db: host='192.168.3.12', port=3306, user='gyl', password='123456', database='nsyy_gyl'
+2024-01-05 15:38:51,662 - sport_mng - DEBUG - close db!
+2024-01-05 15:46:54,157 - sport_mng - DEBUG - connect db: host='192.168.3.12', port=3306, user='gyl', password='123456', database='nsyy_gyl'
+2024-01-05 15:46:54,258 - sport_mng - DEBUG - close db!
+2024-01-05 15:46:55,110 - sport_mng - DEBUG - connect db: host='192.168.3.12', port=3306, user='gyl', password='123456', database='nsyy_gyl'
+2024-01-05 15:46:55,225 - sport_mng - DEBUG - close db!
+2024-01-05 15:47:46,752 - sport_mng - DEBUG - connect db: host='192.168.3.12', port=3306, user='gyl', password='123456', database='nsyy_gyl'
+2024-01-05 15:47:46,848 - sport_mng - DEBUG - close db!
+2024-01-05 15:47:47,959 - sport_mng - DEBUG - connect db: host='192.168.3.12', port=3306, user='gyl', password='123456', database='nsyy_gyl'
+2024-01-05 15:47:48,043 - sport_mng - DEBUG - close db!
+2024-01-05 15:47:54,932 - sport_mng - DEBUG - connect db: host='192.168.3.12', port=3306, user='gyl', password='123456', database='nsyy_gyl'
+2024-01-05 15:47:55,088 - sport_mng - DEBUG - close db!
+2024-01-05 15:47:55,748 - sport_mng - DEBUG - connect db: host='192.168.3.12', port=3306, user='gyl', password='123456', database='nsyy_gyl'
+2024-01-05 15:47:55,890 - sport_mng - DEBUG - close db!
+2024-01-05 15:47:57,307 - sport_mng - DEBUG - connect db: host='192.168.3.12', port=3306, user='gyl', password='123456', database='nsyy_gyl'
+2024-01-05 15:47:57,396 - sport_mng - DEBUG - close db!
+2024-01-05 16:06:33,324 - sport_mng - DEBUG - connect db: host='192.168.3.12', port=3306, user='gyl', password='123456', database='nsyy_gyl'
+2024-01-05 16:06:33,449 - sport_mng - DEBUG - close db!
+2024-01-05 16:06:38,605 - sport_mng - DEBUG - connect db: host='192.168.3.12', port=3306, user='gyl', password='123456', database='nsyy_gyl'
+2024-01-05 16:06:38,710 - sport_mng - DEBUG - close db!
+2024-01-05 16:06:39,661 - sport_mng - DEBUG - connect db: host='192.168.3.12', port=3306, user='gyl', password='123456', database='nsyy_gyl'
+2024-01-05 16:06:39,735 - sport_mng - DEBUG - close db!
+2024-01-05 16:06:40,621 - sport_mng - DEBUG - connect db: host='192.168.3.12', port=3306, user='gyl', password='123456', database='nsyy_gyl'
+2024-01-05 16:06:40,731 - sport_mng - DEBUG - close db!
+2024-01-05 16:10:06,016 - sport_mng - DEBUG - connect db: host='192.168.3.12', port=3306, user='gyl', password='123456', database='nsyy_gyl'
+2024-01-05 16:10:06,124 - sport_mng - DEBUG - close db!
+2024-01-05 16:10:08,647 - sport_mng - DEBUG - connect db: host='192.168.3.12', port=3306, user='gyl', password='123456', database='nsyy_gyl'
+2024-01-05 16:10:08,725 - sport_mng - DEBUG - close db!
+2024-01-05 16:10:10,008 - sport_mng - DEBUG - connect db: host='192.168.3.12', port=3306, user='gyl', password='123456', database='nsyy_gyl'
+2024-01-05 16:10:10,045 - sport_mng - DEBUG - close db!
+2024-01-05 16:10:10,171 - sport_mng - DEBUG - connect db: host='192.168.3.12', port=3306, user='gyl', password='123456', database='nsyy_gyl'
+2024-01-05 16:10:10,209 - sport_mng - DEBUG - close db!
+2024-01-05 16:10:12,679 - sport_mng - DEBUG - connect db: host='192.168.3.12', port=3306, user='gyl', password='123456', database='nsyy_gyl'
+2024-01-05 16:10:12,750 - sport_mng - DEBUG - close db!
+2024-01-05 16:10:17,872 - sport_mng - DEBUG - connect db: host='192.168.3.12', port=3306, user='gyl', password='123456', database='nsyy_gyl'
+2024-01-05 16:10:17,946 - sport_mng - DEBUG - close db!
+2024-01-05 16:10:23,282 - sport_mng - DEBUG - connect db: host='192.168.3.12', port=3306, user='gyl', password='123456', database='nsyy_gyl'
+2024-01-05 16:10:23,436 - sport_mng - DEBUG - close db!
+2024-01-05 16:10:26,367 - sport_mng - DEBUG - connect db: host='192.168.3.12', port=3306, user='gyl', password='123456', database='nsyy_gyl'
+2024-01-05 16:10:26,449 - sport_mng - DEBUG - close db!
+2024-01-05 16:10:27,723 - sport_mng - DEBUG - connect db: host='192.168.3.12', port=3306, user='gyl', password='123456', database='nsyy_gyl'
+2024-01-05 16:10:27,774 - sport_mng - DEBUG - close db!
+2024-01-05 16:10:29,376 - sport_mng - DEBUG - connect db: host='192.168.3.12', port=3306, user='gyl', password='123456', database='nsyy_gyl'
+2024-01-05 16:10:29,422 - sport_mng - DEBUG - close db!
+2024-01-05 16:10:29,655 - sport_mng - DEBUG - connect db: host='192.168.3.12', port=3306, user='gyl', password='123456', database='nsyy_gyl'
+2024-01-05 16:10:29,725 - sport_mng - DEBUG - close db!
+2024-01-05 16:12:20,539 - sport_mng - DEBUG - connect db: host='192.168.3.12', port=3306, user='gyl', password='123456', database='nsyy_gyl'
+2024-01-05 16:12:20,583 - sport_mng - DEBUG - close db!
+2024-01-05 16:12:20,697 - sport_mng - DEBUG - connect db: host='192.168.3.12', port=3306, user='gyl', password='123456', database='nsyy_gyl'
+2024-01-05 16:12:20,745 - sport_mng - DEBUG - close db!
+2024-01-05 16:15:33,199 - sport_mng - DEBUG - connect db: host='192.168.3.12', port=3306, user='gyl', password='123456', database='nsyy_gyl'
+2024-01-05 16:15:33,262 - sport_mng - DEBUG - close db!
+2024-01-05 16:15:33,442 - sport_mng - DEBUG - connect db: host='192.168.3.12', port=3306, user='gyl', password='123456', database='nsyy_gyl'
+2024-01-05 16:15:33,501 - sport_mng - DEBUG - close db!
+2024-01-05 16:16:54,893 - sport_mng - DEBUG - connect db: host='192.168.3.12', port=3306, user='gyl', password='123456', database='nsyy_gyl'
+2024-01-05 16:16:54,963 - sport_mng - DEBUG - close db!
+2024-01-05 16:16:55,180 - sport_mng - DEBUG - connect db: host='192.168.3.12', port=3306, user='gyl', password='123456', database='nsyy_gyl'
+2024-01-05 16:16:55,206 - sport_mng - DEBUG - close db!
+2024-01-05 16:17:13,358 - sport_mng - DEBUG - connect db: host='192.168.3.12', port=3306, user='gyl', password='123456', database='nsyy_gyl'
+2024-01-05 16:17:13,388 - sport_mng - DEBUG - close db!
+2024-01-05 16:17:13,546 - sport_mng - DEBUG - connect db: host='192.168.3.12', port=3306, user='gyl', password='123456', database='nsyy_gyl'
+2024-01-05 16:17:13,588 - sport_mng - DEBUG - close db!
+2024-01-05 16:23:41,119 - sport_mng - DEBUG - connect db: host='192.168.3.12', port=3306, user='gyl', password='123456', database='nsyy_gyl'
+2024-01-05 16:23:41,170 - sport_mng - DEBUG - close db!
+2024-01-05 16:23:41,472 - sport_mng - DEBUG - connect db: host='192.168.3.12', port=3306, user='gyl', password='123456', database='nsyy_gyl'
+2024-01-05 16:23:41,511 - sport_mng - DEBUG - close db!
+2024-01-05 16:32:12,292 - sport_mng - DEBUG - connect db: host='192.168.3.12', port=3306, user='gyl', password='123456', database='nsyy_gyl'
+2024-01-05 16:32:12,333 - sport_mng - DEBUG - close db!
+2024-01-05 16:32:12,502 - sport_mng - DEBUG - connect db: host='192.168.3.12', port=3306, user='gyl', password='123456', database='nsyy_gyl'
+2024-01-05 16:32:12,559 - sport_mng - DEBUG - close db!
+2024-01-05 16:35:03,000 - sport_mng - DEBUG - connect db: host='192.168.3.12', port=3306, user='gyl', password='123456', database='nsyy_gyl'
+2024-01-05 16:35:03,045 - sport_mng - DEBUG - close db!
+2024-01-05 16:35:03,228 - sport_mng - DEBUG - connect db: host='192.168.3.12', port=3306, user='gyl', password='123456', database='nsyy_gyl'
+2024-01-05 16:35:03,288 - sport_mng - DEBUG - close db!
+2024-01-05 16:35:03,692 - sport_mng - DEBUG - connect db: host='192.168.3.12', port=3306, user='gyl', password='123456', database='nsyy_gyl'
+2024-01-05 16:35:03,747 - sport_mng - DEBUG - close db!
+2024-01-05 16:35:03,969 - sport_mng - DEBUG - connect db: host='192.168.3.12', port=3306, user='gyl', password='123456', database='nsyy_gyl'
+2024-01-05 16:35:03,995 - sport_mng - DEBUG - close db!
+2024-01-05 16:35:20,578 - sport_mng - DEBUG - connect db: host='192.168.3.12', port=3306, user='gyl', password='123456', database='nsyy_gyl'
+2024-01-05 16:35:20,610 - sport_mng - DEBUG - close db!
+2024-01-05 16:35:20,764 - sport_mng - DEBUG - connect db: host='192.168.3.12', port=3306, user='gyl', password='123456', database='nsyy_gyl'
+2024-01-05 16:35:20,811 - sport_mng - DEBUG - close db!
+2024-01-05 16:35:21,349 - sport_mng - DEBUG - connect db: host='192.168.3.12', port=3306, user='gyl', password='123456', database='nsyy_gyl'
+2024-01-05 16:35:21,375 - sport_mng - DEBUG - close db!
+2024-01-05 16:35:21,602 - sport_mng - DEBUG - connect db: host='192.168.3.12', port=3306, user='gyl', password='123456', database='nsyy_gyl'
+2024-01-05 16:35:21,663 - sport_mng - DEBUG - close db!
+2024-01-05 16:39:17,397 - sport_mng - DEBUG - connect db: host='192.168.3.12', port=3306, user='gyl', password='123456', database='nsyy_gyl'
+2024-01-05 16:39:17,430 - sport_mng - DEBUG - close db!
+2024-01-05 16:39:17,643 - sport_mng - DEBUG - connect db: host='192.168.3.12', port=3306, user='gyl', password='123456', database='nsyy_gyl'
+2024-01-05 16:39:17,711 - sport_mng - DEBUG - close db!
+2024-01-05 16:39:18,126 - sport_mng - DEBUG - connect db: host='192.168.3.12', port=3306, user='gyl', password='123456', database='nsyy_gyl'
+2024-01-05 16:39:18,142 - sport_mng - DEBUG - close db!
+2024-01-05 16:39:18,377 - sport_mng - DEBUG - connect db: host='192.168.3.12', port=3306, user='gyl', password='123456', database='nsyy_gyl'
+2024-01-05 16:39:18,437 - sport_mng - DEBUG - close db!
+2024-01-05 16:59:29,267 - sport_mng - DEBUG - connect db: host='192.168.3.12', port=3306, user='gyl', password='123456', database='nsyy_gyl'
+2024-01-05 16:59:29,300 - sport_mng - DEBUG - close db!
+2024-01-05 16:59:29,432 - sport_mng - DEBUG - connect db: host='192.168.3.12', port=3306, user='gyl', password='123456', database='nsyy_gyl'
+2024-01-05 16:59:29,472 - sport_mng - DEBUG - close db!
+2024-01-05 17:06:53,073 - sport_mng - DEBUG - connect db: host='192.168.3.12', port=3306, user='gyl', password='123456', database='nsyy_gyl'
+2024-01-05 17:06:53,108 - sport_mng - DEBUG - close db!
+2024-01-05 17:06:53,260 - sport_mng - DEBUG - connect db: host='192.168.3.12', port=3306, user='gyl', password='123456', database='nsyy_gyl'
+2024-01-05 17:06:53,292 - sport_mng - DEBUG - close db!
+2024-01-05 17:08:39,050 - sport_mng - DEBUG - connect db: host='192.168.3.12', port=3306, user='gyl', password='123456', database='nsyy_gyl'
+2024-01-05 17:08:39,079 - sport_mng - DEBUG - close db!
+2024-01-05 17:08:39,250 - sport_mng - DEBUG - connect db: host='192.168.3.12', port=3306, user='gyl', password='123456', database='nsyy_gyl'
+2024-01-05 17:08:39,283 - sport_mng - DEBUG - close db!
+2024-01-05 17:08:48,116 - sport_mng - DEBUG - connect db: host='192.168.3.12', port=3306, user='gyl', password='123456', database='nsyy_gyl'
+2024-01-05 17:08:48,177 - sport_mng - DEBUG - close db!
+2024-01-05 17:09:51,755 - sport_mng - DEBUG - connect db: host='192.168.3.12', port=3306, user='gyl', password='123456', database='nsyy_gyl'
+2024-01-05 17:09:51,785 - sport_mng - DEBUG - close db!
+2024-01-05 17:09:51,916 - sport_mng - DEBUG - connect db: host='192.168.3.12', port=3306, user='gyl', password='123456', database='nsyy_gyl'
+2024-01-05 17:09:51,969 - sport_mng - DEBUG - close db!
+2024-01-05 17:09:54,759 - sport_mng - DEBUG - connect db: host='192.168.3.12', port=3306, user='gyl', password='123456', database='nsyy_gyl'
+2024-01-05 17:09:54,847 - sport_mng - DEBUG - close db!
+2024-01-05 17:09:57,638 - sport_mng - DEBUG - connect db: host='192.168.3.12', port=3306, user='gyl', password='123456', database='nsyy_gyl'
+2024-01-05 17:09:57,883 - sport_mng - DEBUG - close db!
+2024-01-05 17:09:59,638 - sport_mng - DEBUG - connect db: host='192.168.3.12', port=3306, user='gyl', password='123456', database='nsyy_gyl'
+2024-01-05 17:09:59,661 - sport_mng - DEBUG - close db!
+2024-01-05 17:09:59,944 - sport_mng - DEBUG - connect db: host='192.168.3.12', port=3306, user='gyl', password='123456', database='nsyy_gyl'
+2024-01-05 17:09:59,998 - sport_mng - DEBUG - close db!
+2024-01-05 17:10:02,244 - sport_mng - DEBUG - connect db: host='192.168.3.12', port=3306, user='gyl', password='123456', database='nsyy_gyl'
+2024-01-05 17:10:02,374 - sport_mng - DEBUG - close db!
+2024-01-05 17:10:30,458 - sport_mng - DEBUG - connect db: host='192.168.3.12', port=3306, user='gyl', password='123456', database='nsyy_gyl'
+2024-01-05 17:10:30,493 - sport_mng - DEBUG - close db!
+2024-01-05 17:10:30,720 - sport_mng - DEBUG - connect db: host='192.168.3.12', port=3306, user='gyl', password='123456', database='nsyy_gyl'
+2024-01-05 17:10:30,798 - sport_mng - DEBUG - close db!
+2024-01-05 17:19:45,508 - sport_mng - DEBUG - connect db: host='192.168.3.12', port=3306, user='gyl', password='123456', database='nsyy_gyl'
+2024-01-05 17:19:45,557 - sport_mng - DEBUG - close db!
+2024-01-05 17:19:45,750 - sport_mng - DEBUG - connect db: host='192.168.3.12', port=3306, user='gyl', password='123456', database='nsyy_gyl'
+2024-01-05 17:19:45,770 - sport_mng - DEBUG - close db!
+2024-01-05 17:21:53,238 - sport_mng - DEBUG - connect db: host='192.168.3.12', port=3306, user='gyl', password='123456', database='nsyy_gyl'
+2024-01-05 17:21:53,285 - sport_mng - DEBUG - close db!
+2024-01-05 17:21:53,413 - sport_mng - DEBUG - connect db: host='192.168.3.12', port=3306, user='gyl', password='123456', database='nsyy_gyl'
+2024-01-05 17:21:53,454 - sport_mng - DEBUG - close db!
+2024-01-05 17:22:00,740 - sport_mng - DEBUG - connect db: host='192.168.3.12', port=3306, user='gyl', password='123456', database='nsyy_gyl'
+2024-01-05 17:22:00,783 - sport_mng - DEBUG - close db!
+2024-01-05 17:22:01,029 - sport_mng - DEBUG - connect db: host='192.168.3.12', port=3306, user='gyl', password='123456', database='nsyy_gyl'
+2024-01-05 17:22:01,098 - sport_mng - DEBUG - close db!
+2024-01-05 17:22:32,231 - sport_mng - DEBUG - connect db: host='192.168.3.12', port=3306, user='gyl', password='123456', database='nsyy_gyl'
+2024-01-05 17:22:32,256 - sport_mng - DEBUG - close db!
+2024-01-05 17:22:32,482 - sport_mng - DEBUG - connect db: host='192.168.3.12', port=3306, user='gyl', password='123456', database='nsyy_gyl'
+2024-01-05 17:22:32,556 - sport_mng - DEBUG - close db!
+2024-01-05 17:26:22,686 - sport_mng - DEBUG - connect db: host='192.168.3.12', port=3306, user='gyl', password='123456', database='nsyy_gyl'
+2024-01-05 17:26:22,724 - sport_mng - DEBUG - close db!
+2024-01-05 17:26:22,967 - sport_mng - DEBUG - connect db: host='192.168.3.12', port=3306, user='gyl', password='123456', database='nsyy_gyl'
+2024-01-05 17:26:23,012 - sport_mng - DEBUG - close db!
+2024-01-05 17:26:28,267 - sport_mng - DEBUG - connect db: host='192.168.3.12', port=3306, user='gyl', password='123456', database='nsyy_gyl'
+2024-01-05 17:26:28,322 - sport_mng - DEBUG - close db!
+2024-01-05 17:26:28,587 - sport_mng - DEBUG - connect db: host='192.168.3.12', port=3306, user='gyl', password='123456', database='nsyy_gyl'
+2024-01-05 17:26:28,631 - sport_mng - DEBUG - close db!
+2024-01-05 17:27:00,410 - sport_mng - DEBUG - connect db: host='192.168.3.12', port=3306, user='gyl', password='123456', database='nsyy_gyl'
+2024-01-05 17:27:00,441 - sport_mng - DEBUG - close db!
+2024-01-05 17:27:00,583 - sport_mng - DEBUG - connect db: host='192.168.3.12', port=3306, user='gyl', password='123456', database='nsyy_gyl'
+2024-01-05 17:27:00,616 - sport_mng - DEBUG - close db!
+2024-01-05 17:27:27,582 - sport_mng - DEBUG - connect db: host='192.168.3.12', port=3306, user='gyl', password='123456', database='nsyy_gyl'
+2024-01-05 17:27:27,620 - sport_mng - DEBUG - close db!
+2024-01-05 17:27:27,747 - sport_mng - DEBUG - connect db: host='192.168.3.12', port=3306, user='gyl', password='123456', database='nsyy_gyl'
+2024-01-05 17:27:27,796 - sport_mng - DEBUG - close db!
+2024-01-05 17:27:56,882 - sport_mng - DEBUG - connect db: host='192.168.3.12', port=3306, user='gyl', password='123456', database='nsyy_gyl'
+2024-01-05 17:27:56,945 - sport_mng - DEBUG - close db!
+2024-01-05 17:27:57,578 - sport_mng - DEBUG - connect db: host='192.168.3.12', port=3306, user='gyl', password='123456', database='nsyy_gyl'
+2024-01-05 17:27:57,748 - sport_mng - DEBUG - close db!
+2024-01-05 17:28:25,935 - sport_mng - DEBUG - connect db: host='192.168.3.12', port=3306, user='gyl', password='123456', database='nsyy_gyl'
+2024-01-05 17:28:26,072 - sport_mng - DEBUG - close db!
+2024-01-05 17:29:12,003 - sport_mng - DEBUG - connect db: host='192.168.3.12', port=3306, user='gyl', password='123456', database='nsyy_gyl'
+2024-01-05 17:29:12,030 - sport_mng - DEBUG - close db!
+2024-01-05 17:29:12,173 - sport_mng - DEBUG - connect db: host='192.168.3.12', port=3306, user='gyl', password='123456', database='nsyy_gyl'
+2024-01-05 17:29:12,229 - sport_mng - DEBUG - close db!
+2024-01-05 17:29:21,863 - sport_mng - DEBUG - connect db: host='192.168.3.12', port=3306, user='gyl', password='123456', database='nsyy_gyl'
+2024-01-05 17:29:21,919 - sport_mng - DEBUG - close db!
+2024-01-05 17:30:15,873 - sport_mng - DEBUG - connect db: host='192.168.3.12', port=3306, user='gyl', password='123456', database='nsyy_gyl'
+2024-01-05 17:30:15,983 - sport_mng - DEBUG - close db!
+2024-01-05 17:30:16,182 - sport_mng - DEBUG - connect db: host='192.168.3.12', port=3306, user='gyl', password='123456', database='nsyy_gyl'
+2024-01-05 17:30:16,250 - sport_mng - DEBUG - close db!
+2024-01-05 17:30:24,424 - sport_mng - DEBUG - connect db: host='192.168.3.12', port=3306, user='gyl', password='123456', database='nsyy_gyl'
+2024-01-05 17:30:24,471 - sport_mng - DEBUG - close db!
+2024-01-05 17:30:58,596 - sport_mng - DEBUG - connect db: host='192.168.3.12', port=3306, user='gyl', password='123456', database='nsyy_gyl'
+2024-01-05 17:30:58,624 - sport_mng - DEBUG - close db!
+2024-01-05 17:30:58,752 - sport_mng - DEBUG - connect db: host='192.168.3.12', port=3306, user='gyl', password='123456', database='nsyy_gyl'
+2024-01-05 17:30:58,785 - sport_mng - DEBUG - close db!
+2024-01-05 17:31:21,968 - sport_mng - DEBUG - connect db: host='192.168.3.12', port=3306, user='gyl', password='123456', database='nsyy_gyl'
+2024-01-05 17:31:21,995 - sport_mng - DEBUG - close db!
+2024-01-05 17:31:22,098 - sport_mng - DEBUG - connect db: host='192.168.3.12', port=3306, user='gyl', password='123456', database='nsyy_gyl'
+2024-01-05 17:31:22,125 - sport_mng - DEBUG - close db!
+2024-01-05 17:31:23,996 - sport_mng - DEBUG - connect db: host='192.168.3.12', port=3306, user='gyl', password='123456', database='nsyy_gyl'
+2024-01-05 17:31:24,038 - sport_mng - DEBUG - close db!
+2024-01-05 17:31:24,246 - sport_mng - DEBUG - connect db: host='192.168.3.12', port=3306, user='gyl', password='123456', database='nsyy_gyl'
+2024-01-05 17:31:24,276 - sport_mng - DEBUG - close db!
+2024-01-05 17:31:37,560 - sport_mng - DEBUG - connect db: host='192.168.3.12', port=3306, user='gyl', password='123456', database='nsyy_gyl'
+2024-01-05 17:31:37,643 - sport_mng - DEBUG - close db!
+2024-01-05 17:32:07,448 - sport_mng - DEBUG - connect db: host='192.168.3.12', port=3306, user='gyl', password='123456', database='nsyy_gyl'
+2024-01-05 17:32:07,833 - sport_mng - DEBUG - close db!
+2024-01-05 17:32:29,759 - sport_mng - DEBUG - connect db: host='192.168.3.12', port=3306, user='gyl', password='123456', database='nsyy_gyl'
+2024-01-05 17:32:29,926 - sport_mng - DEBUG - close db!
+2024-01-05 17:33:57,615 - sport_mng - DEBUG - connect db: host='192.168.3.12', port=3306, user='gyl', password='123456', database='nsyy_gyl'
+2024-01-05 17:33:57,843 - sport_mng - DEBUG - close db!
+2024-01-05 17:34:19,061 - sport_mng - DEBUG - connect db: host='192.168.3.12', port=3306, user='gyl', password='123456', database='nsyy_gyl'
+2024-01-05 17:34:19,327 - sport_mng - DEBUG - close db!
+2024-01-05 17:34:25,556 - sport_mng - DEBUG - connect db: host='192.168.3.12', port=3306, user='gyl', password='123456', database='nsyy_gyl'
+2024-01-05 17:34:25,988 - sport_mng - DEBUG - close db!
+2024-01-05 17:34:39,666 - sport_mng - DEBUG - connect db: host='192.168.3.12', port=3306, user='gyl', password='123456', database='nsyy_gyl'
+2024-01-05 17:34:40,043 - sport_mng - DEBUG - close db!
+2024-01-05 17:35:25,440 - sport_mng - DEBUG - connect db: host='192.168.3.12', port=3306, user='gyl', password='123456', database='nsyy_gyl'
+2024-01-05 17:35:25,780 - sport_mng - DEBUG - close db!
+2024-01-05 17:35:28,308 - sport_mng - DEBUG - connect db: host='192.168.3.12', port=3306, user='gyl', password='123456', database='nsyy_gyl'
+2024-01-05 17:35:28,584 - sport_mng - DEBUG - close db!
+2024-01-05 17:35:37,005 - sport_mng - DEBUG - connect db: host='192.168.3.12', port=3306, user='gyl', password='123456', database='nsyy_gyl'
+2024-01-05 17:35:37,258 - sport_mng - DEBUG - close db!
+2024-01-05 17:36:19,558 - sport_mng - DEBUG - connect db: host='192.168.3.12', port=3306, user='gyl', password='123456', database='nsyy_gyl'
+2024-01-05 17:36:19,748 - sport_mng - DEBUG - close db!
+2024-01-05 17:36:34,894 - sport_mng - DEBUG - connect db: host='192.168.3.12', port=3306, user='gyl', password='123456', database='nsyy_gyl'
+2024-01-05 17:36:35,169 - sport_mng - DEBUG - close db!
+2024-01-05 17:37:44,973 - sport_mng - DEBUG - connect db: host='192.168.3.12', port=3306, user='gyl', password='123456', database='nsyy_gyl'
+2024-01-05 17:37:45,249 - sport_mng - DEBUG - close db!
+2024-01-05 17:38:39,729 - sport_mng - DEBUG - connect db: host='192.168.3.12', port=3306, user='gyl', password='123456', database='nsyy_gyl'
+2024-01-05 17:38:40,455 - sport_mng - DEBUG - close db!
+2024-01-05 17:39:43,546 - sport_mng - DEBUG - connect db: host='192.168.3.12', port=3306, user='gyl', password='123456', database='nsyy_gyl'
+2024-01-05 17:39:43,797 - sport_mng - DEBUG - close db!
+2024-01-05 17:40:02,368 - sport_mng - DEBUG - connect db: host='192.168.3.12', port=3306, user='gyl', password='123456', database='nsyy_gyl'
+2024-01-05 17:40:02,625 - sport_mng - DEBUG - close db!
+2024-01-05 17:40:10,903 - sport_mng - DEBUG - connect db: host='192.168.3.12', port=3306, user='gyl', password='123456', database='nsyy_gyl'
+2024-01-05 17:40:11,530 - sport_mng - DEBUG - close db!
+2024-01-05 17:41:14,162 - sport_mng - DEBUG - connect db: host='192.168.3.12', port=3306, user='gyl', password='123456', database='nsyy_gyl'
+2024-01-05 17:41:14,356 - sport_mng - DEBUG - close db!
+2024-01-05 17:42:15,387 - sport_mng - DEBUG - connect db: host='192.168.3.12', port=3306, user='gyl', password='123456', database='nsyy_gyl'
+2024-01-05 17:42:15,713 - sport_mng - DEBUG - close db!
+2024-01-05 17:42:18,788 - sport_mng - DEBUG - connect db: host='192.168.3.12', port=3306, user='gyl', password='123456', database='nsyy_gyl'
+2024-01-05 17:42:19,067 - sport_mng - DEBUG - close db!
+2024-01-05 17:47:00,304 - sport_mng - DEBUG - connect db: host='192.168.3.12', port=3306, user='gyl', password='123456', database='nsyy_gyl'
+2024-01-05 17:47:00,600 - sport_mng - DEBUG - close db!
+2024-01-05 17:47:12,016 - sport_mng - DEBUG - connect db: host='192.168.3.12', port=3306, user='gyl', password='123456', database='nsyy_gyl'
+2024-01-05 17:47:12,394 - sport_mng - DEBUG - close db!
+2024-01-05 17:47:37,961 - sport_mng - DEBUG - connect db: host='192.168.3.12', port=3306, user='gyl', password='123456', database='nsyy_gyl'
+2024-01-05 17:47:38,416 - sport_mng - DEBUG - close db!
+2024-01-05 17:48:25,128 - sport_mng - DEBUG - connect db: host='192.168.3.12', port=3306, user='gyl', password='123456', database='nsyy_gyl'
+2024-01-05 17:48:26,675 - sport_mng - DEBUG - close db!
+2024-01-05 17:48:53,188 - sport_mng - DEBUG - connect db: host='192.168.3.12', port=3306, user='gyl', password='123456', database='nsyy_gyl'
+2024-01-05 17:48:55,045 - sport_mng - DEBUG - close db!
+2024-01-05 17:49:08,028 - sport_mng - DEBUG - connect db: host='192.168.3.12', port=3306, user='gyl', password='123456', database='nsyy_gyl'
+2024-01-05 17:49:08,331 - sport_mng - DEBUG - close db!
+2024-01-05 17:49:15,131 - sport_mng - DEBUG - connect db: host='192.168.3.12', port=3306, user='gyl', password='123456', database='nsyy_gyl'
+2024-01-05 17:49:15,435 - sport_mng - DEBUG - close db!
+2024-01-05 17:49:19,568 - sport_mng - DEBUG - connect db: host='192.168.3.12', port=3306, user='gyl', password='123456', database='nsyy_gyl'
+2024-01-05 17:49:19,625 - sport_mng - DEBUG - close db!
+2024-01-05 17:49:21,998 - sport_mng - DEBUG - connect db: host='192.168.3.12', port=3306, user='gyl', password='123456', database='nsyy_gyl'
+2024-01-05 17:49:22,096 - sport_mng - DEBUG - close db!
+2024-01-05 17:49:23,189 - sport_mng - DEBUG - connect db: host='192.168.3.12', port=3306, user='gyl', password='123456', database='nsyy_gyl'
+2024-01-05 17:49:23,220 - sport_mng - DEBUG - close db!
+2024-01-05 17:49:23,391 - sport_mng - DEBUG - connect db: host='192.168.3.12', port=3306, user='gyl', password='123456', database='nsyy_gyl'
+2024-01-05 17:49:23,450 - sport_mng - DEBUG - close db!
+2024-01-05 17:49:29,149 - sport_mng - DEBUG - connect db: host='192.168.3.12', port=3306, user='gyl', password='123456', database='nsyy_gyl'
+2024-01-05 17:49:29,186 - sport_mng - DEBUG - close db!
+2024-01-05 17:49:29,341 - sport_mng - DEBUG - connect db: host='192.168.3.12', port=3306, user='gyl', password='123456', database='nsyy_gyl'
+2024-01-05 17:49:29,389 - sport_mng - DEBUG - close db!
+2024-01-05 17:49:32,160 - sport_mng - DEBUG - connect db: host='192.168.3.12', port=3306, user='gyl', password='123456', database='nsyy_gyl'
+2024-01-05 17:49:32,240 - sport_mng - DEBUG - close db!
+2024-01-05 17:49:39,112 - sport_mng - DEBUG - connect db: host='192.168.3.12', port=3306, user='gyl', password='123456', database='nsyy_gyl'
+2024-01-05 17:49:39,144 - sport_mng - DEBUG - close db!
+2024-01-05 17:49:39,305 - sport_mng - DEBUG - connect db: host='192.168.3.12', port=3306, user='gyl', password='123456', database='nsyy_gyl'
+2024-01-05 17:49:39,349 - sport_mng - DEBUG - close db!
+2024-01-05 17:49:39,711 - sport_mng - DEBUG - connect db: host='192.168.3.12', port=3306, user='gyl', password='123456', database='nsyy_gyl'
+2024-01-05 17:49:39,789 - sport_mng - DEBUG - close db!
+2024-01-05 17:50:12,797 - sport_mng - DEBUG - connect db: host='192.168.3.12', port=3306, user='gyl', password='123456', database='nsyy_gyl'
+2024-01-05 17:50:12,897 - sport_mng - DEBUG - close db!
+2024-01-05 17:51:01,931 - sport_mng - DEBUG - connect db: host='192.168.3.12', port=3306, user='gyl', password='123456', database='nsyy_gyl'
+2024-01-05 17:51:02,245 - sport_mng - DEBUG - close db!
+2024-01-05 17:52:48,510 - sport_mng - DEBUG - connect db: host='192.168.3.12', port=3306, user='gyl', password='123456', database='nsyy_gyl'
+2024-01-05 17:52:48,541 - sport_mng - DEBUG - close db!
+2024-01-05 17:52:48,681 - sport_mng - DEBUG - connect db: host='192.168.3.12', port=3306, user='gyl', password='123456', database='nsyy_gyl'
+2024-01-05 17:52:48,738 - sport_mng - DEBUG - close db!
+2024-01-05 17:52:49,615 - sport_mng - DEBUG - connect db: host='192.168.3.12', port=3306, user='gyl', password='123456', database='nsyy_gyl'
+2024-01-05 17:52:49,711 - sport_mng - DEBUG - close db!
+2024-01-05 17:52:54,038 - sport_mng - DEBUG - connect db: host='192.168.3.12', port=3306, user='gyl', password='123456', database='nsyy_gyl'
+2024-01-05 17:52:54,099 - sport_mng - DEBUG - close db!
+2024-01-05 17:52:57,045 - sport_mng - DEBUG - connect db: host='192.168.3.12', port=3306, user='gyl', password='123456', database='nsyy_gyl'
+2024-01-05 17:52:57,316 - sport_mng - DEBUG - close db!
+2024-01-05 17:53:01,281 - sport_mng - DEBUG - connect db: host='192.168.3.12', port=3306, user='gyl', password='123456', database='nsyy_gyl'
+2024-01-05 17:53:01,997 - sport_mng - DEBUG - close db!
+2024-01-05 17:53:06,801 - sport_mng - DEBUG - connect db: host='192.168.3.12', port=3306, user='gyl', password='123456', database='nsyy_gyl'
+2024-01-05 17:53:06,881 - sport_mng - DEBUG - close db!
+2024-01-05 17:53:07,339 - sport_mng - DEBUG - connect db: host='192.168.3.12', port=3306, user='gyl', password='123456', database='nsyy_gyl'
+2024-01-05 17:53:07,422 - sport_mng - DEBUG - close db!
+2024-01-05 17:53:13,036 - sport_mng - DEBUG - connect db: host='192.168.3.12', port=3306, user='gyl', password='123456', database='nsyy_gyl'
+2024-01-05 17:53:13,178 - sport_mng - DEBUG - close db!
+2024-01-05 17:53:34,767 - sport_mng - DEBUG - connect db: host='192.168.3.12', port=3306, user='gyl', password='123456', database='nsyy_gyl'
+2024-01-05 17:53:35,021 - sport_mng - DEBUG - close db!
+2024-01-05 17:53:35,761 - sport_mng - DEBUG - connect db: host='192.168.3.12', port=3306, user='gyl', password='123456', database='nsyy_gyl'
+2024-01-05 17:53:36,916 - sport_mng - DEBUG - close db!
+2024-01-05 17:54:40,479 - sport_mng - DEBUG - connect db: host='192.168.3.12', port=3306, user='gyl', password='123456', database='nsyy_gyl'
+2024-01-05 17:54:40,565 - sport_mng - DEBUG - close db!
+2024-01-05 18:02:07,949 - sport_mng - DEBUG - connect db: host='192.168.3.12', port=3306, user='gyl', password='123456', database='nsyy_gyl'
+2024-01-05 18:02:08,284 - sport_mng - DEBUG - close db!
+2024-01-05 18:02:12,946 - sport_mng - DEBUG - connect db: host='192.168.3.12', port=3306, user='gyl', password='123456', database='nsyy_gyl'
+2024-01-05 18:02:12,976 - sport_mng - DEBUG - close db!
+2024-01-05 18:02:13,118 - sport_mng - DEBUG - connect db: host='192.168.3.12', port=3306, user='gyl', password='123456', database='nsyy_gyl'
+2024-01-05 18:02:13,168 - sport_mng - DEBUG - close db!
+2024-01-05 18:02:25,338 - sport_mng - DEBUG - connect db: host='192.168.3.12', port=3306, user='gyl', password='123456', database='nsyy_gyl'
+2024-01-05 18:02:25,976 - sport_mng - DEBUG - close db!
+2024-01-05 18:02:39,022 - sport_mng - DEBUG - connect db: host='192.168.3.12', port=3306, user='gyl', password='123456', database='nsyy_gyl'
+2024-01-05 18:02:39,158 - sport_mng - DEBUG - close db!
+2024-01-05 18:02:39,428 - sport_mng - DEBUG - connect db: host='192.168.3.12', port=3306, user='gyl', password='123456', database='nsyy_gyl'
+2024-01-05 18:02:39,714 - sport_mng - DEBUG - close db!
+2024-01-05 18:02:41,792 - sport_mng - DEBUG - connect db: host='192.168.3.12', port=3306, user='gyl', password='123456', database='nsyy_gyl'
+2024-01-05 18:02:42,018 - sport_mng - DEBUG - close db!
+2024-01-05 18:02:43,830 - sport_mng - DEBUG - connect db: host='192.168.3.12', port=3306, user='gyl', password='123456', database='nsyy_gyl'
+2024-01-05 18:02:44,210 - sport_mng - DEBUG - close db!
+2024-01-05 18:02:47,155 - sport_mng - DEBUG - connect db: host='192.168.3.12', port=3306, user='gyl', password='123456', database='nsyy_gyl'
+2024-01-05 18:02:47,190 - sport_mng - DEBUG - close db!
+2024-01-05 18:02:47,318 - sport_mng - DEBUG - connect db: host='192.168.3.12', port=3306, user='gyl', password='123456', database='nsyy_gyl'
+2024-01-05 18:02:47,363 - sport_mng - DEBUG - close db!
+2024-01-05 18:02:53,743 - sport_mng - DEBUG - connect db: host='192.168.3.12', port=3306, user='gyl', password='123456', database='nsyy_gyl'
+2024-01-05 18:02:53,843 - sport_mng - DEBUG - close db!
+2024-01-05 18:04:07,697 - sport_mng - DEBUG - connect db: host='192.168.3.12', port=3306, user='gyl', password='123456', database='nsyy_gyl'
+2024-01-05 18:04:07,724 - sport_mng - DEBUG - close db!
+2024-01-05 18:04:07,997 - sport_mng - DEBUG - connect db: host='192.168.3.12', port=3306, user='gyl', password='123456', database='nsyy_gyl'
+2024-01-05 18:04:08,034 - sport_mng - DEBUG - close db!
+2024-01-05 18:04:20,314 - sport_mng - DEBUG - connect db: host='192.168.3.12', port=3306, user='gyl', password='123456', database='nsyy_gyl'
+2024-01-05 18:04:20,462 - sport_mng - DEBUG - close db!
+2024-01-05 18:04:21,540 - sport_mng - DEBUG - connect db: host='192.168.3.12', port=3306, user='gyl', password='123456', database='nsyy_gyl'
+2024-01-05 18:04:21,962 - sport_mng - DEBUG - close db!
+2024-01-05 18:04:34,324 - sport_mng - DEBUG - connect db: host='192.168.3.12', port=3306, user='gyl', password='123456', database='nsyy_gyl'
+2024-01-05 18:04:34,362 - sport_mng - DEBUG - close db!
+2024-01-05 18:04:34,500 - sport_mng - DEBUG - connect db: host='192.168.3.12', port=3306, user='gyl', password='123456', database='nsyy_gyl'
+2024-01-05 18:04:34,535 - sport_mng - DEBUG - close db!
+2024-01-05 18:05:18,485 - sport_mng - DEBUG - connect db: host='192.168.3.12', port=3306, user='gyl', password='123456', database='nsyy_gyl'
+2024-01-05 18:05:18,841 - sport_mng - DEBUG - close db!
+2024-01-05 18:05:29,094 - sport_mng - DEBUG - connect db: host='192.168.3.12', port=3306, user='gyl', password='123456', database='nsyy_gyl'
+2024-01-05 18:05:29,235 - sport_mng - DEBUG - close db!
+2024-01-05 18:06:11,570 - sport_mng - DEBUG - connect db: host='192.168.3.12', port=3306, user='gyl', password='123456', database='nsyy_gyl'
+2024-01-05 18:06:11,645 - sport_mng - DEBUG - close db!
+2024-01-05 18:06:19,628 - sport_mng - DEBUG - connect db: host='192.168.3.12', port=3306, user='gyl', password='123456', database='nsyy_gyl'
+2024-01-05 18:06:19,725 - sport_mng - DEBUG - close db!
+2024-01-05 18:06:30,741 - sport_mng - DEBUG - connect db: host='192.168.3.12', port=3306, user='gyl', password='123456', database='nsyy_gyl'
+2024-01-05 18:06:30,869 - sport_mng - DEBUG - close db!
+2024-01-05 18:07:29,244 - sport_mng - DEBUG - connect db: host='192.168.3.12', port=3306, user='gyl', password='123456', database='nsyy_gyl'
+2024-01-05 18:07:29,347 - sport_mng - DEBUG - close db!
+2024-01-05 18:07:30,905 - sport_mng - DEBUG - connect db: host='192.168.3.12', port=3306, user='gyl', password='123456', database='nsyy_gyl'
+2024-01-05 18:07:30,982 - sport_mng - DEBUG - close db!
+2024-01-05 18:07:34,041 - sport_mng - DEBUG - connect db: host='192.168.3.12', port=3306, user='gyl', password='123456', database='nsyy_gyl'
+2024-01-05 18:07:34,149 - sport_mng - DEBUG - close db!
+2024-01-05 18:08:58,774 - sport_mng - DEBUG - connect db: host='192.168.3.12', port=3306, user='gyl', password='123456', database='nsyy_gyl'
+2024-01-05 18:08:58,929 - sport_mng - DEBUG - close db!
+2024-01-05 18:09:14,831 - sport_mng - DEBUG - connect db: host='192.168.3.12', port=3306, user='gyl', password='123456', database='nsyy_gyl'
+2024-01-05 18:09:14,929 - sport_mng - DEBUG - close db!
+2024-01-05 18:09:34,471 - sport_mng - DEBUG - connect db: host='192.168.3.12', port=3306, user='gyl', password='123456', database='nsyy_gyl'
+2024-01-05 18:09:34,553 - sport_mng - DEBUG - close db!
+2024-01-05 18:10:24,708 - sport_mng - DEBUG - connect db: host='192.168.3.12', port=3306, user='gyl', password='123456', database='nsyy_gyl'
+2024-01-05 18:10:24,801 - sport_mng - DEBUG - close db!
+2024-01-05 18:11:40,835 - sport_mng - DEBUG - connect db: host='192.168.3.12', port=3306, user='gyl', password='123456', database='nsyy_gyl'
+2024-01-05 18:11:41,013 - sport_mng - DEBUG - close db!
+2024-01-05 18:11:52,145 - sport_mng - DEBUG - connect db: host='192.168.3.12', port=3306, user='gyl', password='123456', database='nsyy_gyl'
+2024-01-05 18:11:52,258 - sport_mng - DEBUG - close db!
+2024-01-05 18:13:08,668 - sport_mng - DEBUG - connect db: host='192.168.3.12', port=3306, user='gyl', password='123456', database='nsyy_gyl'
+2024-01-05 18:13:08,762 - sport_mng - DEBUG - close db!
+2024-01-05 18:13:11,178 - sport_mng - DEBUG - connect db: host='192.168.3.12', port=3306, user='gyl', password='123456', database='nsyy_gyl'
+2024-01-05 18:13:11,222 - sport_mng - DEBUG - close db!
+2024-01-05 18:13:11,404 - sport_mng - DEBUG - connect db: host='192.168.3.12', port=3306, user='gyl', password='123456', database='nsyy_gyl'
+2024-01-05 18:13:11,472 - sport_mng - DEBUG - close db!
+2024-01-05 18:13:13,349 - sport_mng - DEBUG - connect db: host='192.168.3.12', port=3306, user='gyl', password='123456', database='nsyy_gyl'
+2024-01-05 18:13:13,514 - sport_mng - DEBUG - close db!
+2024-01-05 18:13:14,456 - sport_mng - DEBUG - connect db: host='192.168.3.12', port=3306, user='gyl', password='123456', database='nsyy_gyl'
+2024-01-05 18:13:14,800 - sport_mng - DEBUG - close db!
+2024-01-05 18:13:17,060 - sport_mng - DEBUG - connect db: host='192.168.3.12', port=3306, user='gyl', password='123456', database='nsyy_gyl'
+2024-01-05 18:13:17,457 - sport_mng - DEBUG - close db!
+2024-01-05 18:14:32,616 - sport_mng - DEBUG - connect db: host='192.168.3.12', port=3306, user='gyl', password='123456', database='nsyy_gyl'
+2024-01-05 18:14:32,716 - sport_mng - DEBUG - close db!
+2024-01-05 18:14:34,933 - sport_mng - DEBUG - connect db: host='192.168.3.12', port=3306, user='gyl', password='123456', database='nsyy_gyl'
+2024-01-05 18:14:34,968 - sport_mng - DEBUG - close db!
+2024-01-05 18:14:35,092 - sport_mng - DEBUG - connect db: host='192.168.3.12', port=3306, user='gyl', password='123456', database='nsyy_gyl'
+2024-01-05 18:14:35,132 - sport_mng - DEBUG - close db!
+2024-01-05 18:14:43,788 - sport_mng - DEBUG - connect db: host='192.168.3.12', port=3306, user='gyl', password='123456', database='nsyy_gyl'
+2024-01-05 18:14:43,906 - sport_mng - DEBUG - close db!
+2024-01-05 18:14:45,093 - sport_mng - DEBUG - connect db: host='192.168.3.12', port=3306, user='gyl', password='123456', database='nsyy_gyl'
+2024-01-05 18:14:45,383 - sport_mng - DEBUG - close db!
+2024-01-05 18:24:25,289 - sport_mng - DEBUG - connect db: host='192.168.3.12', port=3306, user='gyl', password='123456', database='nsyy_gyl'
+2024-01-05 18:24:25,375 - sport_mng - DEBUG - close db!
+2024-01-05 18:24:27,505 - sport_mng - DEBUG - connect db: host='192.168.3.12', port=3306, user='gyl', password='123456', database='nsyy_gyl'
+2024-01-05 18:24:27,834 - sport_mng - DEBUG - close db!
+2024-01-05 18:24:29,217 - sport_mng - DEBUG - connect db: host='192.168.3.12', port=3306, user='gyl', password='123456', database='nsyy_gyl'
+2024-01-05 18:24:29,298 - sport_mng - DEBUG - close db!
+2024-01-05 18:24:31,329 - sport_mng - DEBUG - connect db: host='192.168.3.12', port=3306, user='gyl', password='123456', database='nsyy_gyl'
+2024-01-05 18:24:31,354 - sport_mng - DEBUG - close db!
+2024-01-05 18:24:31,488 - sport_mng - DEBUG - connect db: host='192.168.3.12', port=3306, user='gyl', password='123456', database='nsyy_gyl'
+2024-01-05 18:24:31,523 - sport_mng - DEBUG - close db!
+2024-01-05 18:26:21,604 - sport_mng - DEBUG - connect db: host='192.168.3.12', port=3306, user='gyl', password='123456', database='nsyy_gyl'
+2024-01-05 18:26:21,635 - sport_mng - DEBUG - close db!
+2024-01-05 18:26:21,758 - sport_mng - DEBUG - connect db: host='192.168.3.12', port=3306, user='gyl', password='123456', database='nsyy_gyl'
+2024-01-05 18:26:21,807 - sport_mng - DEBUG - close db!
+2024-01-05 18:26:29,804 - sport_mng - DEBUG - connect db: host='192.168.3.12', port=3306, user='gyl', password='123456', database='nsyy_gyl'
+2024-01-05 18:26:29,832 - sport_mng - DEBUG - close db!
+2024-01-05 18:26:29,968 - sport_mng - DEBUG - connect db: host='192.168.3.12', port=3306, user='gyl', password='123456', database='nsyy_gyl'
+2024-01-05 18:26:30,016 - sport_mng - DEBUG - close db!
+2024-01-05 18:26:31,922 - sport_mng - DEBUG - connect db: host='192.168.3.12', port=3306, user='gyl', password='123456', database='nsyy_gyl'
+2024-01-05 18:26:32,041 - sport_mng - DEBUG - close db!
+2024-01-05 18:26:34,354 - sport_mng - DEBUG - connect db: host='192.168.3.12', port=3306, user='gyl', password='123456', database='nsyy_gyl'
+2024-01-05 18:26:34,473 - sport_mng - DEBUG - close db!
+2024-01-05 18:26:35,833 - sport_mng - DEBUG - connect db: host='192.168.3.12', port=3306, user='gyl', password='123456', database='nsyy_gyl'
+2024-01-05 18:26:35,996 - sport_mng - DEBUG - close db!
+2024-01-05 18:26:38,279 - sport_mng - DEBUG - connect db: host='192.168.3.12', port=3306, user='gyl', password='123456', database='nsyy_gyl'
+2024-01-05 18:26:38,329 - sport_mng - DEBUG - close db!
+2024-01-05 18:26:38,507 - sport_mng - DEBUG - connect db: host='192.168.3.12', port=3306, user='gyl', password='123456', database='nsyy_gyl'
+2024-01-05 18:26:38,526 - sport_mng - DEBUG - close db!
+2024-01-05 18:26:41,276 - sport_mng - DEBUG - connect db: host='192.168.3.12', port=3306, user='gyl', password='123456', database='nsyy_gyl'
+2024-01-05 18:26:41,347 - sport_mng - DEBUG - close db!
+2024-01-05 18:26:43,286 - sport_mng - DEBUG - connect db: host='192.168.3.12', port=3306, user='gyl', password='123456', database='nsyy_gyl'
+2024-01-05 18:26:43,386 - sport_mng - DEBUG - close db!
+2024-01-05 18:26:49,425 - sport_mng - DEBUG - connect db: host='192.168.3.12', port=3306, user='gyl', password='123456', database='nsyy_gyl'
+2024-01-05 18:26:49,458 - sport_mng - DEBUG - close db!
+2024-01-05 18:26:49,845 - sport_mng - DEBUG - connect db: host='192.168.3.12', port=3306, user='gyl', password='123456', database='nsyy_gyl'
+2024-01-05 18:26:49,958 - sport_mng - DEBUG - close db!
+2024-01-06 08:50:57,525 - sport_mng - INFO - 初始化电子健康卡管理服务
+2024-01-06 08:51:03,621 - sport_mng - INFO - 初始化电子健康卡管理服务
+2024-01-06 08:59:49,687 - sport_mng - DEBUG - connect db: host='192.168.3.12', port=3306, user='gyl', password='123456', database='nsyy_gyl'
+2024-01-06 08:59:49,754 - sport_mng - DEBUG - close db!
+2024-01-06 08:59:51,870 - sport_mng - DEBUG - connect db: host='192.168.3.12', port=3306, user='gyl', password='123456', database='nsyy_gyl'
+2024-01-06 08:59:51,963 - sport_mng - DEBUG - close db!
+2024-01-06 08:59:53,914 - sport_mng - DEBUG - connect db: host='192.168.3.12', port=3306, user='gyl', password='123456', database='nsyy_gyl'
+2024-01-06 08:59:53,981 - sport_mng - DEBUG - close db!
+2024-01-06 09:00:20,294 - sport_mng - DEBUG - connect db: host='192.168.3.12', port=3306, user='gyl', password='123456', database='nsyy_gyl'
+2024-01-06 09:00:20,361 - sport_mng - DEBUG - close db!
+2024-01-06 09:00:27,110 - sport_mng - DEBUG - connect db: host='192.168.3.12', port=3306, user='gyl', password='123456', database='nsyy_gyl'
+2024-01-06 09:00:27,210 - sport_mng - DEBUG - close db!
+2024-01-06 09:00:38,979 - sport_mng - DEBUG - connect db: host='192.168.3.12', port=3306, user='gyl', password='123456', database='nsyy_gyl'
+2024-01-06 09:00:39,065 - sport_mng - DEBUG - close db!
+2024-01-06 09:01:09,102 - sport_mng - DEBUG - connect db: host='192.168.3.12', port=3306, user='gyl', password='123456', database='nsyy_gyl'
+2024-01-06 09:01:09,221 - sport_mng - DEBUG - close db!
+2024-01-06 09:01:17,172 - sport_mng - DEBUG - connect db: host='192.168.3.12', port=3306, user='gyl', password='123456', database='nsyy_gyl'
+2024-01-06 09:01:17,393 - sport_mng - DEBUG - close db!
+2024-01-06 09:01:43,195 - sport_mng - DEBUG - connect db: host='192.168.3.12', port=3306, user='gyl', password='123456', database='nsyy_gyl'
+2024-01-06 09:01:43,514 - sport_mng - DEBUG - close db!
+2024-01-06 09:01:54,555 - sport_mng - DEBUG - connect db: host='192.168.3.12', port=3306, user='gyl', password='123456', database='nsyy_gyl'
+2024-01-06 09:01:54,829 - sport_mng - DEBUG - close db!
+2024-01-06 09:01:56,216 - sport_mng - DEBUG - connect db: host='192.168.3.12', port=3306, user='gyl', password='123456', database='nsyy_gyl'
+2024-01-06 09:01:56,519 - sport_mng - DEBUG - close db!
+2024-01-06 09:02:04,391 - sport_mng - DEBUG - connect db: host='192.168.3.12', port=3306, user='gyl', password='123456', database='nsyy_gyl'
+2024-01-06 09:02:04,656 - sport_mng - DEBUG - close db!
+2024-01-06 09:02:08,386 - sport_mng - DEBUG - connect db: host='192.168.3.12', port=3306, user='gyl', password='123456', database='nsyy_gyl'
+2024-01-06 09:02:08,528 - sport_mng - DEBUG - close db!
+2024-01-06 09:02:10,023 - sport_mng - DEBUG - connect db: host='192.168.3.12', port=3306, user='gyl', password='123456', database='nsyy_gyl'
+2024-01-06 09:02:10,291 - sport_mng - DEBUG - close db!
+2024-01-06 09:05:27,881 - sport_mng - DEBUG - connect db: host='192.168.3.12', port=3306, user='gyl', password='123456', database='nsyy_gyl'
+2024-01-06 09:05:28,283 - sport_mng - DEBUG - close db!
+2024-01-06 09:05:31,094 - sport_mng - DEBUG - connect db: host='192.168.3.12', port=3306, user='gyl', password='123456', database='nsyy_gyl'
+2024-01-06 09:05:31,281 - sport_mng - DEBUG - close db!
+2024-01-06 09:05:31,974 - sport_mng - DEBUG - connect db: host='192.168.3.12', port=3306, user='gyl', password='123456', database='nsyy_gyl'
+2024-01-06 09:05:32,360 - sport_mng - DEBUG - close db!
+2024-01-06 09:05:37,464 - sport_mng - DEBUG - connect db: host='192.168.3.12', port=3306, user='gyl', password='123456', database='nsyy_gyl'
+2024-01-06 09:05:37,580 - sport_mng - DEBUG - close db!
+2024-01-06 09:05:40,052 - sport_mng - DEBUG - connect db: host='192.168.3.12', port=3306, user='gyl', password='123456', database='nsyy_gyl'
+2024-01-06 09:05:40,107 - sport_mng - DEBUG - close db!
+2024-01-06 09:05:40,245 - sport_mng - DEBUG - connect db: host='192.168.3.12', port=3306, user='gyl', password='123456', database='nsyy_gyl'
+2024-01-06 09:05:40,292 - sport_mng - DEBUG - close db!
+2024-01-06 09:08:35,848 - sport_mng - DEBUG - connect db: host='192.168.3.12', port=3306, user='gyl', password='123456', database='nsyy_gyl'
+2024-01-06 09:08:35,906 - sport_mng - DEBUG - close db!
+2024-01-06 09:08:36,145 - sport_mng - DEBUG - connect db: host='192.168.3.12', port=3306, user='gyl', password='123456', database='nsyy_gyl'
+2024-01-06 09:08:36,191 - sport_mng - DEBUG - close db!
+2024-01-06 09:09:04,791 - sport_mng - DEBUG - connect db: host='192.168.3.12', port=3306, user='gyl', password='123456', database='nsyy_gyl'
+2024-01-06 09:09:05,066 - sport_mng - DEBUG - close db!
+2024-01-06 09:09:06,499 - sport_mng - DEBUG - connect db: host='192.168.3.12', port=3306, user='gyl', password='123456', database='nsyy_gyl'
+2024-01-06 09:09:06,997 - sport_mng - DEBUG - close db!
+2024-01-06 09:27:18,581 - sport_mng - DEBUG - connect db: host='192.168.3.12', port=3306, user='gyl', password='123456', database='nsyy_gyl'
+2024-01-06 09:27:18,609 - sport_mng - DEBUG - close db!
+2024-01-06 09:27:18,735 - sport_mng - DEBUG - connect db: host='192.168.3.12', port=3306, user='gyl', password='123456', database='nsyy_gyl'
+2024-01-06 09:27:18,778 - sport_mng - DEBUG - close db!
+2024-01-06 09:37:23,064 - sport_mng - DEBUG - connect db: host='192.168.3.12', port=3306, user='gyl', password='123456', database='nsyy_gyl'
+2024-01-06 09:37:23,176 - sport_mng - DEBUG - close db!
+2024-01-06 09:37:24,654 - sport_mng - DEBUG - connect db: host='192.168.3.12', port=3306, user='gyl', password='123456', database='nsyy_gyl'
+2024-01-06 09:37:24,951 - sport_mng - DEBUG - close db!
+2024-01-06 09:39:13,305 - sport_mng - DEBUG - connect db: host='192.168.3.12', port=3306, user='gyl', password='123456', database='nsyy_gyl'
+2024-01-06 09:39:13,399 - sport_mng - DEBUG - close db!
+2024-01-06 09:39:13,991 - sport_mng - DEBUG - connect db: host='192.168.3.12', port=3306, user='gyl', password='123456', database='nsyy_gyl'
+2024-01-06 09:39:14,174 - sport_mng - DEBUG - close db!
+2024-01-06 09:39:37,408 - sport_mng - DEBUG - connect db: host='192.168.3.12', port=3306, user='gyl', password='123456', database='nsyy_gyl'
+2024-01-06 09:39:37,502 - sport_mng - DEBUG - close db!
+2024-01-06 09:39:38,730 - sport_mng - DEBUG - connect db: host='192.168.3.12', port=3306, user='gyl', password='123456', database='nsyy_gyl'
+2024-01-06 09:39:38,864 - sport_mng - DEBUG - close db!
+2024-01-06 09:39:56,965 - sport_mng - DEBUG - connect db: host='192.168.3.12', port=3306, user='gyl', password='123456', database='nsyy_gyl'
+2024-01-06 09:39:57,032 - sport_mng - DEBUG - close db!
+2024-01-06 09:39:57,954 - sport_mng - DEBUG - connect db: host='192.168.3.12', port=3306, user='gyl', password='123456', database='nsyy_gyl'
+2024-01-06 09:39:57,994 - sport_mng - DEBUG - close db!
+2024-01-06 09:40:00,054 - sport_mng - DEBUG - connect db: host='192.168.3.12', port=3306, user='gyl', password='123456', database='nsyy_gyl'
+2024-01-06 09:40:00,081 - sport_mng - DEBUG - close db!
+2024-01-06 09:40:00,205 - sport_mng - DEBUG - connect db: host='192.168.3.12', port=3306, user='gyl', password='123456', database='nsyy_gyl'
+2024-01-06 09:40:00,241 - sport_mng - DEBUG - close db!
+2024-01-06 09:40:34,531 - sport_mng - DEBUG - connect db: host='192.168.3.12', port=3306, user='gyl', password='123456', database='nsyy_gyl'
+2024-01-06 09:40:34,563 - sport_mng - DEBUG - close db!
+2024-01-06 09:40:34,724 - sport_mng - DEBUG - connect db: host='192.168.3.12', port=3306, user='gyl', password='123456', database='nsyy_gyl'
+2024-01-06 09:40:34,764 - sport_mng - DEBUG - close db!
+2024-01-06 09:40:39,337 - sport_mng - DEBUG - connect db: host='192.168.3.12', port=3306, user='gyl', password='123456', database='nsyy_gyl'
+2024-01-06 09:40:39,357 - sport_mng - DEBUG - close db!
+2024-01-06 09:40:39,477 - sport_mng - DEBUG - connect db: host='192.168.3.12', port=3306, user='gyl', password='123456', database='nsyy_gyl'
+2024-01-06 09:40:39,510 - sport_mng - DEBUG - close db!
+2024-01-06 09:40:51,635 - sport_mng - DEBUG - connect db: host='192.168.3.12', port=3306, user='gyl', password='123456', database='nsyy_gyl'
+2024-01-06 09:40:51,663 - sport_mng - DEBUG - close db!
+2024-01-06 09:40:51,780 - sport_mng - DEBUG - connect db: host='192.168.3.12', port=3306, user='gyl', password='123456', database='nsyy_gyl'
+2024-01-06 09:40:51,803 - sport_mng - DEBUG - close db!
+2024-01-06 09:41:00,696 - sport_mng - DEBUG - connect db: host='192.168.3.12', port=3306, user='gyl', password='123456', database='nsyy_gyl'
+2024-01-06 09:41:00,952 - sport_mng - DEBUG - close db!
+2024-01-06 09:41:02,686 - sport_mng - DEBUG - connect db: host='192.168.3.12', port=3306, user='gyl', password='123456', database='nsyy_gyl'
+2024-01-06 09:41:02,794 - sport_mng - DEBUG - close db!
+2024-01-06 09:41:33,598 - sport_mng - DEBUG - connect db: host='192.168.3.12', port=3306, user='gyl', password='123456', database='nsyy_gyl'
+2024-01-06 09:41:33,625 - sport_mng - DEBUG - close db!
+2024-01-06 09:41:33,755 - sport_mng - DEBUG - connect db: host='192.168.3.12', port=3306, user='gyl', password='123456', database='nsyy_gyl'
+2024-01-06 09:41:33,803 - sport_mng - DEBUG - close db!
+2024-01-06 09:41:35,193 - sport_mng - DEBUG - connect db: host='192.168.3.12', port=3306, user='gyl', password='123456', database='nsyy_gyl'
+2024-01-06 09:41:35,499 - sport_mng - DEBUG - close db!
+2024-01-06 09:41:36,366 - sport_mng - DEBUG - connect db: host='192.168.3.12', port=3306, user='gyl', password='123456', database='nsyy_gyl'
+2024-01-06 09:41:36,534 - sport_mng - DEBUG - close db!
+2024-01-06 09:44:51,573 - sport_mng - DEBUG - connect db: host='192.168.3.12', port=3306, user='gyl', password='123456', database='nsyy_gyl'
+2024-01-06 09:44:51,608 - sport_mng - DEBUG - close db!
+2024-01-06 09:44:51,758 - sport_mng - DEBUG - connect db: host='192.168.3.12', port=3306, user='gyl', password='123456', database='nsyy_gyl'
+2024-01-06 09:44:51,811 - sport_mng - DEBUG - close db!
+2024-01-06 09:44:53,446 - sport_mng - DEBUG - connect db: host='192.168.3.12', port=3306, user='gyl', password='123456', database='nsyy_gyl'
+2024-01-06 09:44:53,792 - sport_mng - DEBUG - close db!
+2024-01-06 09:44:54,089 - sport_mng - DEBUG - connect db: host='192.168.3.12', port=3306, user='gyl', password='123456', database='nsyy_gyl'
+2024-01-06 09:44:54,196 - sport_mng - DEBUG - close db!
+2024-01-06 09:45:14,129 - sport_mng - DEBUG - connect db: host='192.168.3.12', port=3306, user='gyl', password='123456', database='nsyy_gyl'
+2024-01-06 09:45:14,156 - sport_mng - DEBUG - close db!
+2024-01-06 09:45:14,322 - sport_mng - DEBUG - connect db: host='192.168.3.12', port=3306, user='gyl', password='123456', database='nsyy_gyl'
+2024-01-06 09:45:14,367 - sport_mng - DEBUG - close db!
+2024-01-06 09:47:10,900 - sport_mng - DEBUG - connect db: host='192.168.3.12', port=3306, user='gyl', password='123456', database='nsyy_gyl'
+2024-01-06 09:47:10,949 - sport_mng - DEBUG - close db!
+2024-01-06 09:47:11,079 - sport_mng - DEBUG - connect db: host='192.168.3.12', port=3306, user='gyl', password='123456', database='nsyy_gyl'
+2024-01-06 09:47:11,116 - sport_mng - DEBUG - close db!
+2024-01-06 09:47:12,665 - sport_mng - DEBUG - connect db: host='192.168.3.12', port=3306, user='gyl', password='123456', database='nsyy_gyl'
+2024-01-06 09:47:12,942 - sport_mng - DEBUG - close db!
+2024-01-06 09:47:13,233 - sport_mng - DEBUG - connect db: host='192.168.3.12', port=3306, user='gyl', password='123456', database='nsyy_gyl'
+2024-01-06 09:47:13,344 - sport_mng - DEBUG - close db!
+2024-01-06 09:47:42,492 - sport_mng - DEBUG - connect db: host='192.168.3.12', port=3306, user='gyl', password='123456', database='nsyy_gyl'
+2024-01-06 09:47:42,515 - sport_mng - DEBUG - close db!
+2024-01-06 09:47:42,705 - sport_mng - DEBUG - connect db: host='192.168.3.12', port=3306, user='gyl', password='123456', database='nsyy_gyl'
+2024-01-06 09:47:42,754 - sport_mng - DEBUG - close db!
+2024-01-06 09:47:46,488 - sport_mng - DEBUG - connect db: host='192.168.3.12', port=3306, user='gyl', password='123456', database='nsyy_gyl'
+2024-01-06 09:47:46,755 - sport_mng - DEBUG - close db!
+2024-01-06 09:47:47,051 - sport_mng - DEBUG - connect db: host='192.168.3.12', port=3306, user='gyl', password='123456', database='nsyy_gyl'
+2024-01-06 09:47:47,160 - sport_mng - DEBUG - close db!
+2024-01-06 09:47:50,265 - sport_mng - DEBUG - connect db: host='192.168.3.12', port=3306, user='gyl', password='123456', database='nsyy_gyl'
+2024-01-06 09:47:50,348 - sport_mng - DEBUG - close db!
+2024-01-06 09:47:54,363 - sport_mng - DEBUG - connect db: host='192.168.3.12', port=3306, user='gyl', password='123456', database='nsyy_gyl'
+2024-01-06 09:47:54,430 - sport_mng - DEBUG - close db!
+2024-01-06 09:47:55,634 - sport_mng - DEBUG - connect db: host='192.168.3.12', port=3306, user='gyl', password='123456', database='nsyy_gyl'
+2024-01-06 09:47:55,669 - sport_mng - DEBUG - close db!
+2024-01-06 09:47:55,781 - sport_mng - DEBUG - connect db: host='192.168.3.12', port=3306, user='gyl', password='123456', database='nsyy_gyl'
+2024-01-06 09:47:55,825 - sport_mng - DEBUG - close db!
+2024-01-06 09:47:56,985 - sport_mng - DEBUG - connect db: host='192.168.3.12', port=3306, user='gyl', password='123456', database='nsyy_gyl'
+2024-01-06 09:47:57,311 - sport_mng - DEBUG - close db!
+2024-01-06 09:47:58,517 - sport_mng - DEBUG - connect db: host='192.168.3.12', port=3306, user='gyl', password='123456', database='nsyy_gyl'
+2024-01-06 09:47:58,612 - sport_mng - DEBUG - close db!
+2024-01-06 09:55:20,108 - sport_mng - DEBUG - connect db: host='192.168.3.12', port=3306, user='gyl', password='123456', database='nsyy_gyl'
+2024-01-06 09:55:20,156 - sport_mng - DEBUG - close db!
+2024-01-06 09:55:20,310 - sport_mng - DEBUG - connect db: host='192.168.3.12', port=3306, user='gyl', password='123456', database='nsyy_gyl'
+2024-01-06 09:55:20,333 - sport_mng - DEBUG - close db!
+2024-01-06 09:56:26,568 - sport_mng - DEBUG - connect db: host='192.168.3.12', port=3306, user='gyl', password='123456', database='nsyy_gyl'
+2024-01-06 09:56:26,590 - sport_mng - DEBUG - close db!
+2024-01-06 09:56:26,702 - sport_mng - DEBUG - connect db: host='192.168.3.12', port=3306, user='gyl', password='123456', database='nsyy_gyl'
+2024-01-06 09:56:26,731 - sport_mng - DEBUG - close db!
+2024-01-06 09:56:37,209 - sport_mng - DEBUG - connect db: host='192.168.3.12', port=3306, user='gyl', password='123456', database='nsyy_gyl'
+2024-01-06 09:56:37,238 - sport_mng - DEBUG - close db!
+2024-01-06 09:56:37,381 - sport_mng - DEBUG - connect db: host='192.168.3.12', port=3306, user='gyl', password='123456', database='nsyy_gyl'
+2024-01-06 09:56:37,426 - sport_mng - DEBUG - close db!
+2024-01-06 09:56:48,663 - sport_mng - DEBUG - connect db: host='192.168.3.12', port=3306, user='gyl', password='123456', database='nsyy_gyl'
+2024-01-06 09:56:48,693 - sport_mng - DEBUG - close db!
+2024-01-06 09:56:48,812 - sport_mng - DEBUG - connect db: host='192.168.3.12', port=3306, user='gyl', password='123456', database='nsyy_gyl'
+2024-01-06 09:56:48,846 - sport_mng - DEBUG - close db!
+2024-01-06 09:56:52,097 - sport_mng - DEBUG - connect db: host='192.168.3.12', port=3306, user='gyl', password='123456', database='nsyy_gyl'
+2024-01-06 09:56:52,149 - sport_mng - DEBUG - close db!
+2024-01-06 09:56:52,321 - sport_mng - DEBUG - connect db: host='192.168.3.12', port=3306, user='gyl', password='123456', database='nsyy_gyl'
+2024-01-06 09:56:52,360 - sport_mng - DEBUG - close db!
+2024-01-06 09:59:52,683 - sport_mng - DEBUG - connect db: host='192.168.3.12', port=3306, user='gyl', password='123456', database='nsyy_gyl'
+2024-01-06 09:59:52,935 - sport_mng - DEBUG - close db!
+2024-01-06 09:59:56,678 - sport_mng - DEBUG - connect db: host='192.168.3.12', port=3306, user='gyl', password='123456', database='nsyy_gyl'
+2024-01-06 09:59:56,761 - sport_mng - DEBUG - close db!
+2024-01-06 10:00:00,894 - sport_mng - DEBUG - connect db: host='192.168.3.12', port=3306, user='gyl', password='123456', database='nsyy_gyl'
+2024-01-06 10:00:00,923 - sport_mng - DEBUG - close db!
+2024-01-06 10:00:01,065 - sport_mng - DEBUG - connect db: host='192.168.3.12', port=3306, user='gyl', password='123456', database='nsyy_gyl'
+2024-01-06 10:00:01,107 - sport_mng - DEBUG - close db!
+2024-01-06 10:00:06,079 - sport_mng - DEBUG - connect db: host='192.168.3.12', port=3306, user='gyl', password='123456', database='nsyy_gyl'
+2024-01-06 10:00:06,186 - sport_mng - DEBUG - close db!
+2024-01-06 10:04:24,350 - sport_mng - DEBUG - connect db: host='192.168.3.12', port=3306, user='gyl', password='123456', database='nsyy_gyl'
+2024-01-06 10:04:24,395 - sport_mng - DEBUG - close db!
+2024-01-06 10:04:24,538 - sport_mng - DEBUG - connect db: host='192.168.3.12', port=3306, user='gyl', password='123456', database='nsyy_gyl'
+2024-01-06 10:04:24,570 - sport_mng - DEBUG - close db!
+2024-01-06 10:04:29,392 - sport_mng - DEBUG - connect db: host='192.168.3.12', port=3306, user='gyl', password='123456', database='nsyy_gyl'
+2024-01-06 10:04:29,529 - sport_mng - DEBUG - close db!
+2024-01-06 10:04:31,440 - sport_mng - DEBUG - connect db: host='192.168.3.12', port=3306, user='gyl', password='123456', database='nsyy_gyl'
+2024-01-06 10:04:31,488 - sport_mng - DEBUG - close db!
+2024-01-06 10:04:31,670 - sport_mng - DEBUG - connect db: host='192.168.3.12', port=3306, user='gyl', password='123456', database='nsyy_gyl'
+2024-01-06 10:04:31,686 - sport_mng - DEBUG - close db!
+2024-01-06 10:04:33,049 - sport_mng - DEBUG - connect db: host='192.168.3.12', port=3306, user='gyl', password='123456', database='nsyy_gyl'
+2024-01-06 10:04:33,101 - sport_mng - DEBUG - close db!
+2024-01-06 10:04:34,035 - sport_mng - DEBUG - connect db: host='192.168.3.12', port=3306, user='gyl', password='123456', database='nsyy_gyl'
+2024-01-06 10:04:34,061 - sport_mng - DEBUG - close db!
+2024-01-06 10:04:34,249 - sport_mng - DEBUG - connect db: host='192.168.3.12', port=3306, user='gyl', password='123456', database='nsyy_gyl'
+2024-01-06 10:04:34,297 - sport_mng - DEBUG - close db!
+2024-01-06 10:05:02,755 - sport_mng - DEBUG - connect db: host='192.168.3.12', port=3306, user='gyl', password='123456', database='nsyy_gyl'
+2024-01-06 10:05:02,781 - sport_mng - DEBUG - close db!
+2024-01-06 10:05:02,907 - sport_mng - DEBUG - connect db: host='192.168.3.12', port=3306, user='gyl', password='123456', database='nsyy_gyl'
+2024-01-06 10:05:02,934 - sport_mng - DEBUG - close db!
+2024-01-06 10:05:06,440 - sport_mng - DEBUG - connect db: host='192.168.3.12', port=3306, user='gyl', password='123456', database='nsyy_gyl'
+2024-01-06 10:05:06,468 - sport_mng - DEBUG - close db!
+2024-01-06 10:05:06,654 - sport_mng - DEBUG - connect db: host='192.168.3.12', port=3306, user='gyl', password='123456', database='nsyy_gyl'
+2024-01-06 10:05:06,696 - sport_mng - DEBUG - close db!
+2024-01-06 10:05:57,882 - sport_mng - DEBUG - connect db: host='192.168.3.12', port=3306, user='gyl', password='123456', database='nsyy_gyl'
+2024-01-06 10:05:57,910 - sport_mng - DEBUG - close db!
+2024-01-06 10:05:58,037 - sport_mng - DEBUG - connect db: host='192.168.3.12', port=3306, user='gyl', password='123456', database='nsyy_gyl'
+2024-01-06 10:05:58,077 - sport_mng - DEBUG - close db!
+2024-01-06 10:06:01,449 - sport_mng - DEBUG - connect db: host='192.168.3.12', port=3306, user='gyl', password='123456', database='nsyy_gyl'
+2024-01-06 10:06:01,479 - sport_mng - DEBUG - close db!
+2024-01-06 10:06:01,618 - sport_mng - DEBUG - connect db: host='192.168.3.12', port=3306, user='gyl', password='123456', database='nsyy_gyl'
+2024-01-06 10:06:01,666 - sport_mng - DEBUG - close db!
+2024-01-06 10:17:35,782 - sport_mng - DEBUG - connect db: host='192.168.3.12', port=3306, user='gyl', password='123456', database='nsyy_gyl'
+2024-01-06 10:17:35,834 - sport_mng - DEBUG - close db!
+2024-01-06 10:17:36,001 - sport_mng - DEBUG - connect db: host='192.168.3.12', port=3306, user='gyl', password='123456', database='nsyy_gyl'
+2024-01-06 10:17:36,022 - sport_mng - DEBUG - close db!
+2024-01-06 10:18:32,058 - sport_mng - DEBUG - connect db: host='192.168.3.12', port=3306, user='gyl', password='123456', database='nsyy_gyl'
+2024-01-06 10:18:32,092 - sport_mng - DEBUG - close db!
+2024-01-06 10:18:32,206 - sport_mng - DEBUG - connect db: host='192.168.3.12', port=3306, user='gyl', password='123456', database='nsyy_gyl'
+2024-01-06 10:18:32,246 - sport_mng - DEBUG - close db!
+2024-01-06 10:18:36,163 - sport_mng - DEBUG - connect db: host='192.168.3.12', port=3306, user='gyl', password='123456', database='nsyy_gyl'
+2024-01-06 10:18:36,191 - sport_mng - DEBUG - close db!
+2024-01-06 10:18:36,319 - sport_mng - DEBUG - connect db: host='192.168.3.12', port=3306, user='gyl', password='123456', database='nsyy_gyl'
+2024-01-06 10:18:36,375 - sport_mng - DEBUG - close db!
+2024-01-06 10:18:49,462 - sport_mng - DEBUG - connect db: host='192.168.3.12', port=3306, user='gyl', password='123456', database='nsyy_gyl'
+2024-01-06 10:18:49,488 - sport_mng - DEBUG - close db!
+2024-01-06 10:18:49,590 - sport_mng - DEBUG - connect db: host='192.168.3.12', port=3306, user='gyl', password='123456', database='nsyy_gyl'
+2024-01-06 10:18:49,635 - sport_mng - DEBUG - close db!
+2024-01-06 10:19:22,022 - sport_mng - DEBUG - connect db: host='192.168.3.12', port=3306, user='gyl', password='123456', database='nsyy_gyl'
+2024-01-06 10:19:22,049 - sport_mng - DEBUG - close db!
+2024-01-06 10:19:22,175 - sport_mng - DEBUG - connect db: host='192.168.3.12', port=3306, user='gyl', password='123456', database='nsyy_gyl'
+2024-01-06 10:19:22,217 - sport_mng - DEBUG - close db!
+2024-01-06 10:19:48,438 - sport_mng - DEBUG - connect db: host='192.168.3.12', port=3306, user='gyl', password='123456', database='nsyy_gyl'
+2024-01-06 10:19:48,510 - sport_mng - DEBUG - close db!
+2024-01-06 10:19:51,070 - sport_mng - DEBUG - connect db: host='192.168.3.12', port=3306, user='gyl', password='123456', database='nsyy_gyl'
+2024-01-06 10:19:51,103 - sport_mng - DEBUG - close db!
+2024-01-06 10:19:51,235 - sport_mng - DEBUG - connect db: host='192.168.3.12', port=3306, user='gyl', password='123456', database='nsyy_gyl'
+2024-01-06 10:19:51,281 - sport_mng - DEBUG - close db!
+2024-01-06 10:20:03,804 - sport_mng - DEBUG - connect db: host='192.168.3.12', port=3306, user='gyl', password='123456', database='nsyy_gyl'
+2024-01-06 10:20:03,894 - sport_mng - DEBUG - close db!
+2024-01-06 10:20:06,463 - sport_mng - DEBUG - connect db: host='192.168.3.12', port=3306, user='gyl', password='123456', database='nsyy_gyl'
+2024-01-06 10:20:06,550 - sport_mng - DEBUG - close db!
+2024-01-06 10:20:07,709 - sport_mng - DEBUG - connect db: host='192.168.3.12', port=3306, user='gyl', password='123456', database='nsyy_gyl'
+2024-01-06 10:20:07,738 - sport_mng - DEBUG - close db!
+2024-01-06 10:20:07,864 - sport_mng - DEBUG - connect db: host='192.168.3.12', port=3306, user='gyl', password='123456', database='nsyy_gyl'
+2024-01-06 10:20:07,901 - sport_mng - DEBUG - close db!
+2024-01-06 10:20:33,599 - sport_mng - DEBUG - connect db: host='192.168.3.12', port=3306, user='gyl', password='123456', database='nsyy_gyl'
+2024-01-06 10:20:33,628 - sport_mng - DEBUG - close db!
+2024-01-06 10:20:33,734 - sport_mng - DEBUG - connect db: host='192.168.3.12', port=3306, user='gyl', password='123456', database='nsyy_gyl'
+2024-01-06 10:20:33,758 - sport_mng - DEBUG - close db!
+2024-01-06 10:20:48,055 - sport_mng - DEBUG - connect db: host='192.168.3.12', port=3306, user='gyl', password='123456', database='nsyy_gyl'
+2024-01-06 10:20:48,085 - sport_mng - DEBUG - close db!
+2024-01-06 10:20:48,212 - sport_mng - DEBUG - connect db: host='192.168.3.12', port=3306, user='gyl', password='123456', database='nsyy_gyl'
+2024-01-06 10:20:48,238 - sport_mng - DEBUG - close db!
+2024-01-06 10:20:51,611 - sport_mng - DEBUG - connect db: host='192.168.3.12', port=3306, user='gyl', password='123456', database='nsyy_gyl'
+2024-01-06 10:20:51,639 - sport_mng - DEBUG - close db!
+2024-01-06 10:20:51,749 - sport_mng - DEBUG - connect db: host='192.168.3.12', port=3306, user='gyl', password='123456', database='nsyy_gyl'
+2024-01-06 10:20:51,783 - sport_mng - DEBUG - close db!
+2024-01-06 10:21:02,172 - sport_mng - DEBUG - connect db: host='192.168.3.12', port=3306, user='gyl', password='123456', database='nsyy_gyl'
+2024-01-06 10:21:02,205 - sport_mng - DEBUG - close db!
+2024-01-06 10:21:02,320 - sport_mng - DEBUG - connect db: host='192.168.3.12', port=3306, user='gyl', password='123456', database='nsyy_gyl'
+2024-01-06 10:21:02,361 - sport_mng - DEBUG - close db!
+2024-01-06 10:21:15,935 - sport_mng - DEBUG - connect db: host='192.168.3.12', port=3306, user='gyl', password='123456', database='nsyy_gyl'
+2024-01-06 10:21:15,953 - sport_mng - DEBUG - close db!
+2024-01-06 10:21:16,063 - sport_mng - DEBUG - connect db: host='192.168.3.12', port=3306, user='gyl', password='123456', database='nsyy_gyl'
+2024-01-06 10:21:16,106 - sport_mng - DEBUG - close db!
+2024-01-06 10:21:18,738 - sport_mng - DEBUG - connect db: host='192.168.3.12', port=3306, user='gyl', password='123456', database='nsyy_gyl'
+2024-01-06 10:21:18,767 - sport_mng - DEBUG - close db!
+2024-01-06 10:21:19,233 - sport_mng - DEBUG - connect db: host='192.168.3.12', port=3306, user='gyl', password='123456', database='nsyy_gyl'
+2024-01-06 10:21:19,289 - sport_mng - DEBUG - close db!
+2024-01-06 10:21:30,907 - sport_mng - DEBUG - connect db: host='192.168.3.12', port=3306, user='gyl', password='123456', database='nsyy_gyl'
+2024-01-06 10:21:30,936 - sport_mng - DEBUG - close db!
+2024-01-06 10:21:31,071 - sport_mng - DEBUG - connect db: host='192.168.3.12', port=3306, user='gyl', password='123456', database='nsyy_gyl'
+2024-01-06 10:21:31,110 - sport_mng - DEBUG - close db!
+2024-01-06 10:21:45,596 - sport_mng - DEBUG - connect db: host='192.168.3.12', port=3306, user='gyl', password='123456', database='nsyy_gyl'
+2024-01-06 10:21:45,622 - sport_mng - DEBUG - close db!
+2024-01-06 10:21:45,757 - sport_mng - DEBUG - connect db: host='192.168.3.12', port=3306, user='gyl', password='123456', database='nsyy_gyl'
+2024-01-06 10:21:45,787 - sport_mng - DEBUG - close db!
+2024-01-06 10:22:21,587 - sport_mng - DEBUG - connect db: host='192.168.3.12', port=3306, user='gyl', password='123456', database='nsyy_gyl'
+2024-01-06 10:22:21,609 - sport_mng - DEBUG - close db!
+2024-01-06 10:22:21,724 - sport_mng - DEBUG - connect db: host='192.168.3.12', port=3306, user='gyl', password='123456', database='nsyy_gyl'
+2024-01-06 10:22:21,760 - sport_mng - DEBUG - close db!
+2024-01-06 10:22:32,222 - sport_mng - DEBUG - connect db: host='192.168.3.12', port=3306, user='gyl', password='123456', database='nsyy_gyl'
+2024-01-06 10:22:32,253 - sport_mng - DEBUG - close db!
+2024-01-06 10:22:32,374 - sport_mng - DEBUG - connect db: host='192.168.3.12', port=3306, user='gyl', password='123456', database='nsyy_gyl'
+2024-01-06 10:22:32,411 - sport_mng - DEBUG - close db!
+2024-01-06 10:23:01,254 - sport_mng - DEBUG - connect db: host='192.168.3.12', port=3306, user='gyl', password='123456', database='nsyy_gyl'
+2024-01-06 10:23:01,283 - sport_mng - DEBUG - close db!
+2024-01-06 10:23:01,389 - sport_mng - DEBUG - connect db: host='192.168.3.12', port=3306, user='gyl', password='123456', database='nsyy_gyl'
+2024-01-06 10:23:01,432 - sport_mng - DEBUG - close db!
+2024-01-06 10:23:13,920 - sport_mng - DEBUG - connect db: host='192.168.3.12', port=3306, user='gyl', password='123456', database='nsyy_gyl'
+2024-01-06 10:23:13,947 - sport_mng - DEBUG - close db!
+2024-01-06 10:23:14,059 - sport_mng - DEBUG - connect db: host='192.168.3.12', port=3306, user='gyl', password='123456', database='nsyy_gyl'
+2024-01-06 10:23:14,084 - sport_mng - DEBUG - close db!
+2024-01-06 10:23:15,347 - sport_mng - DEBUG - connect db: host='192.168.3.12', port=3306, user='gyl', password='123456', database='nsyy_gyl'
+2024-01-06 10:23:15,378 - sport_mng - DEBUG - close db!
+2024-01-06 10:23:15,544 - sport_mng - DEBUG - connect db: host='192.168.3.12', port=3306, user='gyl', password='123456', database='nsyy_gyl'
+2024-01-06 10:23:15,589 - sport_mng - DEBUG - close db!
+2024-01-06 10:23:28,607 - sport_mng - DEBUG - connect db: host='192.168.3.12', port=3306, user='gyl', password='123456', database='nsyy_gyl'
+2024-01-06 10:23:28,639 - sport_mng - DEBUG - close db!
+2024-01-06 10:23:28,807 - sport_mng - DEBUG - connect db: host='192.168.3.12', port=3306, user='gyl', password='123456', database='nsyy_gyl'
+2024-01-06 10:23:28,857 - sport_mng - DEBUG - close db!
+2024-01-06 10:29:10,896 - sport_mng - DEBUG - connect db: host='192.168.3.12', port=3306, user='gyl', password='123456', database='nsyy_gyl'
+2024-01-06 10:29:10,945 - sport_mng - DEBUG - close db!
+2024-01-06 10:29:11,130 - sport_mng - DEBUG - connect db: host='192.168.3.12', port=3306, user='gyl', password='123456', database='nsyy_gyl'
+2024-01-06 10:29:11,149 - sport_mng - DEBUG - close db!
+2024-01-06 10:29:57,551 - sport_mng - DEBUG - connect db: host='192.168.3.12', port=3306, user='gyl', password='123456', database='nsyy_gyl'
+2024-01-06 10:29:57,592 - sport_mng - DEBUG - close db!
+2024-01-06 10:29:57,741 - sport_mng - DEBUG - connect db: host='192.168.3.12', port=3306, user='gyl', password='123456', database='nsyy_gyl'
+2024-01-06 10:29:57,790 - sport_mng - DEBUG - close db!
+2024-01-06 10:30:20,418 - sport_mng - DEBUG - connect db: host='192.168.3.12', port=3306, user='gyl', password='123456', database='nsyy_gyl'
+2024-01-06 10:30:20,474 - sport_mng - DEBUG - close db!
+2024-01-06 10:30:20,752 - sport_mng - DEBUG - connect db: host='192.168.3.12', port=3306, user='gyl', password='123456', database='nsyy_gyl'
+2024-01-06 10:30:20,831 - sport_mng - DEBUG - close db!
+2024-01-06 10:30:56,695 - sport_mng - DEBUG - connect db: host='192.168.3.12', port=3306, user='gyl', password='123456', database='nsyy_gyl'
+2024-01-06 10:30:56,723 - sport_mng - DEBUG - close db!
+2024-01-06 10:30:56,862 - sport_mng - DEBUG - connect db: host='192.168.3.12', port=3306, user='gyl', password='123456', database='nsyy_gyl'
+2024-01-06 10:30:56,900 - sport_mng - DEBUG - close db!
+2024-01-06 10:31:07,352 - sport_mng - DEBUG - connect db: host='192.168.3.12', port=3306, user='gyl', password='123456', database='nsyy_gyl'
+2024-01-06 10:31:07,381 - sport_mng - DEBUG - close db!
+2024-01-06 10:31:07,521 - sport_mng - DEBUG - connect db: host='192.168.3.12', port=3306, user='gyl', password='123456', database='nsyy_gyl'
+2024-01-06 10:31:07,555 - sport_mng - DEBUG - close db!
+2024-01-06 10:31:27,695 - sport_mng - DEBUG - connect db: host='192.168.3.12', port=3306, user='gyl', password='123456', database='nsyy_gyl'
+2024-01-06 10:31:27,753 - sport_mng - DEBUG - close db!
+2024-01-06 10:31:27,990 - sport_mng - DEBUG - connect db: host='192.168.3.12', port=3306, user='gyl', password='123456', database='nsyy_gyl'
+2024-01-06 10:31:28,027 - sport_mng - DEBUG - close db!
+2024-01-06 10:31:31,343 - sport_mng - DEBUG - connect db: host='192.168.3.12', port=3306, user='gyl', password='123456', database='nsyy_gyl'
+2024-01-06 10:31:31,400 - sport_mng - DEBUG - close db!
+2024-01-06 10:31:31,575 - sport_mng - DEBUG - connect db: host='192.168.3.12', port=3306, user='gyl', password='123456', database='nsyy_gyl'
+2024-01-06 10:31:31,637 - sport_mng - DEBUG - close db!
+2024-01-06 10:31:42,679 - sport_mng - DEBUG - connect db: host='192.168.3.12', port=3306, user='gyl', password='123456', database='nsyy_gyl'
+2024-01-06 10:31:42,706 - sport_mng - DEBUG - close db!
+2024-01-06 10:31:42,837 - sport_mng - DEBUG - connect db: host='192.168.3.12', port=3306, user='gyl', password='123456', database='nsyy_gyl'
+2024-01-06 10:31:42,875 - sport_mng - DEBUG - close db!
+2024-01-06 10:32:12,316 - sport_mng - DEBUG - connect db: host='192.168.3.12', port=3306, user='gyl', password='123456', database='nsyy_gyl'
+2024-01-06 10:32:12,357 - sport_mng - DEBUG - close db!
+2024-01-06 10:32:12,506 - sport_mng - DEBUG - connect db: host='192.168.3.12', port=3306, user='gyl', password='123456', database='nsyy_gyl'
+2024-01-06 10:32:12,541 - sport_mng - DEBUG - close db!
+2024-01-06 10:32:16,181 - sport_mng - DEBUG - connect db: host='192.168.3.12', port=3306, user='gyl', password='123456', database='nsyy_gyl'
+2024-01-06 10:32:16,206 - sport_mng - DEBUG - close db!
+2024-01-06 10:32:16,319 - sport_mng - DEBUG - connect db: host='192.168.3.12', port=3306, user='gyl', password='123456', database='nsyy_gyl'
+2024-01-06 10:32:16,352 - sport_mng - DEBUG - close db!
+2024-01-06 10:32:39,441 - sport_mng - DEBUG - connect db: host='192.168.3.12', port=3306, user='gyl', password='123456', database='nsyy_gyl'
+2024-01-06 10:32:39,523 - sport_mng - DEBUG - close db!
+2024-01-06 10:32:39,804 - sport_mng - DEBUG - connect db: host='192.168.3.12', port=3306, user='gyl', password='123456', database='nsyy_gyl'
+2024-01-06 10:32:39,868 - sport_mng - DEBUG - close db!
+2024-01-06 10:32:42,249 - sport_mng - DEBUG - connect db: host='192.168.3.12', port=3306, user='gyl', password='123456', database='nsyy_gyl'
+2024-01-06 10:32:42,280 - sport_mng - DEBUG - close db!
+2024-01-06 10:32:42,395 - sport_mng - DEBUG - connect db: host='192.168.3.12', port=3306, user='gyl', password='123456', database='nsyy_gyl'
+2024-01-06 10:32:42,440 - sport_mng - DEBUG - close db!
+2024-01-06 10:34:23,843 - sport_mng - DEBUG - connect db: host='192.168.3.12', port=3306, user='gyl', password='123456', database='nsyy_gyl'
+2024-01-06 10:34:23,871 - sport_mng - DEBUG - close db!
+2024-01-06 10:34:24,010 - sport_mng - DEBUG - connect db: host='192.168.3.12', port=3306, user='gyl', password='123456', database='nsyy_gyl'
+2024-01-06 10:34:24,046 - sport_mng - DEBUG - close db!
+2024-01-06 10:35:40,235 - sport_mng - DEBUG - connect db: host='192.168.3.12', port=3306, user='gyl', password='123456', database='nsyy_gyl'
+2024-01-06 10:35:40,262 - sport_mng - DEBUG - close db!
+2024-01-06 10:35:40,390 - sport_mng - DEBUG - connect db: host='192.168.3.12', port=3306, user='gyl', password='123456', database='nsyy_gyl'
+2024-01-06 10:35:40,424 - sport_mng - DEBUG - close db!
+2024-01-06 10:37:52,800 - sport_mng - DEBUG - connect db: host='192.168.3.12', port=3306, user='gyl', password='123456', database='nsyy_gyl'
+2024-01-06 10:37:52,828 - sport_mng - DEBUG - close db!
+2024-01-06 10:37:52,932 - sport_mng - DEBUG - connect db: host='192.168.3.12', port=3306, user='gyl', password='123456', database='nsyy_gyl'
+2024-01-06 10:37:52,961 - sport_mng - DEBUG - close db!
+2024-01-06 10:37:56,470 - sport_mng - DEBUG - connect db: host='192.168.3.12', port=3306, user='gyl', password='123456', database='nsyy_gyl'
+2024-01-06 10:37:56,543 - sport_mng - DEBUG - close db!
+2024-01-06 10:45:16,824 - sport_mng - DEBUG - connect db: host='192.168.3.12', port=3306, user='gyl', password='123456', database='nsyy_gyl'
+2024-01-06 10:45:16,856 - sport_mng - DEBUG - close db!
+2024-01-06 10:45:17,005 - sport_mng - DEBUG - connect db: host='192.168.3.12', port=3306, user='gyl', password='123456', database='nsyy_gyl'
+2024-01-06 10:45:17,030 - sport_mng - DEBUG - close db!
+2024-01-06 10:52:46,215 - sport_mng - DEBUG - connect db: host='192.168.3.12', port=3306, user='gyl', password='123456', database='nsyy_gyl'
+2024-01-06 10:52:46,268 - sport_mng - DEBUG - close db!
+2024-01-06 10:53:26,257 - sport_mng - DEBUG - connect db: host='192.168.3.12', port=3306, user='gyl', password='123456', database='nsyy_gyl'
+2024-01-06 10:53:26,318 - sport_mng - DEBUG - close db!
+2024-01-06 10:53:28,603 - sport_mng - DEBUG - connect db: host='192.168.3.12', port=3306, user='gyl', password='123456', database='nsyy_gyl'
+2024-01-06 10:53:28,641 - sport_mng - DEBUG - close db!
+2024-01-06 10:53:28,809 - sport_mng - DEBUG - connect db: host='192.168.3.12', port=3306, user='gyl', password='123456', database='nsyy_gyl'
+2024-01-06 10:53:28,850 - sport_mng - DEBUG - close db!
+2024-01-06 10:53:39,960 - sport_mng - DEBUG - connect db: host='192.168.3.12', port=3306, user='gyl', password='123456', database='nsyy_gyl'
+2024-01-06 10:53:40,246 - sport_mng - DEBUG - close db!
+2024-01-06 10:53:42,190 - sport_mng - DEBUG - connect db: host='192.168.3.12', port=3306, user='gyl', password='123456', database='nsyy_gyl'
+2024-01-06 10:53:42,282 - sport_mng - DEBUG - close db!
+2024-01-06 10:53:43,007 - sport_mng - DEBUG - connect db: host='192.168.3.12', port=3306, user='gyl', password='123456', database='nsyy_gyl'
+2024-01-06 10:53:43,044 - sport_mng - DEBUG - close db!
+2024-01-06 10:53:43,173 - sport_mng - DEBUG - connect db: host='192.168.3.12', port=3306, user='gyl', password='123456', database='nsyy_gyl'
+2024-01-06 10:53:43,233 - sport_mng - DEBUG - close db!
+2024-01-06 10:54:47,045 - sport_mng - DEBUG - connect db: host='192.168.3.12', port=3306, user='gyl', password='123456', database='nsyy_gyl'
+2024-01-06 10:54:47,072 - sport_mng - DEBUG - close db!
+2024-01-06 10:54:47,296 - sport_mng - DEBUG - connect db: host='192.168.3.12', port=3306, user='gyl', password='123456', database='nsyy_gyl'
+2024-01-06 10:54:47,337 - sport_mng - DEBUG - close db!
+2024-01-06 10:58:22,001 - sport_mng - DEBUG - connect db: host='192.168.3.12', port=3306, user='gyl', password='123456', database='nsyy_gyl'
+2024-01-06 10:58:22,080 - sport_mng - DEBUG - close db!
+2024-01-06 10:59:41,283 - sport_mng - DEBUG - connect db: host='192.168.3.12', port=3306, user='gyl', password='123456', database='nsyy_gyl'
+2024-01-06 10:59:41,451 - sport_mng - DEBUG - close db!
+2024-01-06 11:01:08,446 - sport_mng - DEBUG - connect db: host='192.168.3.12', port=3306, user='gyl', password='123456', database='nsyy_gyl'
+2024-01-06 11:01:08,572 - sport_mng - DEBUG - close db!
+2024-01-06 11:01:30,969 - sport_mng - DEBUG - connect db: host='192.168.3.12', port=3306, user='gyl', password='123456', database='nsyy_gyl'
+2024-01-06 11:01:31,040 - sport_mng - DEBUG - close db!
+2024-01-06 11:01:33,812 - sport_mng - DEBUG - connect db: host='192.168.3.12', port=3306, user='gyl', password='123456', database='nsyy_gyl'
+2024-01-06 11:01:33,842 - sport_mng - DEBUG - close db!
+2024-01-06 11:01:33,964 - sport_mng - DEBUG - connect db: host='192.168.3.12', port=3306, user='gyl', password='123456', database='nsyy_gyl'
+2024-01-06 11:01:33,994 - sport_mng - DEBUG - close db!
+2024-01-06 11:02:12,835 - sport_mng - DEBUG - connect db: host='192.168.3.12', port=3306, user='gyl', password='123456', database='nsyy_gyl'
+2024-01-06 11:02:12,902 - sport_mng - DEBUG - close db!
+2024-01-06 11:02:23,869 - sport_mng - DEBUG - connect db: host='192.168.3.12', port=3306, user='gyl', password='123456', database='nsyy_gyl'
+2024-01-06 11:02:23,935 - sport_mng - DEBUG - close db!
+2024-01-06 11:02:31,393 - sport_mng - DEBUG - connect db: host='192.168.3.12', port=3306, user='gyl', password='123456', database='nsyy_gyl'
+2024-01-06 11:02:31,691 - sport_mng - DEBUG - close db!
+2024-01-06 11:06:04,717 - sport_mng - DEBUG - connect db: host='192.168.3.12', port=3306, user='gyl', password='123456', database='nsyy_gyl'
+2024-01-06 11:06:04,747 - sport_mng - DEBUG - close db!
+2024-01-06 11:06:04,850 - sport_mng - DEBUG - connect db: host='192.168.3.12', port=3306, user='gyl', password='123456', database='nsyy_gyl'
+2024-01-06 11:06:04,884 - sport_mng - DEBUG - close db!
+2024-01-06 11:07:45,006 - sport_mng - DEBUG - connect db: host='192.168.3.12', port=3306, user='gyl', password='123456', database='nsyy_gyl'
+2024-01-06 11:07:45,115 - sport_mng - DEBUG - close db!
+2024-01-06 11:07:52,806 - sport_mng - DEBUG - connect db: host='192.168.3.12', port=3306, user='gyl', password='123456', database='nsyy_gyl'
+2024-01-06 11:07:53,063 - sport_mng - DEBUG - close db!
+2024-01-06 11:07:58,411 - sport_mng - DEBUG - connect db: host='192.168.3.12', port=3306, user='gyl', password='123456', database='nsyy_gyl'
+2024-01-06 11:07:58,453 - sport_mng - DEBUG - close db!
+2024-01-06 11:07:58,574 - sport_mng - DEBUG - connect db: host='192.168.3.12', port=3306, user='gyl', password='123456', database='nsyy_gyl'
+2024-01-06 11:07:58,605 - sport_mng - DEBUG - close db!
+2024-01-06 11:08:15,110 - sport_mng - DEBUG - connect db: host='192.168.3.12', port=3306, user='gyl', password='123456', database='nsyy_gyl'
+2024-01-06 11:08:15,150 - sport_mng - DEBUG - close db!
+2024-01-06 11:08:18,163 - sport_mng - DEBUG - connect db: host='192.168.3.12', port=3306, user='gyl', password='123456', database='nsyy_gyl'
+2024-01-06 11:08:18,505 - sport_mng - DEBUG - close db!
+2024-01-06 11:08:42,212 - sport_mng - DEBUG - connect db: host='192.168.3.12', port=3306, user='gyl', password='123456', database='nsyy_gyl'
+2024-01-06 11:08:42,503 - sport_mng - DEBUG - close db!
+2024-01-06 11:09:03,707 - sport_mng - DEBUG - connect db: host='192.168.3.12', port=3306, user='gyl', password='123456', database='nsyy_gyl'
+2024-01-06 11:09:04,005 - sport_mng - DEBUG - close db!
+2024-01-06 11:11:54,236 - sport_mng - DEBUG - connect db: host='192.168.3.12', port=3306, user='gyl', password='123456', database='nsyy_gyl'
+2024-01-06 11:11:54,685 - sport_mng - DEBUG - close db!
+2024-01-06 11:16:00,587 - sport_mng - DEBUG - connect db: host='192.168.3.12', port=3306, user='gyl', password='123456', database='nsyy_gyl'
+2024-01-06 11:16:00,604 - sport_mng - DEBUG - close db!
+2024-01-06 11:16:05,313 - sport_mng - DEBUG - connect db: host='192.168.3.12', port=3306, user='gyl', password='123456', database='nsyy_gyl'
+2024-01-06 11:16:05,332 - sport_mng - DEBUG - close db!
+2024-01-06 11:16:05,811 - sport_mng - DEBUG - connect db: host='192.168.3.12', port=3306, user='gyl', password='123456', database='nsyy_gyl'
+2024-01-06 11:16:05,826 - sport_mng - DEBUG - close db!
+2024-01-06 11:16:12,468 - sport_mng - DEBUG - connect db: host='192.168.3.12', port=3306, user='gyl', password='123456', database='nsyy_gyl'
+2024-01-06 11:16:12,482 - sport_mng - DEBUG - close db!
+2024-01-06 11:16:14,549 - sport_mng - DEBUG - connect db: host='192.168.3.12', port=3306, user='gyl', password='123456', database='nsyy_gyl'
+2024-01-06 11:16:14,581 - sport_mng - DEBUG - close db!
+2024-01-06 11:16:14,713 - sport_mng - DEBUG - connect db: host='192.168.3.12', port=3306, user='gyl', password='123456', database='nsyy_gyl'
+2024-01-06 11:16:14,756 - sport_mng - DEBUG - close db!
+2024-01-06 11:20:12,404 - sport_mng - DEBUG - connect db: host='192.168.3.12', port=3306, user='gyl', password='123456', database='nsyy_gyl'
+2024-01-06 11:20:12,507 - sport_mng - DEBUG - close db!
+2024-01-06 11:20:18,545 - sport_mng - DEBUG - connect db: host='192.168.3.12', port=3306, user='gyl', password='123456', database='nsyy_gyl'
+2024-01-06 11:20:18,570 - sport_mng - DEBUG - close db!
+2024-01-06 11:20:18,665 - sport_mng - DEBUG - connect db: host='192.168.3.12', port=3306, user='gyl', password='123456', database='nsyy_gyl'
+2024-01-06 11:20:18,693 - sport_mng - DEBUG - close db!
+2024-01-06 11:20:29,077 - sport_mng - DEBUG - connect db: host='192.168.3.12', port=3306, user='gyl', password='123456', database='nsyy_gyl'
+2024-01-06 11:20:29,111 - sport_mng - DEBUG - close db!
+2024-01-06 11:21:56,019 - sport_mng - DEBUG - connect db: host='192.168.3.12', port=3306, user='gyl', password='123456', database='nsyy_gyl'
+2024-01-06 11:21:56,060 - sport_mng - DEBUG - close db!
+2024-01-06 11:22:08,814 - sport_mng - DEBUG - connect db: host='192.168.3.12', port=3306, user='gyl', password='123456', database='nsyy_gyl'
+2024-01-06 11:22:08,867 - sport_mng - DEBUG - close db!
+2024-01-06 11:22:09,035 - sport_mng - DEBUG - connect db: host='192.168.3.12', port=3306, user='gyl', password='123456', database='nsyy_gyl'
+2024-01-06 11:22:09,061 - sport_mng - DEBUG - close db!
+2024-01-06 11:22:46,565 - sport_mng - DEBUG - connect db: host='192.168.3.12', port=3306, user='gyl', password='123456', database='nsyy_gyl'
+2024-01-06 11:22:46,615 - sport_mng - DEBUG - close db!
+2024-01-06 11:22:46,823 - sport_mng - DEBUG - connect db: host='192.168.3.12', port=3306, user='gyl', password='123456', database='nsyy_gyl'
+2024-01-06 11:22:46,900 - sport_mng - DEBUG - close db!
+2024-01-06 11:22:52,856 - sport_mng - DEBUG - connect db: host='192.168.3.12', port=3306, user='gyl', password='123456', database='nsyy_gyl'
+2024-01-06 11:22:52,885 - sport_mng - DEBUG - close db!
+2024-01-06 11:22:53,025 - sport_mng - DEBUG - connect db: host='192.168.3.12', port=3306, user='gyl', password='123456', database='nsyy_gyl'
+2024-01-06 11:22:53,052 - sport_mng - DEBUG - close db!
+2024-01-06 11:23:16,295 - sport_mng - DEBUG - connect db: host='192.168.3.12', port=3306, user='gyl', password='123456', database='nsyy_gyl'
+2024-01-06 11:23:16,326 - sport_mng - DEBUG - close db!
+2024-01-06 11:29:54,012 - sport_mng - DEBUG - connect db: host='192.168.3.12', port=3306, user='gyl', password='123456', database='nsyy_gyl'
+2024-01-06 11:29:54,109 - sport_mng - DEBUG - close db!
+2024-01-06 11:30:19,500 - sport_mng - DEBUG - connect db: host='192.168.3.12', port=3306, user='gyl', password='123456', database='nsyy_gyl'
+2024-01-06 11:30:19,633 - sport_mng - DEBUG - close db!
+2024-01-06 11:31:26,396 - sport_mng - DEBUG - connect db: host='192.168.3.12', port=3306, user='gyl', password='123456', database='nsyy_gyl'
+2024-01-06 11:31:26,498 - sport_mng - DEBUG - close db!
+2024-01-06 11:32:01,235 - sport_mng - DEBUG - connect db: host='192.168.3.12', port=3306, user='gyl', password='123456', database='nsyy_gyl'
+2024-01-06 11:32:01,578 - sport_mng - DEBUG - close db!
+2024-01-06 11:39:01,817 - sport_mng - INFO - 初始化电子健康卡管理服务

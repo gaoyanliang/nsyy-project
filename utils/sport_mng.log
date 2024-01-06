@@ -1,0 +1,142 @@
+2024-01-04 10:40:52,000 - sport_mng - DEBUG - connect db: host='192.168.3.12', port=3306, user='gyl', password='123456', database='nsyy_gyl'
+2024-01-04 10:40:52,030 - sport_mng - DEBUG - DB Version : version={'VERSION()': '8.0.35-0ubuntu0.20.04.1'}
+2024-01-04 10:40:52,230 - sport_mng - INFO - database list: [{'Database': 'information_schema'}, {'Database': 'nsyy_general'}, {'Database': 'nsyy_gyl'}, {'Database': 'performance_schema'}]
+2024-01-04 10:40:52,298 - sport_mng - INFO - table list: [{'Tables_in_nsyy_gyl': 'cuzhong_table'}]
+2024-01-04 10:40:52,512 - sport_mng - INFO - table fields: []
+2024-01-04 10:40:52,513 - sport_mng - DEBUG - close db!
+2024-01-04 10:41:10,399 - sport_mng - DEBUG - connect db: host='192.168.3.12', port=3306, user='gyl', password='123456', database='nsyy_general'
+2024-01-04 10:41:10,407 - sport_mng - DEBUG - DB Version : version={'VERSION()': '8.0.35-0ubuntu0.20.04.1'}
+2024-01-04 10:41:10,424 - sport_mng - INFO - database list: [{'Database': 'information_schema'}, {'Database': 'nsyy_general'}, {'Database': 'nsyy_gyl'}, {'Database': 'performance_schema'}]
+2024-01-04 10:41:10,445 - sport_mng - INFO - table list: []
+2024-01-04 10:41:10,459 - sport_mng - INFO - table fields: []
+2024-01-04 10:41:10,459 - sport_mng - DEBUG - close db!
+2024-01-04 10:45:00,617 - sport_mng - DEBUG - connect db: host='192.168.3.12', port=3306, user='gyl', password='123456', database='nsyy_general'
+2024-01-04 10:45:00,811 - sport_mng - DEBUG - DB Version : version={'VERSION()': '8.0.35-0ubuntu0.20.04.1'}
+2024-01-04 10:45:00,892 - sport_mng - INFO - database list: [{'Database': 'information_schema'}, {'Database': 'nsyy_general'}, {'Database': 'nsyy_gyl'}, {'Database': 'performance_schema'}]
+2024-01-04 10:45:01,030 - sport_mng - INFO - table list: []
+2024-01-04 10:45:01,060 - sport_mng - INFO - table fields: []
+2024-01-04 10:45:01,060 - sport_mng - DEBUG - close db!
+2024-01-04 10:47:04,790 - sport_mng - DEBUG - connect db: host='192.168.3.12', port=3306, user='gyl', password='123456', database='nsyy_general'
+2024-01-04 10:47:04,809 - sport_mng - DEBUG - DB Version : version={'VERSION()': '8.0.35-0ubuntu0.20.04.1'}
+2024-01-04 10:47:04,843 - sport_mng - INFO - database list: [{'Database': 'information_schema'}, {'Database': 'nsyy_general'}, {'Database': 'nsyy_gyl'}, {'Database': 'performance_schema'}]
+2024-01-04 10:47:04,884 - sport_mng - INFO - table list: [{'Tables_in_nsyy_general': 'sports_actions'}]
+2024-01-04 10:47:04,901 - sport_mng - INFO - table fields: []
+2024-01-04 10:47:04,902 - sport_mng - DEBUG - close db!
+2024-01-04 11:19:38,488 - sport_mng - DEBUG - connect db: host='192.168.3.12', port=3306, user='gyl', password='123456', database='nsyy_gyl'
+2024-01-04 11:19:38,503 - sport_mng - DEBUG - DB Version : version={'VERSION()': '8.0.35-0ubuntu0.20.04.1'}
+2024-01-04 11:19:41,431 - sport_mng - INFO - database list: [{'Database': 'information_schema'}, {'Database': 'nsyy_general'}, {'Database': 'nsyy_gyl'}, {'Database': 'performance_schema'}]
+2024-01-04 11:19:41,460 - sport_mng - INFO - table list: [{'Tables_in_nsyy_gyl': 'cuzhong_table'}, {'Tables_in_nsyy_gyl': 'menu'}]
+2024-01-04 11:19:41,477 - sport_mng - INFO - table fields: [{'COLUMN_NAME': 'id'}, {'COLUMN_NAME': 'is_breakfast'}, {'COLUMN_NAME': 'is_dunch'}, {'COLUMN_NAME': 'kcal'}, {'COLUMN_NAME': 'name'}, {'COLUMN_NAME': 'unit'}]
+2024-01-04 11:19:41,477 - sport_mng - DEBUG - close db!
+2024-01-04 11:20:36,588 - sport_mng - DEBUG - connect db: host='192.168.3.12', port=3306, user='gyl', password='123456', database='nsyy_gyl'
+2024-01-04 11:20:36,598 - sport_mng - DEBUG - DB Version : version={'VERSION()': '8.0.35-0ubuntu0.20.04.1'}
+2024-01-04 11:20:36,621 - sport_mng - INFO - database list: [{'Database': 'information_schema'}, {'Database': 'nsyy_general'}, {'Database': 'nsyy_gyl'}, {'Database': 'performance_schema'}]
+2024-01-04 11:20:36,646 - sport_mng - INFO - table list: [{'Tables_in_nsyy_gyl': 'cuzhong_table'}, {'Tables_in_nsyy_gyl': 'menu'}]
+2024-01-04 11:20:36,678 - sport_mng - INFO - table fields: [{'COLUMN_NAME': 'id'}, {'COLUMN_NAME': 'is_breakfast'}, {'COLUMN_NAME': 'is_dunch'}, {'COLUMN_NAME': 'kcal'}, {'COLUMN_NAME': 'name'}, {'COLUMN_NAME': 'unit'}]
+2024-01-04 11:22:00,212 - sport_mng - DEBUG - connect db: host='192.168.3.12', port=3306, user='gyl', password='123456', database='nsyy_gyl'
+2024-01-04 11:22:00,230 - sport_mng - DEBUG - DB Version : version={'VERSION()': '8.0.35-0ubuntu0.20.04.1'}
+2024-01-04 11:22:00,252 - sport_mng - INFO - database list: [{'Database': 'information_schema'}, {'Database': 'nsyy_general'}, {'Database': 'nsyy_gyl'}, {'Database': 'performance_schema'}]
+2024-01-04 11:22:00,271 - sport_mng - INFO - table list: [{'Tables_in_nsyy_gyl': 'cuzhong_table'}, {'Tables_in_nsyy_gyl': 'menu'}]
+2024-01-04 11:22:00,304 - sport_mng - INFO - table fields: [{'COLUMN_NAME': 'id'}, {'COLUMN_NAME': 'is_breakfast'}, {'COLUMN_NAME': 'is_dunch'}, {'COLUMN_NAME': 'kcal'}, {'COLUMN_NAME': 'name'}, {'COLUMN_NAME': 'unit'}]
+2024-01-04 11:22:10,399 - sport_mng - DEBUG - connect db: host='192.168.3.12', port=3306, user='gyl', password='123456', database='nsyy_gyl'
+2024-01-04 11:22:10,420 - sport_mng - DEBUG - DB Version : version={'VERSION()': '8.0.35-0ubuntu0.20.04.1'}
+2024-01-04 11:22:10,440 - sport_mng - INFO - database list: [{'Database': 'information_schema'}, {'Database': 'nsyy_general'}, {'Database': 'nsyy_gyl'}, {'Database': 'performance_schema'}]
+2024-01-04 11:22:10,451 - sport_mng - INFO - table list: [{'Tables_in_nsyy_gyl': 'cuzhong_table'}, {'Tables_in_nsyy_gyl': 'menu'}]
+2024-01-04 11:22:10,484 - sport_mng - INFO - table fields: [{'COLUMN_NAME': 'id'}, {'COLUMN_NAME': 'is_breakfast'}, {'COLUMN_NAME': 'is_dunch'}, {'COLUMN_NAME': 'kcal'}, {'COLUMN_NAME': 'name'}, {'COLUMN_NAME': 'unit'}]
+2024-01-04 11:22:30,947 - sport_mng - DEBUG - connect db: host='192.168.3.12', port=3306, user='gyl', password='123456', database='nsyy_gyl'
+2024-01-04 11:22:30,958 - sport_mng - DEBUG - DB Version : version={'VERSION()': '8.0.35-0ubuntu0.20.04.1'}
+2024-01-04 11:22:30,972 - sport_mng - INFO - database list: [{'Database': 'information_schema'}, {'Database': 'nsyy_general'}, {'Database': 'nsyy_gyl'}, {'Database': 'performance_schema'}]
+2024-01-04 11:22:30,987 - sport_mng - INFO - table list: [{'Tables_in_nsyy_gyl': 'cuzhong_table'}, {'Tables_in_nsyy_gyl': 'menu'}]
+2024-01-04 11:22:31,000 - sport_mng - INFO - table fields: [{'COLUMN_NAME': 'id'}, {'COLUMN_NAME': 'is_breakfast'}, {'COLUMN_NAME': 'is_dunch'}, {'COLUMN_NAME': 'kcal'}, {'COLUMN_NAME': 'name'}, {'COLUMN_NAME': 'unit'}]
+2024-01-04 11:28:35,883 - sport_mng - DEBUG - connect db: host='192.168.3.12', port=3306, user='gyl', password='123456', database='nsyy_gyl'
+2024-01-04 11:28:35,889 - sport_mng - DEBUG - DB Version : version={'VERSION()': '8.0.35-0ubuntu0.20.04.1'}
+2024-01-04 11:28:35,921 - sport_mng - INFO - database list: [{'Database': 'information_schema'}, {'Database': 'nsyy_general'}, {'Database': 'nsyy_gyl'}, {'Database': 'performance_schema'}]
+2024-01-04 11:28:35,934 - sport_mng - INFO - table list: [{'Tables_in_nsyy_gyl': 'cuzhong_table'}, {'Tables_in_nsyy_gyl': 'menu'}]
+2024-01-04 11:28:35,945 - sport_mng - INFO - table fields: [{'COLUMN_NAME': 'id'}, {'COLUMN_NAME': 'is_breakfast'}, {'COLUMN_NAME': 'is_dunch'}, {'COLUMN_NAME': 'kcal'}, {'COLUMN_NAME': 'name'}, {'COLUMN_NAME': 'unit'}]
+2024-01-04 11:29:45,354 - sport_mng - DEBUG - connect db: host='192.168.3.12', port=3306, user='gyl', password='123456', database='nsyy_gyl'
+2024-01-04 11:29:45,361 - sport_mng - DEBUG - DB Version : version={'VERSION()': '8.0.35-0ubuntu0.20.04.1'}
+2024-01-04 11:29:45,379 - sport_mng - INFO - database list: [{'Database': 'information_schema'}, {'Database': 'nsyy_general'}, {'Database': 'nsyy_gyl'}, {'Database': 'performance_schema'}]
+2024-01-04 11:29:45,392 - sport_mng - INFO - table list: [{'Tables_in_nsyy_gyl': 'cuzhong_table'}, {'Tables_in_nsyy_gyl': 'menu'}]
+2024-01-04 11:29:45,404 - sport_mng - INFO - table fields: [{'COLUMN_NAME': 'id'}, {'COLUMN_NAME': 'is_breakfast'}, {'COLUMN_NAME': 'is_dunch'}, {'COLUMN_NAME': 'kcal'}, {'COLUMN_NAME': 'name'}, {'COLUMN_NAME': 'unit'}]
+2024-01-04 11:29:52,444 - sport_mng - DEBUG - connect db: host='192.168.3.12', port=3306, user='gyl', password='123456', database='nsyy_gyl'
+2024-01-04 11:29:52,454 - sport_mng - DEBUG - DB Version : version={'VERSION()': '8.0.35-0ubuntu0.20.04.1'}
+2024-01-04 11:29:52,467 - sport_mng - INFO - database list: [{'Database': 'information_schema'}, {'Database': 'nsyy_general'}, {'Database': 'nsyy_gyl'}, {'Database': 'performance_schema'}]
+2024-01-04 11:29:52,490 - sport_mng - INFO - table list: [{'Tables_in_nsyy_gyl': 'cuzhong_table'}, {'Tables_in_nsyy_gyl': 'menu'}]
+2024-01-04 11:29:52,502 - sport_mng - INFO - table fields: [{'COLUMN_NAME': 'id'}, {'COLUMN_NAME': 'is_breakfast'}, {'COLUMN_NAME': 'is_dunch'}, {'COLUMN_NAME': 'kcal'}, {'COLUMN_NAME': 'name'}, {'COLUMN_NAME': 'unit'}]
+2024-01-04 11:31:05,574 - sport_mng - DEBUG - connect db: host='192.168.3.12', port=3306, user='gyl', password='123456', database='nsyy_gyl'
+2024-01-04 11:31:05,581 - sport_mng - DEBUG - DB Version : version={'VERSION()': '8.0.35-0ubuntu0.20.04.1'}
+2024-01-04 11:31:05,593 - sport_mng - INFO - database list: [{'Database': 'information_schema'}, {'Database': 'nsyy_general'}, {'Database': 'nsyy_gyl'}, {'Database': 'performance_schema'}]
+2024-01-04 11:31:05,613 - sport_mng - INFO - table list: [{'Tables_in_nsyy_gyl': 'cuzhong_table'}, {'Tables_in_nsyy_gyl': 'menu'}]
+2024-01-04 11:31:05,622 - sport_mng - INFO - table fields: [{'COLUMN_NAME': 'id'}, {'COLUMN_NAME': 'is_breakfast'}, {'COLUMN_NAME': 'is_dunch'}, {'COLUMN_NAME': 'kcal'}, {'COLUMN_NAME': 'name'}, {'COLUMN_NAME': 'unit'}]
+2024-01-04 11:31:39,069 - sport_mng - DEBUG - close db!
+2024-01-04 11:33:16,009 - sport_mng - DEBUG - connect db: host='192.168.3.12', port=3306, user='gyl', password='123456', database='nsyy_gyl'
+2024-01-04 11:33:16,047 - sport_mng - DEBUG - DB Version : version={'VERSION()': '8.0.35-0ubuntu0.20.04.1'}
+2024-01-04 11:33:16,074 - sport_mng - INFO - database list: [{'Database': 'information_schema'}, {'Database': 'nsyy_general'}, {'Database': 'nsyy_gyl'}, {'Database': 'performance_schema'}]
+2024-01-04 11:33:16,095 - sport_mng - INFO - table list: [{'Tables_in_nsyy_gyl': 'cuzhong_table'}, {'Tables_in_nsyy_gyl': 'menu'}]
+2024-01-04 11:33:16,128 - sport_mng - INFO - table fields: [{'COLUMN_NAME': 'id'}, {'COLUMN_NAME': 'is_breakfast'}, {'COLUMN_NAME': 'is_dunch'}, {'COLUMN_NAME': 'kcal'}, {'COLUMN_NAME': 'name'}, {'COLUMN_NAME': 'unit'}]
+2024-01-04 11:33:30,944 - sport_mng - DEBUG - connect db: host='192.168.3.12', port=3306, user='gyl', password='123456', database='nsyy_gyl'
+2024-01-04 11:33:30,953 - sport_mng - DEBUG - DB Version : version={'VERSION()': '8.0.35-0ubuntu0.20.04.1'}
+2024-01-04 11:33:30,979 - sport_mng - INFO - database list: [{'Database': 'information_schema'}, {'Database': 'nsyy_general'}, {'Database': 'nsyy_gyl'}, {'Database': 'performance_schema'}]
+2024-01-04 11:33:30,991 - sport_mng - INFO - table list: [{'Tables_in_nsyy_gyl': 'cuzhong_table'}, {'Tables_in_nsyy_gyl': 'menu'}]
+2024-01-04 11:33:31,006 - sport_mng - INFO - table fields: [{'COLUMN_NAME': 'id'}, {'COLUMN_NAME': 'is_breakfast'}, {'COLUMN_NAME': 'is_dunch'}, {'COLUMN_NAME': 'kcal'}, {'COLUMN_NAME': 'name'}, {'COLUMN_NAME': 'unit'}]
+2024-01-04 11:35:20,216 - sport_mng - DEBUG - connect db: host='192.168.3.12', port=3306, user='gyl', password='123456', database='nsyy_gyl'
+2024-01-04 11:35:20,226 - sport_mng - DEBUG - DB Version : version={'VERSION()': '8.0.35-0ubuntu0.20.04.1'}
+2024-01-04 11:35:20,238 - sport_mng - INFO - database list: [{'Database': 'information_schema'}, {'Database': 'nsyy_general'}, {'Database': 'nsyy_gyl'}, {'Database': 'performance_schema'}]
+2024-01-04 11:35:20,248 - sport_mng - INFO - table list: [{'Tables_in_nsyy_gyl': 'cuzhong_table'}, {'Tables_in_nsyy_gyl': 'menu'}]
+2024-01-04 11:35:20,258 - sport_mng - INFO - table fields: [{'COLUMN_NAME': 'id'}, {'COLUMN_NAME': 'is_breakfast'}, {'COLUMN_NAME': 'is_dunch'}, {'COLUMN_NAME': 'kcal'}, {'COLUMN_NAME': 'name'}, {'COLUMN_NAME': 'unit'}]
+2024-01-04 11:37:48,224 - sport_mng - DEBUG - connect db: host='192.168.3.12', port=3306, user='gyl', password='123456', database='nsyy_gyl'
+2024-01-04 11:37:48,250 - sport_mng - DEBUG - DB Version : version={'VERSION()': '8.0.35-0ubuntu0.20.04.1'}
+2024-01-04 11:37:48,270 - sport_mng - INFO - database list: [{'Database': 'information_schema'}, {'Database': 'nsyy_general'}, {'Database': 'nsyy_gyl'}, {'Database': 'performance_schema'}]
+2024-01-04 11:37:48,289 - sport_mng - INFO - table list: [{'Tables_in_nsyy_gyl': 'cuzhong_table'}, {'Tables_in_nsyy_gyl': 'menu'}]
+2024-01-04 11:37:48,304 - sport_mng - INFO - table fields: [{'COLUMN_NAME': 'id'}, {'COLUMN_NAME': 'is_breakfast'}, {'COLUMN_NAME': 'is_dunch'}, {'COLUMN_NAME': 'kcal'}, {'COLUMN_NAME': 'name'}, {'COLUMN_NAME': 'unit'}]
+2024-01-04 11:38:15,129 - sport_mng - DEBUG - connect db: host='192.168.3.12', port=3306, user='gyl', password='123456', database='nsyy_gyl'
+2024-01-04 11:38:15,140 - sport_mng - DEBUG - DB Version : version={'VERSION()': '8.0.35-0ubuntu0.20.04.1'}
+2024-01-04 11:38:15,160 - sport_mng - INFO - database list: [{'Database': 'information_schema'}, {'Database': 'nsyy_general'}, {'Database': 'nsyy_gyl'}, {'Database': 'performance_schema'}]
+2024-01-04 11:38:15,195 - sport_mng - INFO - table list: [{'Tables_in_nsyy_gyl': 'cuzhong_table'}, {'Tables_in_nsyy_gyl': 'menu'}]
+2024-01-04 11:38:15,210 - sport_mng - INFO - table fields: [{'COLUMN_NAME': 'id'}, {'COLUMN_NAME': 'is_breakfast'}, {'COLUMN_NAME': 'is_dunch'}, {'COLUMN_NAME': 'kcal'}, {'COLUMN_NAME': 'name'}, {'COLUMN_NAME': 'unit'}]
+2024-01-04 11:39:54,958 - sport_mng - DEBUG - connect db: host='192.168.3.12', port=3306, user='gyl', password='123456', database='nsyy_gyl'
+2024-01-04 11:39:54,976 - sport_mng - DEBUG - DB Version : version={'VERSION()': '8.0.35-0ubuntu0.20.04.1'}
+2024-01-04 11:39:55,005 - sport_mng - INFO - database list: [{'Database': 'information_schema'}, {'Database': 'nsyy_general'}, {'Database': 'nsyy_gyl'}, {'Database': 'performance_schema'}]
+2024-01-04 11:39:55,026 - sport_mng - INFO - table list: [{'Tables_in_nsyy_gyl': 'cuzhong_table'}, {'Tables_in_nsyy_gyl': 'menu'}]
+2024-01-04 11:39:55,065 - sport_mng - INFO - table fields: [{'COLUMN_NAME': 'id'}, {'COLUMN_NAME': 'is_breakfast'}, {'COLUMN_NAME': 'is_dunch'}, {'COLUMN_NAME': 'kcal'}, {'COLUMN_NAME': 'name'}, {'COLUMN_NAME': 'unit'}]
+2024-01-04 11:41:07,633 - sport_mng - DEBUG - connect db: host='192.168.3.12', port=3306, user='gyl', password='123456', database='nsyy_gyl'
+2024-01-04 11:41:07,646 - sport_mng - DEBUG - DB Version : version={'VERSION()': '8.0.35-0ubuntu0.20.04.1'}
+2024-01-04 11:41:07,662 - sport_mng - INFO - database list: [{'Database': 'information_schema'}, {'Database': 'nsyy_general'}, {'Database': 'nsyy_gyl'}, {'Database': 'performance_schema'}]
+2024-01-04 11:41:07,682 - sport_mng - INFO - table list: [{'Tables_in_nsyy_gyl': 'cuzhong_table'}, {'Tables_in_nsyy_gyl': 'menu'}]
+2024-01-04 11:41:07,695 - sport_mng - INFO - table fields: [{'COLUMN_NAME': 'id'}, {'COLUMN_NAME': 'is_breakfast'}, {'COLUMN_NAME': 'is_dunch'}, {'COLUMN_NAME': 'kcal'}, {'COLUMN_NAME': 'name'}, {'COLUMN_NAME': 'unit'}]
+2024-01-04 11:41:19,258 - sport_mng - DEBUG - close db!
+2024-01-04 11:42:52,844 - sport_mng - DEBUG - connect db: host='192.168.3.12', port=3306, user='gyl', password='123456', database='nsyy_gyl'
+2024-01-04 11:42:52,852 - sport_mng - DEBUG - DB Version : version={'VERSION()': '8.0.35-0ubuntu0.20.04.1'}
+2024-01-04 11:42:52,872 - sport_mng - INFO - database list: [{'Database': 'information_schema'}, {'Database': 'nsyy_general'}, {'Database': 'nsyy_gyl'}, {'Database': 'performance_schema'}]
+2024-01-04 11:42:52,881 - sport_mng - INFO - table list: [{'Tables_in_nsyy_gyl': 'cuzhong_table'}, {'Tables_in_nsyy_gyl': 'menu'}]
+2024-01-04 11:42:52,889 - sport_mng - INFO - table fields: [{'COLUMN_NAME': 'id'}, {'COLUMN_NAME': 'is_breakfast'}, {'COLUMN_NAME': 'is_dunch'}, {'COLUMN_NAME': 'kcal'}, {'COLUMN_NAME': 'name'}, {'COLUMN_NAME': 'unit'}]
+2024-01-04 11:42:54,560 - sport_mng - DEBUG - close db!
+2024-01-04 11:44:14,579 - sport_mng - DEBUG - connect db: host='192.168.3.12', port=3306, user='gyl', password='123456', database='nsyy_gyl'
+2024-01-04 11:44:14,624 - sport_mng - DEBUG - DB Version : version={'VERSION()': '8.0.35-0ubuntu0.20.04.1'}
+2024-01-04 11:44:14,686 - sport_mng - INFO - database list: [{'Database': 'information_schema'}, {'Database': 'nsyy_general'}, {'Database': 'nsyy_gyl'}, {'Database': 'performance_schema'}]
+2024-01-04 11:44:14,737 - sport_mng - INFO - table list: [{'Tables_in_nsyy_gyl': 'cuzhong_table'}, {'Tables_in_nsyy_gyl': 'menu'}]
+2024-01-04 11:44:14,782 - sport_mng - INFO - table fields: [{'COLUMN_NAME': 'id'}, {'COLUMN_NAME': 'is_breakfast'}, {'COLUMN_NAME': 'is_dunch'}, {'COLUMN_NAME': 'kcal'}, {'COLUMN_NAME': 'name'}, {'COLUMN_NAME': 'unit'}]
+2024-01-04 11:45:11,842 - sport_mng - DEBUG - connect db: host='192.168.3.12', port=3306, user='gyl', password='123456', database='nsyy_gyl'
+2024-01-04 11:45:11,852 - sport_mng - DEBUG - DB Version : version={'VERSION()': '8.0.35-0ubuntu0.20.04.1'}
+2024-01-04 11:45:11,870 - sport_mng - INFO - database list: [{'Database': 'information_schema'}, {'Database': 'nsyy_general'}, {'Database': 'nsyy_gyl'}, {'Database': 'performance_schema'}]
+2024-01-04 11:45:11,881 - sport_mng - INFO - table list: [{'Tables_in_nsyy_gyl': 'cuzhong_table'}, {'Tables_in_nsyy_gyl': 'menu'}]
+2024-01-04 11:45:11,891 - sport_mng - INFO - table fields: [{'COLUMN_NAME': 'id'}, {'COLUMN_NAME': 'is_breakfast'}, {'COLUMN_NAME': 'is_dunch'}, {'COLUMN_NAME': 'kcal'}, {'COLUMN_NAME': 'name'}, {'COLUMN_NAME': 'unit'}]
+2024-01-04 11:45:24,473 - sport_mng - DEBUG - close db!
+2024-01-04 14:08:01,525 - sport_mng - DEBUG - connect db: host='192.168.3.12', port=3306, user='gyl', password='123456', database='nsyy_gyl'
+2024-01-04 14:08:01,525 - sport_mng - DEBUG - connect db: host='192.168.3.12', port=3306, user='gyl', password='123456', database='nsyy_gyl'
+2024-01-04 14:08:01,540 - sport_mng - DEBUG - DB Version : version={'VERSION()': '8.0.35-0ubuntu0.20.04.1'}
+2024-01-04 14:08:01,540 - sport_mng - DEBUG - DB Version : version={'VERSION()': '8.0.35-0ubuntu0.20.04.1'}
+2024-01-04 14:08:01,554 - sport_mng - INFO - database list: [{'Database': 'information_schema'}, {'Database': 'nsyy_general'}, {'Database': 'nsyy_gyl'}, {'Database': 'performance_schema'}]
+2024-01-04 14:08:01,554 - sport_mng - INFO - database list: [{'Database': 'information_schema'}, {'Database': 'nsyy_general'}, {'Database': 'nsyy_gyl'}, {'Database': 'performance_schema'}]
+2024-01-04 14:08:01,564 - sport_mng - INFO - table list: [{'Tables_in_nsyy_gyl': 'cuzhong_table'}, {'Tables_in_nsyy_gyl': 'menu'}]
+2024-01-04 14:08:01,564 - sport_mng - INFO - table list: [{'Tables_in_nsyy_gyl': 'cuzhong_table'}, {'Tables_in_nsyy_gyl': 'menu'}]
+2024-01-04 14:08:01,584 - sport_mng - INFO - table fields: [{'COLUMN_NAME': 'id'}, {'COLUMN_NAME': 'is_breakfast'}, {'COLUMN_NAME': 'is_dunch'}, {'COLUMN_NAME': 'kcal'}, {'COLUMN_NAME': 'name'}, {'COLUMN_NAME': 'unit'}]
+2024-01-04 14:08:01,584 - sport_mng - INFO - table fields: [{'COLUMN_NAME': 'id'}, {'COLUMN_NAME': 'is_breakfast'}, {'COLUMN_NAME': 'is_dunch'}, {'COLUMN_NAME': 'kcal'}, {'COLUMN_NAME': 'name'}, {'COLUMN_NAME': 'unit'}]
+2024-01-04 14:08:05,176 - sport_mng - DEBUG - close db!
+2024-01-04 14:08:05,176 - sport_mng - DEBUG - close db!
+2024-01-04 14:40:30,744 - sport_mng - DEBUG - connect db: host='192.168.3.12', port=3306, user='gyl', password='123456', database='nsyy_gyl'
+2024-01-04 14:40:30,752 - sport_mng - DEBUG - DB Version : version={'VERSION()': '8.0.35-0ubuntu0.20.04.1'}
+2024-01-04 14:40:30,765 - sport_mng - INFO - database list: [{'Database': 'information_schema'}, {'Database': 'nsyy_general'}, {'Database': 'nsyy_gyl'}, {'Database': 'performance_schema'}]
+2024-01-04 14:40:30,778 - sport_mng - INFO - table list: [{'Tables_in_nsyy_gyl': 'cuzhong_table'}, {'Tables_in_nsyy_gyl': 'menu'}]
+2024-01-04 14:40:30,801 - sport_mng - INFO - table fields: [{'COLUMN_NAME': 'id'}, {'COLUMN_NAME': 'is_breakfast'}, {'COLUMN_NAME': 'is_dunch'}, {'COLUMN_NAME': 'kcal'}, {'COLUMN_NAME': 'name'}, {'COLUMN_NAME': 'unit'}]
+2024-01-04 14:40:30,802 - sport_mng - DEBUG - close db!
