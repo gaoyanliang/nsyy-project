@@ -37,7 +37,7 @@ def gov_id_check():
         output = data_dict['Response']['output']
         log.debug("Return code: " + returncode_value)
 
-        if returncode_value == '1' and output is not None:
+        if int(returncode_value) == 0 and output is not None:
             return jsonify(data={
                 'code': 20000,
                 'msg': 'Ehc already exists',
@@ -100,7 +100,7 @@ def gov_id_create():
         message = data_dict['Response']['message']
         log.debug("Return Message: " + message)
 
-        if returncode_value == '1':
+        if int(returncode_value) == 0:
             return jsonify(data={
                 'code': 20000,
                 'msg': message,
