@@ -1,8 +1,8 @@
 import pymysql
 from pymysql.cursors import DictCursor
 
-import global_config
-from utils.unified_logger import UnifiedLogger
+from gylmodules import global_config
+from gylmodules.utils.unified_logger import UnifiedLogger
 
 """
 数据库工具类

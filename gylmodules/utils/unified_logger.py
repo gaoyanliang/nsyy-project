@@ -1,5 +1,7 @@
 import logging
 
+import gylmodules.global_config
+
 
 class UnifiedLogger:
     _instance = None
@@ -19,14 +21,15 @@ class UnifiedLogger:
             console_handler.setLevel(logging.DEBUG)
             console_handler.setFormatter(formatter)
 
-            # Create a file handler
-            file_handler = logging.FileHandler('sport_mng.log')
-            file_handler.setLevel(logging.DEBUG)
-            file_handler.setFormatter(formatter)
-
             # Add the handlers to the logger
             cls._instance._logger.addHandler(console_handler)
-            cls._instance._logger.addHandler(file_handler)
+
+            if gylmodules.global_config.FILE_HANDLER:
+                # Create a file handler
+                file_handler = logging.FileHandler(gylmodules.global_config.FILE_NAME)
+                file_handler.setLevel(logging.DEBUG)
+                file_handler.setFormatter(formatter)
+                cls._instance._logger.addHandler(file_handler)
 
         return cls._instance
 

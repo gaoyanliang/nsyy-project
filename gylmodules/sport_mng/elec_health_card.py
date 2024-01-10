@@ -1,6 +1,6 @@
-from utils.unified_logger import UnifiedLogger
+from gylmodules.utils.unified_logger import UnifiedLogger
 from suds.client import Client
-import sport_mng.ehc_config as ehc_config
+import gylmodules.sport_mng.ehc_config as ehc_config
 
 log = UnifiedLogger()
 

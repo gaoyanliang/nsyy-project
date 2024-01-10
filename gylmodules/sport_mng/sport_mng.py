@@ -2,10 +2,10 @@ from datetime import datetime
 
 from flask import Blueprint, jsonify, request
 
-import global_config
-from sport_mng.elec_health_card import ElecHealthCard
-from utils.db_utils import DbUtil
-from utils.unified_logger import UnifiedLogger
+from gylmodules import global_config
+from gylmodules.sport_mng.elec_health_card import ElecHealthCard
+from gylmodules.utils.db_utils import DbUtil
+from gylmodules.utils.unified_logger import UnifiedLogger
 import xmltodict
 import json
 

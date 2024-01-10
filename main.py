@@ -4,11 +4,10 @@
 # Press Double ⇧ to search everywhere for classes, files, tool windows, actions, and settings.
 
 # -*- coding: utf-8 -*-
-import eventlet
 from flask import Flask
 from flask_cors import CORS
 from flask_socketio import SocketIO
-from sport_mng.sport_mng import sport_mng
+from gylmodules.sport_mng.sport_mng import sport_mng
 
 server_app = Flask(__name__)
 
