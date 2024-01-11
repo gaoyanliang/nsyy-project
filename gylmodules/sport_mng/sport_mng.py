@@ -9,7 +9,7 @@ from gylmodules.utils.unified_logger import UnifiedLogger
 import xmltodict
 import json
 
-sport_mng = Blueprint('sport_mng', __name__)
+sport_mng = Blueprint('sport_mng', __name__, url_prefix='/sport_mng')
 health_card = ElecHealthCard()
 log = UnifiedLogger()
 

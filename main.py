@@ -7,12 +7,10 @@
 from flask import Flask
 from flask_cors import CORS
 from flask_socketio import SocketIO
-from gylmodules.app import sport_mng
+from gylmodules.app import gylroute
 
 server_app = Flask(__name__)
-
-# 注册医体融合项目路由
-server_app.register_blueprint(sport_mng, url_prefix='/gyl/sport_mng')
+server_app.register_blueprint(gylroute, url_prefix='/gyl')
 
 CORS(server_app, supports_credentials=True)
 async_mode = "eventlet"
