@@ -31,7 +31,7 @@ class DbUtil:
         self.__conn = pymysql.connect(host=host, port=port, user=user, password=password, database=database)
         # Create a cursor with DictCursor
         self.__cursor = self.__conn.cursor(cursor=DictCursor)
-        log.debug(f'connect db: {host=}, {port=}, {user=}, {password=}, {database=}')
+        log.debug(f'connect db: {host}=, {port}=, {user}=, {password}=, {database}=')
 
     def __del__(self):
         """析构函数"""
@@ -55,7 +55,7 @@ class DbUtil:
         """获取 DB 版本"""
         self.__cursor.execute("SELECT VERSION()", args)
         version = self.__cursor.fetchone()
-        log.debug(f'DB Version : {version=}')
+        log.debug(f'DB Version : {version}=')
         return version
 
     def list_databases(self, args=None):
@@ -101,7 +101,7 @@ class DbUtil:
     def select_db(self, db):
         """选择数据库"""
         self.__conn.select_db(db)
-        log.debug(f'switch database to {db=}')
+        log.debug(f'switch database to {db}=')
 
     def execute(self, sql, args=None, need_commit: bool = False):
         """获取SQL执行结果"""

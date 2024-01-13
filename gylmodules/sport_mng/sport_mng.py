@@ -38,21 +38,34 @@ def gov_id_check():
         log.debug("Return code: " + returncode_value)
 
         if int(returncode_value) == 0 and output is not None:
-            return jsonify(data={
+            user_info = {
+                "currentAddress": data_dict['Response']['output']['Response']['currentAddress'],
+                "domicileAddress": data_dict['Response']['output']['Response']['domicileAddress'],
+                "ehcId": data_dict['Response']['output']['Response']['ehcId'],
+                "idCardNum": data_dict['Response']['output']['Response']['idCardNum'],
+                "idCardType": data_dict['Response']['output']['Response']['idCardType'],
+                "mainIndexId": data_dict['Response']['output']['Response']['mainIndexId'],
+                "status": data_dict['Response']['output']['Response']['status'],
+                "telephone": data_dict['Response']['output']['Response']['telephone'],
+                "userName": data_dict['Response']['output']['Response']['userName'],
+                "userSex": data_dict['Response']['output']['Response']['userSex'],
+                "birthday": data_dict['Response']['output']['Response']['birthday'],
+            }
+            return jsonify({
                 'code': 20000,
-                'msg': 'Ehc already exists',
-                'data': json_data
+                'res': '该用户已申领电子健康卡',
+                'data': user_info
             })
         else:
-            return jsonify(data={
+            return jsonify({
                 'code': 50000,
-                'msg': 'Ehc does not exist',
+                'res': '该用户未申领电子健康卡',
                 'data': json_data
             })
 
-    return jsonify(data={
+    return jsonify({
         'code': 50000,
-        'msg': 'Ehc does not exist',
+        'res': '验证失败，请检查电子健康卡服务是否正常',
         'data': '验证失败，请检查服务是否正常'
     })
 
@@ -72,9 +85,9 @@ def gov_id_create():
         apply_type = '1'
     if user_name is None or telephone is None or id_card_num is None \
             or current_address is None or domicile_address is None:
-        return jsonify(data={
+        return jsonify({
             'code': 50000,
-            'msg': '入参异常，参数不能为 None',
+            'res': '入参异常，参数不能为 None',
             'data': '电子健康卡申领失败，请检查参数是否填写无误。'
         })
 
@@ -99,23 +112,36 @@ def gov_id_create():
         log.debug("Return code: " + returncode_value)
         message = data_dict['Response']['message']
         log.debug("Return Message: " + message)
+        output = data_dict['Response']['output']
 
-        if int(returncode_value) == 0:
-            return jsonify(data={
+        if int(returncode_value) == 0 and output is not None:
+            user_info = {
+                "currentAddress": data_dict['Response']['output']['Response']['currentAddress'],
+                "domicileAddress": data_dict['Response']['output']['Response']['domicileAddress'],
+                "ehcId": data_dict['Response']['output']['Response']['ehcId'],
+                "idCardNum": data_dict['Response']['output']['Response']['idCardNum'],
+                "idCardType": data_dict['Response']['output']['Response']['idCardType'],
+                "mainIndexId": data_dict['Response']['output']['Response']['mainIndexId'],
+                "telephone": data_dict['Response']['output']['Response']['telephone'],
+                "userName": data_dict['Response']['output']['Response']['userName'],
+                "userSex": data_dict['Response']['output']['Response']['userSex'],
+                "birthday": data_dict['Response']['output']['Response']['birthday'],
+            }
+            return jsonify({
                 'code': 20000,
-                'msg': message,
-                'data': json_data
+                'res': message,
+                'data': user_info
             })
         else:
-            return jsonify(data={
+            return jsonify({
                 'code': 50000,
-                'msg': message,
+                'res': message,
                 'data': json_data
             })
 
-    return jsonify(data={
+    return jsonify({
         'code': 50000,
-        'msg': 'Ehc does not exist',
+        'res': '电子健康卡申领失败，请检查服务是否正常',
         'data': '电子健康卡申领失败，请检查服务是否正常'
     })
 
@@ -132,15 +158,15 @@ def meal_list():
         del db
     except Exception as e:
         print(f"sport_list: An unexpected error occurred: {e}")
-        return jsonify(data={
+        return jsonify({
             'code': 50000,
-            'msg': '获取膳食列表失败',
+            'res': '获取膳食列表失败',
             'data': ""
         })
 
-    return jsonify(data={
+    return jsonify({
         'code': 20000,
-        'msg': '获取膳食列表成功',
+        'res': '获取膳食列表成功',
         'data': meal_list
     })
 
@@ -157,15 +183,15 @@ def sport_list():
         del db
     except Exception as e:
         print(f"sport_list: An unexpected error occurred: {e}")
-        return jsonify(data={
+        return jsonify({
             'code': 50000,
-            'msg': '获取运动列表失败',
+            'res': '获取运动列表失败',
             'data': ""
         })
 
-    return jsonify(data={
+    return jsonify({
         'code': 20000,
-        'msg': '获取运动列表成功',
+        'res': '获取运动列表成功',
         'data': sport_list
     })
 
@@ -180,9 +206,9 @@ def create_package():
     list = json_data.get("list")
 
     if list is None or list == '':
-        return jsonify(data={
+        return jsonify({
             'code': 50000,
-            'msg': '套餐数据录入失败, 套餐内没有数据, 请挑选合适的运动或膳食组成套餐',
+            'res': '套餐数据录入失败, 套餐内没有数据, 请挑选合适的运动或膳食组成套餐',
             'data': ""
         })
 
@@ -194,23 +220,23 @@ def create_package():
         insert_sql = "INSERT INTO package (name,type,creator,list) VALUES (%s,%s,%s,%s)"
         last_rowid = db.execute(insert_sql, args, need_commit=True)
         if last_rowid == -1:
-            return jsonify(data={
+            return jsonify({
                 'code': 50000,
-                'msg': '套餐数据录入失败',
+                'res': '套餐数据录入失败',
                 'data': ""
             })
         del db
     except Exception as e:
         print(f"sport_list: An unexpected error occurred: {e}")
-        return jsonify(data={
+        return jsonify({
             'code': 50000,
-            'msg': '套餐数据录入失败',
+            'res': '套餐数据录入失败',
             'data': ""
         })
 
-    return jsonify(data={
+    return jsonify({
         'code': 20000,
-        'msg': '套餐数据录入成功',
+        'res': '套餐数据录入成功',
         'data': last_rowid
     })
 
@@ -224,9 +250,9 @@ def read_package():
     # 套餐类别 0-运动套餐 1-餐饮套餐
     type = json_data.get("type")
     if doctor_id is None:
-        return jsonify(data={
+        return jsonify({
             'code': 50000,
-            'msg': '标准套餐查询失败，请提供医生 ID',
+            'res': '标准套餐查询失败，请提供医生 ID',
             'data': ""
         })
 
@@ -259,15 +285,15 @@ def read_package():
         del db
     except Exception as e:
         print(f"read_package: An unexpected error occurred: {e}")
-        return jsonify(data={
+        return jsonify({
             'code': 50000,
-            'msg': '标准套餐数据查询失败',
+            'res': '标准套餐数据查询失败',
             'data': ""
         })
 
-    return jsonify(data={
+    return jsonify({
         'code': 20000,
-        'msg': '标准套餐数据查询成功',
+        'res': '标准套餐数据查询成功',
         'data': package_list
     })
 
@@ -281,9 +307,9 @@ def read_patient_package():
     # 套餐类别 0-运动套餐 1-餐饮套餐
     type = json_data.get("type")
     if patient_id is None:
-        return jsonify(data={
+        return jsonify({
             'code': 50000,
-            'msg': '患者运动/饮食列表查询失败，请提供患者 ID',
+            'res': '患者运动/饮食列表查询失败，请提供患者 ID',
             'data': ""
         })
 
@@ -322,15 +348,15 @@ def read_patient_package():
         del db
     except Exception as e:
         print(f"read_patient_package: An unexpected error occurred: {e}")
-        return jsonify(data={
+        return jsonify({
             'code': 50000,
-            'msg': '患者运动/饮食列表查询失败',
+            'res': '患者运动/饮食列表查询失败',
             'data': ""
         })
 
-    return jsonify(data={
+    return jsonify({
         'code': 20000,
-        'msg': '患者运动/饮食列表查询成功',
+        'res': '患者运动/饮食列表查询成功',
         'data': patient_list
     })
 
@@ -357,9 +383,9 @@ def allocation_package():
         query_sql = "SELECT * FROM package WHERE id = {} ".format(int(package_id))
         package = db.query_all(query_sql)
         if package is None or len(package) == 0:
-            return jsonify(data={
+            return jsonify({
                 'code': 50000,
-                'msg': '套餐分配失败, 所选套餐不存在',
+                'res': '套餐分配失败, 所选套餐不存在',
                 'data': ""
             })
 
@@ -367,24 +393,24 @@ def allocation_package():
         insert_sql = "INSERT INTO patient_package (patient_id,from_package,start_date,list,type) VALUES (%s,%s,%s,%s,%s)"
         last_rowid = db.execute(insert_sql, args, need_commit=True)
         if last_rowid == -1:
-            return jsonify(data={
+            return jsonify({
                 'code': 50000,
-                'msg': '套餐分配失败',
+                'res': '套餐分配失败',
                 'data': ""
             })
 
         del db
     except Exception as e:
         print(f"allocation_package: An unexpected error occurred: {e}")
-        return jsonify(data={
+        return jsonify({
             'code': 50000,
-            'msg': '套餐分配失败',
+            'res': '套餐分配失败',
             'data': ""
         })
 
-    return jsonify(data={
+    return jsonify({
         'code': 20000,
-        'msg': '套餐分配成功',
+        'res': '套餐分配成功',
         'data': last_rowid
     })
 
@@ -410,15 +436,15 @@ def update_patient_list():
         query_sql = "SELECT * FROM nsyy_gyl.patient_package WHERE id = {} ".format(int(list_id))
         patient_list = db.query_one(query_sql)
         if patient_list is None:
-            return jsonify(data={
+            return jsonify({
                 'code': 50000,
-                'msg': '患者列表修改失败，当前患者不存在该列表，请检查',
+                'res': '患者列表修改失败，当前患者不存在该列表，请检查',
                 'data': ""
             })
         if patient_list.get('patient_id') != int(patient_id):
-            return jsonify(data={
+            return jsonify({
                 'code': 50000,
-                'msg': '患者列表修改失败，当前患者修改的不是本人的运动/饮食列表',
+                'res': '患者列表修改失败，当前患者修改的不是本人的运动/饮食列表',
                 'data': ""
             })
 
@@ -426,9 +452,9 @@ def update_patient_list():
             update_sql = "UPDATE nsyy_gyl.patient_package SET start_date = %s , list = %s WHERE id = %s"
             args = (start_date, list, list_id)
         elif list is None and start_date is None:
-            return jsonify(data={
+            return jsonify({
                 'code': 50000,
-                'msg': '患者列表修改失败，请提供正确的参数（列表和开始时间必须提供一个）',
+                'res': '患者列表修改失败，请提供正确的参数（列表和开始时间必须提供一个）',
                 'data': ''
             })
         elif start_date is None:
@@ -442,15 +468,15 @@ def update_patient_list():
         del db
     except Exception as e:
         print(f"update_patient_list: An unexpected error occurred: {e}")
-        return jsonify(data={
+        return jsonify({
             'code': 50000,
-            'msg': '患者列表更新失败',
+            'res': '患者列表更新失败',
             'data': ''
         })
 
-    return jsonify(data={
+    return jsonify({
         'code': 20000,
-        'msg': '患者列表更新成功',
+        'res': '患者列表更新成功',
         'data': ''
     })
 
