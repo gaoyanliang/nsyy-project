@@ -31,13 +31,13 @@ class DbUtil:
         self.__conn = pymysql.connect(host=host, port=port, user=user, password=password, database=database)
         # Create a cursor with DictCursor
         self.__cursor = self.__conn.cursor(cursor=DictCursor)
-        log.debug(f'connect db: {host}=, {port}=, {user}=, {password}=, {database}=')
+        # log.debug(f'connect db: {host}=, {port}=, {user}=, {password}=, {database}=')
 
     def __del__(self):
         """析构函数"""
         self.__cursor.close()
         self.__conn.close()
-        log.debug("close db!")
+        # log.debug("close db!")
 
     def get_conn(self):
         """获取连接"""

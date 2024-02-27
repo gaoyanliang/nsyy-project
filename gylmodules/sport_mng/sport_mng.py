@@ -3,14 +3,13 @@ from datetime import datetime
 from flask import Blueprint, jsonify, request
 
 from gylmodules import global_config
-from gylmodules.sport_mng.elec_health_card import ElecHealthCard
+from gylmodules.sport_mng import elec_health_card
 from gylmodules.utils.db_utils import DbUtil
 from gylmodules.utils.unified_logger import UnifiedLogger
 import xmltodict
 import json
 
 sport_mng = Blueprint('sport_mng', __name__, url_prefix='/sport_mng')
-health_card = ElecHealthCard()
 log = UnifiedLogger()
 
 
@@ -20,7 +19,7 @@ def gov_id_check():
     json_data = json.loads(request.get_data().decode('utf-8'))
     id_card_num = json_data.get("id_card_num")
     # test 110101199004076650 吕测试
-    res = health_card.get_info_by_id(id_card_num=id_card_num)
+    res = elec_health_card.get_info_by_id(id_card_num=id_card_num)
 
     # return code: 0-成功 1-失败 -1-异常
     if res is not None:
@@ -91,12 +90,12 @@ def gov_id_create():
             'data': '电子健康卡申领失败，请检查参数是否填写无误。'
         })
 
-    res = health_card.gov_id_create(apply_type=apply_type,
-                                    user_name=user_name,
-                                    telephone=telephone,
-                                    id_card_num=id_card_num,
-                                    current_address=current_address,
-                                    domicile_address=domicile_address)
+    res = elec_health_card.gov_id_create(apply_type=apply_type,
+                                         user_name=user_name,
+                                         telephone=telephone,
+                                         id_card_num=id_card_num,
+                                         current_address=current_address,
+                                         domicile_address=domicile_address)
     # return code: 0-成功 1-失败 -1-异常
     if res is not None:
         # Convert XML to Python dictionary
@@ -157,6 +156,7 @@ def meal_list():
         meal_list = db.query_all(query_sql)
         del db
     except Exception as e:
+        del db
         print(f"sport_list: An unexpected error occurred: {e}")
         return jsonify({
             'code': 50000,
@@ -182,6 +182,7 @@ def sport_list():
         sport_list = db.query_all(query_sql)
         del db
     except Exception as e:
+        del db
         print(f"sport_list: An unexpected error occurred: {e}")
         return jsonify({
             'code': 50000,
@@ -227,6 +228,7 @@ def create_package():
             })
         del db
     except Exception as e:
+        del db
         print(f"sport_list: An unexpected error occurred: {e}")
         return jsonify({
             'code': 50000,
@@ -284,6 +286,7 @@ def read_package():
                 package['list'] = datas
         del db
     except Exception as e:
+        del db
         print(f"read_package: An unexpected error occurred: {e}")
         return jsonify({
             'code': 50000,
@@ -317,7 +320,8 @@ def read_patient_package():
         db = DbUtil(global_config.DB_HOST, global_config.DB_USERNAME, global_config.DB_PASSWORD,
                     global_config.DB_DATABASE_GYL)
 
-        query_sql = "SELECT * FROM patient_package WHERE patient_id = {} and type = {}".format(int(patient_id), int(type))
+        query_sql = "SELECT * FROM patient_package WHERE patient_id = {} and type = {}".format(int(patient_id),
+                                                                                               int(type))
         patient_list = db.query_all(query_sql)
 
         # 读取运动/膳食详情
@@ -347,6 +351,7 @@ def read_patient_package():
                 list['name'] = package.get('name')
         del db
     except Exception as e:
+        del db
         print(f"read_patient_package: An unexpected error occurred: {e}")
         return jsonify({
             'code': 50000,
@@ -401,6 +406,7 @@ def allocation_package():
 
         del db
     except Exception as e:
+        del db
         print(f"allocation_package: An unexpected error occurred: {e}")
         return jsonify({
             'code': 50000,
@@ -427,7 +433,7 @@ def update_patient_list():
     start_date = json_data.get("start_date")
 
     if start_date is not None:
-        start_date = datetime.strptime(start_date, '%m-%d-%Y').date()
+        start_date = datetime.strptime(start_date, '%Y-%m-%d').date()
 
     try:
         db = DbUtil(global_config.DB_HOST, global_config.DB_USERNAME, global_config.DB_PASSWORD,
@@ -467,6 +473,7 @@ def update_patient_list():
         db.execute(update_sql, args, need_commit=True)
         del db
     except Exception as e:
+        del db
         print(f"update_patient_list: An unexpected error occurred: {e}")
         return jsonify({
             'code': 50000,
