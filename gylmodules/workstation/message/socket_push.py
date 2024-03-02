@@ -17,8 +17,8 @@ import json
 socket_push_url = 'http://192.168.124.53:6080/inter_socket_msg'
 
 
-def push(socket_data: str, user_id: int):
-    print('向用户 ' + str(user_id) + ' 推送消息: ' + socket_data)
+def push(socket_data: dict, user_id: int):
+    print('向用户 ' + str(user_id) + ' 推送消息: ' + json.dumps(socket_data, default=str))
 
     if ws_config.IS_TEST_ENV:
         # 测试环境
@@ -41,4 +41,4 @@ def push(socket_data: str, user_id: int):
         print("正式环境 socket 推送")
 
 
-push("test", 100)
+# push("test", 100)

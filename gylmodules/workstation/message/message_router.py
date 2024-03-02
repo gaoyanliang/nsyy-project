@@ -1,14 +1,11 @@
 import traceback
-import threading
 
 from flask import Blueprint, jsonify, request
 from gylmodules.utils.unified_logger import UnifiedLogger
-from gylmodules.workstation import message
-from gylmodules import global_config
-from gylmodules.utils.db_utils import DbUtil
+from gylmodules.workstation.message import message
 import json
 
-message_router = Blueprint('message router', __name__)
+message_router = Blueprint('message router', __name__, url_prefix='/msg')
 log = UnifiedLogger()
 
 
@@ -18,15 +15,17 @@ def chat():
     json_data = json.loads(request.get_data().decode('utf-8'))
     context_type = json_data.get("context_type")
     sender = json_data.get("sender")
+    sender_name = json_data.get("sender_name")
     group_id = json_data.get("group_id")
     receiver = json_data.get("receiver")
+    receiver_name = json_data.get("receiver_name")
 
     # TODO image/video/audio/link 特殊处理 ，现在只处理 text
     # TODO 如果是多媒体类型，需要先调用上茶接口，获取到存储地址
     context = json_data.get("context")
 
     try:
-        message.send_chat_message(context_type, int(sender), group_id, receiver, context)
+        message.send_chat_message(int(context_type), int(sender), sender_name, group_id, receiver, receiver_name, context)
     except Exception as e:
         print(f"chat: An unexpected error occurred: {e}")
         print(traceback.print_exc())
@@ -48,6 +47,7 @@ def chat():
 def notification():
     json_data = json.loads(request.get_data().decode('utf-8'))
     context_type = json_data.get("context_type")
+    cur_user_id = json_data.get('cur_user_id')
     receiver = json_data.get("receiver")
 
     # TODO image/video/audio/link 特殊处理 ，现在只处理 text
@@ -55,7 +55,7 @@ def notification():
     context = json_data.get("context")
 
     try:
-        message.send_notification_message(context_type, receiver, context)
+        message.send_notification_message(int(context_type), int(cur_user_id), receiver, context)
     except Exception as e:
         print(f"chat: An unexpected error occurred: {e}")
         print(traceback.print_exc())
@@ -83,7 +83,7 @@ def update_unread():
     last_read = json_data.get("last_read")
 
     try:
-        message.update_read(type, is_group, sender, receiver, last_read)
+        message.update_read(int(type), is_group, sender, receiver, last_read)
     except Exception as e:
         print(f"chat: An unexpected error occurred: {e}")
         print(traceback.print_exc())
@@ -159,7 +159,7 @@ def read_chat_message():
     count = json_data.get("count")
 
     try:
-        chat_messages = message.get_chat_message(cur_user_id, chat_user_id, group_id, start, count)
+        chat_messages = message.get_chat_message(int(cur_user_id), chat_user_id, group_id, int(start), int(count))
     except Exception as e:
         print(f"read_chat_message: An unexpected error occurred: {e}")
         print(traceback.print_exc())

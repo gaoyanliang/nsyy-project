@@ -23,13 +23,29 @@ def get_message_id():
 
 # Trying to set a key with an invalid name
 try:
-    # redis_client.rpush('test-list-key', 'value1')
-    # redis_client.rpush('test-list-key', 'value2')
-    # redis_client.rpush('test-list-key', 'value3')
-    # redis_client.rpush('test-list-key', 'value4')
-    # redis_client.rpush('test-list-key', 'value5')
-    # redis_client.rpush('test-list-key', 'value6')
-    # print(redis_client.llen('test-list-key'))
+    # key = 'test-list-key'
+    # redis_client.rpush(key, 'value1')
+    # redis_client.rpush(key, 'value2')
+    # redis_client.rpush(key, 'value3')
+    # redis_client.rpush(key, 'value4')
+    # redis_client.rpush(key, 'value5')
+    # redis_client.rpush(key, 'value6')
+    #
+    # all_elements = redis_client.lrange(key, 0, -1)
+    #
+    # redis_client.rpush(key, 'value7')
+    # redis_client.rpush(key, 'value8')
+    # redis_client.rpush(key, 'value9')
+    #
+    # redis_client.ltrim(key, len(all_elements), -1)
+    #
+    # for e in all_elements:
+    #     print("===> " + e)
+    #
+    # all_elements = redis_client.lrange(key, 0, -1)
+    # for e in all_elements:
+    #     print("---> " + e)
+
     # print(redis_client.lrange('test-list-key', redis_client.llen('test-list-key')-2, redis_client.llen('test-list-key')-1))
 
     # redis_client.sadd('test-set-key', 1)
@@ -58,11 +74,13 @@ try:
     # print(redis_client.lrange('NotificationMessage[2]', -10, -1))
     # print(redis_client.lrange('NotificationMessage[2]', -2, -1))
 
-    # redis_client.flushdb()
-    # print("--")
+    redis_client.flushdb()
+    print("--")
 
-    get_message_id()
-    get_message_id()
+
+
+    # get_message_id()
+    # get_message_id()
 
 
 except UnicodeError as e:

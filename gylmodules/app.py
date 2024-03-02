@@ -1,6 +1,6 @@
 from flask import Blueprint
 from gylmodules.sport_mng.sport_mng import sport_mng
-from gylmodules.workstation.message_router import message_router
+from gylmodules.workstation.message.message_router import message_router
 
 gylroute = Blueprint('gyl', __name__)
 

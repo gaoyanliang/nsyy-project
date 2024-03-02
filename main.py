@@ -8,6 +8,7 @@ from flask import Flask
 from flask_cors import CORS
 from flask_socketio import SocketIO
 from gylmodules.app import gylroute
+from gylmodules.workstation.message.schedule_task import schedule_task
 
 server_app = Flask(__name__)
 server_app.register_blueprint(gylroute, url_prefix='/gyl')
@@ -18,4 +19,5 @@ socketio = SocketIO()
 socketio.init_app(server_app, cors_allowed_origins='*', async_mode=async_mode, subprocess=1000, threaded=True)
 
 if __name__ == '__main__':
+    schedule_task()
     socketio.run(server_app, host='0.0.0.0', port=8080, debug=True, use_reloader=True)
