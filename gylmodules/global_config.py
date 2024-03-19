@@ -10,6 +10,6 @@ DB_DATABASE_GENERAL = 'nsyy_general'
 DB_TABLE_MENU = 'menu'
 DB_TABLE_SPORTS_ACTIONS = 'sports_actions'
 
-# log config
-FILE_HANDLER = False
-FILE_NAME = 'sport_mng.log'
+# 测试环境
+RUN_IN_TEST = True
+

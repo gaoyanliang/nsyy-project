@@ -1,3 +1,5 @@
+import json
+
 import redis
 
 # Connecting to Redis
@@ -77,10 +79,13 @@ try:
     redis_client.flushdb()
     print("--")
 
-
+    # data = {"chat_type":2,"context":"1","context_type":0,"group_id":3,"id":31,"receiver":None,"receiver_name":None,"sender":110100,"sender_name":"admin","timer":"Wed, 06 Mar 2024 14:33:53 GMT"}
+    #
+    # print(json.dumps(data, default=str))
+    # print(json.loads(data))
 
     # get_message_id()
-    # get_message_id()
+    get_message_id()
 
 
 except UnicodeError as e:

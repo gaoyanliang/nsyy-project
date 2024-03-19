@@ -1,37 +1,46 @@
 #  === message type ===
 # 通知消息
 NOTIFICATION_MESSAGE = 0
-# 聊天消息
-CHAT_MESSAGE = 1
 # 私聊
 PRIVATE_CHAT = 1
 # 群聊
 GROUP_CHAT = 2
 
 
-# === group manager ===
-
-INVITE_JOIN_GROUP = 0
-APPLY_JOIN_GROUP = 1
-
-
-#  === message context type ===
-TEXT = 0
-IMAGE = 1
-VIDEO = 2
-AUDIO = 3
-LINK = 4
-
 #  === redis config ===
-
 REDIS_HOST = '127.0.0.1'
 REDIS_PORT = 6379
 REDIS_DB = 2
 
 
-IS_TEST_ENV = True
-
-
 #  === redis key (new record) ===
 NEW_MESSAGE = 'NEW-MESSAGE'
 NEW_HISTORICAL_CONTACTS_RECORD = 'NEW-HISTORICAL-CONTACTS-RECORD'
+
+
+# ===========================================================
+# =============         mail            =====================
+# ===========================================================
+
+MAIL_DOMAIN = '@nsyy.com'
+MAIL_ACCOUNT_PASSWORD = 'nsyy0601'
+MAIL_MAILBOX = 'INBOX'
+
+# SSH connection details
+MAIL_SSH_HOST = "192.168.124.128"
+MAIL_SSH_USERNAME = "root"
+MAIL_SSH_PASSWORD = "111111"
+MAIL_SMTP_PORT = 587
+MAIL_IMAP_PORT = 993
+
+MAIL_OPERATE_UPDATE = 0
+MAIL_OPERATE_ADD = 1
+MAIL_OPERATE_REMOVE = 2
+MAIL_OPERATE_PUBLIC = 3
+MAIL_OPERATE_DELETE = 4
+
+NEW_MAIL_KEY = 'NEW-MAIL'
+ADD_MAIL_ACCOUNT_KEY = 'ADD-MAIL-ACCOUNT'
+REMOVE_MAIL_ACCOUNT_KEY = 'REMOVE-MAIL-ACCOUNT'
+DELETE_MAIL_GROUP_KEY = 'DELETE-MAIL-GROUP'
+DELETE_MAIL_ACCOUNT_KEY = 'DELETE-MAIL-ACCOUNT'

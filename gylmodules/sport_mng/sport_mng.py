@@ -10,7 +10,7 @@ import xmltodict
 import json
 
 sport_mng = Blueprint('sport_mng', __name__, url_prefix='/sport_mng')
-log = UnifiedLogger()
+log = UnifiedLogger("sport_mng.log")
 
 
 #  获取电子健康卡信息

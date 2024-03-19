@@ -2,7 +2,7 @@ from gylmodules.utils.unified_logger import UnifiedLogger
 from suds.client import Client
 import gylmodules.sport_mng.ehc_config as ehc_config
 
-log = UnifiedLogger()
+log = UnifiedLogger("elec_health_card.log")
 
 """
 电子健康卡信息管理

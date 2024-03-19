@@ -1,4 +1,4 @@
-from gylmodules.workstation import ws_config
+from gylmodules import global_config
 import requests
 import json
 
@@ -16,11 +16,13 @@ import json
 # 测试环境推送地址
 socket_push_url = 'http://192.168.124.53:6080/inter_socket_msg'
 
+# 消息推送 type = 100
+
 
 def push(socket_data: dict, user_id: int):
     print('向用户 ' + str(user_id) + ' 推送消息: ' + json.dumps(socket_data, default=str))
 
-    if ws_config.IS_TEST_ENV:
+    if global_config.RUN_IN_TEST:
         # 测试环境
         # 要发送的数据
         data = {'msg_list': [{'socket_data': socket_data, 'pers_id': user_id}]}

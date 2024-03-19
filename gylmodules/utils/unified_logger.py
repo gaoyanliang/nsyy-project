@@ -6,10 +6,11 @@ import gylmodules.global_config
 class UnifiedLogger:
     _instance = None
 
-    def __new__(cls):
+    def __new__(cls, file_name: str):
+        cls.file_name = file_name
         if cls._instance is None:
             cls._instance = super(UnifiedLogger, cls).__new__(cls)
-            cls._instance._logger = logging.getLogger("sport_mng")
+            cls._instance._logger = logging.getLogger(file_name)
 
             cls._instance._logger.setLevel(logging.DEBUG)
 
@@ -24,10 +25,10 @@ class UnifiedLogger:
             # Add the handlers to the logger
             cls._instance._logger.addHandler(console_handler)
 
-            if gylmodules.global_config.FILE_HANDLER:
+            if not gylmodules.global_config.RUN_IN_TEST:
                 # Create a file handler
-                file_handler = logging.FileHandler(gylmodules.global_config.FILE_NAME)
-                file_handler.setLevel(logging.DEBUG)
+                file_handler = logging.FileHandler(file_name)
+                file_handler.setLevel(logging.INFO)
                 file_handler.setFormatter(formatter)
                 cls._instance._logger.addHandler(file_handler)
 
@@ -62,7 +63,7 @@ class UnifiedLogger:
 
 
 if __name__ == "__main__":
-    logger = UnifiedLogger()
+    logger = UnifiedLogger("unified_logger_test.log")
     logger.log('debug', 'This is a debug message.')
     logger.log('info', 'This is an info message.')
     logger.log('warning', 'This is a warning message.')

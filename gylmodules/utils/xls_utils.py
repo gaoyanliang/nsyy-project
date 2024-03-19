@@ -1,9 +1,6 @@
 from gylmodules.utils.db_utils import DbUtil
 from gylmodules import global_config
-from gylmodules.utils.unified_logger import UnifiedLogger
 import pandas as pd
-
-log = UnifiedLogger()
 
 
 if __name__ == "__main__":
@@ -11,13 +8,13 @@ if __name__ == "__main__":
     db.get_version()
 
     dbs = db.list_databases()
-    log.info(f"database list: {dbs}")
+    print(f"database list: {dbs}")
 
     dbs = db.list_tables()
-    log.info(f"table list: {dbs}")
+    print(f"table list: {dbs}")
 
     dbs = db.get_table_fields(global_config.DB_DATABASE_GYL, global_config.DB_TABLE_MENU)
-    log.info(f"table fields: {dbs}")
+    print(f"table fields: {dbs}")
 
     # 将 excel 中的数据写入数据库
     df = pd.read_excel("/Users/gaoyanliang/nsyy/常见食物能量表.xlsx")

@@ -2,13 +2,10 @@ import pymysql
 from pymysql.cursors import DictCursor
 
 from gylmodules import global_config
-from gylmodules.utils.unified_logger import UnifiedLogger
 
 """
 数据库工具类
 """
-
-log = UnifiedLogger()
 
 
 class DbUtil:
@@ -55,7 +52,7 @@ class DbUtil:
         """获取 DB 版本"""
         self.__cursor.execute("SELECT VERSION()", args)
         version = self.__cursor.fetchone()
-        log.debug(f'DB Version : {version}=')
+        print(f'DB Version : {version}=')
         return version
 
     def list_databases(self, args=None):
@@ -101,7 +98,7 @@ class DbUtil:
     def select_db(self, db):
         """选择数据库"""
         self.__conn.select_db(db)
-        log.debug(f'switch database to {db}=')
+        print(f'switch database to {db}=')
 
     def execute(self, sql, args=None, need_commit: bool = False):
         """获取SQL执行结果"""
@@ -141,13 +138,13 @@ if __name__ == "__main__":
     db.get_version()
 
     dbs = db.list_databases()
-    log.info(f"database list: {dbs}")
+    print(f"database list: {dbs}")
 
     dbs = db.list_tables()
-    log.info(f"table list: {dbs}")
+    print(f"table list: {dbs}")
 
     dbs = db.get_table_fields(global_config.DB_DATABASE_GYL, global_config.DB_TABLE_MENU)
-    log.info(f"table fields: {dbs}")
+    print(f"table fields: {dbs}")
 
     del db
 
