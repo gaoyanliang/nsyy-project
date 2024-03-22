@@ -148,20 +148,29 @@ def delete_mail():
     })
 
 
-@mail_router.route('/download_attachment', methods=['POST'])
-def download_attachment():
-    json_data = json.loads(request.get_data().decode('utf-8'))
-    user_account = json_data.get("user_account")
-    mail_id = json_data.get("mail_id")
-    mailbox = json_data.get('mailbox')
-    file_name = json_data.get("file_name")
+@mail_router.route('/download_attachment/<url>', methods=['POST'])
+def download_attachment(url):
+    return jsonify({
+        'code': 20000,
+        'res': url,
+        'data': '下载成功'
+    })
 
-    attachment = mail.fetch_attachment(user_account, int(mail_id), mailbox, file_name)
-    if attachment is not None:
-        data_stream = BytesIO(attachment)
-        return send_file(data_stream, as_attachment=True, download_name=file_name)
 
-    return "Attachment not found", 404
+# @mail_router.route('/download_attachment', methods=['POST'])
+# def download_attachment():
+#     json_data = json.loads(request.get_data().decode('utf-8'))
+#     user_account = json_data.get("user_account")
+#     mail_id = json_data.get("mail_id")
+#     mailbox = json_data.get('mailbox')
+#     file_name = json_data.get("file_name")
+#
+#     attachment = mail.fetch_attachment(user_account, int(mail_id), mailbox, file_name)
+#     if attachment is not None:
+#         data_stream = BytesIO(attachment)
+#         return send_file(data_stream, as_attachment=True, download_name=file_name)
+#
+#     return "Attachment not found", 404
 
 
 @mail_router.route('/download_attachment_test/<user_account>/<mailbox>/<mail_id>/<file_name>', methods=['GET'])

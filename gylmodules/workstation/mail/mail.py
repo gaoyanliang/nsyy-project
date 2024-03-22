@@ -1,7 +1,10 @@
 import json
 
+import zlib
+import base64
 import os
 from datetime import datetime
+from email.mime.image import MIMEImage
 
 import requests
 
@@ -73,27 +76,27 @@ def send_email(sender: str, recipients: [str], ccs: [str],
 
             # 添加附件
             with open(filename, "rb") as attachment:
-                part = MIMEBase("application", "octet-stream")
-                part.set_payload(attachment.read())
-                encoders.encode_base64(part)
-                part.add_header("Content-Disposition", f"attachment; filename= {filename}")
-                msg.attach(part)
+                # part = MIMEBase("application", "octet-stream")
+                # part.set_payload(attachment.read())
+                # encoders.encode_base64(part)
+                # part.add_header("Content-Disposition", f"attachment; filename= {filename}")
+                # msg.attach(part)
 
-            # # 获取上传文件的MIME类型
-            # mime_type = attachment.mimetype
-            # if mime_type.startswith('image/'):
-            #     # 文件是图像
-            #     image = MIMEImage(attachment.read())
-            #     image.add_header("Content-ID", "<image1>")
-            #     image.add_header('Content-Disposition', 'attachment', filename=filename)
-            #     msg.attach(image)
-            # else:
-            #     # 文件是其他类型
-            #     part = MIMEBase("application", "octet-stream")
-            #     part.set_payload(attachment.read())
-            #     encoders.encode_base64(part)
-            #     part.add_header("Content-Disposition", 'attachment', filename=filename)
-            #     msg.attach(part)
+                # 获取上传文件的MIME类型
+                mime_type = attachment.mimetype
+                if mime_type.startswith('image/'):
+                    # 文件是图像
+                    image = MIMEImage(attachment.read())
+                    image.add_header("Content-ID", "<image1>")
+                    image.add_header('Content-Disposition', 'attachment', filename=filename)
+                    msg.attach(image)
+                else:
+                    # 文件是其他类型
+                    part = MIMEBase("application", "octet-stream")
+                    part.set_payload(attachment.read())
+                    encoders.encode_base64(part)
+                    part.add_header("Content-Disposition", 'attachment', filename=filename)
+                    msg.attach(part)
 
     try:
         # Connect to the SMTP server
@@ -299,6 +302,10 @@ def __read_mail_by_mail_id(mail, email_id, query_body: bool):
         attachments = []
         if msg.get('X-Attachments') is not None:
             attachments = json.loads(msg.get('X-Attachments'))
+            for att in attachments:
+                original_string = att.get('file_name') + '#' + att.get('file_path') + '#' + msg.get("Date")
+                compressed_string = compress_string(original_string)
+                att['url'] = compressed_string
         names = []
         if msg.get('X-Names') is not None:
             names = json.loads(msg.get('X-Names'))
@@ -372,6 +379,13 @@ def __read_mail_by_mail_id(mail, email_id, query_body: bool):
             "body": body,
         }, None
     return None, f"read email {email_id} failed"
+
+
+def compress_string(original_string):
+    encoded_bytes = base64.b64encode(original_string.encode())
+    encoded_string = encoded_bytes.decode()
+    encoded_string_modified = encoded_string.replace('/', '&')
+    return encoded_string_modified
 
 
 """登陆邮件服务器"""
