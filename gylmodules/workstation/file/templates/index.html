@@ -1,0 +1,86 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Remote File Explorer</title>
+</head>
+<body>
+
+    <div id="message-container"></div>
+    <script>
+        const socket = new WebSocket("ws://localhost:8765");
+
+        socket.onmessage = (event) => {
+            const messageContainer = document.getElementById("message-container");
+            const message = document.createElement("p");
+            message.textContent = event.data;
+            messageContainer.appendChild(message);
+        };
+
+        socket.onclose = (event) => {
+            if (event.wasClean) {
+                console.log(`Connection closed cleanly, code=${event.code}, reason=${event.reason}`);
+            } else {
+                console.error(`Connection died`);
+            }
+        };
+
+        socket.onerror = (error) => {
+            console.error(`WebSocket Error: ${error}`);
+        };
+    </script>
+
+
+    <h1>File Upload/Download</h1>
+
+    {% if error %}
+        <p style="color: red;">{{ error }}</p>
+    {% endif %}
+
+    {% if success %}
+        <p style="color: green;">{{ success }}</p>
+    {% endif %}
+
+    {% if download_file %}
+        <p>Successfully downloaded file: {{ download_file }} </p>
+    {% endif %}
+
+    {% if uploaded_file %}
+        <p>Uploaded File: <a href="/download/{{ uploaded_file }}">{{ uploaded_file }}</a></p>
+    {% endif %}
+
+    <form action="/upload" method="post" enctype="multipart/form-data">
+        <input type="file" name="file" accept=".txt, .pdf, .png, .jpg, .jpeg, .gif, .zip">
+        <input type="submit" value="Upload">
+    </form>
+
+
+    <!-- Add the following macro at the top of your template -->
+    {% macro render_tree(file_tree) %}
+        {% if file_tree.type == 'directory' %}
+            <ul>
+                <li>
+                    <strong>{{ file_tree.name }}</strong>
+                    {% for file in file_tree.children %}
+                        {{ render_tree(file) }}
+                    {% endfor %}
+                </li>
+            </ul>
+        {% else %}
+            <li>
+                <a href="{{ url_for('download_file', file_path=file_tree.path) }}">{{ file_tree.name }}</a>
+            </li>
+        {% endif %}
+    {% endmacro %}
+    <h1>Remote File List</h1>
+    {% if file_tree %}
+        {{ render_tree(file_tree) }}
+    {% endif %}
+
+    <footer>
+        <p>&copy; 2023 Remote File Explorer</p>
+    </footer>
+</body>
+</html>
+
