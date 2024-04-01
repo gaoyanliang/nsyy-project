@@ -23,9 +23,9 @@ from email import encoders
 from email.header import decode_header
 
 
-# ===========================================================
-# =============     mail  manager       =====================
-# ===========================================================
+"""
+发送邮件
+"""
 
 
 def send_email(sender: str, recipients: [str], ccs: [str],
@@ -72,16 +72,11 @@ def send_email(sender: str, recipients: [str], ccs: [str],
             filename = attachment.get('file_name')
             filepath = attachment.get('file_path')
 
+            # 下载附件
             download_file(filepath, filename)
 
             # 添加附件
             with open(filename, "rb") as attachment:
-                # part = MIMEBase("application", "octet-stream")
-                # part.set_payload(attachment.read())
-                # encoders.encode_base64(part)
-                # part.add_header("Content-Disposition", f"attachment; filename= {filename}")
-                # msg.attach(part)
-
                 # 获取上传文件的MIME类型
                 mime_type = attachment.mimetype
                 if mime_type.startswith('image/'):
@@ -137,6 +132,11 @@ def download_file(url, filename):
         file.write(response.content)
 
 
+"""
+读取邮件列表
+"""
+
+
 def read_mail_list(user_account: str, page_size: int, page_number: int, mailbox: str):
     # Connect to the IMAP server
     ret, mail = __login_mail_server(user_account, mailbox)
@@ -171,6 +171,11 @@ def read_mail_list(user_account: str, page_size: int, page_number: int, mailbox:
     return email_list
 
 
+"""
+模糊匹配邮件
+"""
+
+
 def read_mail_list_by_keyword(user_account: str, page_size: int, page_number: int, mailbox: str,
                               keyword: str):
     # Connect to the IMAP server
@@ -179,9 +184,6 @@ def read_mail_list_by_keyword(user_account: str, page_size: int, page_number: in
 
     search_criteria = '(OR (FROM \"' + keyword + '\") (SUBJECT \"' + keyword + '\"))'
     search_criteria = search_criteria.encode('utf-8')
-    # search_criteria = '(SUBJECT "测试")'.encode('utf-8')
-    # search_criteria = '(FROM "U111")'.encode('utf-8')
-    # Search for all emails in the mailbox. use UNSEEN search unread mail
     status, email_ids = mail.search(None, search_criteria)
 
     if status == "OK":
@@ -210,6 +212,11 @@ def read_mail_list_by_keyword(user_account: str, page_size: int, page_number: in
     return email_list
 
 
+"""
+查询邮件详情
+"""
+
+
 def read_mail(user_account: str, mail_id: str, mailbox: str):
     # Connect to the IMAP server
     ret, mail = __login_mail_server(user_account, mailbox)
@@ -221,6 +228,11 @@ def read_mail(user_account: str, mail_id: str, mailbox: str):
     return ret
 
 
+"""
+删除邮件
+"""
+
+
 def delete_mail(user_account: str, mail_ids, mailbox: str):
     # Connect to the IMAP server
     ret, mail = __login_mail_server(user_account, mailbox)
@@ -228,7 +240,6 @@ def delete_mail(user_account: str, mail_ids, mailbox: str):
     # 标记为已删除
     for id in mail_ids:
         mail.store(bytes(str(id), 'utf-8'), '+FLAGS', '(\Deleted)')
-
     # 彻底删除
     mail.expunge()
 
@@ -531,20 +542,11 @@ def create_mail_group(user_account: str, user_name: str, mail_group_name: str,
     if 'Error: NO_SUCH_ACCOUNT' not in output:
         raise Exception("邮箱群组群组" + mail_group_name + " 已存在")
 
-    if is_public == 0:
-        # 群组不公开
-        output = ssh.execute_shell_command(f"cd /opt/mlmmjadmin/tools; "
-                                           f"python3 maillist_admin.py create {group_name}"
-                                           f" only_subscriber_can_post=yes disable_archive=no ")
-        if 'Created.' not in output:
-            raise Exception("邮箱群组群组" + mail_group_name + " 创建失败")
-    else:
-        # 群组公开
-        output = ssh.execute_shell_command(f"cd /opt/mlmmjadmin/tools; "
-                                           f"python3 maillist_admin.py create {group_name}"
-                                           f" only_subscriber_can_post=no disable_archive=no ")
-        if 'Created.' not in output:
-            raise Exception("邮箱群组群组" + mail_group_name + " 创建失败")
+    output = ssh.execute_shell_command(f"cd /opt/mlmmjadmin/tools; "
+                                       f"python3 maillist_admin.py create {group_name}"
+                                       f" only_subscriber_can_post=no disable_archive=no ")
+    if 'Created.' not in output:
+        raise Exception("邮箱群组群组" + mail_group_name + " 创建失败")
 
     timer = datetime.now()
     timer = timer.strftime("%Y-%m-%d %H:%M:%S")
@@ -599,14 +601,6 @@ def operate_mail_group(user_account: str, mail_group_id: int, mail_group_name: s
     operate_type = 2 从群组中移除用户
     operate_type = 3 修改群组公开性
     operate_type = 4 删除群组 (对本人隐藏，但群组还在)
-    :param user_account:
-    :param mail_group_id:
-    :param mail_group_name:
-    :param operate_type:
-    :param new_mail_group_desc:
-    :param user_list:
-    :param is_public:
-    :return:
     """
     db = DbUtil(global_config.DB_HOST, global_config.DB_USERNAME, global_config.DB_PASSWORD,
                 global_config.DB_DATABASE_GYL)
@@ -712,27 +706,7 @@ def operate_mail_group(user_account: str, mail_group_id: int, mail_group_name: s
                      'WHERE user_account = %s and mail_group_id = %s '
         args = (timer, user_account, mail_group_id)
         db.execute(update_sql, args, need_commit=True)
-        # query_sql = "select * from nsyy_gyl.ws_mail_group " \
-        #             "where id = {} ".format(int(mail_group_id))
-        # mail_group = db.query_one(query_sql)
-        # # 只有创建者本人可以删除
-        # if mail_group.get('user_account') == user_account:
-        #     ssh = SshUtil(ws_config.MAIL_SSH_HOST, ws_config.MAIL_SSH_USERNAME, ws_config.MAIL_SSH_PASSWORD)
-        #     ssh.execute_shell_command(f"cd /opt/mlmmjadmin/tools; "
-        #                               f"python3 maillist_admin.py delete"
-        #                               f" {mail_group_name + ws_config.MAIL_DOMAIN} archive=yes ")
-        #     del ssh
-        #
-        #     args = (mail_group_id)
-        #     delete_sql = "DELETE FROM nsyy_gyl.ws_mail_group " \
-        #                  "WHERE id = %s "
-        #     db.execute(delete_sql, args, need_commit=True)
-        #
-        #     delete_sql = "DELETE FROM nsyy_gyl.ws_mail_group_members " \
-        #                  "WHERE mail_group_id = %s "
-        #     db.execute(delete_sql, args, need_commit=True)
-        # else:
-        #     raise Exception("当前用户没有当前群组的权限，只有创建者本人可以删除")
+
     del db
 
 
