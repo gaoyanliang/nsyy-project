@@ -42,6 +42,24 @@ def run_in_local():
         return False
 
 
+def write_cache(key, value):
+    redis_client = redis.Redis(connection_pool=pool)
+    redis_client.hset(cv_config.CV_REDIS_KEY, key, json.dumps(value, default=str))
+
+
+def read_cache(key):
+    redis_client = redis.Redis(connection_pool=pool)
+    value = redis_client.hget(cv_config.CV_REDIS_KEY, key)
+    if type(value) == int:
+        return value
+    return json.loads(value)
+
+
+def deltel_cache(key):
+    redis_client = redis.Redis(connection_pool=pool)
+    redis_client.hdel(cv_config.CV_REDIS_KEY, key)
+
+
 """
 启动时加载所有未完成的危机值，放入内存
 """
@@ -51,18 +69,10 @@ def pull_running_cv():
     db = DbUtil(global_config.DB_HOST, global_config.DB_USERNAME, global_config.DB_PASSWORD,
                 global_config.DB_DATABASE_GYL)
 
-    # 1. 记载所有处理中的危机值到内存
-    query_sql = 'select * from nsyy_gyl.cv_info where state != {} ' \
-        .format(cv_config.DOCTOR_HANDLE_STATE)
-    cvs = db.query_all(query_sql)
-    for cv in cvs:
-        key = cv.get('cv_id') + '_' + str(cv.get('cv_source'))
-        cv_config.all_running_cv[key] = cv
-
     query_sql = 'select * from nsyy_gyl.cv_timeout where type = \'cv\' '
     timeout_sets = db.query_one(query_sql)
 
-    # 2. 加载超时配置到内存
+    # 加载超时配置到内存
     if timeout_sets is None:
         nurse_timeout = 5 * 60
         doctor_timeout = 5 * 60
@@ -85,9 +95,19 @@ def pull_running_cv():
             doctor_timeout = doctor_timeout * 60
             total_timeout = total_timeout * 60
 
-    cv_config.all_timeout_setting[cv_config.TOTAL_TIMEOUT_KEY] = total_timeout
-    cv_config.all_timeout_setting[cv_config.NURSE_TIMEOUT_KEY] = nurse_timeout
-    cv_config.all_timeout_setting[cv_config.DOCTOR_TIMEOUT_KEY] = doctor_timeout
+    redis_client = redis.Redis(connection_pool=pool)
+    redis_client.set(cv_config.NURSE_TIMEOUT_KEY, nurse_timeout)
+    redis_client.set(cv_config.DOCTOR_TIMEOUT_KEY, doctor_timeout)
+    redis_client.set(cv_config.DOCTOR_HANDLE_TIMEOUT_KEY, doctor_timeout)
+    redis_client.set(cv_config.TOTAL_TIMEOUT_KEY, total_timeout)
+
+    # 加载所有处理中的危机值到内存
+    query_sql = 'select * from nsyy_gyl.cv_info where state != {} ' \
+        .format(cv_config.DOCTOR_HANDLE_STATE)
+    cvs = db.query_all(query_sql)
+    for cv in cvs:
+        key = cv.get('cv_id') + '_' + str(cv.get('cv_source'))
+        write_cache(key, cv)
 
     del db
 
@@ -112,7 +132,7 @@ def read_cv_from_system():
     processing_cvs = db.query_all(query_sql)
 
     start_t = processing_cvs[0].get('alertdt').strftime("%Y-%m-%d %H:%M:%S") \
-        if processing_cvs else str(datetime.now()-timedelta(seconds=200000))[:19]
+        if processing_cvs else str(datetime.now()-timedelta(seconds=86400))[:19]
     resultalertids = [item['cv_id'] for item in processing_cvs]
     idrs = f"resultalertid in ({','.join(resultalertids)}) or " if resultalertids else ''
     sql = f"""
@@ -256,14 +276,17 @@ def create_cv_by_system(json_data, cv_source):
     timer = datetime.now()
     timer = timer.strftime("%Y-%m-%d %H:%M:%S")
 
+    redis_client = redis.Redis(connection_pool=pool)
+    nurse_timeout = redis_client.get(cv_config.NURSE_TIMEOUT_KEY)
+    doctor_timeout = redis_client.get(cv_config.DOCTOR_TIMEOUT_KEY)
+    doctor_handle_timeout = redis_client.get(cv_config.DOCTOR_HANDLE_TIMEOUT_KEY)
+    total_timeout = redis_client.get(cv_config.TOTAL_TIMEOUT_KEY)
+
     args = (cv_id, cv_source, alertman, alertman_name, alertdt, alert_dept_id, alert_dept_name,
             pat_typecode, pat_no, pat_name, pat_sex, pat_agestr, req_bedno,
             req_docno, req_wardno, ward_name, req_deptno, dept_name,
             rpt_itemname, result_num, result_unit, result_ref, result_flag, redo_flag, alertrules, timer,
-            cv_config.NOTIFICATION_NURSE_STATE,cv_config.all_timeout_setting[cv_config.NURSE_TIMEOUT_KEY],
-            cv_config.all_timeout_setting[cv_config.DOCTOR_TIMEOUT_KEY],
-            cv_config.all_timeout_setting[cv_config.DOCTOR_TIMEOUT_KEY],
-            cv_config.all_timeout_setting[cv_config.TOTAL_TIMEOUT_KEY])
+            cv_config.NOTIFICATION_NURSE_STATE, nurse_timeout, doctor_timeout, doctor_handle_timeout, total_timeout)
     insert_sql = "INSERT INTO nsyy_gyl.cv_info (cv_id, cv_source, alertman, alertman_name, alertdt, " \
                  "alert_dept_id, alert_dept_name," \
                  "patient_type, patient_treat_id, patient_name, patient_gender, patient_age, patient_bed_num, " \
@@ -283,22 +306,10 @@ def create_cv_by_system(json_data, cv_source):
     # 3. 发送危机值
     push_to_nurse(req_wardno, pat_name)
 
-    # # 4. 将危机值放入常量中
-    # key = cv_id + '_' + str(cv_source)
-    # # record['state'] = 2 if res else 1
-    # redis_client.hset(cv_config.CV_REDIS_KEY, key, str(record))
+    # 4. 将危机值放入常量中
+    key = cv_id + '_' + str(cv_source)
+    write_cache(key, record)
 
-    # 调用自己的接口，将新纪录放入内存中（当前方法在子线程中执行，无法修改常量）
-    import threading
-    t = threading.Thread(target=self_post, args=('update_cv_cache', {'cv_id': record['cv_id']}))
-    t.setDaemon
-    t.start()
-
-
-def self_post(url, data):
-    res = requests.post(f"http://localhost:6080/gyl/cv/{url}",
-                        data=json.dumps(data),
-                        headers={'content_type': 'application/json'})
 
 """
 根据员工号，查询科室信息
@@ -318,8 +329,8 @@ def get_dept_info_by_emp_num(emp_num):
         try:
             # 发送 POST 请求，将字符串数据传递给 data 参数
             response = requests.post("http://192.168.124.53:6080/int_api", json=param)
-            # 解析内容
-            print(response.text)
+            # # 解析内容
+            # print(response.text)
             data = response.text
             data = json.loads(data)
             data = data.get('data')
@@ -358,8 +369,8 @@ def cache_all_dept_info():
         try:
             # 发送 POST 请求，将字符串数据传递给 data 参数
             response = requests.post("http://192.168.124.53:6080/int_api", json=param)
-            # 解析内容
-            print(response.text)
+            # # 解析内容
+            # print(response.text)
             data = response.text
             data = json.loads(data)
             data = data.get('data')
@@ -416,6 +427,47 @@ def get_cv_list(json_data):
 
 
 """
+查询处理中的危机值并通知
+"""
+
+
+def query_process_cv_and_notice(json_data):
+    dept_id = json_data.get("dept_id")
+    ward_id = json_data.get("ward_id")
+    if dept_id == '':
+        dept_id = None
+    if ward_id == '':
+        ward_id = None
+
+    db = DbUtil(global_config.DB_HOST, global_config.DB_USERNAME, global_config.DB_PASSWORD,
+                global_config.DB_DATABASE_GYL)
+
+    if dept_id is None and ward_id is None:
+        raise Exception("科室id 和 病区id 不能同时为空.")
+
+    key = ''
+    if dept_id is None:
+        key = f'ward_id = {ward_id}'
+    elif ward_id is None:
+        key = f'dept_id = {dept_id}'
+    else:
+        key = f'(dept_id = {dept_id} or ward_id = {ward_id})'
+
+    query_sql = f'select * from nsyy_gyl.cv_info where state != {cv_config.DOCTOR_HANDLE_STATE} and {key} '
+    running = db.query_all(query_sql)
+    if running:
+        patient_names = [item['patient_name'] for item in running]
+        names = ','.join(patient_names)
+        if ward_id is not None:
+            alert(1, ward_id, f"病人 {names} 存在未处理完的危机值，请及时处理")
+        if dept_id is not None:
+            alert(2, dept_id, f"病人 {names} 存在未处理完的危机值，请及时处理")
+
+    del db
+
+
+
+"""
 向护士站推送危机值
 """
 
@@ -435,6 +487,25 @@ def push_to_nurse(ward_id: int, patient_name: str):
             push_notice('http://{}:8085/opera_wiki'.format(site.get('site_ip')), notice_msg)
 
     del db
+
+
+"""
+推送弹框通知 type = 1 通知护士， type = 2 通知医生
+"""
+
+
+def alert(type, id, msg):
+    db = DbUtil(global_config.DB_HOST, global_config.DB_USERNAME, global_config.DB_PASSWORD,
+                global_config.DB_DATABASE_GYL)
+
+    # 弹框提升护理，及时接收
+    key = 'site_ward_id = {}'.format(id) if type == 1 else 'site_dept_id = {}'.format(id)
+    query_sql = f'select * from nsyy_gyl.cv_site where {key} '
+    sites = db.query_all(query_sql)
+    if sites:
+        for site in sites:
+            push_notice('http://{}:8085/opera_wiki'.format(site.get('site_ip')), msg)
+
 
 
 """
@@ -471,7 +542,9 @@ def push(json_data):
 
         # 同步更新常量中的状态
         key = cv_id + '_' + str(cvinfo.get('cv_source'))
-        cv_config.all_running_cv[key]['state'] = cv_config.NOTIFICATION_DOCTOR_STATE
+        value = read_cache(key)
+        value['state'] = cv_config.NOTIFICATION_DOCTOR_STATE
+        write_cache(key, value)
 
         # 弹框提醒医生
         query_sql = 'select * from nsyy_gyl.cv_site where site_dept_id = {} ' \
@@ -517,11 +590,13 @@ def confirm_receipt_cv(json_data):
 
         # 同步更新常量中的状态
         key = cv_id + '_' + str(cv_source)
-        cv_config.all_running_cv[key]['state'] = cv_config.NURSE_RECV_STATE
-        cv_config.all_running_cv[key]['nurse_recv_id'] = confirmer_id
-        cv_config.all_running_cv[key]['nurse_recv_name'] = confirmer_name
-        cv_config.all_running_cv[key]['nurse_recv_time'] = timer
-        cv_config.all_running_cv[key]['nurse_recv_info'] = confirm_info
+        value = read_cache(key)
+        value['state'] = cv_config.NURSE_RECV_STATE
+        value['nurse_recv_id'] = confirmer_id
+        value['nurse_recv_name'] = confirmer_name
+        value['nurse_recv_time'] = timer
+        value['nurse_recv_info'] = confirm_info
+        write_cache(key, value)
 
         # 护士接收之后，进行数据回传
         data_feedback(cv_id, confirmer_id, timer, confirm_info, 1)
@@ -536,10 +611,12 @@ def confirm_receipt_cv(json_data):
 
         # 同步更新常量中的状态
         key = cv_id + '_' + str(cv_source)
-        cv_config.all_running_cv[key]['state'] = cv_config.DOCTOR_RECV_STATE
-        cv_config.all_running_cv[key]['doctor_recv_id'] = confirmer_id
-        cv_config.all_running_cv[key]['doctor_recv_name'] = confirmer_name
-        cv_config.all_running_cv[key]['doctor_recv_time'] = timer
+        value = read_cache(key)
+        value['state'] = cv_config.DOCTOR_RECV_STATE
+        value['doctor_recv_id'] = confirmer_id
+        value['doctor_recv_name'] = confirmer_name
+        value['doctor_recv_time'] = timer
+        write_cache(key, value)
 
     del db
 
@@ -567,9 +644,11 @@ def nursing_records(json_data):
 
     # 同步更新常量中的状态
     key = cv_id + '_' + str(cv_source)
-    cv_config.all_running_cv[key]['state'] = cv_config.DOCTOR_RECV_STATE
-    cv_config.all_running_cv[key]['nursing_record'] = record
-    cv_config.all_running_cv[key]['nursing_record_time'] = timer
+    value = read_cache(key)
+    value['state'] = cv_config.DOCTOR_RECV_STATE
+    value['nursing_record'] = record
+    value['nursing_record_time'] = timer
+    write_cache(key, value)
 
     del db
 
@@ -602,15 +681,19 @@ def doctor_handle_cv(json_data):
 
     # 同步更新常量中的状态
     key = cv_id + '_' + str(cv_source)
-    cv_config.all_running_cv[key]['state'] = cv_config.DOCTOR_HANDLE_STATE
-    cv_config.all_running_cv[key]['analysis'] = analysis
-    cv_config.all_running_cv[key]['method'] = method
-    cv_config.all_running_cv[key]['handle_time'] = timer
-    cv_config.all_running_cv[key]['handle_doctor_name'] = handler_name
-    cv_config.all_running_cv[key]['handle_doctor_id'] = handler_id
+    value = read_cache(key)
+    value['state'] = cv_config.DOCTOR_HANDLE_STATE
+    value['analysis'] = analysis
+    value['method'] = method
+    value['handle_time'] = timer
+    value['handle_doctor_name'] = handler_name
+    value['handle_doctor_id'] = handler_id
+    write_cache(key, value)
 
     # 医生处理之后，进行数据回传
     data_feedback(cv_id, handler_id, timer, method, 2)
+
+    deltel_cache(key)
 
     del db
 
@@ -626,8 +709,8 @@ def push_notice(url: str, msg: str):
         payload = {'type': 'popup', 'wiki_info': msg}
         # 发送 POST 请求，将字符串数据传递给 data 参数
         response = requests.post(url, json=payload)
-        # 打印响应内容
-        print(response.text)
+        # # 打印响应内容
+        # print(response.text)
     except Exception as e:
         print('推送弹框通知失败： ' + e.__str__())
 
@@ -757,8 +840,8 @@ def data_feedback(cv_id, confirmer_id, timer, confirm_info, type: int):
         try:
             # 发送 POST 请求，将字符串数据传递给 data 参数
             response = requests.post("http://192.168.124.53:6080/int_api", json=param)
-            # 解析内容
-            print(response.text)
+            # # 解析内容
+            # print(response.text)
         except Exception as e:
             print('数据回传失败： param = ' + str(param) + "   " + e.__str__())
     else:
@@ -827,6 +910,7 @@ def setting_timeout(json_data):
     redis_client = redis.Redis(connection_pool=pool)
     redis_client.set(cv_config.NURSE_TIMEOUT_KEY, nurse_timeout)
     redis_client.set(cv_config.DOCTOR_TIMEOUT_KEY, doctor_timeout)
+    redis_client.set(cv_config.DOCTOR_HANDLE_TIMEOUT_KEY, doctor_timeout)
     redis_client.set(cv_config.TOTAL_TIMEOUT_KEY, total_timeout)
 
     del db

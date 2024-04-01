@@ -3,25 +3,35 @@ import traceback
 
 from flask import Blueprint, jsonify, request
 
-from gylmodules import global_config
-from gylmodules.critical_value import critical_value, cv_config
-from gylmodules.utils.db_utils import DbUtil
+from gylmodules.critical_value import critical_value
 
 cv = Blueprint('critical value', __name__, url_prefix='/cv')
 
 
-@cv.route('/update_cv_cache', methods=['POST'])
-def update_cv_cache():
+"""
+windows 客户端启动时， 查询所有待完成的危机值，并弹框提示
+"""
+
+
+@cv.route('/query_and_notice', methods=['POST'])
+def query_process_cv_and_notice():
     json_data = json.loads(request.get_data().decode('utf-8'))
-    db = DbUtil(global_config.DB_HOST, global_config.DB_USERNAME, global_config.DB_PASSWORD,
-                global_config.DB_DATABASE_GYL)
-    sql = f"select * from nsyy_gyl.cv_info where cv_id='{json_data['cv_id']}'"
-    record = db.query_one(sql)
+    try:
+        critical_value.query_process_cv_and_notice(json_data)
+    except Exception as e:
+        print(f"create_critical_value: An unexpected error occurred: {e}")
+        print(traceback.print_exc())
+        return jsonify({
+            'code': 50000,
+            'res': e.__str__(),
+            'data': '危机值查询并通知失败，请稍后重试'
+        })
 
-    key = record.get('cv_id') + '_' + str(record.get('cv_source'))
-    cv_config.all_running_cv[key] = json_data
-    return 'ok'
-
+    return jsonify({
+        'code': 20000,
+        'res': '危机值查询并通知成功',
+        'data': '危机值查询并通知成功'
+    })
 
 
 """

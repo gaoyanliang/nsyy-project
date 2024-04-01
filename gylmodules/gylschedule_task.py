@@ -1,11 +1,9 @@
+import json
 from datetime import datetime, timedelta
 import redis
-from gylmodules import global_config
 from gylmodules.critical_value import cv_config
-from gylmodules.critical_value.critical_value import push_notice, read_cv_from_system, cache_all_dept_info
-from gylmodules.utils.db_utils import DbUtil
+from gylmodules.critical_value.critical_value import read_cv_from_system, cache_all_dept_info, alert
 from apscheduler.schedulers.background import BackgroundScheduler
-
 
 pool = redis.ConnectionPool(host=cv_config.CV_REDIS_HOST, port=cv_config.CV_REDIS_PORT,
                             db=cv_config.CV_REDIS_DB, decode_responses=True)
@@ -43,35 +41,25 @@ timeout_d = {2: ['time', 'nurse_timeout','护理接收超时，请及时处理',
 
 def handle_timeout_cv():
     timer = datetime.now()
-    for key, value in cv_config.all_running_cv.items():
+    redis_client = redis.Redis(connection_pool=pool)
+    values = redis_client.hvals(cv_config.CV_REDIS_KEY)
+    for value in values:
+        value = json.loads(value)
         if value.get('state') not in (2,5,7,9):
             return
         check_time = value[timeout_d[value['state']][0]]
+        check_time = datetime.strptime(check_time, "%Y-%m-%d %H:%M:%S")
         if (timer-check_time).seconds > value.get(timeout_d[value['state']][1], 600):
             if timeout_d[value['state']][3] != '':
-                push(1, value[timeout_d[value['state']][3]], timeout_d[value['state']][2])
+                alert(1, value[timeout_d[value['state']][3]], timeout_d[value['state']][2])
             if timeout_d[value['state']][4] != '':
-                push(2, value[timeout_d[value['state']][4]], timeout_d[value['state']][2])
-
-
-# 弹框通知护理
-def push(type, id, msg):
-    db = DbUtil(global_config.DB_HOST, global_config.DB_USERNAME, global_config.DB_PASSWORD,
-                global_config.DB_DATABASE_GYL)
-
-    # 弹框提升护理，及时接收
-    key = 'site_ward_id = {}'.format(id) if type == 1 else 'site_dept_id = {}'.format(id)
-    query_sql = f'select * from nsyy_gyl.cv_site where {key} '
-    sites = db.query_all(query_sql)
-    if sites:
-        for site in sites:
-            push_notice('http://{}:8085/opera_wiki'.format(site.get('site_ip')), msg)
+                alert(2, value[timeout_d[value['state']][4]], timeout_d[value['state']][2])
 
 
 def schedule_task():
     # 危机值系统定时任务
     one_hour = 60 * 60
-    cv_scheduler.add_job(handle_timeout_cv, trigger='interval', seconds=10)
+    cv_scheduler.add_job(handle_timeout_cv, trigger='interval', seconds=25)
     cv_scheduler.add_job(pull_cv_from_system, trigger='interval', seconds=10)
     cv_scheduler.add_job(cache_dept, trigger='interval', seconds=one_hour)
     cv_scheduler.add_job(cache_dept, 'date', run_date=datetime.now() + timedelta(seconds=2))

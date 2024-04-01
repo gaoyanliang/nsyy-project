@@ -12,7 +12,6 @@ from flask_cors import CORS
 from flask_socketio import SocketIO
 
 from gylmodules.app import gylroute
-from gylmodules.workstation.schedule_task import schedule_task
 from gylmodules import gylschedule_task
 
 server_app = Flask(__name__)
