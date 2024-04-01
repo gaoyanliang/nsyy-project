@@ -44,3 +44,33 @@ ADD_MAIL_ACCOUNT_KEY = 'ADD-MAIL-ACCOUNT'
 REMOVE_MAIL_ACCOUNT_KEY = 'REMOVE-MAIL-ACCOUNT'
 DELETE_MAIL_GROUP_KEY = 'DELETE-MAIL-GROUP'
 DELETE_MAIL_ACCOUNT_KEY = 'DELETE-MAIL-ACCOUNT'
+
+
+# ===========================================================
+# =============         fail            =====================
+# ===========================================================
+
+
+FILE_UPLOAD_FOLDER = '/uploads'
+FILE_DOWNLOAD_FOLDER = '/downloads'
+FILE_ALLOWED_EXTENSIONS = {'txt', 'pdf', 'png', 'jpg', 'jpeg', 'gif', 'zip'}
+
+
+# sftp config
+FILE_SFTP_HOST = '192.168.124.128'
+FILE_SFTP_PORT = 22
+FILE_SFTP_USERNAME = 'root'
+FILE_SFTP_PASSWORD = '111111'
+FILE_SFTP_REMOTE_FILES_PATH = '/home/yanliang/file-manager'
+
+# SSH connection details
+FILE_SSH_HOST = "192.168.124.128"
+FILE_SSH_USERNAME = "root"
+FILE_SSH_PASSWORD = "111111"
+
+# file scope (全院，部门，项目，个人)
+FILE_SCOPE = {1, 2, 3, 4}
+FILE_SCOPE_ALL = 1
+FILE_SCOPE_DEPT = 2
+FILE_SCOPE_PROJECT = 3
+FILE_SCOPE_PERSON = 4

@@ -1,0 +1,291 @@
+import json
+import traceback
+
+from flask import Blueprint, jsonify, request
+
+from gylmodules import global_config
+from gylmodules.critical_value import critical_value, cv_config
+from gylmodules.utils.db_utils import DbUtil
+
+cv = Blueprint('critical value', __name__, url_prefix='/cv')
+
+
+@cv.route('/update_cv_cache', methods=['POST'])
+def update_cv_cache():
+    json_data = json.loads(request.get_data().decode('utf-8'))
+    db = DbUtil(global_config.DB_HOST, global_config.DB_USERNAME, global_config.DB_PASSWORD,
+                global_config.DB_DATABASE_GYL)
+    sql = f"select * from nsyy_gyl.cv_info where cv_id='{json_data['cv_id']}'"
+    record = db.query_one(sql)
+
+    key = record.get('cv_id') + '_' + str(record.get('cv_source'))
+    cv_config.all_running_cv[key] = json_data
+    return 'ok'
+
+
+
+"""
+设置危机值超时时间
+"""
+
+
+@cv.route('/setting_timeout', methods=['POST'])
+def setting_timeout():
+    json_data = json.loads(request.get_data().decode('utf-8'))
+    try:
+        critical_value.setting_timeout(json_data)
+    except Exception as e:
+        print(f"create_critical_value: An unexpected error occurred: {e}")
+        print(traceback.print_exc())
+        return jsonify({
+            'code': 50000,
+            'res': e.__str__(),
+            'data': '危机值超时时间设置失败，请稍后重试'
+        })
+
+    return jsonify({
+        'code': 20000,
+        'res': '危机值超时时间设置成功',
+        'data': '危机值超时时间设置'
+    })
+
+
+"""
+查询超时时间
+"""
+
+
+@cv.route('/query_timeout', methods=['GET'])
+def query_timeout():
+    try:
+        timeout_sets = critical_value.query_timeout()
+    except Exception as e:
+        print(f"create_critical_value: An unexpected error occurred: {e}")
+        print(traceback.print_exc())
+        return jsonify({
+            'code': 50000,
+            'res': e.__str__(),
+            'data': '危机值超时时间查询失败，请稍后重试'
+        })
+
+    return jsonify({
+        'code': 20000,
+        'res': '危机值超时时间查询成功',
+        'data': timeout_sets
+    })
+
+
+"""
+维护站点信息
+"""
+
+
+@cv.route('/operate_site', methods=['POST'])
+def operate_site():
+    json_data = json.loads(request.get_data().decode('utf-8'))
+    try:
+        critical_value.site_maintenance(json_data)
+    except Exception as e:
+        print(f"create_critical_value: An unexpected error occurred: {e}")
+        print(traceback.print_exc())
+        return jsonify({
+            'code': 50000,
+            'res': e.__str__(),
+            'data': '站点信息维护失败，请稍后重试'
+        })
+
+    return jsonify({
+        'code': 20000,
+        'res': '站点信息维护成功',
+        'data': '站点信息维护成功'
+    })
+
+
+# 查询待审核危机值列表
+
+"""
+查询危机值列表
+"""
+
+
+@cv.route('/query', methods=['POST'])
+def query_cv_list():
+    json_data = json.loads(request.get_data().decode('utf-8'))
+    try:
+        undo_list = critical_value.get_cv_list(json_data)
+    except Exception as e:
+        print(f"create_critical_value: An unexpected error occurred: {e}")
+        print(traceback.print_exc())
+        return jsonify({
+            'code': 50000,
+            'res': e.__str__(),
+            'data': '待审核危机值列表查询失败，请稍后重试'
+        })
+
+    return jsonify({
+        'code': 20000,
+        'res': '待审核危机值列表查询成功',
+        'data': undo_list
+    })
+
+
+"""
+推送危机值
+"""
+
+
+@cv.route('/push', methods=['POST'])
+def push_critical_value():
+    json_data = json.loads(request.get_data().decode('utf-8'))
+    try:
+        critical_value.push(json_data)
+    except Exception as e:
+        print(f"create_critical_value: An unexpected error occurred: {e}")
+        print(traceback.print_exc())
+        return jsonify({
+            'code': 50000,
+            'res': e.__str__(),
+            'data': '危机值推送失败，请稍后重试, ' + json_data
+        })
+
+    return jsonify({
+        'code': 20000,
+        'res': '危机值推送成功',
+        'data': '危机值推送成功'
+    })
+
+
+"""
+确认接收危机值
+"""
+
+
+@cv.route('/ask_recv', methods=['POST'])
+def ack_critical_value():
+    json_data = json.loads(request.get_data().decode('utf-8'))
+    try:
+        critical_value.confirm_receipt_cv(json_data)
+    except Exception as e:
+        print(f"create_critical_value: An unexpected error occurred: {e}")
+        print(traceback.print_exc())
+        return jsonify({
+            'code': 50000,
+            'res': e.__str__(),
+            'data': '危机值接收失败，请稍后重试'
+        })
+
+    return jsonify({
+        'code': 20000,
+        'res': '危机值接收成功',
+        'data': '危机值接收成功'
+    })
+
+
+"""
+书写护理记录
+"""
+
+
+@cv.route('/nursing_record', methods=['POST'])
+def write_nursing_records():
+    json_data = json.loads(request.get_data().decode('utf-8'))
+    try:
+        critical_value.nursing_records(json_data)
+    except Exception as e:
+        print(f"create_critical_value: An unexpected error occurred: {e}")
+        print(traceback.print_exc())
+        return jsonify({
+            'code': 50000,
+            'res': e.__str__(),
+            'data': '危机值护理记录书写失败，请稍后重试'
+        })
+
+    return jsonify({
+        'code': 20000,
+        'res': '危机值护理记录书写成功',
+        'data': '危机值护理记录书写成功'
+    })
+
+
+"""
+医生处理危机值
+"""
+
+
+@cv.route('/doctor_handle', methods=['POST'])
+def handle_critical_value():
+    json_data = json.loads(request.get_data().decode('utf-8'))
+    try:
+        critical_value.doctor_handle_cv(json_data)
+    except Exception as e:
+        print(f"create_critical_value: An unexpected error occurred: {e}")
+        print(traceback.print_exc())
+        return jsonify({
+            'code': 50000,
+            'res': e.__str__(),
+            'data': '医生处理危机值失败，请稍后重试'
+        })
+
+    return jsonify({
+        'code': 20000,
+        'res': '医生处理危机值成功',
+        'data': '医生处理危机值成功'
+    })
+
+
+"""
+统计报表
+"""
+
+
+@cv.route('/report_form', methods=['POST'])
+def query_all():
+    json_data = json.loads(request.get_data().decode('utf-8'))
+    try:
+        undo_list, undo_num, done_list, done_num = critical_value.report_form(json_data)
+    except Exception as e:
+        print(f"create_critical_value: An unexpected error occurred: {e}")
+        print(traceback.print_exc())
+        return jsonify({
+            'code': 50000,
+            'res': e.__str__(),
+            'data': '报表查询失败，请稍后重试'
+        })
+
+    return jsonify({
+        'code': 20000,
+        'res': '报表查询成功',
+        'data': {
+            "undo_list": undo_list,
+            "undo_num": undo_num,
+            "done_list": done_list,
+            "done_num": done_num
+        }
+    })
+
+
+"""
+病历模版
+"""
+
+
+@cv.route('/template', methods=['POST'])
+def template():
+    json_data = json.loads(request.get_data().decode('utf-8'))
+    try:
+        template = critical_value.medical_record_template(json_data)
+    except Exception as e:
+        print(f"create_critical_value: An unexpected error occurred: {e}")
+        print(traceback.print_exc())
+        return jsonify({
+            'code': 50000,
+            'res': e.__str__(),
+            'data': '报表查询失败，请稍后重试'
+        })
+
+    return jsonify({
+        'code': 20000,
+        'res': '报表查询成功',
+        'data': template
+    })
+

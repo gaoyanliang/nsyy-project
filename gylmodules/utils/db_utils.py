@@ -120,6 +120,7 @@ class DbUtil:
             result = self.__cursor.fetchone()
         except Exception as e:
             print(e)
+            print(sql)
         return result
 
     def query_all(self, sql):
@@ -130,6 +131,7 @@ class DbUtil:
             list_result = self.__cursor.fetchall()
         except Exception as e:
             print(e)
+            print(sql)
         return list_result
 
 
