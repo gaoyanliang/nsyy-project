@@ -245,6 +245,11 @@ def create_cv_by_system(json_data, cv_source):
     pat_agestr = json_data.get('PAT_AGESTR')
     # 所属科室
     req_deptno = json_data.get('REQ_DEPTNO')
+
+    if req_deptno is not None and not req_deptno.isdigit():
+        print('当前危机值病人科室不是数字，跳过。 ' + str(json_data))
+        return
+
     dept_name = ''
     if redis_client.hexists(cv_config.DEPT_INFO_REDIS_KEY, req_deptno):
         dept_name = redis_client.hget(cv_config.DEPT_INFO_REDIS_KEY, req_deptno)

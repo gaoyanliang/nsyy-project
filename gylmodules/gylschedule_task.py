@@ -59,9 +59,9 @@ def handle_timeout_cv():
 def schedule_task():
     # 危机值系统定时任务
     one_hour = 60 * 60
-    cv_scheduler.add_job(handle_timeout_cv, trigger='interval', seconds=25)
-    cv_scheduler.add_job(pull_cv_from_system, trigger='interval', seconds=10)
-    cv_scheduler.add_job(cache_dept, trigger='interval', seconds=one_hour)
+    cv_scheduler.add_job(handle_timeout_cv, trigger='interval', seconds=25, max_instances=10)
+    cv_scheduler.add_job(pull_cv_from_system, trigger='interval', seconds=10, max_instances=10)
+    cv_scheduler.add_job(cache_dept, trigger='interval', seconds=one_hour, max_instances=10)
     cv_scheduler.add_job(cache_dept, 'date', run_date=datetime.now() + timedelta(seconds=2))
 
     # Start the scheduler
