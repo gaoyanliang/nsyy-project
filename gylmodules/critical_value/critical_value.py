@@ -19,6 +19,11 @@ scheduler = BackgroundScheduler()
 cv_id_lock = threading.Lock()
 
 
+"""
+判断是否在本地运行 
+"""
+
+
 def run_in_local():
     try:
         # 创建一个UDP套接字
@@ -27,6 +32,7 @@ def run_in_local():
         s.connect(("8.8.8.8", 80))
         # 获取本地IP地址
         ip_address = s.getsockname()[0]
+        # '192.168.124.3' 为本地 ip
         if ip_address == '192.168.124.3':
             return True
         else:
@@ -90,143 +96,6 @@ pull_running_cv()
 
 
 """
-生成危机值id
-"""
-
-
-def get_cv_id():
-    with cv_id_lock:
-        timer = datetime.now()
-        timer = timer.strftime("%Y%m%d%H%M%S")
-        return 'CV' + timer
-
-
-"""
-设置危机值系统超时时间
-"""
-
-
-def setting_timeout(json_data):
-    nurse_timeout = int(json_data.get('nurse_timeout'))
-    doctor_timeout = int(json_data.get('doctor_timeout'))
-    total_timeout = int(json_data.get('total_timeout'))
-    timeout_unit = int(json_data.get('timeout_unit'))
-
-    db = DbUtil(global_config.DB_HOST, global_config.DB_USERNAME, global_config.DB_PASSWORD,
-                global_config.DB_DATABASE_GYL)
-
-    query_sql = 'select * from nsyy_gyl.cv_timeout where type = \'cv\' '
-    timeout_sets = db.query_one(query_sql)
-    if timeout_sets:
-        # 存在即更新
-        update_sql = 'UPDATE nsyy_gyl.cv_timeout SET nurse_timeout = %s, doctor_timeout = %s,' \
-                     'total_timeout = %s, timeout_unit = %s WHERE type = \'cv\' '
-        args = (nurse_timeout, doctor_timeout, total_timeout, timeout_unit)
-        db.execute(update_sql, args, need_commit=True)
-    else:
-        # 不存在则插入
-        args = ('cv', nurse_timeout, doctor_timeout, total_timeout, timeout_unit)
-        insert_sql = "INSERT INTO nsyy_gyl.cv_timeout (type, nurse_timeout, " \
-                     "doctor_timeout, total_timeout, timeout_unit) " \
-                     "VALUES (%s,%s,%s,%s,%s)"
-        last_rowid = db.execute(insert_sql, args, need_commit=True)
-        if last_rowid == -1:
-            raise Exception("危机值超时时间配置入库失败!")
-
-    # 将超时时间统一替换为 秒 存到缓存中
-    if timeout_unit == 1:
-        # 小时
-        nurse_timeout = nurse_timeout * 60 * 60
-        doctor_timeout = doctor_timeout * 60 * 60
-        total_timeout = total_timeout * 60 * 60
-    elif timeout_unit == 2:
-        # 分钟
-        nurse_timeout = nurse_timeout * 60
-        doctor_timeout = doctor_timeout * 60
-        total_timeout = total_timeout * 60
-
-    redis_client = redis.Redis(connection_pool=pool)
-    redis_client.set(cv_config.NURSE_TIMEOUT_KEY, nurse_timeout)
-    redis_client.set(cv_config.DOCTOR_TIMEOUT_KEY, doctor_timeout)
-    redis_client.set(cv_config.TOTAL_TIMEOUT_KEY, total_timeout)
-
-    del db
-
-
-"""
-查询危机值系统超时时间
-"""
-
-
-def query_timeout():
-    db = DbUtil(global_config.DB_HOST, global_config.DB_USERNAME, global_config.DB_PASSWORD,
-                global_config.DB_DATABASE_GYL)
-
-    query_sql = 'select * from nsyy_gyl.cv_timeout where type = \'cv\' '
-    timeout_sets = db.query_one(query_sql)
-    del db
-
-    return timeout_sets
-
-
-"""
-维护站点信息
-"""
-
-
-def site_maintenance(json_data):
-    site_dept = json_data.get('site_dept')
-    site_dept_id = json_data.get('site_dept_id')
-    if site_dept_id == '':
-        site_dept_id = -1
-    site_ward = json_data.get('site_ward')
-    site_ward_id = json_data.get('site_ward_id')
-    if site_ward_id == '':
-        site_ward_id = -1
-    # 科室主任电话
-    dept_phone = json_data.get('dept_phone')
-    # 病区电话
-    ward_phone = json_data.get('ward_phone')
-    # 值班医生电话
-    doctor_phone = json_data.get('doctor_phone')
-    site_ip = json_data.get('site_ip')
-
-    db = DbUtil(global_config.DB_HOST, global_config.DB_USERNAME, global_config.DB_PASSWORD,
-                global_config.DB_DATABASE_GYL)
-
-    query_sql = 'select * from nsyy_gyl.cv_site where site_ip = \'{}\' ' \
-        .format(site_ip)
-    cv_site = db.query_one(query_sql)
-
-    timer = datetime.now()
-    timer = timer.strftime("%Y-%m-%d %H:%M:%S")
-
-    if cv_site:
-        # 存在即更新
-        update_sql = 'UPDATE nsyy_gyl.cv_site ' \
-                     'SET site_dept = %s, site_dept_id = %s, ' \
-                     'site_ward = %s, site_ward_id = %s, time = %s,' \
-                     'dept_phone = %s, ward_phone = %s, doctor_phone = %s' \
-                     ' WHERE site_ip = %s '
-        args = (site_dept, site_dept_id, site_ward, site_ward_id, timer,
-                dept_phone, ward_phone, doctor_phone, site_ip)
-        db.execute(update_sql, args, need_commit=True)
-    else:
-        # 不存在则插入
-        args = (site_dept, site_dept_id, site_ward, site_ward_id, site_ip, timer,
-                dept_phone, ward_phone, doctor_phone)
-        insert_sql = "INSERT INTO nsyy_gyl.cv_site (site_dept, site_dept_id, " \
-                     "site_ward, site_ward_id, site_ip, time, dept_phone, ward_phone, doctor_phone) " \
-                     "VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s)"
-        last_rowid = db.execute(insert_sql, args, need_commit=True)
-        if last_rowid == -1:
-            print(args)
-            raise Exception("站点信息添加失败, site info: " + json_data)
-
-    del db
-
-
-"""
 从系统中抓取危机值
 """
 
@@ -242,7 +111,8 @@ def read_cv_from_system():
         .format(cv_config.DOCTOR_HANDLE_STATE, cv_config.CV_SOURCE_SYSTEM)
     processing_cvs = db.query_all(query_sql)
 
-    start_t = processing_cvs[0].get('alertdt').strftime("%Y-%m-%d %H:%M:%S") if processing_cvs else str(datetime.now()-timedelta(seconds=200000))[:19]
+    start_t = processing_cvs[0].get('alertdt').strftime("%Y-%m-%d %H:%M:%S") \
+        if processing_cvs else str(datetime.now()-timedelta(seconds=200000))[:19]
     resultalertids = [item['cv_id'] for item in processing_cvs]
     idrs = f"resultalertid in ({','.join(resultalertids)}) or " if resultalertids else ''
     sql = f"""
@@ -895,4 +765,142 @@ def data_feedback(cv_id, confirmer_id, timer, confirm_info, type: int):
         # from tools import orcl_db_update
         # data = orcl_db_update(param)
         print("正式环境 orcl_db_update")
+
+
+
+"""
+生成危机值id
+"""
+
+
+def get_cv_id():
+    with cv_id_lock:
+        timer = datetime.now()
+        timer = timer.strftime("%Y%m%d%H%M%S")
+        return 'CV' + timer
+
+
+"""
+设置危机值系统超时时间
+"""
+
+
+def setting_timeout(json_data):
+    nurse_timeout = int(json_data.get('nurse_timeout'))
+    doctor_timeout = int(json_data.get('doctor_timeout'))
+    total_timeout = int(json_data.get('total_timeout'))
+    timeout_unit = int(json_data.get('timeout_unit'))
+
+    db = DbUtil(global_config.DB_HOST, global_config.DB_USERNAME, global_config.DB_PASSWORD,
+                global_config.DB_DATABASE_GYL)
+
+    query_sql = 'select * from nsyy_gyl.cv_timeout where type = \'cv\' '
+    timeout_sets = db.query_one(query_sql)
+    if timeout_sets:
+        # 存在即更新
+        update_sql = 'UPDATE nsyy_gyl.cv_timeout SET nurse_timeout = %s, doctor_timeout = %s,' \
+                     'total_timeout = %s, timeout_unit = %s WHERE type = \'cv\' '
+        args = (nurse_timeout, doctor_timeout, total_timeout, timeout_unit)
+        db.execute(update_sql, args, need_commit=True)
+    else:
+        # 不存在则插入
+        args = ('cv', nurse_timeout, doctor_timeout, total_timeout, timeout_unit)
+        insert_sql = "INSERT INTO nsyy_gyl.cv_timeout (type, nurse_timeout, " \
+                     "doctor_timeout, total_timeout, timeout_unit) " \
+                     "VALUES (%s,%s,%s,%s,%s)"
+        last_rowid = db.execute(insert_sql, args, need_commit=True)
+        if last_rowid == -1:
+            raise Exception("危机值超时时间配置入库失败!")
+
+    # 将超时时间统一替换为 秒 存到缓存中
+    if timeout_unit == 1:
+        # 小时
+        nurse_timeout = nurse_timeout * 60 * 60
+        doctor_timeout = doctor_timeout * 60 * 60
+        total_timeout = total_timeout * 60 * 60
+    elif timeout_unit == 2:
+        # 分钟
+        nurse_timeout = nurse_timeout * 60
+        doctor_timeout = doctor_timeout * 60
+        total_timeout = total_timeout * 60
+
+    redis_client = redis.Redis(connection_pool=pool)
+    redis_client.set(cv_config.NURSE_TIMEOUT_KEY, nurse_timeout)
+    redis_client.set(cv_config.DOCTOR_TIMEOUT_KEY, doctor_timeout)
+    redis_client.set(cv_config.TOTAL_TIMEOUT_KEY, total_timeout)
+
+    del db
+
+
+"""
+查询危机值系统超时时间
+"""
+
+
+def query_timeout():
+    db = DbUtil(global_config.DB_HOST, global_config.DB_USERNAME, global_config.DB_PASSWORD,
+                global_config.DB_DATABASE_GYL)
+
+    query_sql = 'select * from nsyy_gyl.cv_timeout where type = \'cv\' '
+    timeout_sets = db.query_one(query_sql)
+    del db
+
+    return timeout_sets
+
+
+"""
+维护站点信息
+"""
+
+
+def site_maintenance(json_data):
+    site_dept = json_data.get('site_dept')
+    site_dept_id = json_data.get('site_dept_id')
+    if site_dept_id == '':
+        site_dept_id = -1
+    site_ward = json_data.get('site_ward')
+    site_ward_id = json_data.get('site_ward_id')
+    if site_ward_id == '':
+        site_ward_id = -1
+    # 科室主任电话
+    dept_phone = json_data.get('dept_phone')
+    # 病区电话
+    ward_phone = json_data.get('ward_phone')
+    # 值班医生电话
+    doctor_phone = json_data.get('doctor_phone')
+    site_ip = json_data.get('site_ip')
+
+    db = DbUtil(global_config.DB_HOST, global_config.DB_USERNAME, global_config.DB_PASSWORD,
+                global_config.DB_DATABASE_GYL)
+
+    query_sql = 'select * from nsyy_gyl.cv_site where site_ip = \'{}\' ' \
+        .format(site_ip)
+    cv_site = db.query_one(query_sql)
+
+    timer = datetime.now()
+    timer = timer.strftime("%Y-%m-%d %H:%M:%S")
+
+    if cv_site:
+        # 存在即更新
+        update_sql = 'UPDATE nsyy_gyl.cv_site ' \
+                     'SET site_dept = %s, site_dept_id = %s, ' \
+                     'site_ward = %s, site_ward_id = %s, time = %s,' \
+                     'dept_phone = %s, ward_phone = %s, doctor_phone = %s' \
+                     ' WHERE site_ip = %s '
+        args = (site_dept, site_dept_id, site_ward, site_ward_id, timer,
+                dept_phone, ward_phone, doctor_phone, site_ip)
+        db.execute(update_sql, args, need_commit=True)
+    else:
+        # 不存在则插入
+        args = (site_dept, site_dept_id, site_ward, site_ward_id, site_ip, timer,
+                dept_phone, ward_phone, doctor_phone)
+        insert_sql = "INSERT INTO nsyy_gyl.cv_site (site_dept, site_dept_id, " \
+                     "site_ward, site_ward_id, site_ip, time, dept_phone, ward_phone, doctor_phone) " \
+                     "VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s)"
+        last_rowid = db.execute(insert_sql, args, need_commit=True)
+        if last_rowid == -1:
+            print(args)
+            raise Exception("站点信息添加失败, site info: " + json_data)
+
+    del db
 
