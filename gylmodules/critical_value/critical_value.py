@@ -202,7 +202,7 @@ def invalid_crisis_value(cv_id, cv_source):
 
     # 从内存中移除
     key = cv_id + '_' + str(cv_source)
-    del cv_config.all_running_cv[key]
+    deltel_cache(key)
 
     del db
 

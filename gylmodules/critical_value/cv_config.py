@@ -50,7 +50,3 @@ DEPT_INFO_REDIS_KEY = 'DEPT_INFO_REDIS_KEY'
 
 CV_REDIS_KEY = 'RUNNING_CVS'
 
-
-all_running_cv = {}
-all_timeout_setting = {}
-
