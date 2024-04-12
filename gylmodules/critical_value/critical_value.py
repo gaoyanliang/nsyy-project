@@ -169,15 +169,6 @@ pull_running_cv()
 def get_running_cvs():
     redis_client = redis.Redis(connection_pool=pool)
     processing_cvs = redis_client.hkeys(cv_config.RUNNING_CVS_REDIS_KEY) or []
-    # running_ids = []
-    # for item in processing_cvs:
-    #     d = item.split('_')
-    #     p = {
-    #         'cv_id': d[0],
-    #         'cv_source': d[1]
-    #     }
-    #     running_ids.append(p)
-
     running_ids = {}
     for item in processing_cvs:
         d = item.split('_')
@@ -195,7 +186,7 @@ def get_running_cvs():
             where (idrs_3 alertdt > to_date('{start_t}', 'yyyy-mm-dd hh24:mi:ss')) and VALIDFLAG=1 and HISCHECKDT1 is NULL
             """
 
-    systeml = [2,3]
+    systeml = [2, 3]
 
     return running_ids, query_sql, systeml
 

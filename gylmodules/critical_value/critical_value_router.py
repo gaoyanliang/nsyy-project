@@ -34,41 +34,11 @@ def running_cvs():
 
 
 """
-作废危机值
-"""
-
-
-@cv.route('/inner_call_invalid_cv', methods=['POST'])
-def invalid_cv():
-    try:
-        json_data = json.loads(request.get_data().decode('utf-8'))
-        cv_ids = json_data.get('cv_ids')
-        cv_source = json_data.get('cv_source')
-        critical_value.invalid_crisis_value(cv_ids, cv_source)
-    except Exception as e:
-        print(f"invalid_cv: An unexpected error occurred: {e}")
-        print(traceback.print_exc())
-
-
-"""
 系统创建危机值
 """
 
 
 @cv.route('/inner_call_create_cv', methods=['POST'])
-def system_create_cv():
-    try:
-        json_data = json.loads(request.get_data().decode('utf-8'))
-        cv_source = json_data.get('cv_source')
-        cvs = json_data.get('cvs')
-        for data in cvs:
-            critical_value.create_cv_by_system(data, cv_source)
-    except Exception as e:
-        print(f"system_create_cv: An unexpected error occurred: {e}")
-        print(traceback.print_exc())
-
-
-@cv.route('/inner_call_create_cv1', methods=['POST'])
 def system_create_cv1():
     try:
         json_data = json.loads(request.get_data().decode('utf-8'))

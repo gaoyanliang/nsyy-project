@@ -37,18 +37,6 @@ timeout_d = {1: {'check_time': 'time', 'timeout_filed': 'doctor_recv_timeout',
                  'timeout_msg': '医生处理危机值超时，请及时查看并处理',
                  'ward_id': 'ward_id', 'dept_id': 'dept_id', 'timeout_flag': 'is_doctor_handle_timeout'}}
 
-# 检查时间字段，超时时间，超时打印内容，有值：给护理单元发，有值：给科室发
-# timeout_d = {1: ['time', 'doctor_recv_timeout', '有危机值医生超时未处理，请及时通知医生',
-#                  'ward_id', '', 'is_doctor_recv_timeout'],
-#              2: ['time', 'nurse_recv_timeout', '危机值超时未接收，请及时查看并处理',
-#                  'ward_id', 'dept_id', 'is_nurse_recv_timeout'],
-#              4: ['nurse_recv_time', 'nurse_send_timeout', '危机值超时未发送，请及将危机值发送给医生处理',
-#                  'ward_id', '', 'is_nurse_send_timeout'],
-#              5: ['nurse_send_time', 'doctor_recv_timeout', '危机值超时未接收，请及时查看并处理',
-#                  'ward_id', 'dept_id', 'is_doctor_recv_timeout'],
-#              7: ['doctor_recv_time', 'doctor_handle_timeout', '医生处理危机值超时，请及时查看并处理',
-#                  'ward_id', 'dept_id', 'is_doctor_handle_timeout']}
-
 
 def handle_timeout_cv():
     cur_time = datetime.now()
