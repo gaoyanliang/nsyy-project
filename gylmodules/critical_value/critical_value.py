@@ -230,8 +230,9 @@ def invalid_crisis_value(cv_ids, cv_source):
     # 更新危机值状态未作废
     ids = ','.join(cv_ids)
     new_state = cv_config.INVALID_STATE
+    states = (cv_config.INVALID_STATE, cv_config.DOCTOR_HANDLE_STATE)
     update_sql = f'UPDATE nsyy_gyl.cv_info SET state = {new_state}' \
-                 f' WHERE cv_id in ({ids}) and cv_source = {cv_source} and state != {cv_config.DOCTOR_HANDLE_STATE}'
+                 f' WHERE cv_id in ({ids}) and cv_source = {cv_source} and state not in {states}'
     db.execute(update_sql, (), need_commit=True)
 
     # 从内存中移除
@@ -454,7 +455,7 @@ def push(json_data):
     if push_type == 1:
         # 更新危机值状态为 【通知医生】
         update_sql = 'UPDATE nsyy_gyl.cv_info SET state = %s, nurse_send_time = %s ' \
-                     'WHERE cv_id = %s and cv_source = %s'
+                     'WHERE cv_id = %s and cv_source = %s and state != 0'
         args = (cv_config.NOTIFICATION_DOCTOR_STATE, timer, cv_id, cv_source)
         db.execute(update_sql, args, need_commit=True)
 
@@ -495,7 +496,7 @@ def confirm_receipt_cv(json_data):
     if confirm_type == 0:
         # 更新危机值状态为 【护理确认接收】
         update_sql = 'UPDATE nsyy_gyl.cv_info SET state = %s, nurse_recv_id = %s, nurse_recv_name = %s,' \
-                     'nurse_recv_time = %s, nurse_recv_info = %s  WHERE cv_id = %s and cv_source = %s'
+                     'nurse_recv_time = %s, nurse_recv_info = %s  WHERE cv_id = %s and cv_source = %s and state != 0'
         args = (cv_config.NURSE_RECV_STATE, confirmer_id, confirmer_name, timer, confirm_info, cv_id, cv_source)
         db.execute(update_sql, args, need_commit=True)
 
@@ -516,7 +517,7 @@ def confirm_receipt_cv(json_data):
 
         # 更新危机值状态为 【医生确认接收】
         update_sql = 'UPDATE nsyy_gyl.cv_info SET state = %s, doctor_recv_id = %s, ' \
-                     'doctor_recv_name = %s, doctor_recv_time = %s WHERE cv_id = %s and cv_source = %s'
+                     'doctor_recv_name = %s, doctor_recv_time = %s WHERE cv_id = %s and cv_source = %s and state != 0'
         args = (cv_config.DOCTOR_RECV_STATE, confirmer_id, confirmer_name, timer, cv_id, cv_source)
         db.execute(update_sql, args, need_commit=True)
 
@@ -550,7 +551,7 @@ def nursing_records(json_data):
     db = DbUtil(global_config.DB_HOST, global_config.DB_USERNAME, global_config.DB_PASSWORD,
                 global_config.DB_DATABASE_GYL)
     update_sql = 'UPDATE nsyy_gyl.cv_info SET nursing_record = %s, nursing_record_time = %s ' \
-                 'WHERE cv_id = %s and cv_source = %s'
+                 'WHERE cv_id = %s and cv_source = %s and state != 0'
     args = (record, timer, cv_id, cv_source)
     db.execute(update_sql, args, need_commit=True)
 
@@ -597,7 +598,7 @@ def doctor_handle_cv(json_data):
     # 更新危机值状态为 【医生处理】
     update_sql = f'UPDATE nsyy_gyl.cv_info SET {update_total_timeout_sql} state = %s, analysis = %s, method = %s, ' \
                  'handle_time = %s, handle_doctor_name = %s, handle_doctor_id = %s ' \
-                 'WHERE cv_id = %s and cv_source = %s'
+                 'WHERE cv_id = %s and cv_source = %s and state != 0'
     args = (cv_config.DOCTOR_HANDLE_STATE, analysis, method, timer, handler_name, handler_id, cv_id, cv_source)
     db.execute(update_sql, args, need_commit=True)
 

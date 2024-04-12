@@ -71,7 +71,7 @@ def handle_timeout_cv():
                 cv_id = value.get('cv_id')
                 cv_source = value.get('cv_source')
                 update_sql = f'UPDATE nsyy_gyl.cv_info SET {update_field} = 1 {update_state_sql} ' \
-                             f'WHERE cv_id = \'{cv_id}\' and cv_source = {cv_source}'
+                             f'WHERE cv_id = \'{cv_id}\' and cv_source = {cv_source} and state != 0'
                 db.execute(update_sql, (), need_commit=True)
 
                 # 更新 redis 状态
