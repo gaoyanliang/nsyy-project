@@ -9,6 +9,81 @@ cv = Blueprint('critical value', __name__, url_prefix='/cv')
 
 
 """
+查询运行中的危机值列表
+"""
+
+
+@cv.route('/inner_call_running_cvs', methods=['POST'])
+def running_cvs():
+    try:
+        running_ids, query_sql, systeml = critical_value.get_running_cvs()
+    except Exception as e:
+        print(f"running_cvs: An unexpected error occurred: {e}")
+        print(traceback.print_exc())
+        running_ids = []
+
+    return jsonify({
+        'code': 20000,
+        'res': '查询运行中的危机值成功',
+        'data': {
+            'running_ids': running_ids,
+            'query_sql': query_sql,
+            'systeml': systeml
+        }
+    })
+
+
+"""
+作废危机值
+"""
+
+
+@cv.route('/inner_call_invalid_cv', methods=['POST'])
+def invalid_cv():
+    try:
+        json_data = json.loads(request.get_data().decode('utf-8'))
+        cv_ids = json_data.get('cv_ids')
+        cv_source = json_data.get('cv_source')
+        critical_value.invalid_crisis_value(cv_ids, cv_source)
+    except Exception as e:
+        print(f"invalid_cv: An unexpected error occurred: {e}")
+        print(traceback.print_exc())
+
+
+"""
+系统创建危机值
+"""
+
+
+@cv.route('/inner_call_create_cv', methods=['POST'])
+def system_create_cv():
+    try:
+        json_data = json.loads(request.get_data().decode('utf-8'))
+        cv_source = json_data.get('cv_source')
+        cvs = json_data.get('cvs')
+        for data in cvs:
+            critical_value.create_cv_by_system(data, cv_source)
+    except Exception as e:
+        print(f"system_create_cv: An unexpected error occurred: {e}")
+        print(traceback.print_exc())
+
+
+@cv.route('/inner_call_create_cv1', methods=['POST'])
+def system_create_cv1():
+    try:
+        json_data = json.loads(request.get_data().decode('utf-8'))
+        cvd = json_data.get('cvd')
+        critical_value.create_cv(cvd)
+    except Exception as e:
+        print(f"system_create_cv: An unexpected error occurred: {e}")
+        print(traceback.print_exc())
+
+    return jsonify({
+        'code': 20000
+    })
+
+
+"""
 windows 客户端启动时， 查询所有待完成的危机值，并弹框提示
 """
 
@@ -17,9 +92,18 @@ windows 客户端启动时， 查询所有待完成的危机值，并弹框提�
 def query_process_cv_and_notice():
     json_data = json.loads(request.get_data().decode('utf-8'))
     try:
-        critical_value.query_process_cv_and_notice(json_data)
+        dept_id = json_data.get("dept_id")
+        ward_id = json_data.get("ward_id")
+        if not dept_id and not ward_id:
+            return jsonify({
+                'code': 50000,
+                'res': '科室id 和 病区id 不能同时为空',
+                'data': []
+            })
+
+        critical_value.query_process_cv_and_notice(dept_id, ward_id)
     except Exception as e:
-        print(f"create_critical_value: An unexpected error occurred: {e}")
+        print(f"query_process_cv_and_notice: An unexpected error occurred: {e}")
         print(traceback.print_exc())
         return jsonify({
             'code': 50000,
@@ -45,7 +129,7 @@ def setting_timeout():
     try:
         critical_value.setting_timeout(json_data)
     except Exception as e:
-        print(f"create_critical_value: An unexpected error occurred: {e}")
+        print(f"setting_timeout: An unexpected error occurred: {e}")
         print(traceback.print_exc())
         return jsonify({
             'code': 50000,
@@ -65,12 +149,12 @@ def setting_timeout():
 """
 
 
-@cv.route('/query_timeout', methods=['GET'])
+@cv.route('/query_timeout', methods=['GET', 'POST'])
 def query_timeout():
     try:
         timeout_sets = critical_value.query_timeout()
     except Exception as e:
-        print(f"create_critical_value: An unexpected error occurred: {e}")
+        print(f"query_timeout: An unexpected error occurred: {e}")
         print(traceback.print_exc())
         return jsonify({
             'code': 50000,
@@ -96,7 +180,7 @@ def operate_site():
     try:
         critical_value.site_maintenance(json_data)
     except Exception as e:
-        print(f"create_critical_value: An unexpected error occurred: {e}")
+        print(f"operate_site: An unexpected error occurred: {e}")
         print(traceback.print_exc())
         return jsonify({
             'code': 50000,
@@ -122,20 +206,41 @@ def operate_site():
 def query_cv_list():
     json_data = json.loads(request.get_data().decode('utf-8'))
     try:
-        undo_list = critical_value.get_cv_list(json_data)
+        dept_id = json_data.get("dept_id")
+        ward_id = json_data.get("ward_id")
+        if not dept_id and not ward_id:
+            return jsonify({
+                'code': 50000,
+                'res': '科室id 和 病区id 不能同时为空',
+                'data': {}
+            })
+
+        page_number = json_data.get("page_number")
+        page_size = json_data.get("page_size")
+        if not page_number or not page_size:
+            return jsonify({
+                'code': 50000,
+                'res': 'page_number 和 page_size 不能为空',
+                'data': {}
+            })
+
+        cv_list, total = critical_value.get_cv_list(dept_id, ward_id, json_data)
     except Exception as e:
-        print(f"create_critical_value: An unexpected error occurred: {e}")
+        print(f"query_cv_list: An unexpected error occurred: {e}")
         print(traceback.print_exc())
         return jsonify({
             'code': 50000,
             'res': e.__str__(),
-            'data': '待审核危机值列表查询失败，请稍后重试'
+            'data': '危机值列表查询失败，请稍后重试'
         })
 
     return jsonify({
         'code': 20000,
-        'res': '待审核危机值列表查询成功',
-        'data': undo_list
+        'res': '危机值列表查询成功',
+        'data': {
+            'cv_list': cv_list,
+            'total': total
+        }
     })
 
 
@@ -148,9 +253,17 @@ def query_cv_list():
 def push_critical_value():
     json_data = json.loads(request.get_data().decode('utf-8'))
     try:
+        cv_source = json_data.get('cv_source')
+        dept_id = json_data.get('dept_id')
+        if not cv_source or not dept_id:
+            return jsonify({
+                'code': 50000,
+                'res': '参数异常：' + str(json_data),
+                'data': ''
+            })
         critical_value.push(json_data)
     except Exception as e:
-        print(f"create_critical_value: An unexpected error occurred: {e}")
+        print(f"push_critical_value: An unexpected error occurred: {e}")
         print(traceback.print_exc())
         return jsonify({
             'code': 50000,
@@ -176,7 +289,7 @@ def ack_critical_value():
     try:
         critical_value.confirm_receipt_cv(json_data)
     except Exception as e:
-        print(f"create_critical_value: An unexpected error occurred: {e}")
+        print(f"ack_critical_value: An unexpected error occurred: {e}")
         print(traceback.print_exc())
         return jsonify({
             'code': 50000,
@@ -202,7 +315,7 @@ def write_nursing_records():
     try:
         critical_value.nursing_records(json_data)
     except Exception as e:
-        print(f"create_critical_value: An unexpected error occurred: {e}")
+        print(f"write_nursing_records: An unexpected error occurred: {e}")
         print(traceback.print_exc())
         return jsonify({
             'code': 50000,
@@ -228,7 +341,7 @@ def handle_critical_value():
     try:
         critical_value.doctor_handle_cv(json_data)
     except Exception as e:
-        print(f"create_critical_value: An unexpected error occurred: {e}")
+        print(f"handle_critical_value: An unexpected error occurred: {e}")
         print(traceback.print_exc())
         return jsonify({
             'code': 50000,
@@ -252,9 +365,9 @@ def handle_critical_value():
 def query_all():
     json_data = json.loads(request.get_data().decode('utf-8'))
     try:
-        undo_list, undo_num, done_list, done_num = critical_value.report_form(json_data)
+        cv_list, total = critical_value.report_form(json_data)
     except Exception as e:
-        print(f"create_critical_value: An unexpected error occurred: {e}")
+        print(f"query_all: An unexpected error occurred: {e}")
         print(traceback.print_exc())
         return jsonify({
             'code': 50000,
@@ -266,10 +379,8 @@ def query_all():
         'code': 20000,
         'res': '报表查询成功',
         'data': {
-            "undo_list": undo_list,
-            "undo_num": undo_num,
-            "done_list": done_list,
-            "done_num": done_num
+            "cv_list": cv_list,
+            "total": total
         }
     })
 
@@ -285,7 +396,7 @@ def template():
     try:
         template = critical_value.medical_record_template(json_data)
     except Exception as e:
-        print(f"create_critical_value: An unexpected error occurred: {e}")
+        print(f"template: An unexpected error occurred: {e}")
         print(traceback.print_exc())
         return jsonify({
             'code': 50000,

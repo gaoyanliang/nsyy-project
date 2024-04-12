@@ -18,6 +18,7 @@ server_app = Flask(__name__)
 server_app.register_blueprint(gylroute, url_prefix='/gyl')
 
 CORS(server_app, supports_credentials=True)
+# 需要安装 eventlet， （pip3 install eventlet） 否则 ValueError: Invalid async_mode specified
 async_mode = "eventlet"
 socketio = SocketIO()
 socketio.init_app(server_app, cors_allowed_origins='*', async_mode=async_mode, subprocess=1000, threaded=True)
@@ -42,7 +43,7 @@ def start_schedule_work():
     # gyl schedule
     print('项目启动')
     # schedule_task()
-    gylschedule_task.schedule_task().start()
+    gylschedule_task.schedule_task()
     time.sleep(3)  # 至少3秒 确保aaa被占用
 
 
@@ -51,4 +52,4 @@ if __name__ == '__main__':
     t = threading.Thread(target=start_schedule_work)
     t.setDaemon
     t.start()
-    socketio.run(server_app, host='0.0.0.0', port=6080, debug=True, use_reloader=True)
+    socketio.run(server_app, host='0.0.0.0', port=8080, debug=True, use_reloader=True)

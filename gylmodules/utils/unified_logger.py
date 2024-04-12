@@ -1,6 +1,7 @@
 import logging
 
 import gylmodules.global_config
+from gylmodules.utils.common_utils import run_in_local
 
 
 class UnifiedLogger:
@@ -25,7 +26,7 @@ class UnifiedLogger:
             # Add the handlers to the logger
             cls._instance._logger.addHandler(console_handler)
 
-            if not gylmodules.global_config.RUN_IN_TEST:
+            if not run_in_local():
                 # Create a file handler
                 file_handler = logging.FileHandler(file_name)
                 file_handler.setLevel(logging.INFO)
