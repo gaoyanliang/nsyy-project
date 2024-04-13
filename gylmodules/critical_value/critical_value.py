@@ -423,7 +423,10 @@ def async_alert(type, id, msg):
         if sites:
             for ip in sites:
                 url = f'http://{ip}:8085/opera_wiki'
-                requests.post(url, json=payload)
+                try:
+                    requests.post(url, json=payload)
+                except Exception as e:
+                    return
     thread_b = threading.Thread(target=alert, args=(type, id, msg))
     thread_b.start()
 
