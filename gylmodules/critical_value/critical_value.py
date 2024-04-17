@@ -127,9 +127,6 @@ def cache_all_site_and_timeout():
 
 
 def pull_running_cv():
-    db = DbUtil(global_config.DB_HOST, global_config.DB_USERNAME, global_config.DB_PASSWORD,
-                global_config.DB_DATABASE_GYL)
-
     # 清空缓存, 重新加载数据
     redis_client = redis.Redis(connection_pool=pool)
     redis_client.flushdb()
@@ -144,6 +141,8 @@ def pull_running_cv():
     }
     call_third_systems_obtain_data('cache_all_dept_info', param)
 
+    db = DbUtil(global_config.DB_HOST, global_config.DB_USERNAME, global_config.DB_PASSWORD,
+                global_config.DB_DATABASE_GYL)
     # 加载所有处理中的危机值到内存
     states = (cv_config.INVALID_STATE, cv_config.DOCTOR_HANDLE_STATE)
     query_sql = f'select * from nsyy_gyl.cv_info where state not in {states} '
@@ -151,6 +150,7 @@ def pull_running_cv():
     for cv in cvs:
         key = cv.get('cv_id') + '_' + str(cv.get('cv_source'))
         write_cache(key, cv)
+    del db
 
     # 子线程执行： 缓存所有站点信息 & 超时时间配置
     thread_b = threading.Thread(target=cache_all_site_and_timeout)
@@ -644,6 +644,8 @@ def report_form(json_data):
     start_index = (page_number - 1) * page_size
     end_index = start_index + page_size
     cv_list = cv_list[start_index:end_index]
+
+    del db
 
     return cv_list, total
 
