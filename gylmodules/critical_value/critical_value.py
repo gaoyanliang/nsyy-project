@@ -127,9 +127,12 @@ def cache_all_site_and_timeout():
 
 
 def pull_running_cv():
-    # 清空缓存, 重新加载数据
+    # 清空危机值相关的缓存, 重新加载数据
     redis_client = redis.Redis(connection_pool=pool)
-    redis_client.flushdb()
+    # 删除上一天的所有预约
+    keys = redis_client.keys('CV_*')
+    for key in keys:
+        redis_client.delete(key)
 
     # 缓存所有部门信息
     # dept_type 1 临床科室 2 护理单元 0 全部

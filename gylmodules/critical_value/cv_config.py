@@ -33,25 +33,25 @@ DOCTOR_HANDLE_STATE = 9  # 医生已处理
 
 # cv timed task
 WAIT_NURSE_RECV = 1
-WAIT_NURSE_RECV_REDIS_KEY = 'WAIT_NURSE_RECV'
+WAIT_NURSE_RECV_REDIS_KEY = 'CV_WAIT_NURSE_RECV'
 WAIT_DOCTOR_RECV = 2
-WAIT_DOCTOR_RECV_REDIS_KEY = 'WAIT_DOCTOR_RECV'
+WAIT_DOCTOR_RECV_REDIS_KEY = 'CV_WAIT_DOCTOR_RECV'
 WAIT_DOCTOR_HANDLE = 3
-WAIT_DOCTOR_HANDLE_REDIS_KEY = 'WAIT_DOCTOR_HANDLE'
+WAIT_DOCTOR_HANDLE_REDIS_KEY = 'CV_WAIT_DOCTOR_HANDLE'
 
 
 # 超时时间 redis key
-TIMEOUT_REDIS_KEY = {'nurse_recv': 'NURSE_RECV_TIMEOUT',
-                     'nurse_send': 'NURSE_SEND_TIMEOUT',
-                     'doctor_recv': 'DOCTOR_RECV_TIMEOUT',
-                     'doctor_handle': 'DOCTOR_HANDLE_TIMEOUT',
-                     'total': 'TOTAL_TIMEOUT'}
+TIMEOUT_REDIS_KEY = {'nurse_recv': 'CV_NURSE_RECV_TIMEOUT',
+                     'nurse_send': 'CV_NURSE_SEND_TIMEOUT',
+                     'doctor_recv': 'CV_DOCTOR_RECV_TIMEOUT',
+                     'doctor_handle': 'CV_DOCTOR_HANDLE_TIMEOUT',
+                     'total': 'CV_TOTAL_TIMEOUT'}
 
 # 部门信息
-DEPT_INFO_REDIS_KEY = 'DEPT_INFO_REDIS_KEY'
+DEPT_INFO_REDIS_KEY = 'CV_DEPT_INFO_REDIS_KEY'
 
 # 运行中的危机值列表
-RUNNING_CVS_REDIS_KEY = 'RUNNING_CVS'
+RUNNING_CVS_REDIS_KEY = 'CV_RUNNING_CVS'
 
 # 站点类型
 CV_SITES_REDIS_KEY = {1: 'CV_SITES_WARD_', 2: 'CV_SITES_DEPT_'}
