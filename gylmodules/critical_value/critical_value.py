@@ -258,7 +258,7 @@ def create_cv_by_system(json_data, cv_source):
 
     cvd = {'dept_id': json_data.get('REQ_DEPTNO')}
     if cvd['dept_id'] and not cvd['dept_id'].isdigit():
-        print('当前危机值病人科室不是数字，跳过。 ' + str(json_data))
+        # print('当前危机值病人科室不是数字，跳过。 ' + str(json_data))
         return
 
     # 解析危机值上报信息
@@ -317,6 +317,7 @@ def create_cv_by_system(json_data, cv_source):
                  f"VALUES {args}"
     last_rowid = db.execute(insert_sql, (), need_commit=True)
     if last_rowid == -1:
+        print(insert_sql)
         raise Exception("系统危机值入库失败! " + str(args))
 
     # 发送危机值 直接通知医生和护士
