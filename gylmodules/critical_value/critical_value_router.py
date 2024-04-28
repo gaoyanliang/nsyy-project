@@ -1,6 +1,7 @@
 import json
 import traceback
 
+from datetime import datetime
 from flask import Blueprint, jsonify, request
 
 from gylmodules.critical_value import critical_value
@@ -18,8 +19,8 @@ def running_cvs():
     try:
         running_ids, query_sql, systeml = critical_value.get_running_cvs()
     except Exception as e:
-        print(f"running_cvs: An unexpected error occurred: {e}")
-        print(traceback.print_exc())
+        timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        print(f"[{timestamp}] Exception occurred: {traceback.print_exc()}")
         running_ids = []
 
     return jsonify({
@@ -45,8 +46,23 @@ def system_create_cv1():
         cvd = json_data.get('cvd')
         critical_value.create_cv(cvd)
     except Exception as e:
-        print(f"system_create_cv: An unexpected error occurred: {e}")
-        print(traceback.print_exc())
+        timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        print(f"[{timestamp}] Exception occurred: {traceback.print_exc()}")
+
+    return jsonify({
+        'code': 20000
+    })
+
+
+@cv.route('/system_create_cv', methods=['POST'])
+def system_create_cv():
+    try:
+        json_data = json.loads(request.get_data().decode('utf-8'))
+        cv_source = json_data.get('cv_source')
+        critical_value.create_cv_by_system(json_data, cv_source)
+    except Exception as e:
+        timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        print(f"[{timestamp}] Exception occurred: {traceback.print_exc()}")
 
     return jsonify({
         'code': 20000
@@ -73,8 +89,8 @@ def query_process_cv_and_notice():
 
         critical_value.query_process_cv_and_notice(dept_id, ward_id)
     except Exception as e:
-        print(f"query_process_cv_and_notice: An unexpected error occurred: {e}")
-        print(traceback.print_exc())
+        timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        print(f"[{timestamp}] Exception occurred: {traceback.print_exc()}")
         return jsonify({
             'code': 50000,
             'res': e.__str__(),
@@ -99,8 +115,8 @@ def setting_timeout():
     try:
         critical_value.setting_timeout(json_data)
     except Exception as e:
-        print(f"setting_timeout: An unexpected error occurred: {e}")
-        print(traceback.print_exc())
+        timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        print(f"[{timestamp}] Exception occurred: {traceback.print_exc()}")
         return jsonify({
             'code': 50000,
             'res': e.__str__(),
@@ -124,8 +140,8 @@ def query_timeout():
     try:
         timeout_sets = critical_value.query_timeout()
     except Exception as e:
-        print(f"query_timeout: An unexpected error occurred: {e}")
-        print(traceback.print_exc())
+        timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        print(f"[{timestamp}] Exception occurred: {traceback.print_exc()}")
         return jsonify({
             'code': 50000,
             'res': e.__str__(),
@@ -150,8 +166,8 @@ def operate_site():
     try:
         critical_value.site_maintenance(json_data)
     except Exception as e:
-        print(f"operate_site: An unexpected error occurred: {e}")
-        print(traceback.print_exc())
+        timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        print(f"[{timestamp}] Exception occurred: {traceback.print_exc()}")
         return jsonify({
             'code': 50000,
             'res': e.__str__(),
@@ -196,8 +212,8 @@ def query_cv_list():
 
         cv_list, total = critical_value.get_cv_list(dept_id, ward_id, json_data)
     except Exception as e:
-        print(f"query_cv_list: An unexpected error occurred: {e}")
-        print(traceback.print_exc())
+        timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        print(f"[{timestamp}] Exception occurred: {traceback.print_exc()}")
         return jsonify({
             'code': 50000,
             'res': e.__str__(),
@@ -233,8 +249,8 @@ def push_critical_value():
             })
         critical_value.push(json_data)
     except Exception as e:
-        print(f"push_critical_value: An unexpected error occurred: {e}")
-        print(traceback.print_exc())
+        timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        print(f"[{timestamp}] Exception occurred: {traceback.print_exc()}")
         return jsonify({
             'code': 50000,
             'res': e.__str__(),
@@ -259,8 +275,8 @@ def ack_critical_value():
     try:
         critical_value.confirm_receipt_cv(json_data)
     except Exception as e:
-        print(f"ack_critical_value: An unexpected error occurred: {e}")
-        print(traceback.print_exc())
+        timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        print(f"[{timestamp}] Exception occurred: {traceback.print_exc()}")
         return jsonify({
             'code': 50000,
             'res': e.__str__(),
@@ -285,8 +301,8 @@ def write_nursing_records():
     try:
         critical_value.nursing_records(json_data)
     except Exception as e:
-        print(f"write_nursing_records: An unexpected error occurred: {e}")
-        print(traceback.print_exc())
+        timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        print(f"[{timestamp}] Exception occurred: {traceback.print_exc()}")
         return jsonify({
             'code': 50000,
             'res': e.__str__(),
@@ -311,8 +327,8 @@ def handle_critical_value():
     try:
         critical_value.doctor_handle_cv(json_data)
     except Exception as e:
-        print(f"handle_critical_value: An unexpected error occurred: {e}")
-        print(traceback.print_exc())
+        timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        print(f"[{timestamp}] Exception occurred: {traceback.print_exc()}")
         return jsonify({
             'code': 50000,
             'res': e.__str__(),
@@ -337,8 +353,8 @@ def query_all():
     try:
         cv_list, total = critical_value.report_form(json_data)
     except Exception as e:
-        print(f"query_all: An unexpected error occurred: {e}")
-        print(traceback.print_exc())
+        timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        print(f"[{timestamp}] Exception occurred: {traceback.print_exc()}")
         return jsonify({
             'code': 50000,
             'res': e.__str__(),
@@ -366,8 +382,8 @@ def template():
     try:
         template = critical_value.medical_record_template(json_data)
     except Exception as e:
-        print(f"template: An unexpected error occurred: {e}")
-        print(traceback.print_exc())
+        timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        print(f"[{timestamp}] Exception occurred: {traceback.print_exc()}")
         return jsonify({
             'code': 50000,
             'res': e.__str__(),

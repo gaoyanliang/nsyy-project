@@ -108,13 +108,12 @@ def cache_all_site_and_timeout():
     # 将超时时间配置加载至 redis 缓存
     query_sql = 'select * from nsyy_gyl.cv_timeout where type = \'cv\' '
     timeout_sets = db.query_one(query_sql)
+    del db
     redis_client.set(cv_config.TIMEOUT_REDIS_KEY['nurse_recv'], timeout_sets.get('nurse_recv_timeout'))
     redis_client.set(cv_config.TIMEOUT_REDIS_KEY['nurse_send'], timeout_sets.get('nurse_send_timeout'))
     redis_client.set(cv_config.TIMEOUT_REDIS_KEY['doctor_recv'], timeout_sets.get('doctor_recv_timeout'))
     redis_client.set(cv_config.TIMEOUT_REDIS_KEY['doctor_handle'], timeout_sets.get('doctor_handle_timeout'))
     redis_client.set(cv_config.TIMEOUT_REDIS_KEY['total'], timeout_sets.get('total_timeout'))
-
-    del db
 
 
 """
@@ -150,10 +149,11 @@ def pull_running_cv():
     states = (cv_config.INVALID_STATE, cv_config.DOCTOR_HANDLE_STATE)
     query_sql = f'select * from nsyy_gyl.cv_info where state not in {states} '
     cvs = db.query_all(query_sql)
+    del db
+
     for cv in cvs:
         key = cv.get('cv_id') + '_' + str(cv.get('cv_source'))
         write_cache(key, cv)
-    del db
 
     # 子线程执行： 缓存所有站点信息 & 超时时间配置
     thread_b = threading.Thread(target=cache_all_site_and_timeout)
@@ -237,13 +237,12 @@ def invalid_crisis_value(cv_ids, cv_source):
     update_sql = f'UPDATE nsyy_gyl.cv_info SET state = {new_state}' \
                  f' WHERE cv_id in ({ids}) and cv_source = {cv_source} and state not in {states}'
     db.execute(update_sql, (), need_commit=True)
+    del db
 
     # 从内存中移除
     for cv_id in cv_ids:
         key = cv_id + '_' + str(cv_source)
         delete_cache(key)
-
-    del db
 
 
 """
@@ -328,10 +327,10 @@ def create_cv_by_system(json_data, cv_source):
     # 将危机值放入 redis cache
     query_sql = 'select * from nsyy_gyl.cv_info where id = {} '.format(last_rowid)
     record = db.query_one(query_sql)
+    del db
+
     key = cvd['cv_id'] + '_' + str(cv_source)
     write_cache(key, record)
-
-    del db
 
 
 """
@@ -401,6 +400,8 @@ def query_process_cv_and_notice(dept_id, ward_id):
     states = (cv_config.INVALID_STATE, cv_config.DOCTOR_HANDLE_STATE)
     query_sql = f'select * from nsyy_gyl.cv_info where state not in {states} {condition_sql} '
     running = db.query_all(query_sql)
+    del db
+
     if running:
         patient_names = [item['patient_name'] for item in running]
         patient_names = list(set(patient_names))
@@ -409,8 +410,6 @@ def query_process_cv_and_notice(dept_id, ward_id):
             async_alert(1, ward_id, f" {names} 存在未处理完的危机值，请及时处理")
         if dept_id:
             async_alert(2, dept_id, f" {names} 存在未处理完的危机值，请及时处理")
-
-    del db
 
 
 """
@@ -465,6 +464,7 @@ def push(json_data):
                      'WHERE cv_id = %s and cv_source = %s and state != 0'
         args = (cv_config.NOTIFICATION_DOCTOR_STATE, timer, cv_id, cv_source)
         db.execute(update_sql, args, need_commit=True)
+        del db
 
         # 同步更新常量中的状态
         key = cv_id + '_' + str(cv_source)
@@ -474,8 +474,6 @@ def push(json_data):
         write_cache(key, value)
         # 弹框提醒医生
         async_alert(2, dept_id, f"病人 {patient_name} 出现危机值, 请及时查看并处理")
-
-    del db
 
 
 """
@@ -506,6 +504,7 @@ def confirm_receipt_cv(json_data):
                      'nurse_recv_time = %s, nurse_recv_info = %s  WHERE cv_id = %s and cv_source = %s and state != 0'
         args = (cv_config.NURSE_RECV_STATE, confirmer_id, confirmer_name, timer, confirm_info, cv_id, cv_source)
         db.execute(update_sql, args, need_commit=True)
+        del db
 
         # 同步更新常量中的状态
         key = cv_id + '_' + str(cv_source)
@@ -518,7 +517,7 @@ def confirm_receipt_cv(json_data):
         write_cache(key, value)
 
         # 护士接收之后，进行数据回传
-        data_feedback(cv_id, confirmer_id, timer, confirm_info, 1)
+        data_feedback(cv_id, int(cv_source), confirmer_name, timer, confirm_info, 1)
 
     elif confirm_type == 1:
 
@@ -527,6 +526,7 @@ def confirm_receipt_cv(json_data):
                      'doctor_recv_name = %s, doctor_recv_time = %s WHERE cv_id = %s and cv_source = %s and state != 0'
         args = (cv_config.DOCTOR_RECV_STATE, confirmer_id, confirmer_name, timer, cv_id, cv_source)
         db.execute(update_sql, args, need_commit=True)
+        del db
 
         # 同步更新常量中的状态
         key = cv_id + '_' + str(cv_source)
@@ -537,7 +537,8 @@ def confirm_receipt_cv(json_data):
         value['doctor_recv_time'] = timer
         write_cache(key, value)
 
-    del db
+        # 医生接收之后，进行数据回传
+        data_feedback(cv_id, int(cv_source), confirmer_name, timer, '', 2)
 
 
 """
@@ -561,14 +562,6 @@ def nursing_records(json_data):
                  'WHERE cv_id = %s and cv_source = %s and state != 0'
     args = (record, timer, cv_id, cv_source)
     db.execute(update_sql, args, need_commit=True)
-
-    # 同步更新常量中的状态
-    key = cv_id + '_' + str(cv_source)
-    value = read_cache(key)
-    value['nursing_record'] = record
-    value['nursing_record_time'] = timer
-    write_cache(key, value)
-
     del db
 
 
@@ -608,15 +601,11 @@ def doctor_handle_cv(json_data):
                  'WHERE cv_id = %s and cv_source = %s and state != 0'
     args = (cv_config.DOCTOR_HANDLE_STATE, analysis, method, timer, handler_name, handler_id, cv_id, cv_source)
     db.execute(update_sql, args, need_commit=True)
+    del db
 
     # 同步更新常量中的状态
     key = cv_id + '_' + str(cv_source)
     delete_cache(key)
-
-    # 医生处理之后，进行数据回传
-    data_feedback(cv_id, handler_id, timer, method, 2)
-
-    del db
 
 
 """
@@ -642,14 +631,13 @@ def report_form(json_data):
         state_sql = 'state = {}'.format(cv_config.DOCTOR_HANDLE_STATE)
     query_sql = f'select * from nsyy_gyl.cv_info where {state_sql} {time_sql}'
     cv_list = db.query_all(query_sql)
-    total = len(cv_list)
+    del db
 
+    total = len(cv_list)
     # 计算要查询的起始索引和结束索引
     start_index = (page_number - 1) * page_size
     end_index = start_index + page_size
     cv_list = cv_list[start_index:end_index]
-
-    del db
 
     return cv_list, total
 
@@ -695,29 +683,32 @@ def medical_record_template(json_data):
 """
 
 
-def data_feedback(cv_id, confirmer_id, timer, confirm_info, type: int):
+def data_feedback(cv_id, cv_source, confirmer, timer, confirm_info, type: int):
     datal = []
     updatel = []
     datel = []
     intl = []
     if type == 1:
         # 护士确认
-        datal = [{"RESULTALERTID": cv_id, "HISCHECKMAN": str(confirmer_id), "HISCHECKDT": timer,
+        datal = [{"RESULTALERTID": cv_id, "HISCHECKMAN": confirmer, "HISCHECKDT": timer,
                   "HISCHECKINFO": confirm_info}]
         updatel = ["HISCHECKMAN", "HISCHECKDT", "HISCHECKINFO"]
         datel = ["HISCHECKDT"]
-    else:
+    elif type == 2:
         # 医生确认
-        datal = [{"RESULTALERTID": cv_id, "HISCHECKMAN1": str(confirmer_id), "HISCHECKDT1": timer,
-                  "HISCHECKINFO1": confirm_info}]
-        updatel = ["HISCHECKMAN1", "HISCHECKDT1", "HISCHECKINFO1"]
+        datal = [{"RESULTALERTID": cv_id, "HISCHECKMAN1": confirmer, "HISCHECKDT1": timer}]
+        updatel = ["HISCHECKMAN1", "HISCHECKDT1"]
         datel = ["HISCHECKDT1"]
 
+    if cv_source == 2:
+        table_name = "inter_lab_resultalert"
+    else:
+        table_name = "NS_EXT.PACS危急值上报表"
     param = {
         "type": "orcl_db_update",
         "db_source": "ztorcl",
         "randstr": "XPFDFZDF7193CIONS1PD7XCJ3AD4ORRC",
-        "table_name": "inter_lab_resultalert",
+        "table_name": table_name,
         "datal": datal,
         "updatel": updatel,
         "datel": datel,
@@ -752,6 +743,7 @@ def setting_timeout(json_data):
     # 存在则更新 不存在则插入
     insert_sql = f'INSERT INTO nsyy_gyl.cv_timeout ({keys}) VALUE {str(values)} ON DUPLICATE KEY UPDATE {key_string} '
     db.execute(insert_sql, (), need_commit=True)
+    del db
 
     redis_client = redis.Redis(connection_pool=pool)
     redis_client.set(cv_config.TIMEOUT_REDIS_KEY['nurse_recv'], timeoutd.get('nurse_recv_timeout'))
@@ -759,8 +751,6 @@ def setting_timeout(json_data):
     redis_client.set(cv_config.TIMEOUT_REDIS_KEY['doctor_recv'], timeoutd.get('doctor_recv_timeout'))
     redis_client.set(cv_config.TIMEOUT_REDIS_KEY['doctor_handle'], timeoutd.get('doctor_handle_timeout'))
     redis_client.set(cv_config.TIMEOUT_REDIS_KEY['total'], timeoutd.get('total_timeout'))
-
-    del db
 
 
 """
@@ -801,6 +791,7 @@ def site_maintenance(json_data):
     # 存在则更新 不存在则插入
     insert_sql = f'INSERT INTO nsyy_gyl.cv_site({keys}) VALUE {str(values)} ON DUPLICATE KEY UPDATE {key_string} '
     db.execute(insert_sql, (), need_commit=True)
+    del db
 
     redis_client = redis.Redis(connection_pool=pool)
     if sited['site_dept_id'] != -1:
@@ -809,6 +800,4 @@ def site_maintenance(json_data):
     if sited['site_ward_id'] != -1:
         key = cv_config.CV_SITES_REDIS_KEY[1] + str(sited['site_ward_id'])
         redis_client.sadd(key, sited['site_ip'])
-
-    del db
 
