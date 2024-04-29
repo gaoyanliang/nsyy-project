@@ -1,18 +1,21 @@
 # 全局配置
+# 线上环境使用 server db config ， 定时任务全部开启， run_in_local=False
 
-# db config
+# server db config
 # DB_HOST = '192.168.3.12'
 # DB_PORT = 3306
 # DB_USERNAME = 'gyl'
 # DB_PASSWORD = '123456'
 # DB_DATABASE_GYL = 'nsyy_gyl'
-# DB_DATABASE_GENERAL = 'nsyy_general'
-# DB_TABLE_MENU = 'menu'
-# DB_TABLE_SPORTS_ACTIONS = 'sports_actions'
 
+# local db config
 DB_HOST = '127.0.0.1'
 DB_PORT = 3306
 DB_USERNAME = 'root'
 DB_PASSWORD = 'gyl.2015'
 DB_DATABASE_GYL = 'nsyy_gyl'
 
+# 管理定时任务开启和关闭
+schedule_task = {'cv_timeout': 0, 'cv_dept_update': 0, 'appt_daily': 1}
+
+run_in_local = True

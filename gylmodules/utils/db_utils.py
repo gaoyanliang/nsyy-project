@@ -109,6 +109,8 @@ class DbUtil:
                 self.__commit()
             return last_rowid
         except Exception as e:
+            print(e)
+            print(sql)
             self.__conn.rollback()
         return -1
 
@@ -144,9 +146,6 @@ if __name__ == "__main__":
 
     dbs = db.list_tables()
     print(f"table list: {dbs}")
-
-    dbs = db.get_table_fields(global_config.DB_DATABASE_GYL, global_config.DB_TABLE_MENU)
-    print(f"table fields: {dbs}")
 
     del db
 

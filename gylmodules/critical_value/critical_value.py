@@ -9,7 +9,6 @@ from apscheduler.schedulers.background import BackgroundScheduler
 
 from gylmodules import global_config
 from gylmodules.critical_value import cv_config
-from gylmodules.utils.common_utils import run_in_local
 from gylmodules.utils.db_utils import DbUtil
 
 pool = redis.ConnectionPool(host=cv_config.CV_REDIS_HOST, port=cv_config.CV_REDIS_PORT,
@@ -26,7 +25,7 @@ cv_id_lock = threading.Lock()
 
 def call_third_systems_obtain_data(type: str, param: dict):
     data = []
-    if run_in_local():
+    if global_config.run_in_local:
         try:
             # 发送 POST 请求，将字符串数据传递给 data 参数
             response = requests.post("http://192.168.124.53:6080/int_api", json=param)
@@ -316,7 +315,6 @@ def create_cv_by_system(json_data, cv_source):
                  f"VALUES {args}"
     last_rowid = db.execute(insert_sql, (), need_commit=True)
     if last_rowid == -1:
-        print(insert_sql)
         raise Exception("系统危机值入库失败! " + str(args))
 
     # 发送危机值 直接通知医生和护士

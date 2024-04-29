@@ -13,9 +13,6 @@ if __name__ == "__main__":
     dbs = db.list_tables()
     print(f"table list: {dbs}")
 
-    dbs = db.get_table_fields(global_config.DB_DATABASE_GYL, global_config.DB_TABLE_MENU)
-    print(f"table fields: {dbs}")
-
     # 将 excel 中的数据写入数据库
     df = pd.read_excel("/Users/gaoyanliang/nsyy/常见食物能量表.xlsx")
     # 获取文档的长度

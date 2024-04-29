@@ -1,79 +1,141 @@
+import json
 import time
-from datetime import datetime
+from datetime import datetime, timedelta
+
 import redis
-
-from gylmodules.critical_value import cv_config
-
-# pool = redis.ConnectionPool(host=cv_config.CV_REDIS_HOST, port=cv_config.CV_REDIS_PORT,
-#                             db=cv_config.CV_REDIS_DB, decode_responses=True)
-#
-# redis_client = redis.Redis(connection_pool=pool)
-#
-# redis_client.delete('adfa')
+import netifaces as ni
 
 
-testd = [1,1,1,1]
-print(list(set(testd)))
+schedule = {
+    '2024-04-24': {
+        '1': {'date': 'am', 'quantity': 16, 'doctor': {'id': 5, 'doctor_id': None, 'doctor_name': '刘正廷', 'dept_id': None, 'dept_name': None, 'consultation_room': '2001', 'proj_id': 1, 'day_of_week': 3, 'period': 1}},
+        '2': {'date': 'pm', 'quantity': 16, 'doctor': {'id': 6, 'doctor_id': None, 'doctor_name': '刘正廷', 'dept_id': None, 'dept_name': None, 'consultation_room': '2001', 'proj_id': 1, 'day_of_week': 3, 'period': 2}}
+    },
+    '2024-04-25': {
+        '1': {'date': 'am', 'quantity': 15, 'doctor': {'id': 7, 'doctor_id': None, 'doctor_name': '刘正廷', 'dept_id': None, 'dept_name': None, 'consultation_room': '2001', 'proj_id': 1, 'day_of_week': 4, 'period': 1}},
+        '2': {'date': 'pm', 'quantity': 16, 'doctor': {'id': 8, 'doctor_id': None, 'doctor_name': '刘正廷', 'dept_id': None, 'dept_name': None, 'consultation_room': '2001', 'proj_id': 1, 'day_of_week': 4, 'period': 2}}
+    },
+    # 其他日期...
+}
+
+bookable_list = []
+for date, slots in schedule.items():
+    for slot, info in slots.items():
+        info['date'] = date
+        info['slot'] = slot
+        bookable_list.append(info)
+
+print(bookable_list)
+
+for b in bookable_list:
+    print(b)
 
 
-query_sql = """
-select a.*, 2 cv_source from {inspection_system_table} a 
-            where ({idrsa} alertdt > to_date('{start_t}', 'yyyy-mm-dd hh24:mi:ss')) and VALIDFLAG=1 and HISCHECKDT1=0
-            union 
-            select b.*, 3 cv_source from {imaging_system_table} b 
-            where ({idrsb} alertdt > to_date('{start_t}', 'yyyy-mm-dd hh24:mi:ss')) and VALIDFLAG=1 and HISCHECKDT1=0
-"""
+# p1 预约时间 p2 签到时间 p3 紧急程度
+data = [
+    {'appt_date_period': 1, 'sign_in_num': 4, 'urgency_level': 1},
+    {'appt_date_period': 1, 'sign_in_num': 5, 'urgency_level': 2},
+    {'appt_date_period': 1, 'sign_in_num': 8, 'urgency_level': 3},
+    {'appt_date_period': 2, 'sign_in_num': 1, 'urgency_level': 1},
+    {'appt_date_period': 2, 'sign_in_num': 7, 'urgency_level': 2}
+]
 
-print(query_sql)
+data_sorted = sorted(data, key=lambda x: (-x['urgency_level'], x['appt_date_period'], x['sign_in_num']))
+
+test = [{'test': 1}, {'ssss': 2}]
+
+for d in data_sorted:
+    d['test'] = test
+
+for d in data_sorted:
+    print(d)
 
 
-print(query_sql.replace('{idrsa}', '1,2,3,4,5'))
+# p1 预约时间 p2 签到时间 p3 紧急程度
+data = [
+    {'appt_date_period': 1, 'sign_in_num': 4, 'urgency_level': 1},
+    {'appt_date_period': 1, 'sign_in_num': 5, 'urgency_level': 2},
+    {'appt_date_period': 1, 'sign_in_num': 8, 'urgency_level': 3},
+    {'appt_date_period': 2, 'sign_in_num': 1, 'urgency_level': 1},
+    {'appt_date_period': 2, 'sign_in_num': 7, 'urgency_level': 2}
+]
 
 print(set([1,4,5]) - set([1,2,3]))
 print(set([1,2,3]) - set([1,4,5]))
 
-print(str(datetime.now())[:19])
-cvd = {'a': 1, 'b': 2, 'c': 3, 'd': '4'}
-
-fileds = [key for key in cvd.keys()]
-print(fileds)
-
-print("--------")
-
-
-# print(','.join(cvd.keys()))
-# print(str(tuple(cvd.values())))
-
-
-keys = ','.join(cvd.keys())  # a,b,c,d
-values = tuple(cvd.values())  # (1, 2, 3, '4')
-# 将键和值按指定格式拼接成字符串
-key_string = ', '.join([f"{key} = {value}" for key, value in cvd.items()])  # a = 1, b = 2, c = 3, d = 4
-
-print(keys)
-print(values)
-print(key_string)
 
 
 
 
-# 获取当前时间戳
-timestamp = time.time()
-print(timestamp)
+# 获取本地默认网关的接口名称
+default_gateway = ni.gateways()['default'][ni.AF_INET][1]
+# 获取该接口的 IP 地址
+local_ip = ni.ifaddresses(default_gateway)[ni.AF_INET][0]['addr']
+print(local_ip)
 
-# 将时间戳转换为本地时间的结构化表示
-local_time = time.localtime(timestamp)
-print(local_time)
-# 格式化时间
-formatted_time = time.strftime("%Y-%m-%d %H:%M:%S", local_time)
-print(formatted_time)
 
-print(time.localtime(1712885368))
-print(time.strftime("%Y-%m-%d %H:%M:%S", time.localtime(1712885368)))
+print('-----------------------------------')
 
-# 获取当前时间戳，并将其转换为整数
-timestamp = int(time.time())
-print(timestamp)
+from itertools import groupby
+
+data = [
+    {"date": "2024-04-25", "doctor": "刘正廷", "period": "1", "proj_id": 1, "proj_name": "全科医学科门诊", "quantity": 15, "room": "2001"},
+    {"date": "2024-04-25", "doctor": "刘正廷", "period": "2", "proj_id": 1, "proj_name": "全科医学科门诊", "quantity": 16, "room": "2001"},
+    {"date": "2024-04-26", "doctor": "刘正廷", "period": "1", "proj_id": 1, "proj_name": "全科医学科门诊", "quantity": 16, "room": "2001"},
+    {"date": "2024-04-26", "doctor": "刘正廷", "period": "2", "proj_id": 1, "proj_name": "全科医学科门诊", "quantity": 16, "room": "2001"},
+    {"date": "2024-04-25", "doctor": "来大双", "period": "1", "proj_id": 2, "proj_name": "全科医学科门诊", "quantity": 16, "room": "2702"},
+    {"date": "2024-04-25", "doctor": "李新旗", "period": "2", "proj_id": 2, "proj_name": "全科医学科门诊", "quantity": 16, "room": "2702"},
+    {"date": "2024-04-26", "doctor": "来大双", "period": "1", "proj_id": 2, "proj_name": "全科医学科门诊", "quantity": 16, "room": "2702"},
+    {"date": "2024-04-26", "doctor": "来大双", "period": "2", "proj_id": 2, "proj_name": "全科医学科门诊", "quantity": 16, "room": "2702"},
+]
+
+# 对数据按照日期进行分组
+sorted_data = sorted(data, key=lambda x: (x['date'], x['period']))
+for item in sorted_data:
+    print(item)
+
+grouped_data = [list(group) for key, group in groupby(sorted_data, key=lambda x: x['date'])]
+for item in grouped_data:
+    print(item)
+
+
+
+
+# 连接到 Redis
+# r = redis.Redis(host='localhost', port=6379, db=0)
+# r.flushdb()
+
+
+
+from itertools import groupby
+
+data = [
+    {'date': '2024-04-25', 'doctor': '刘正廷', 'period': '1', 'proj_id': 1, 'proj_name': '全科医学科门诊', 'quantity': 15, 'room': '2001'},
+    {'date': '2024-04-25', 'doctor': '来大双', 'period': '1', 'proj_id': 2, 'proj_name': '全科医学科门诊', 'quantity': 16, 'room': '2702'},
+    {'date': '2024-04-25', 'doctor': '刘正廷', 'period': '2', 'proj_id': 1, 'proj_name': '全科医学科门诊', 'quantity': 16, 'room': '2001'},
+    {'date': '2024-04-25', 'doctor': '李新旗', 'period': '2', 'proj_id': 2, 'proj_name': '全科医学科门诊', 'quantity': 16, 'room': '2702'},
+    {'date': '2024-04-26', 'doctor': '刘正廷', 'period': '1', 'proj_id': 1, 'proj_name': '全科医学科门诊', 'quantity': 16, 'room': '2001'},
+    {'date': '2024-04-26', 'doctor': '来大双', 'period': '1', 'proj_id': 2, 'proj_name': '全科医学科门诊', 'quantity': 16, 'room': '2702'},
+    {'date': '2024-04-26', 'doctor': '刘正廷', 'period': '2', 'proj_id': 1, 'proj_name': '全科医学科门诊', 'quantity': 16, 'room': '2001'},
+    {'date': '2024-04-26', 'doctor': '来大双', 'period': '2', 'proj_id': 2, 'proj_name': '全科医学科门诊', 'quantity': 16, 'room': '2702'}
+]
+
+
+# 先对数据进行排序
+sorted_data = sorted(data, key=lambda x: x['date'])
+
+# 按 date 分组
+grouped_data = {}
+for key, group in groupby(sorted_data, key=lambda x: (x['date'], x['period'])):
+    grouped_data[key] = list(group)
+
+# 输出结果
+
+print('----------------------------------')
+print('----------------------------------')
+for date, entries in grouped_data.items():
+    print(date)
+    print(entries)
 
 
 

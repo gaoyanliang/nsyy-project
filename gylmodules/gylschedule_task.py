@@ -3,6 +3,7 @@ from datetime import datetime, timedelta
 import redis
 
 from gylmodules import global_config
+from gylmodules.composite_appointment.composite_appointment import load_appt_data_into_cache
 from gylmodules.critical_value import cv_config
 from gylmodules.critical_value.critical_value import write_cache, \
     call_third_systems_obtain_data, async_alert
@@ -12,7 +13,7 @@ from gylmodules.utils.db_utils import DbUtil
 
 pool = redis.ConnectionPool(host=cv_config.CV_REDIS_HOST, port=cv_config.CV_REDIS_PORT,
                             db=cv_config.CV_REDIS_DB, decode_responses=True)
-cv_scheduler = BackgroundScheduler(timezone="Asia/Shanghai")
+gylmodule_scheduler = BackgroundScheduler(timezone="Asia/Shanghai")
 
 
 # check_time 检查字段
@@ -92,14 +93,20 @@ def regular_update_dept_info():
 
 
 def schedule_task():
+    # ====================== 危机值系统定时任务 ======================
     # 定时判断危机值是否超时
-    cv_scheduler.add_job(handle_timeout_cv, trigger='interval', seconds=60, max_instances=10)
-    # 定时从系统中抓取危机值
-    # cv_scheduler.add_job(read_cv_from_system, trigger='interval', seconds=20, max_instances=10)
+    if global_config.schedule_task['cv_timeout']:
+        gylmodule_scheduler.add_job(handle_timeout_cv, trigger='interval', seconds=60, max_instances=10)
     # 定时更新所有部门信息
-    one_hour = 60 * 60
-    cv_scheduler.add_job(regular_update_dept_info, trigger='interval', seconds=one_hour, max_instances=10)
+    if global_config.schedule_task['cv_dept_update']:
+        one_hour = 60 * 60
+        gylmodule_scheduler.add_job(regular_update_dept_info, trigger='interval', seconds=one_hour, max_instances=10)
 
-    # Start the scheduler
-    cv_scheduler.start()
+    # ======================  综合预约定时任务  ======================
+    # 添加每天凌晨执行
+    if global_config.schedule_task['appt_daily']:
+        gylmodule_scheduler.add_job(load_appt_data_into_cache, 'cron', hour=0, minute=30)
+
+    # ======================  Start ======================
+    gylmodule_scheduler.start()
 

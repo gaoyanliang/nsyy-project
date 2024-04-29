@@ -2,8 +2,6 @@ from gylmodules import global_config
 import requests
 import json
 
-from gylmodules.utils.common_utils import run_in_local
-
 # 测试环境：
 # 192.168.124.53:6080/inter_socket_msg
 # json格式
@@ -23,7 +21,7 @@ socket_push_url = 'http://192.168.124.53:6080/inter_socket_msg'
 def push(socket_data: dict, user_id: int):
     print('向用户 ' + str(user_id) + ' 推送消息: ' + json.dumps(socket_data, default=str))
 
-    if run_in_local():
+    if global_config.run_in_local:
         # 测试环境
         # 要发送的数据
         data = {'msg_list': [{'socket_data': socket_data, 'pers_id': user_id}]}
