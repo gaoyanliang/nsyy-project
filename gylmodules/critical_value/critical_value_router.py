@@ -351,7 +351,7 @@ def handle_critical_value():
 def query_all():
     json_data = json.loads(request.get_data().decode('utf-8'))
     try:
-        cv_list, total = critical_value.report_form(json_data)
+        report = critical_value.report_form(json_data)
     except Exception as e:
         timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
         print(f"[{timestamp}] Exception occurred: {traceback.print_exc()}")
@@ -364,10 +364,7 @@ def query_all():
     return jsonify({
         'code': 20000,
         'res': '报表查询成功',
-        'data': {
-            "cv_list": cv_list,
-            "total": total
-        }
+        'data': report
     })
 
 

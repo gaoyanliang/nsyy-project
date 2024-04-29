@@ -185,7 +185,7 @@ def get_running_cvs():
             select a.*, 2 cv_source from inter_lab_resultalert a 
             where (idrs_2 alertdt > to_date('{start_t}', 'yyyy-mm-dd hh24:mi:ss')) and VALIDFLAG=1 and HISCHECKDT1 is NULL
             union 
-            select b.*, 3 cv_source from NS_EXT.PACS危急值上报表 b 
+            select b.* from NS_EXT.PACS危急值上报表 b 
             where (idrs_3 alertdt > to_date('{start_t}', 'yyyy-mm-dd hh24:mi:ss')) and VALIDFLAG=1 and HISCHECKDT1 is NULL
             """
 
@@ -233,7 +233,7 @@ def invalid_crisis_value(cv_ids, cv_source):
     # 更新危机值状态未作废
     ids = ','.join(cv_ids)
     new_state = cv_config.INVALID_STATE
-    states = (cv_config.INVALID_STATE, cv_config.DOCTOR_HANDLE_STATE)
+    states = (cv_config.INVALID_STATE, cv_config.DOCTOR_RECV_STATE, cv_config.DOCTOR_HANDLE_STATE)
     update_sql = f'UPDATE nsyy_gyl.cv_info SET state = {new_state}' \
                  f' WHERE cv_id in ({ids}) and cv_source = {cv_source} and state not in {states}'
     db.execute(update_sql, (), need_commit=True)
@@ -598,7 +598,7 @@ def doctor_handle_cv(json_data):
     # 更新危机值状态为 【医生处理】
     update_sql = f'UPDATE nsyy_gyl.cv_info SET {update_total_timeout_sql} state = %s, analysis = %s, method = %s, ' \
                  'handle_time = %s, handle_doctor_name = %s, handle_doctor_id = %s ' \
-                 'WHERE cv_id = %s and cv_source = %s and state != 0'
+                 'WHERE cv_id = %s and cv_source = %s '
     args = (cv_config.DOCTOR_HANDLE_STATE, analysis, method, timer, handler_name, handler_id, cv_id, cv_source)
     db.execute(update_sql, args, need_commit=True)
     del db
@@ -617,29 +617,40 @@ def report_form(json_data):
     start_time = json_data.get("start_time")
     end_time = json_data.get("end_time")
 
-    page_number = json_data.get("page_number")
-    page_size = json_data.get("page_size")
-
     db = DbUtil(global_config.DB_HOST, global_config.DB_USERNAME, global_config.DB_PASSWORD,
                 global_config.DB_DATABASE_GYL)
-    time_sql = ''
-    if start_time and end_time:
-        time_sql = f'and (time BETWEEN \'{start_time}\' AND \'{end_time}\' )'
 
-    state_sql = 'state != {}'.format(cv_config.DOCTOR_HANDLE_STATE)
-    if int(json_data.get('type')) == 2:
-        state_sql = 'state = {}'.format(cv_config.DOCTOR_HANDLE_STATE)
-    query_sql = f'select * from nsyy_gyl.cv_info where {state_sql} {time_sql}'
-    cv_list = db.query_all(query_sql)
+    time_condition = ''
+    if start_time and end_time:
+        time_condition = f' WHERE time BETWEEN \'{start_time}\' AND \'{end_time}\' '
+
+    query_sql = f'SELECT ' \
+                f'max(dept_id) AS id, ' \
+                f'dept_name AS name, ' \
+                f'1 type, ' \
+                f'COUNT(*) AS total_cv_count, ' \
+                f'SUM(CASE WHEN handle_doctor_name IS NOT NULL THEN 1 ELSE 0 END) AS handled_count, ' \
+                f'SUM(CASE WHEN is_doctor_recv_timeout = 1 THEN 1 ELSE 0 END) AS handled_timeout_count, ' \
+                f'ROUND((SUM(CASE WHEN handle_doctor_name IS NOT NULL THEN 1 ELSE 0 END) / COUNT(*)) * 100, 2) AS handling_rate, ' \
+                f'ROUND((SUM(CASE WHEN is_doctor_recv_timeout = 1 THEN 1 ELSE 0 END) / COUNT(*)) * 100, 2) AS handling_timeout_rate ' \
+                f'FROM nsyy_gyl.cv_info {time_condition} GROUP BY dept_name ' \
+                f'UNION ALL ' \
+                f'SELECT ' \
+                f'max(ward_id) AS id, ' \
+                f'ward_name AS name, ' \
+                f'2 type, ' \
+                f'SUM(CASE WHEN is_doctor_recv_timeout = 1 THEN 1 ELSE 0 END) AS total_cv_count, ' \
+                f'SUM(CASE WHEN nurse_recv_name IS NOT NULL THEN 1 ELSE 0 END) AS handled_count, ' \
+                f'SUM(CASE WHEN is_nurse_recv_timeout = 1 THEN 1 ELSE 0 END) AS handled_timeout_count, ' \
+                f'ROUND((SUM(CASE WHEN is_doctor_recv_timeout = 1 THEN 1 ELSE 0 END) / COUNT(*)) * 100, 2) AS handling_rate, ' \
+                f'ROUND((SUM(CASE WHEN nurse_recv_name IS NOT NULL THEN 1 ELSE 0 END) / COUNT(*)) * 100, 2) AS handling_timeout_rate ' \
+                f'FROM nsyy_gyl.cv_info {time_condition} GROUP BY ward_name '
+
+    report = db.query_all(query_sql)
     del db
 
-    total = len(cv_list)
-    # 计算要查询的起始索引和结束索引
-    start_index = (page_number - 1) * page_size
-    end_index = start_index + page_size
-    cv_list = cv_list[start_index:end_index]
-
-    return cv_list, total
+    report = sorted(report, key=lambda x: (x['handling_rate'], x['handling_timeout_rate']))
+    return report
 
 
 """
