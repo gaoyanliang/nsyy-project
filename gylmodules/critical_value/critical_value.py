@@ -75,6 +75,8 @@ def write_cache(key, value):
 def read_cache(key):
     redis_client = redis.Redis(connection_pool=pool)
     value = redis_client.hget(cv_config.RUNNING_CVS_REDIS_KEY, key)
+    if not value:
+        print(f'key = {key} , value is nil')
     return json.loads(value)
 
 
@@ -467,6 +469,8 @@ def push(json_data):
         # 同步更新常量中的状态
         key = cv_id + '_' + str(cv_source)
         value = read_cache(key)
+        if not value:
+            return
         value['state'] = cv_config.NOTIFICATION_DOCTOR_STATE
         value['nurse_send_time'] = timer
         write_cache(key, value)
@@ -507,6 +511,8 @@ def confirm_receipt_cv(json_data):
         # 同步更新常量中的状态
         key = cv_id + '_' + str(cv_source)
         value = read_cache(key)
+        if not value:
+            return
         value['state'] = cv_config.NURSE_RECV_STATE
         value['nurse_recv_id'] = confirmer_id
         value['nurse_recv_name'] = confirmer_name
@@ -529,6 +535,8 @@ def confirm_receipt_cv(json_data):
         # 同步更新常量中的状态
         key = cv_id + '_' + str(cv_source)
         value = read_cache(key)
+        if not value:
+            return
         value['state'] = cv_config.DOCTOR_RECV_STATE
         value['doctor_recv_id'] = confirmer_id
         value['doctor_recv_name'] = confirmer_name
@@ -557,7 +565,7 @@ def nursing_records(json_data):
     db = DbUtil(global_config.DB_HOST, global_config.DB_USERNAME, global_config.DB_PASSWORD,
                 global_config.DB_DATABASE_GYL)
     update_sql = 'UPDATE nsyy_gyl.cv_info SET nursing_record = %s, nursing_record_time = %s ' \
-                 'WHERE cv_id = %s and cv_source = %s and state != 0'
+                 'WHERE cv_id = %s and cv_source = %s '
     args = (record, timer, cv_id, cv_source)
     db.execute(update_sql, args, need_commit=True)
     del db
@@ -604,6 +612,9 @@ def doctor_handle_cv(json_data):
     # 同步更新常量中的状态
     key = cv_id + '_' + str(cv_source)
     delete_cache(key)
+
+    # 护士接收之后，进行数据回传
+    data_feedback(cv_id, int(cv_source), handler_name, timer, '', 3)
 
 
 """
@@ -705,6 +716,11 @@ def data_feedback(cv_id, cv_source, confirmer, timer, confirm_info, type: int):
         datel = ["HISCHECKDT"]
     elif type == 2:
         # 医生确认
+        datal = [{"RESULTALERTID": cv_id, "HISCHECKMAN": confirmer, "HISCHECKDT": timer}]
+        updatel = ["HISCHECKMAN", "HISCHECKDT"]
+        datel = ["HISCHECKDT"]
+    elif type == 3:
+        # 医生处理
         datal = [{"RESULTALERTID": cv_id, "HISCHECKMAN1": confirmer, "HISCHECKDT1": timer}]
         updatel = ["HISCHECKMAN1", "HISCHECKDT1"]
         datel = ["HISCHECKDT1"]

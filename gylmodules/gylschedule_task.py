@@ -105,7 +105,7 @@ def schedule_task():
     # ======================  综合预约定时任务  ======================
     # 添加每天凌晨执行
     if global_config.schedule_task['appt_daily']:
-        gylmodule_scheduler.add_job(load_appt_data_into_cache, 'cron', hour=0, minute=30)
+        gylmodule_scheduler.add_job(load_appt_data_into_cache, 'cron', hour=23, minute=10)
 
     # ======================  Start ======================
     gylmodule_scheduler.start()
