@@ -86,7 +86,7 @@ def create_appt(json_data):
 
     json_data['state'] = appt_config.APPT_STATE['booked']
     # 线下预约时，直接签到
-    if int(json_data.get('appt_type')) == appt_config.APPT_TYPE['offline']:
+    if int(json_data.get('appt_type')) == appt_config.APPT_TYPE['offline'] and __is_today(json_data.get('appt_date')):
         json_data['sign_in_num'] = __get_signin_num(int(json_data['appt_proj_id']))
         json_data['sign_in_time'] = timestr
         json_data['state'] = appt_config.APPT_STATE['in_queue']
@@ -244,7 +244,7 @@ def __get_signin_num(appt_proj_id: int):
     redis_client = redis.Redis(connection_pool=pool)
     num = redis_client.hget(APPT_SIGN_IN_NUM_KEY, appt_proj_id) or 1
     redis_client.hset(APPT_SIGN_IN_NUM_KEY, appt_proj_id, int(num) + 1)
-    return num
+    return int(num) + 1
 
 
 """
@@ -269,9 +269,9 @@ def __is_today(time_str):
 def if_the_current_time_period_is_available(period):
     # 当天时间不超过 11:30 都可预约上午，时间不超过 17:30 都可预约下午
     now = datetime.now()
-    if int(period) == 1 and now.hour <= 11 and now.minute < 30:
+    if int(period) == 1 and now.hour <= 11:
         return True
-    if int(period) == 2 and now.hour <= 17 and now.minute < 30:
+    if int(period) == 2 and now.hour <= 17:
         return True
     return False
 

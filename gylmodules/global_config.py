@@ -16,6 +16,6 @@ DB_PASSWORD = 'gyl.2015'
 DB_DATABASE_GYL = 'nsyy_gyl'
 
 # 管理定时任务开启和关闭
-schedule_task = {'cv_timeout': 0, 'cv_dept_update': 0, 'appt_daily': 1}
+schedule_task = {'cv_timeout': 1, 'cv_dept_update': 1, 'appt_daily': 1}
 
 run_in_local = True
