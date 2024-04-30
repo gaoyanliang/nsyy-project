@@ -127,8 +127,12 @@ def query_appt(json_data):
                 global_config.DB_DATABASE_GYL)
 
     # oa 查询
-    is_complete = int(json_data.get('is_completed')) if json_data.get('is_completed') else 0
-    state_sql = 'state >= {}'.format(appt_config.APPT_STATE['completed']) if is_complete else 'state < {}'.format(appt_config.APPT_STATE['completed'])
+    if json_data.get('is_completed'):
+        is_complete = int(json_data.get('is_completed'))
+        state_sql = ' state >= {}'.format(appt_config.APPT_STATE['completed']) if is_complete else 'state < {}'.format(appt_config.APPT_STATE['completed'])
+    else:
+        state_sql = 'state > 0 '
+
     openid = json_data.get('openid')
     openid_sql = f' and openid = \'{openid}\' ' if openid else ''
     id_card_no = json_data.get('id_card_no')
