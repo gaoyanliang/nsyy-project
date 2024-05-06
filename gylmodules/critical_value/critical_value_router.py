@@ -106,28 +106,29 @@ def query_process_cv_and_notice():
 
 """
 设置危机值超时时间
+TODO 禁止用户修改
 """
 
 
-@cv.route('/setting_timeout', methods=['POST'])
-def setting_timeout():
-    json_data = json.loads(request.get_data().decode('utf-8'))
-    try:
-        critical_value.setting_timeout(json_data)
-    except Exception as e:
-        timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-        print(f"[{timestamp}] Exception occurred: {traceback.print_exc()}")
-        return jsonify({
-            'code': 50000,
-            'res': e.__str__(),
-            'data': '危机值超时时间设置失败，请稍后重试'
-        })
-
-    return jsonify({
-        'code': 20000,
-        'res': '危机值超时时间设置成功',
-        'data': '危机值超时时间设置'
-    })
+# @cv.route('/setting_timeout', methods=['POST'])
+# def setting_timeout():
+#     json_data = json.loads(request.get_data().decode('utf-8'))
+#     try:
+#         critical_value.setting_timeout(json_data)
+#     except Exception as e:
+#         timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+#         print(f"[{timestamp}] Exception occurred: {traceback.print_exc()}")
+#         return jsonify({
+#             'code': 50000,
+#             'res': e.__str__(),
+#             'data': '危机值超时时间设置失败，请稍后重试'
+#         })
+#
+#     return jsonify({
+#         'code': 20000,
+#         'res': '危机值超时时间设置成功',
+#         'data': '危机值超时时间设置'
+#     })
 
 
 """

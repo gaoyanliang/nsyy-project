@@ -138,7 +138,7 @@ def query_appt(json_data):
     id_card_no = json_data.get('id_card_no')
     id_card_no_sql = f' and id_card_no = \'{id_card_no}\' ' if id_card_no else ''
     name = json_data.get('name')
-    name_sql = f"and appt_name LIKE %{name}% " if name else ''
+    name_sql = f"and appt_name LIKE \'%{name}%\' " if name else ''
     proj_id = json_data.get('proj_id')
     proj_id_sql = f' and appt_proj_id = {proj_id}' if proj_id else ''
 

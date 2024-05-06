@@ -237,7 +237,7 @@ def invalid_crisis_value(cv_ids, cv_source):
     states = (cv_config.INVALID_STATE, cv_config.DOCTOR_RECV_STATE, cv_config.DOCTOR_HANDLE_STATE)
     update_sql = f'UPDATE nsyy_gyl.cv_info SET state = {new_state}' \
                  f' WHERE cv_id in ({ids}) and cv_source = {cv_source} and state not in {states}'
-    db.execute(update_sql, (), need_commit=True)
+    db.execute(update_sql, need_commit=True)
     del db
 
     # 从内存中移除
@@ -315,7 +315,7 @@ def create_cv_by_system(json_data, cv_source):
     args = str(tuple(cvd.values()))
     insert_sql = f"INSERT INTO nsyy_gyl.cv_info ({fileds}) " \
                  f"VALUES {args}"
-    last_rowid = db.execute(insert_sql, (), need_commit=True)
+    last_rowid = db.execute(insert_sql, need_commit=True)
     if last_rowid == -1:
         raise Exception("系统危机值入库失败! " + str(args))
 
@@ -767,7 +767,7 @@ def setting_timeout(json_data):
 
     # 存在则更新 不存在则插入
     insert_sql = f'INSERT INTO nsyy_gyl.cv_timeout ({keys}) VALUE {str(values)} ON DUPLICATE KEY UPDATE {key_string} '
-    db.execute(insert_sql, (), need_commit=True)
+    db.execute(insert_sql, need_commit=True)
     del db
 
     redis_client = redis.Redis(connection_pool=pool)
@@ -815,7 +815,7 @@ def site_maintenance(json_data):
 
     # 存在则更新 不存在则插入
     insert_sql = f'INSERT INTO nsyy_gyl.cv_site({keys}) VALUE {str(values)} ON DUPLICATE KEY UPDATE {key_string} '
-    db.execute(insert_sql, (), need_commit=True)
+    db.execute(insert_sql, need_commit=True)
     del db
 
     redis_client = redis.Redis(connection_pool=pool)

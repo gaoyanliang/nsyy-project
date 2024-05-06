@@ -73,7 +73,7 @@ def handle_timeout_cv():
                 cv_source = value.get('cv_source')
                 update_sql = f'UPDATE nsyy_gyl.cv_info SET {update_field} = 1 {update_state_sql} ' \
                              f'WHERE cv_id = \'{cv_id}\' and cv_source = {cv_source} and state != 0'
-                db.execute(update_sql, (), need_commit=True)
+                db.execute(update_sql, need_commit=True)
 
                 # 更新 redis 状态
                 value[needd['timeout_flag']] = 1
@@ -105,7 +105,7 @@ def schedule_task():
     # ======================  综合预约定时任务  ======================
     # 添加每天凌晨执行
     if global_config.schedule_task['appt_daily']:
-        gylmodule_scheduler.add_job(load_appt_data_into_cache, 'cron', hour=23, minute=10)
+        gylmodule_scheduler.add_job(load_appt_data_into_cache, 'cron', hour=1, minute=10)
 
     # ======================  Start ======================
     gylmodule_scheduler.start()
