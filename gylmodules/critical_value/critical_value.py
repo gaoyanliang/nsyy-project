@@ -53,7 +53,9 @@ def call_third_systems_obtain_data(type: str, param: dict):
             result = [item for item in data if item.get("缺省") == 1]
             return result[0].get('HIS_DEPT_ID'), result[0].get('DEPT_NAME'), result[0].get('PERS_NAME')
         else:
-            raise Exception('根据员工号抓取部门信息失败 ' + str(param))
+            print('根据员工号抓取部门信息失败 ', str(param))
+            return -1, 'unknow', 'unkonw',
+
     elif type == 'cache_all_dept_info':
         # 缓存所有科室信息
         redis_client = redis.Redis(connection_pool=pool)
