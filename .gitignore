@@ -1,2 +1,5 @@
 /.idea/
 */__pycache__
+./gylmodules/critical_value/__pycache__/
+./gylmodules/__pycache__/
+

@@ -150,7 +150,7 @@ def doctor_sched():
 def sign_in():
     try:
         json_data = json.loads(request.get_data().decode('utf-8'))
-        appointment.sign_in(int(json_data.get('appt_id')), int(json_data.get('proj_id')))
+        appointment.sign_in(json_data)
     except Exception as e:
         timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
         print(f"[{timestamp}] Exception occurred: {traceback.print_exc()}")
@@ -236,6 +236,51 @@ def query_wait_list():
     })
 
 
+"""
+下一个
+"""
+
+
+@appt.route('/next', methods=['POST'])
+def next_num():
+    try:
+        json_data = json.loads(request.get_data().decode('utf-8'))
+        data_list = appointment.next_num(int(json_data.get('id')), int(json_data.get('is_group')))
+    except Exception as e:
+        timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        print(f"[{timestamp}] Exception occurred: {traceback.print_exc()}")
+        return jsonify({
+            'code': 50000,
+            'res': e.__str__()
+        })
+
+    return jsonify({
+        'code': 20000,
+        'data': data_list
+    })
+
+
+"""
+语音播报
+"""
+
+
+@appt.route('/call', methods=['POST'])
+def call_patient():
+    try:
+        json_data = json.loads(request.get_data().decode('utf-8'))
+        appointment.call(json_data)
+    except Exception as e:
+        timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        print(f"[{timestamp}] Exception occurred: {traceback.print_exc()}")
+        return jsonify({
+            'code': 50000,
+            'res': e.__str__()
+        })
+
+    return jsonify({
+        'code': 20000
+    })
 
 
 

@@ -103,8 +103,9 @@ def schedule_task():
         gylmodule_scheduler.add_job(regular_update_dept_info, trigger='interval', seconds=one_hour, max_instances=10)
 
     # ======================  综合预约定时任务  ======================
-    # 添加每天凌晨执行
+    # 项目启动时，执行一次，初始化数据。 之后每天凌晨执行
     if global_config.schedule_task['appt_daily']:
+        gylmodule_scheduler.add_job(load_appt_data_into_cache, trigger='date', run_date=datetime.now())
         gylmodule_scheduler.add_job(load_appt_data_into_cache, 'cron', hour=1, minute=10)
 
     # ======================  Start ======================
