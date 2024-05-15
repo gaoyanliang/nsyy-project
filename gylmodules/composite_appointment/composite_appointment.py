@@ -24,13 +24,10 @@ pool = redis.ConnectionPool(host=appt_config.APPT_REDIS_HOST, port=appt_config.A
 def bind_user(id_card_no: str, openid: str):
     db = DbUtil(global_config.DB_HOST, global_config.DB_USERNAME, global_config.DB_PASSWORD,
                 global_config.DB_DATABASE_GYL)
-    query_sql = f'select * from nsyy_gyl.appt_person_association ' \
-                f'where id_card_no = \'{id_card_no}\' and openid = \'{openid}\' '
-    appt_association = db.query_one(query_sql)
-    if not appt_association:
-        insert_sql = "INSERT INTO nsyy_gyl.appt_person_association (id_card_no, openid) " \
-                     f"VALUES (\'{id_card_no}\', \'{openid}\')"
-        db.execute(sql=insert_sql, need_commit=True)
+    # 使用 IGNORE 需要先创建唯一健约束 (id_card_no, openid)
+    db.execute(sql=f"INSERT IGNORE INTO nsyy_gyl.appt_person_association (id_card_no, openid) "
+                   f"VALUES (\'{id_card_no}\', \'{openid}\')",
+               need_commit=True)
     del db
 
 
@@ -56,6 +53,7 @@ def online_appt(json_data):
 def offline_appt(json_data):
     json_data['appt_type'] = appt_config.APPT_TYPE['offline']
     json_data['urgency_level'] = json_data.get('urgency_level') or appt_config.APPT_URGENCY_LEVEL['green']
+
     create_appt(json_data)
 
 
@@ -78,20 +76,34 @@ def check_appointment_quantity(proj_id, appt_date, period):
     return quantity_data
 
 
+"""
+是否是当天
+"""
+
+
+def __is_today(time_str):
+    # 将时间字符串转换为日期对象
+    time_obj = datetime.strptime(time_str, "%Y-%m-%d")
+    current_date = date.today()
+    return time_obj.date() == current_date
+
+
 def create_appt(json_data):
     json_data['create_time'] = str(datetime.now())[:19]
-
     # 检查项目是否可以预约
-    quantity_data = check_appointment_quantity(json_data['appt_proj_id'], json_data['appt_date'], json_data['appt_date_period'])
+    quantity_data = check_appointment_quantity(json_data['appt_proj_id'],
+                                               json_data['appt_date'],
+                                               json_data['appt_date_period'])
 
     json_data['state'] = appt_config.APPT_STATE['booked']
     # 判断是否直接签到
-    if 'sign_in_now' in json_data:
-        sign_in_now = json_data.pop('sign_in_now')
-        if sign_in_now and __is_today(json_data.get('appt_date')):
-            json_data['sign_in_num'] = __get_signin_num(int(json_data['appt_proj_id']))
-            json_data['sign_in_time'] = str(datetime.now())[:19]
-            json_data['state'] = appt_config.APPT_STATE['in_queue']
+    if 'sign_in_now' in json_data and json_data.pop('sign_in_now'):
+        # 不是当天的预约不允许直接签到
+        if str(date.today()) != json_data.get('appt_date'):
+            raise Exception('预约时间不是当天，不能直接签到')
+        json_data['sign_in_num'] = __get_signin_num(int(json_data['appt_proj_id']))
+        json_data['sign_in_time'] = str(datetime.now())[:19]
+        json_data['state'] = appt_config.APPT_STATE['in_queue']
 
     fileds = ','.join(json_data.keys())
     args = str(tuple(json_data.values()))
@@ -187,10 +199,8 @@ def operate_appt(appt_id: int, type: int):
         query_sql = f'select * from nsyy_gyl.appt_record where id = {int(appt_id)}'
         record = db.query_one(query_sql)
         if record:
+            proj_id, period, appt_date = str(record.get('appt_proj_id')), str(record.get('appt_date_period')), record.get('appt_date')
             redis_client = redis.Redis(connection_pool=pool)
-            proj_id = str(record.get('appt_proj_id'))
-            period = str(record.get('appt_date_period'))
-            appt_date = record.get('appt_date')
             quantity_data = redis_client.hget(APPT_REMAINING_RESERVATION_QUANTITY_KEY, proj_id)
             if not quantity_data:
                 print(f'取消预约更新可预约数量：不存在项目 id 为 {proj_id} 的预约项目')
@@ -205,32 +215,11 @@ def operate_appt(appt_id: int, type: int):
 
 
 """
-维护医生排班表
-"""
-
-
-def doctor_sched(json_data):
-    for json in json_data:
-        keys = ','.join(json.keys())
-        values = tuple(json.values())
-        key_string = ', '.join([f"{key} = {repr(value)}" for key, value in json.items()])
-
-        db = DbUtil(global_config.DB_HOST, global_config.DB_USERNAME, global_config.DB_PASSWORD,
-                    global_config.DB_DATABASE_GYL)
-        # 存在则更新 不存在则插入
-        insert_sql = f'INSERT INTO nsyy_gyl.doctor_sched({keys}) ' \
-                     f'VALUE {str(values)} ON DUPLICATE KEY UPDATE {key_string} '
-        db.execute(sql=insert_sql, need_commit=True)
-    del db
-
-
-"""
 预约签到
 """
 
 
 def sign_in(json_data):
-
     # 判断是否需要更换项目
     change_proj_sql = ''
     quantity_data = ''
@@ -277,20 +266,6 @@ def __get_signin_num(appt_proj_id: int):
 
 
 """
-是否是当天
-"""
-
-
-def __is_today(time_str):
-    # 将时间字符串转换为日期对象
-    time_obj = datetime.strptime(time_str, "%Y-%m-%d")
-    # 获取当前日期
-    current_date = date.today()
-    # 如果日期相等，则是当天
-    return time_obj.date() == current_date
-
-
-"""
 获取当前时间段
 """
 
@@ -308,16 +283,34 @@ def if_the_current_time_period_is_available(period):
 
 
 """
+呼叫 （通过 socket 实现）
+"""
+
+
+def call(json_data):
+    socket_id = json_data.get('socket_id')
+    socket_data = {"msg": '请患者 {} 到 {} {} 号诊室就诊'.format(json_data.get('name'), json_data.get('proj_name'),
+                                                               str(json_data.get('proj_room'))),
+                   "type": 200}
+    if global_config.run_in_local:
+        # 测试环境
+        data = {'msg_list': [{'socket_data': socket_data, 'pers_id': socket_id}]}
+        headers = {'Content-Type': 'application/json'}
+        response = requests.post(socket_push_url, data=json.dumps(data), headers=headers)
+        print("Socket Push Status: ", response.status_code, "Response: ", response.text)
+    else:
+        # 正式环境：
+        from tools import socket_send
+        socket_send(socket_data, 'm_user', socket_id)
+
+
+"""
 叫号下一个 todo 过号的如何处理
 """
 
 
 def next_num(id, is_group):
-    json_data = {
-        'type': 1,
-        'wait_id': id
-    }
-    data_list = query_wait_list(json_data)
+    data_list = query_wait_list({'type': 1, 'wait_id': id})
 
     # 更新列表中第一个为处理中
     if data_list:
@@ -340,33 +333,9 @@ def next_num(id, is_group):
             'proj_room': data_list[0].get('wait_list')[0].get('room')
         }
         call(json_data)
-
         data_list[0].get('wait_list')[0]['state'] = appt_config.APPT_STATE['processing']
 
     return data_list
-
-
-"""
-呼叫 （通过 socket 实现）
-"""
-
-
-def call(json_data):
-    socket_id = json_data.get('socket_id')
-    socket_data = {"msg": '请患者 {} 到 {} {} 号诊室就诊'.format(json_data.get('name'), json_data.get('proj_name'),
-                                                               str(json_data.get('proj_room'))),
-                   "type": 200}
-
-    if global_config.run_in_local:
-        # 测试环境
-        data = {'msg_list': [{'socket_data': socket_data, 'pers_id': socket_id}]}
-        headers = {'Content-Type': 'application/json'}
-        response = requests.post(socket_push_url, data=json.dumps(data), headers=headers)
-        print("Socket Push Status: ", response.status_code, "Response: ", response.text)
-    else:
-        # 正式环境：
-        from tools import socket_send
-        socket_send(socket_data, 'm_user', socket_id)
 
 
 """
@@ -375,7 +344,7 @@ def call(json_data):
 
 
 def query_all_appt_project(type: int):
-    # 1 先查询所有项目列表
+    # 1 先查询所有项目列表，类型相同的仅查一个
     db = DbUtil(global_config.DB_HOST, global_config.DB_USERNAME, global_config.DB_PASSWORD,
                 global_config.DB_DATABASE_GYL)
     query_sql = f'select proj_category, max(proj_name) as proj_name from nsyy_gyl.appt_project where proj_type = {type} group by proj_category'
@@ -387,6 +356,9 @@ def query_all_appt_project(type: int):
     redis_client = redis.Redis(connection_pool=pool)
     for proj in projectl:
         rooml = redis_client.hget(APPT_PROJECTS_CATEGORY_KEY, str(proj['proj_category']))
+        if not rooml:
+            print('缓存中不存在 proj_category 为 ', str(proj['proj_category']), ' 的项目信息')
+            continue
         rooml = json.loads(rooml)
         bookable_list = []
         for room in rooml:
@@ -446,7 +418,6 @@ def query_wait_list(json_data):
     db = DbUtil(global_config.DB_HOST, global_config.DB_USERNAME, global_config.DB_PASSWORD,
                 global_config.DB_DATABASE_GYL)
 
-    # 微信公众号查询（通过 openid）
     wait_id = int(json_data.get('wait_id'))
     type = int(json_data.get('type'))
     wait_state = (appt_config.APPT_STATE['in_queue'], appt_config.APPT_STATE['processing'])

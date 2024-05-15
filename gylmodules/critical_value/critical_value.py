@@ -2,6 +2,7 @@ import redis
 import json
 import threading
 import requests
+import time
 
 from datetime import datetime
 
@@ -180,19 +181,110 @@ def get_running_cvs():
         d = item.split('_')
         cv_id = d[0]
         cv_source = d[1]
+        # if int(cv_source) == 0:
+        #     # 人工上报不传递给数据库服务，防止触发作废逻辑
+        #     continue
         if cv_source not in running_ids:
             running_ids[cv_source] = []
         running_ids[cv_source].append(cv_id)
 
     query_sql = """
-            select a.*, 2 cv_source from inter_lab_resultalert a 
+            select a.resultalertid,
+                a.alertdt,
+                a.alertman,
+                a.reportid,
+                to_char(a.resultid) resultid,
+                a.rptunitname,
+                a.pat_typecode,
+                a.pat_no,
+                a.pat_name,
+                a.pat_sex,
+                a.pat_agestr,
+                a.pat_ageyear,
+                a.req_deptno,
+                a.req_wardno,
+                a.req_bedno,
+                a.req_docno,
+                a.specimen_name,
+                a.barcode,
+                a.recievedt,
+                a.rpt_itemid,
+                a.itemcode_en,
+                a.rpt_itemname,
+                a.result_num,
+                a.result_str,
+                a.result1,
+                a.result2,
+                a.result3,
+                a.result_flag,
+                a.result_unit,
+                a.result_ref,
+                a.instrna,
+                a.redo_flag,
+                a.redo_result,
+                a.alertrules,
+                a.descriptions,
+                a.hischeckman,
+                a.hischeckdt,
+                a.hischeckinfo,
+                a.validflag,
+                a.hischecksyncflag,
+                a.hischeckman1,
+                a.hischeckdt1,
+                a.hischeckinfo1,
+                a.hischeck1syncflag,
+            2 cv_source from inter_lab_resultalert a 
             where (idrs_2 alertdt > to_date('{start_t}', 'yyyy-mm-dd hh24:mi:ss')) and VALIDFLAG=1 and HISCHECKDT1 is NULL
             union 
-            select b.* from NS_EXT.PACS危急值上报表 b 
+            select b.resultalertid,
+                    b.alertdt,
+                    b.alertman,
+                    b.reportid,
+                    b.resultid,
+                    b.rptunitname,
+                    b.pat_typecode,
+                    b.pat_no,
+                    b.pat_name,
+                    b.pat_sex,
+                    b.pat_agestr,
+                    b.pat_ageyear,
+                    b.req_deptno,
+                    b.req_wardno,
+                    b.req_bedno,
+                    b.req_docno,
+                    b.specimen_name,
+                    b.barcode,
+                    b.recievedt,
+                    b.rpt_itemid,
+                    b.itemcode_en,
+                    b.rpt_itemname,
+                    b.result_num,
+                    b.result_str,
+                    b.result1,
+                    b.result2,
+                    b.result3,
+                    b.result_flag,
+                    b.result_unit,
+                    b.result_ref,
+                    b.instrna,
+                    b.redo_flag,
+                    b.redo_result,
+                    b.alertrules,
+                    b.descriptions,
+                    b.hischeckman,
+                    b.hischeckdt,
+                    b.hischeckinfo,
+                    b.validflag,
+                    b.hischecksyncflag,
+                    b.hischeckman1,
+                    b.hischeckdt1,
+                    b.hischeckinfo1,
+                    b.hischeck1syncflag,
+                    b."cv_source" from NS_EXT.PACS危急值上报表 b 
             where (idrs_3 alertdt > to_date('{start_t}', 'yyyy-mm-dd hh24:mi:ss')) and VALIDFLAG=1 and HISCHECKDT1 is NULL
             """
 
-    systeml = [2, 3]
+    systeml = [0, 2, 3, 4]
 
     return running_ids, query_sql, systeml
 
@@ -334,6 +426,65 @@ def create_cv_by_system(json_data, cv_source):
     key = cvd['cv_id'] + '_' + str(cv_source)
     write_cache(key, record)
 
+
+"""
+手工上报危机值
+"""
+
+#
+# def manual_report_cv(json_data):
+#
+#     # todo 人工触发的危机值，处理完之后需要数据回调吗
+#     time_str = str(datetime.now())[:19]
+#     cvd = {'dept_id': json_data.get('dept_id')}
+#     cvd['cv_id'] = str(int(time.time() * 1000))
+#     cvd['cv_source'] = 0
+#     cvd['alertdt'] = time_str
+#     cvd['time'] = time_str
+#     cvd['state'] = cv_config.CREATED_STATE
+#
+#     cvd['alertman'] = json_data.get('alertman')
+#     cvd['alertman_name'] = json_data.get('alertman_name')
+#     cvd['alert_dept_id'] = json_data.get('alert_dept_id')
+#     cvd['alert_dept_name'] = json_data.get('alert_dept_name')
+#     cvd['patient_type'] = 3
+#
+#     # todo 根据病人住院号，查询病人信息
+#     cvd['patient_treat_id'] = json_data.get('patient_treat_id')
+#     cvd['patient_name'] = json_data.get('patient_name')
+#     cvd['dept_name'] = json_data.get('dept_name')
+#     cvd['ward_id'] = json_data.get('ward_id')
+#     cvd['ward_name'] = json_data.get('ward_name')
+#
+#     cvd['cv_name'] = json_data.get('cv_name')
+#     cvd['cv_result'] = json_data.get('cv_result')
+#     cvd['cv_unit'] = json_data.get('cv_result')
+#     cvd['cv_ref'] = json_data.get('cv_result')
+#
+#     db = DbUtil(global_config.DB_HOST, global_config.DB_USERNAME, global_config.DB_PASSWORD,
+#                 global_config.DB_DATABASE_GYL)
+#     # 插入危机值
+#     fileds = ','.join(cvd.keys())
+#     args = str(tuple(cvd.values()))
+#     insert_sql = f"INSERT INTO nsyy_gyl.cv_info ({fileds}) " \
+#                  f"VALUES {args}"
+#     last_rowid = db.execute(insert_sql, need_commit=True)
+#     if last_rowid == -1:
+#         raise Exception("系统危机值入库失败! " + str(args))
+#
+#     # 发送危机值 直接通知医生和护士
+#     pat_name = cvd['patient_name']
+#     async_alert(1, cvd['ward_id'], f'病人 [{pat_name}] 出现危机值, 请及时查看并处理')
+#     async_alert(2, cvd['dept_id'], f'病人 [{pat_name}] 出现危机值, 请及时查看并处理')
+#
+#     # 将危机值放入 redis cache
+#     query_sql = 'select * from nsyy_gyl.cv_info where id = {} '.format(last_rowid)
+#     record = db.query_one(query_sql)
+#     del db
+#
+#     key = cvd['cv_id'] + '_0'
+#     write_cache(key, record)
+#
 
 """
 查询危机值
