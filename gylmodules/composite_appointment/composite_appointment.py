@@ -11,7 +11,7 @@ from gylmodules.composite_appointment import appt_config
 from gylmodules.utils.db_utils import DbUtil
 from gylmodules.composite_appointment.appt_config import APPT_URGENCY_LEVEL_KEY, \
     APPT_SIGN_IN_NUM_KEY, APPT_PROJECTS_KEY, \
-    APPT_PROJECTS_CATEGORY_KEY, APPT_REMAINING_RESERVATION_QUANTITY_KEY, APPT_ATTENDING_DOCTOR_KEY, socket_push_url
+    APPT_PROJECTS_CATEGORY_KEY, APPT_REMAINING_RESERVATION_QUANTITY_KEY, APPT_ATTENDING_DOCTOR_KEY, APPT_DOCTOR_INFO_KEY, socket_push_url
 
 pool = redis.ConnectionPool(host=appt_config.APPT_REDIS_HOST, port=appt_config.APPT_REDIS_PORT,
                             db=appt_config.APPT_REDIS_DB, decode_responses=True)
@@ -444,17 +444,24 @@ def query_wait_list(json_data):
         transformed_data[key].append(item)
 
     result = []
+    redis_client = redis.Redis(connection_pool=pool)
     for key, value in transformed_data.items():
         appt_proj_name, doctor, room = key
         wait_list = value
         for index, item in enumerate(wait_list):
             item["sort_index"] = index + 1  # 排序字段从 1 开始
-        result.append({
+
+        ret = {
             'appt_proj_name': appt_proj_name,
             'doctor': doctor,
             'room': room,
             'wait_list': wait_list
-        })
+        }
+        if type == 1:
+            # todo 诊室类型需要图片, 大厅类型不需要图片
+            photo = redis_client.hget(APPT_DOCTOR_INFO_KEY, room+doctor)
+            ret['photo'] = photo
+        result.append(ret)
 
     return result
 
@@ -476,9 +483,7 @@ def load_appt_data_into_cache():
     for key in keys:
         redis_client.delete(key)
 
-    db = DbUtil(global_config.DB_HOST, global_config.DB_USERNAME, global_config.DB_PASSWORD,
-                global_config.DB_DATABASE_GYL)
-
+    db = DbUtil(global_config.DB_HOST, global_config.DB_USERNAME, global_config.DB_PASSWORD, global_config.DB_DATABASE_GYL)
     # 取消所有过期预约记录
     today_str = str(datetime.now().date())
     update_sql = 'UPDATE nsyy_gyl.appt_record SET state = {}, cancel_time = \'{}\'' \
@@ -502,8 +507,20 @@ def load_appt_data_into_cache():
             if sign_in_num and old_num < sign_in_num:
                 redis_client.hset(APPT_SIGN_IN_NUM_KEY, appt_proj_id, sign_in_num)
 
+    query_sql = 'select * from nsyy_gyl.appt_doctor_info'
+    appt_doctor_infol = db.query_all(query_sql)
+    for item in appt_doctor_infol:
+        key = item.get('room') + item.get('name')
+        redis_client.hset(APPT_DOCTOR_INFO_KEY, key, item.get('photo'))
+
     # 缓存坐诊医生信息
-    query_sql = 'select * from nsyy_gyl.appt_doctor_sched'
+    query_sql = 'select appt_doctor_sched.doctor_his_name, ' \
+                'appt_doctor_sched.doctor_name, appt_doctor_sched.consultation_room, ' \
+                'appt_doctor_sched.proj_id, appt_doctor_sched.day_of_week, ' \
+                'appt_doctor_sched.period, appt_doctor.dept_id, appt_doctor.dept_name, ' \
+                'appt_doctor.doctor_id, appt_doctor.doctor_type, appt_doctor.price, appt_doctor.appointment_id ' \
+                'from nsyy_gyl.appt_doctor_sched ' \
+                'INNER JOIN nsyy_gyl.appt_doctor ON appt_doctor_sched.doctor_his_name = appt_doctor.doctor_name'
     doctor_schedl = db.query_all(query_sql)
     doctord = {}
     for item in doctor_schedl:
@@ -545,10 +562,12 @@ def load_appt_data_into_cache():
                 doct = json.loads(doct)
                 # 提取 doctor_name 字段并拼接成字符串
                 doctorl = ', '.join([d['doctor_name'] for d in doct])
+                price = max(doct, key=lambda x: float(x['price']))['price']
                 value['1'] = {
                                 'date': 'am',
                                 'quantity': quantity,
                                 'doctor': doctorl,
+                                'price': float(price),
                                 'room': appt_project.get('proj_room'),
                                 'proj_name': appt_project.get('proj_name'),
                                 'proj_id': appt_project.get('id'),
@@ -559,9 +578,11 @@ def load_appt_data_into_cache():
             if doct:
                 doct = json.loads(doct)
                 doctorl = ', '.join([d['doctor_name'] for d in doct])
+                price = max(doct, key=lambda x: float(x['price']))['price']
                 value['2'] = {'date': 'pm',
                               'quantity': quantity,
                               'doctor': doctorl,
+                              'price': float(price),
                               'room': appt_project.get('proj_room'),
                               'proj_name': appt_project.get('proj_name'),
                               'proj_id': appt_project.get('id'),
