@@ -68,30 +68,6 @@ def system_create_cv():
         'code': 20000
     })
 
-#
-# """
-# 手工上报危机值
-# """
-#
-#
-# @cv.route('/manual_report_cv', methods=['POST'])
-# def manual_report_cv():
-#     try:
-#         json_data = json.loads(request.get_data().decode('utf-8'))
-#         critical_value.manual_report_cv(json_data)
-#         print()
-#     except Exception as e:
-#         timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-#         print(f"[{timestamp}] Exception occurred: {traceback.print_exc()}")
-#         return jsonify({
-#             'code': 50000,
-#             'res': '手动上报危机值失败'
-#         })
-#
-#     return jsonify({
-#         'code': 20000
-#     })
-
 
 """
 windows 客户端启动时， 查询所有待完成的危机值，并弹框提示

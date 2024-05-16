@@ -63,6 +63,7 @@ def call_third_systems_obtain_data(type: str, param: dict):
         if len(data) > 0:
             for d in data:
                 redis_client.hset(cv_config.DEPT_INFO_REDIS_KEY, d.get('his_dept_id'), d.get('dept_name'))
+                redis_client.hset(cv_config.DEPT_INFO_REDIS_KEY, d.get('dept_code'), d.get('dept_name'))
 
 
 """
@@ -181,9 +182,7 @@ def get_running_cvs():
         d = item.split('_')
         cv_id = d[0]
         cv_source = d[1]
-        # if int(cv_source) == 0:
-        #     # 人工上报不传递给数据库服务，防止触发作废逻辑
-        #     continue
+
         if cv_source not in running_ids:
             running_ids[cv_source] = []
         running_ids[cv_source].append(cv_id)
@@ -284,7 +283,7 @@ def get_running_cvs():
             where (idrs_3 alertdt > to_date('{start_t}', 'yyyy-mm-dd hh24:mi:ss')) and VALIDFLAG=1 and HISCHECKDT1 is NULL
             """
 
-    systeml = [0, 2, 3, 4]
+    systeml = [0, 1, 2, 3, 4]
 
     return running_ids, query_sql, systeml
 
@@ -428,78 +427,21 @@ def create_cv_by_system(json_data, cv_source):
 
 
 """
-手工上报危机值
-"""
-
-#
-# def manual_report_cv(json_data):
-#
-#     # todo 人工触发的危机值，处理完之后需要数据回调吗
-#     time_str = str(datetime.now())[:19]
-#     cvd = {'dept_id': json_data.get('dept_id')}
-#     cvd['cv_id'] = str(int(time.time() * 1000))
-#     cvd['cv_source'] = 0
-#     cvd['alertdt'] = time_str
-#     cvd['time'] = time_str
-#     cvd['state'] = cv_config.CREATED_STATE
-#
-#     cvd['alertman'] = json_data.get('alertman')
-#     cvd['alertman_name'] = json_data.get('alertman_name')
-#     cvd['alert_dept_id'] = json_data.get('alert_dept_id')
-#     cvd['alert_dept_name'] = json_data.get('alert_dept_name')
-#     cvd['patient_type'] = 3
-#
-#     # todo 根据病人住院号，查询病人信息
-#     cvd['patient_treat_id'] = json_data.get('patient_treat_id')
-#     cvd['patient_name'] = json_data.get('patient_name')
-#     cvd['dept_name'] = json_data.get('dept_name')
-#     cvd['ward_id'] = json_data.get('ward_id')
-#     cvd['ward_name'] = json_data.get('ward_name')
-#
-#     cvd['cv_name'] = json_data.get('cv_name')
-#     cvd['cv_result'] = json_data.get('cv_result')
-#     cvd['cv_unit'] = json_data.get('cv_result')
-#     cvd['cv_ref'] = json_data.get('cv_result')
-#
-#     db = DbUtil(global_config.DB_HOST, global_config.DB_USERNAME, global_config.DB_PASSWORD,
-#                 global_config.DB_DATABASE_GYL)
-#     # 插入危机值
-#     fileds = ','.join(cvd.keys())
-#     args = str(tuple(cvd.values()))
-#     insert_sql = f"INSERT INTO nsyy_gyl.cv_info ({fileds}) " \
-#                  f"VALUES {args}"
-#     last_rowid = db.execute(insert_sql, need_commit=True)
-#     if last_rowid == -1:
-#         raise Exception("系统危机值入库失败! " + str(args))
-#
-#     # 发送危机值 直接通知医生和护士
-#     pat_name = cvd['patient_name']
-#     async_alert(1, cvd['ward_id'], f'病人 [{pat_name}] 出现危机值, 请及时查看并处理')
-#     async_alert(2, cvd['dept_id'], f'病人 [{pat_name}] 出现危机值, 请及时查看并处理')
-#
-#     # 将危机值放入 redis cache
-#     query_sql = 'select * from nsyy_gyl.cv_info where id = {} '.format(last_rowid)
-#     record = db.query_one(query_sql)
-#     del db
-#
-#     key = cvd['cv_id'] + '_0'
-#     write_cache(key, record)
-#
-
-"""
 查询危机值
 """
 
 
 def get_cv_list(dept_id, ward_id, json_data):
-    # type =1 未处理， type =2 已处理
+    # type =1 未处理， type =2 已处理, type = 3 总流程超时
     db = DbUtil(global_config.DB_HOST, global_config.DB_USERNAME, global_config.DB_PASSWORD,
                 global_config.DB_DATABASE_GYL)
 
     states = (cv_config.DOCTOR_HANDLE_STATE, cv_config.INVALID_STATE)
     state_sql = ' state not in {} '.format(states)
     if int(json_data.get('type')) == 2:
-        state_sql = ' state in {} '.format(states)
+        state_sql = ' state in {} and is_timeout = 0 '.format(states)
+    if int(json_data.get('type')) == 3:
+        state_sql = ' is_timeout = 1 '
 
     start_time = json_data.get("start_time")
     end_time = json_data.get("end_time")
@@ -792,20 +734,22 @@ def report_form(json_data):
                 f'1 type, ' \
                 f'COUNT(*) AS total_cv_count, ' \
                 f'SUM(CASE WHEN handle_doctor_name IS NOT NULL THEN 1 ELSE 0 END) AS handled_count, ' \
-                f'SUM(CASE WHEN is_doctor_recv_timeout = 1 THEN 1 ELSE 0 END) AS handled_timeout_count, ' \
+                f'SUM(CASE WHEN handle_doctor_name IS NULL THEN 1 ELSE 0 END) AS handled_undo_count, ' \
+                f'SUM(CASE WHEN (is_doctor_recv_timeout = 1 OR is_doctor_handle_timeout = 1) THEN 1 ELSE 0 END) AS handled_timeout_count, ' \
                 f'ROUND((SUM(CASE WHEN handle_doctor_name IS NOT NULL THEN 1 ELSE 0 END) / COUNT(*)) * 100, 2) AS handling_rate, ' \
-                f'ROUND((SUM(CASE WHEN is_doctor_recv_timeout = 1 THEN 1 ELSE 0 END) / COUNT(*)) * 100, 2) AS handling_timeout_rate ' \
+                f'ROUND((SUM(CASE WHEN (is_doctor_recv_timeout = 1 OR is_doctor_handle_timeout = 1) THEN 1 ELSE 0 END) / COUNT(*)) * 100, 2) AS handling_timeout_rate ' \
                 f'FROM nsyy_gyl.cv_info {time_condition} GROUP BY dept_name ' \
                 f'UNION ALL ' \
                 f'SELECT ' \
                 f'max(ward_id) AS id, ' \
                 f'ward_name AS name, ' \
                 f'2 type, ' \
-                f'SUM(CASE WHEN is_doctor_recv_timeout = 1 THEN 1 ELSE 0 END) AS total_cv_count, ' \
-                f'SUM(CASE WHEN nurse_recv_name IS NOT NULL THEN 1 ELSE 0 END) AS handled_count, ' \
-                f'SUM(CASE WHEN is_nurse_recv_timeout = 1 THEN 1 ELSE 0 END) AS handled_timeout_count, ' \
-                f'ROUND((SUM(CASE WHEN is_doctor_recv_timeout = 1 THEN 1 ELSE 0 END) / COUNT(*)) * 100, 2) AS handling_rate, ' \
-                f'ROUND((SUM(CASE WHEN nurse_recv_name IS NOT NULL THEN 1 ELSE 0 END) / COUNT(*)) * 100, 2) AS handling_timeout_rate ' \
+                f'COUNT(*) AS total_cv_count, ' \
+                f'SUM(CASE WHEN nurse_recv_name IS NOT NULL OR (nurse_recv_name IS NULL AND handle_doctor_name IS NOT NULL) THEN 1 ELSE 0 END ) AS handled_count, ' \
+                f'SUM(CASE WHEN nurse_recv_name IS NULL AND handle_doctor_name IS NULL THEN 1 ELSE 0 END ) AS handled_undo_count, ' \
+                f'SUM(CASE WHEN (is_nurse_recv_timeout = 1 OR is_nurse_send_timeout = 1 OR is_timeout = 1) THEN 1 ELSE 0 END) AS handled_timeout_count, ' \
+                f'ROUND((SUM(CASE WHEN nurse_recv_name IS NOT NULL OR (nurse_recv_name IS NULL AND handle_doctor_name IS NOT NULL) THEN 1 ELSE 0 END) / COUNT(*)) * 100, 2) AS handling_rate, ' \
+                f'ROUND((SUM(CASE WHEN (is_nurse_recv_timeout = 1 OR is_nurse_send_timeout = 1 OR is_timeout = 1) THEN 1 ELSE 0 END ) / COUNT(*)) * 100, 2) AS handling_timeout_rate ' \
                 f'FROM nsyy_gyl.cv_info {time_condition} GROUP BY ward_name '
 
     report = db.query_all(query_sql)

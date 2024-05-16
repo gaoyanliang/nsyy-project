@@ -96,9 +96,11 @@ def schedule_task():
     # ====================== 危机值系统定时任务 ======================
     # 定时判断危机值是否超时
     if global_config.schedule_task['cv_timeout']:
+        print(" 执行危机值定时任务-超时管理 ", datetime.now())
         gylmodule_scheduler.add_job(handle_timeout_cv, trigger='interval', seconds=60, max_instances=10)
     # 定时更新所有部门信息
     if global_config.schedule_task['cv_dept_update']:
+        print(" 执行危机值定时任务-部门信息更新 ", datetime.now())
         one_hour = 60 * 60
         gylmodule_scheduler.add_job(regular_update_dept_info, trigger='interval', seconds=one_hour, max_instances=10)
 
