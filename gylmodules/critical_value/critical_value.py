@@ -432,10 +432,13 @@ def create_cv_by_system(json_data, cv_source):
 """
 
 
-def get_cv_list(dept_id, ward_id, json_data):
+def get_cv_list(json_data):
     # type =1 未处理， type =2 已处理, type = 3 总流程超时
     db = DbUtil(global_config.DB_HOST, global_config.DB_USERNAME, global_config.DB_PASSWORD,
                 global_config.DB_DATABASE_GYL)
+
+    dept_id = json_data.get("dept_id")
+    ward_id = json_data.get("ward_id")
 
     states = (cv_config.DOCTOR_HANDLE_STATE, cv_config.INVALID_STATE)
     state_sql = ' state not in {} '.format(states)
@@ -444,20 +447,21 @@ def get_cv_list(dept_id, ward_id, json_data):
     if int(json_data.get('type')) == 3:
         state_sql = ' is_timeout = 1 '
 
+    alert_dept_id = json_data.get('alert_dept_id')
+    alert_dept_id_sql = ''
+    if alert_dept_id:
+        alert_dept_id_sql = f' and alert_dept_id = {alert_dept_id} '
+
     start_time = json_data.get("start_time")
     end_time = json_data.get("end_time")
     time_sql = ''
     if start_time and end_time:
         time_sql = f' and (time BETWEEN \'{start_time}\' AND \'{end_time}\') '
 
-    if not dept_id:
-        condition_sql = f' and ward_id = {ward_id} '
-    elif not ward_id:
-        condition_sql = f' and dept_id = {dept_id} '
-    else:
-        condition_sql = f' and (dept_id = {dept_id} or ward_id = {ward_id}) '
+    dept_sql = f' and dept_id = {dept_id} ' if dept_id else ''
+    ward_sql = f' and ward_id = {ward_id} ' if ward_id else ''
 
-    query_sql = f'select * from nsyy_gyl.cv_info where {state_sql} {time_sql} {condition_sql} '
+    query_sql = f'select * from nsyy_gyl.cv_info where {state_sql} {time_sql} {dept_sql} {ward_sql} {alert_dept_id_sql}'
     cv_list = db.query_all(query_sql)
     del db
 

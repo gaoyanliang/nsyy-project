@@ -193,15 +193,6 @@ def operate_site():
 def query_cv_list():
     json_data = json.loads(request.get_data().decode('utf-8'))
     try:
-        dept_id = json_data.get("dept_id")
-        ward_id = json_data.get("ward_id")
-        if not dept_id and not ward_id:
-            return jsonify({
-                'code': 50000,
-                'res': '科室id 和 病区id 不能同时为空',
-                'data': {}
-            })
-
         page_number = json_data.get("page_number")
         page_size = json_data.get("page_size")
         if not page_number or not page_size:
@@ -211,7 +202,7 @@ def query_cv_list():
                 'data': {}
             })
 
-        cv_list, total = critical_value.get_cv_list(dept_id, ward_id, json_data)
+        cv_list, total = critical_value.get_cv_list(json_data)
     except Exception as e:
         timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
         print(f"[{timestamp}] Exception occurred: {traceback.print_exc()}")
