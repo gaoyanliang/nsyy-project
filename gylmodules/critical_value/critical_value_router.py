@@ -394,3 +394,26 @@ def template():
         'data': template
     })
 
+
+"""
+查询危机值上报科室列表
+"""
+
+
+@cv.route('/alert_dept_list', methods=['POST'])
+def alert_dept_list():
+    try:
+        dept_list = critical_value.query_alert_dept_list()
+    except Exception as e:
+        timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        print(f"[{timestamp}] Exception occurred: {traceback.print_exc()}")
+        return jsonify({
+            'code': 50000,
+            'res': e.__str__(),
+            'data': []
+        })
+
+    return jsonify({
+        'code': 20000,
+        'data': dept_list
+    })

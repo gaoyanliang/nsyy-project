@@ -923,3 +923,10 @@ def site_maintenance(json_data):
         key = cv_config.CV_SITES_REDIS_KEY[1] + str(sited['site_ward_id'])
         redis_client.sadd(key, sited['site_ip'])
 
+
+def query_alert_dept_list():
+    db = DbUtil(global_config.DB_HOST, global_config.DB_USERNAME, global_config.DB_PASSWORD,
+                global_config.DB_DATABASE_GYL)
+    query_sql = 'select alert_dept_id, alert_dept_name from nsyy_gyl.cv_info GROUP BY alert_dept_id, alert_dept_name'
+    dept_list = db.query_all(query_sql)
+    return dept_list
