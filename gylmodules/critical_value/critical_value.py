@@ -325,6 +325,7 @@ def invalid_crisis_value(cv_ids, cv_source):
                 global_config.DB_DATABASE_GYL)
 
     # 更新危机值状态未作废
+    cv_ids = [f"'{item}'" for item in cv_ids]
     ids = ','.join(cv_ids)
     new_state = cv_config.INVALID_STATE
     states = (cv_config.INVALID_STATE, cv_config.DOCTOR_RECV_STATE, cv_config.DOCTOR_HANDLE_STATE)
