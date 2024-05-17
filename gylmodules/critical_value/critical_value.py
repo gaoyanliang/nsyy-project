@@ -458,10 +458,16 @@ def get_cv_list(json_data):
     if start_time and end_time:
         time_sql = f' and (time BETWEEN \'{start_time}\' AND \'{end_time}\') '
 
-    dept_sql = f' and dept_id = {dept_id} ' if dept_id else ''
-    ward_sql = f' and ward_id = {ward_id} ' if ward_id else ''
+    condation_sql = ''
+    if dept_id and ward_id:
+        condation_sql = f'and (dept_id = {dept_id} or ward_id = {ward_id})'
+    else:
+        if dept_id:
+            condation_sql = f' and dept_id = {dept_id} '
+        if ward_id:
+            condation_sql = f' and ward_id = {ward_id} '
 
-    query_sql = f'select * from nsyy_gyl.cv_info where {state_sql} {time_sql} {dept_sql} {ward_sql} {alert_dept_id_sql}'
+    query_sql = f'select * from nsyy_gyl.cv_info where {state_sql} {time_sql} {condation_sql} {alert_dept_id_sql}'
     cv_list = db.query_all(query_sql)
     del db
 
