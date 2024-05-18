@@ -198,7 +198,7 @@ def query_room_list():
 def query_wait_list():
     try:
         json_data = json.loads(request.get_data().decode('utf-8'))
-        wait_list = appointment.query_wait_list(json_data)
+        wait_list, photo = appointment.query_wait_list(json_data)
     except Exception as e:
         timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
         print(f"[{timestamp}] Exception occurred: {traceback.print_exc()}")
@@ -209,7 +209,10 @@ def query_wait_list():
 
     return jsonify({
         'code': 20000,
-        'data': wait_list
+        'data': {
+            'wait_list': wait_list,
+            'photo': photo
+        }
     })
 
 
@@ -260,7 +263,39 @@ def call_patient():
     })
 
 
+@appt.route('/query_advice', methods=['POST'])
+def query_advice_by_father_appt_id():
+    try:
+        json_data = json.loads(request.get_data().decode('utf-8'))
+        advice_info = appointment.query_advice_by_father_appt_id(int(json_data.get('father_appt_id')))
+    except Exception as e:
+        timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        print(f"[{timestamp}] Exception occurred: {traceback.print_exc()}")
+        return jsonify({
+            'code': 50000,
+            'res': e.__str__()
+        })
+
+    return jsonify({
+        'code': 20000,
+        'data': advice_info
+    })
 
 
+@appt.route('/update_advice_pay_state', methods=['POST'])
+def update_doctor_advice_pay_state():
+    try:
+        json_data = json.loads(request.get_data().decode('utf-8'))
+        appointment.update_doctor_advice_pay_state(json_data.get('idl'))
+    except Exception as e:
+        timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        print(f"[{timestamp}] Exception occurred: {traceback.print_exc()}")
+        return jsonify({
+            'code': 50000,
+            'res': e.__str__()
+        })
 
+    return jsonify({
+        'code': 20000,
+    })
 
