@@ -267,7 +267,7 @@ def call_patient():
 def query_advice_by_father_appt_id():
     try:
         json_data = json.loads(request.get_data().decode('utf-8'))
-        advice_info = appointment.query_advice_by_father_appt_id(int(json_data.get('father_appt_id')))
+        advice_info = appointment.query_advice_by_father_appt_id(json_data)
     except Exception as e:
         timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
         print(f"[{timestamp}] Exception occurred: {traceback.print_exc()}")
@@ -296,6 +296,50 @@ def update_doctor_advice_pay_state():
         })
 
     return jsonify({
-        'code': 20000,
+        'code': 20000
     })
+
+
+"""
+医生换班签到
+"""
+
+
+@appt.route('/doc_change', methods=['POST'])
+def doc_change():
+    try:
+        json_data = json.loads(request.get_data().decode('utf-8'))
+        appointment.doctor_shift_change(json_data)
+    except Exception as e:
+        timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        print(f"[{timestamp}] Exception occurred: {traceback.print_exc()}")
+        return jsonify({
+            'code': 50000,
+            'res': e.__str__()
+        })
+
+    return jsonify({
+        'code': 20000
+    })
+
+
+@appt.route('/doc_list', methods=['POST'])
+def doc_list():
+    try:
+        data = appointment.doc_list()
+    except Exception as e:
+        timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        print(f"[{timestamp}] Exception occurred: {traceback.print_exc()}")
+        return jsonify({
+            'code': 50000,
+            'res': e.__str__()
+        })
+
+    return jsonify({
+        'code': 20000,
+        'data': data
+    })
+
+
+
 

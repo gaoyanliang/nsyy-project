@@ -9,10 +9,10 @@ from itertools import groupby
 from gylmodules import global_config
 from gylmodules.composite_appointment import appt_config
 from gylmodules.utils.db_utils import DbUtil
-from gylmodules.composite_appointment.appt_config import APPT_URGENCY_LEVEL_KEY, \
-    APPT_SIGN_IN_NUM_KEY, APPT_PROJECTS_KEY, \
+from gylmodules.composite_appointment.appt_config import APPT_STATE, \
+    APPT_SIGN_IN_NUM_KEY, APPT_PROJECTS_KEY, APPT_DOCTOR_PHOTO_INFO_KEY, \
     APPT_PROJECTS_CATEGORY_KEY, APPT_REMAINING_RESERVATION_QUANTITY_KEY, APPT_ATTENDING_DOCTOR_KEY, \
-    APPT_DOCTOR_INFO_KEY, socket_push_url
+    APPT_DOCTOR_INFO_KEY, APPT_EXECUTION_DEPT_INFO_KEY, APPT_DOCTOR_TO_PROJ_KEY, socket_push_url
 
 pool = redis.ConnectionPool(host=appt_config.APPT_REDIS_HOST, port=appt_config.APPT_REDIS_PORT,
                             db=appt_config.APPT_REDIS_DB, decode_responses=True)
@@ -75,7 +75,7 @@ def online_appt(json_data):
 
     # 线上预约时自动绑定
     bind_user(json_data['patient_id'], json_data['openid'])
-    create_appt(json_data)
+    create_appt(json_data, -1)
 
 
 """
@@ -87,7 +87,7 @@ def offline_appt(json_data):
     json_data['appt_type'] = appt_config.APPT_TYPE['offline']
     json_data['urgency_level'] = json_data.get('urgency_level') or appt_config.APPT_URGENCY_LEVEL['green']
 
-    create_appt(json_data)
+    create_appt(json_data, -1)
 
 
 """
@@ -95,10 +95,10 @@ def offline_appt(json_data):
 """
 
 
-def check_appointment_quantity(proj_id, appt_date, period):
+def check_appointment_quantity(proj_id, appt_date, period, last_slot):
     redis_client = redis.Redis(connection_pool=pool)
     proj_id = str(proj_id)
-    quantity_data = redis_client.hget(APPT_REMAINING_RESERVATION_QUANTITY_KEY, proj_id)
+    quantity_data = redis_client.hget(APPT_REMAINING_RESERVATION_QUANTITY_KEY, str(proj_id))
     if not quantity_data:
         raise Exception(f'不存在项目 id 为 {proj_id} 的可预约项目')
     quantity_data = json.loads(quantity_data)
@@ -116,6 +116,8 @@ def check_appointment_quantity(proj_id, appt_date, period):
         slot = appt_config.appt_slot_dict[datetime.now().hour]
         book_ok = False
         for i in range(slot, 17):
+            if int(last_slot) != -1 and i == int(last_slot) and i < 16:
+                continue
             num = quantity_data[appt_date][str(period)]['hourly_quantity'].get(str(i))
             if num and int(num) > 0:
                 book_ok = True
@@ -126,6 +128,8 @@ def check_appointment_quantity(proj_id, appt_date, period):
     else:
         book_ok = False
         for i in range(1, 17):
+            if int(last_slot) != -1 and i == int(last_slot) and i < 16:
+                continue
             num = quantity_data[appt_date][str(period)]['hourly_quantity'].get(str(i))
             if num and int(num) > 0:
                 book_ok = True
@@ -137,12 +141,21 @@ def check_appointment_quantity(proj_id, appt_date, period):
     return quantity_data, time_slot
 
 
-def create_appt(json_data):
+"""
+创建预约
+1. 线上小程序预约
+2. 现场 oa 预约
+3. 自助挂号机取号，查询预约记录时，根据挂号信息自动创建
+4. 根据医嘱创建预约
+"""
+
+
+def create_appt(json_data, last_slot):
     json_data['create_time'] = str(datetime.now())[:19]
     # 检查项目是否可以预约，以及获取预估时间段
     quantity_data, time_slot = check_appointment_quantity(json_data['appt_proj_id'],
                                                           json_data['appt_date'],
-                                                          json_data['appt_date_period'])
+                                                          json_data['appt_date_period'], last_slot)
     json_data['time_slot'] = time_slot
     json_data['state'] = appt_config.APPT_STATE['booked']
 
@@ -162,18 +175,12 @@ def create_appt(json_data):
     appt_date = json_data['appt_date']
     quantity_data[appt_date][str(json_data['appt_date_period'])]['quantity'] = \
         int(quantity_data[appt_date][str(json_data['appt_date_period'])]['quantity']) - 1
-
     quantity_data[appt_date][str(json_data['appt_date_period'])]['hourly_quantity'][str(time_slot)] = \
         int(quantity_data[appt_date][str(json_data['appt_date_period'])]['hourly_quantity'][str(time_slot)]) - 1
 
     redis_client.hset(APPT_REMAINING_RESERVATION_QUANTITY_KEY, str(json_data['appt_proj_id']),
                       json.dumps(quantity_data, default=str))
-
-    # 缓存预约人的紧急程度
-    key = str(json_data['patient_id']) + '_' + str(json_data['appt_proj_id'])
-    redis_client.hset(APPT_URGENCY_LEVEL_KEY, key, json_data['urgency_level'])
-
-    return last_rowid
+    return last_rowid, time_slot
 
 
 """
@@ -191,28 +198,30 @@ def auto_create_appt_by_self_reg(patient_id: int):
     redis_client = redis.Redis(connection_pool=pool)
     db = DbUtil(global_config.DB_HOST, global_config.DB_USERNAME, global_config.DB_PASSWORD,
                 global_config.DB_DATABASE_GYL)
-    # 根据执行人和执行部门id查找项目 todo 自助挂号的项目如何做预约数量限制,
+    # 根据执行人和执行部门id查找项目 todo 自助挂号的项目如何做预约数量限制
+    # 上午挂号的可以预约上午和下午，下午挂号的只能预约下午， 1=上午 2=下午
     period = '12' if datetime.now().hour < 12 else '2'
+    today = str(date.today())
     for item in self_reg_record:
-
+        # 这里的doctor 是 his name
         doctor = item.get('执行人')
-        # 查询是否已经创建预约了, 创建过跳过
-        query_sql = f'select * from nsyy_gyl.appt_record where patient_id = {patient_id} and doctor = \'{doctor}\' and state < 5'
+        # 查询是否已经创建预约了, 创建过跳过 todo 预约完成后复查的如何处理
+        query_sql = f'select * from nsyy_gyl.appt_record where patient_id = {patient_id} and doctor = \'{doctor}\' and appt_date = \'{today}\''
         appt_record = db.query_all(query_sql)
         if appt_record:
             continue
 
-        projl = redis_client.hget(appt_config.APPT_DOCTOR_TO_PROJ_KEY, doctor)
+        projl = redis_client.hget(APPT_DOCTOR_TO_PROJ_KEY, doctor)
         if not projl:
             # 未找到当天医生所属项目信息
             continue
-        # todo 如果根据医生找不到项目如何处理
+        # todo 如果根据医生找不到项目如何处理, 自助挂号的优先级如何处理
         appt_name = item.get('姓名')
         projl = json.loads(projl) # 包含上午和下午
         for proj in projl:
             if str(proj.get('period')) in period:
                 # 创建预约
-                appt_proj_info = json.loads(redis_client.get(APPT_PROJECTS_KEY, int(proj.get('proj_id'))))
+                appt_proj_info = json.loads(redis_client.hget(APPT_PROJECTS_KEY, str(proj.get('proj_id'))))
                 record = {
                     'appt_date': str(date.today()),
                     'appt_date_period': proj.get('period'),
@@ -225,10 +234,10 @@ def auto_create_appt_by_self_reg(patient_id: int):
                     'patient_id': patient_id,
                     "price": proj.get('price'),
                     "room": appt_proj_info.get('proj_room'),
-                    "state": 1,
+                    "state": appt_config.APPT_STATE['booked'],
                     "urgency_level": 1,
                 }
-                create_appt(record)
+                create_appt(record, -1)
                 continue
 
 
@@ -328,7 +337,7 @@ def operate_appt(appt_id: int, type: int):
         proj_id, period, appt_date = str(record.get('appt_proj_id')), str(
             record.get('appt_date_period')), record.get('appt_date')
         redis_client = redis.Redis(connection_pool=pool)
-        quantity_data = redis_client.hget(APPT_REMAINING_RESERVATION_QUANTITY_KEY, proj_id)
+        quantity_data = redis_client.hget(APPT_REMAINING_RESERVATION_QUANTITY_KEY, str(proj_id))
         if not quantity_data:
             print(f'取消预约更新可预约数量：不存在项目 id 为 {proj_id} 的预约项目')
             return
@@ -336,7 +345,7 @@ def operate_appt(appt_id: int, type: int):
         quantity_data[appt_date][period]['quantity'] = int(quantity_data[appt_date][period].get('quantity') + 1)
         quantity_data[appt_date][period]['hourly_quantity'][str(record.get('time_slot'))] = \
             int(quantity_data[appt_date][period]['hourly_quantity'][str(record.get('time_slot'))] + 1)
-        redis_client.hset(APPT_REMAINING_RESERVATION_QUANTITY_KEY, proj_id, json.dumps(quantity_data, default=str))
+        redis_client.hset(APPT_REMAINING_RESERVATION_QUANTITY_KEY, str(proj_id), json.dumps(quantity_data, default=str))
 
     # 过号，重新取号，排在最后
     if type == 3:
@@ -352,11 +361,15 @@ def operate_appt(appt_id: int, type: int):
 def create_appt_by_doctor_advice(patient_id: str, doc_name: str, appt_id, urgency_level):
     param = {"type": "his_yizhu_info", 'patient_id': patient_id, 'doc_name': doc_name}
     doctor_advice = call_third_systems_obtain_data('his_info', 'his_yizhu_info', param)
+    if not doctor_advice:
+        # 没有医嘱直接返回
+        return
 
     redis_client = redis.Redis(connection_pool=pool)
     db = DbUtil(global_config.DB_HOST, global_config.DB_USERNAME, global_config.DB_PASSWORD,
                 global_config.DB_DATABASE_GYL)
 
+    # 按执行科室分组
     advice_dict = {}
     for item in doctor_advice:
         key = item.get('执行部门ID')
@@ -364,13 +377,10 @@ def create_appt_by_doctor_advice(patient_id: str, doc_name: str, appt_id, urgenc
             advice_dict[key] = []
         advice_dict[key].append(item)
 
-    # 计算总价格
-    for dept_id, value in advice_dict.items():
-        if not value:
-            continue
-        # 计算总价格
+    last_slot = -1
+    for dept_id, advicel in advice_dict.items():
         price = 0
-        for d in value:
+        for d in advicel:
             price += d.get('实收金额')
 
         # 根据医嘱中的执行科室id 查询出院内项目
@@ -380,9 +390,9 @@ def create_appt_by_doctor_advice(patient_id: str, doc_name: str, appt_id, urgenc
             print('当前医嘱没有可预约项目，使用默认项目创建预约', dept_id)
             appt_proj_category = 500
             appt_proj_id = 500
-            appt_proj_name = "医嘱项目"
+            appt_proj_name = "其他项目"
             appt_proj_type = 2
-            room = "医嘱项目"
+            room = "其他项目"
         else:
             appt_proj_category = projl[0].get('proj_category')
             appt_proj_id = projl[0].get('id')
@@ -390,7 +400,7 @@ def create_appt_by_doctor_advice(patient_id: str, doc_name: str, appt_id, urgenc
             appt_proj_type = projl[0].get('proj_type')
             room = projl[0].get('proj_room')
 
-        dept_info = redis_client.hget(appt_config.APPT_DEPT_INFO_KEY, str(dept_id))
+        dept_info = redis_client.hget(APPT_EXECUTION_DEPT_INFO_KEY, str(dept_id))
         location_id = ''
         if dept_info:
             dept_info = json.loads(dept_info)
@@ -401,7 +411,7 @@ def create_appt_by_doctor_advice(patient_id: str, doc_name: str, appt_id, urgenc
             "appt_date": str(date.today()),
             "appt_date_period": 1 if datetime.now().hour < 12 else 2,
             "appt_type": 4,
-            "appt_name": value[0].get('姓名'),
+            "appt_name": advicel[0].get('姓名'),
             "appt_proj_category": appt_proj_category,
             "appt_proj_id": appt_proj_id,
             "appt_proj_name": appt_proj_name,
@@ -413,18 +423,24 @@ def create_appt_by_doctor_advice(patient_id: str, doc_name: str, appt_id, urgenc
             "urgency_level": int(urgency_level),
             "location_id": location_id
         }
+        new_appt_id, slot = create_appt(record, last_slot)
+        last_slot = slot
 
-        new_appt_id = create_appt(record)
-        advicel = []
-        for v in value:
+        # 按 pay_id 排序，后按 pay_id 分组
+        advicel.sort(key=lambda x: x['NO'])
+        # 根据 pay_id 分组并计算每个分组的 price 总和
+        for key, group in groupby(advicel, key=lambda x: x['NO']):
+            group_list = list(group)
+            combined_advice_desc = '; '.join(item['检查明细项'] for item in group_list)
+            total_price = sum(item['实收金额'] for item in group_list)
+            # 使用第一个元素的字典结构来创建合并后的记录
             json_data = {
                 'appt_id': new_appt_id,
-                'pay_id': v.get('NO'),
-                'advice_info': v.get('医嘱内容'),
-                'advice_desc': v.get('检查明细项'),
-                'dept_id': v.get('执行部门ID'),
-                'dept_name': v.get('执行科室'),
-                'price': v.get('实收金额')
+                'pay_id': group_list[0].get('NO'),
+                'advice_desc': combined_advice_desc,
+                'dept_id': group_list[0].get('执行部门ID'),
+                'dept_name': group_list[0].get('执行科室'),
+                'price': total_price
             }
 
             fileds = ','.join(json_data.keys())
@@ -433,9 +449,6 @@ def create_appt_by_doctor_advice(patient_id: str, doc_name: str, appt_id, urgenc
             last_rowid = db.execute(sql=insert_sql, need_commit=True)
             if last_rowid == -1:
                 raise Exception("医嘱记录入库失败! sql = " + insert_sql)
-            json_data['id'] = last_rowid
-            advicel.append(json_data)
-
     del db
 
 
@@ -450,6 +463,7 @@ def sign_in(json_data):
     appt_id = int(json_data['appt_id'])
     appt_type = int(json_data.get('appt_type'))
     patient_id = int(json_data.get('patient_id'))
+
     # 如果是医嘱预约，检查付款状态
     if appt_type == 4:
         # 根据预约id 查询医嘱记录
@@ -481,7 +495,7 @@ def sign_in(json_data):
     if 'appt_proj_name' in json_data and json_data.get('appt_proj_name'):
         # 检查项目是否可以预约
         quantity_data, time_slot = check_appointment_quantity(json_data['appt_proj_id'], json_data['appt_date'],
-                                                   json_data['appt_date_period'])
+                                                   json_data['appt_date_period'], -1)
 
         change_proj_sql = ', appt_proj_id = {}, appt_proj_type = {}, appt_proj_category = {},' \
                           ' appt_proj_name = \'{}\', room = \'{}\' ' \
@@ -611,13 +625,13 @@ def query_all_appt_project(type: int):
     today_date = str(datetime.today())[:10]
     redis_client = redis.Redis(connection_pool=pool)
     for proj in projectl:
-        rooml = redis_client.hget(APPT_PROJECTS_CATEGORY_KEY, str(proj['proj_category']))
-        if not rooml:
+        projl = redis_client.hget(APPT_PROJECTS_CATEGORY_KEY, str(proj['proj_category']))
+        if not projl:
             print('缓存中不存在 proj_category 为 ', str(proj['proj_category']), ' 的项目信息')
             continue
-        rooml = json.loads(rooml)
+        projl = json.loads(projl)
         bookable_list = []
-        for room in rooml:
+        for room in projl:
             quantityd = redis_client.hget(APPT_REMAINING_RESERVATION_QUANTITY_KEY, str(room['id']))
             if quantityd:
                 quantityd = json.loads(quantityd)
@@ -702,7 +716,7 @@ def query_wait_list(json_data):
     if type == 1:
         period = 1 if datetime.now().hour < 12 else 2
         today_date = str(date.today())
-        proj_info = redis_client.hget(APPT_REMAINING_RESERVATION_QUANTITY_KEY, wait_id)
+        proj_info = redis_client.hget(APPT_REMAINING_RESERVATION_QUANTITY_KEY, str(wait_id))
         if proj_info:
             proj_info = json.loads(proj_info)
             appt_info = proj_info.get(today_date)
@@ -757,34 +771,113 @@ def update_doctor_advice_pay_state(idl):
 """
 
 
-def query_advice_by_father_appt_id(father_appt_id):
+def query_advice_by_father_appt_id(json_data):
+    father_appt_id = json_data.get('father_appt_id')
+    patient_id = json_data.get('patient_id')
+    condition_sql = ''
+    if father_appt_id:
+        condition_sql = f'father_id = {int(father_appt_id)} '
+    if patient_id:
+        condition_sql = f'appt_type = 4 and patient_id = {int(patient_id)}'
     db = DbUtil(global_config.DB_HOST, global_config.DB_USERNAME, global_config.DB_PASSWORD,
                 global_config.DB_DATABASE_GYL)
 
-    query_sql = f"select * from nsyy_gyl.appt_record where father_id = {int(father_appt_id)} "
+    query_sql = f"select * from nsyy_gyl.appt_record where {condition_sql}"
     appts = db.query_all(query_sql)
 
     for record in appts:
         appt_id = int(record.get('id'))
         record['time_slot'] = appt_config.APPT_PERIOD_INFO.get(int(record['time_slot']))
         query_sql = f'select * from nsyy_gyl.appt_doctor_advice where appt_id = {appt_id}'
-        advicel = db.query_all(query_sql)
-        if advicel:
-            # 按 pay_id 排序
-            advicel.sort(key=lambda x: x['pay_id'])
-            # 根据 pay_id 分组并计算每个分组的 price 总和
-            grouped_data = {}
-            for key, group in groupby(advicel, key=lambda x: x['pay_id']):
-                group_list = list(group)
-                total_price = sum(item['price'] for item in group_list)
-                grouped_data[key] = {
-                    'items': group_list,
-                    'total_price': total_price
-                }
-
-            record['doctor_advice'] = grouped_data
+        record['doctor_advice'] = db.query_all(query_sql)
     del db
     return appts
+
+
+"""
+医生换班
+"""
+
+
+def doctor_shift_change(json_data):
+    db = DbUtil(global_config.DB_HOST, global_config.DB_USERNAME, global_config.DB_PASSWORD,
+                global_config.DB_DATABASE_GYL)
+    redis_client = redis.Redis(connection_pool=pool)
+    # 根据换班信息，更新当天坐诊医生信息
+    today = str(datetime.now().date())
+    day_of_week = (datetime.today().weekday() + 1) % 8
+
+    json_data['change_date'] = today
+    json_data['day_of_week'] = day_of_week
+    # 插入换班记录
+    fileds = ','.join(json_data.keys())
+    args = str(tuple(json_data.values()))
+    insert_sql = f"INSERT INTO nsyy_gyl.appt_doctor_shift_change ({fileds}) VALUES {args}"
+    last_rowid = db.execute(sql=insert_sql, need_commit=True)
+    if last_rowid == -1:
+        del db
+        raise Exception("换班记录入库失败! sql = " + insert_sql)
+
+    change_proj_id = int(json_data.get('change_proj_id'))
+    change_period = int(json_data.get('change_period'))
+    new_doc_his_name = json_data.get('new_doc_his_name')
+    docinfo = redis_client.hget(APPT_DOCTOR_INFO_KEY, new_doc_his_name)
+    if docinfo:
+        # 更新排班信息
+        docinfo = json.loads(docinfo)
+        key = f"{change_proj_id}_{day_of_week}_{change_period}"
+        attending_doctor = redis_client.hget(APPT_ATTENDING_DOCTOR_KEY, key)
+        if attending_doctor:
+            # 存在更新
+            attending_doctor = json.loads(attending_doctor)
+            attending_doctor[0]['doc_his_name'] = docinfo.get('doc_his_name')
+            attending_doctor[0]['doc_name'] = docinfo.get('doc_name')
+            attending_doctor[0]['dept_id'] = docinfo.get('dept_id')
+            attending_doctor[0]['dept_name'] = docinfo.get('dept_name')
+            attending_doctor[0]['doc_id'] = docinfo.get('doc_id')
+            attending_doctor[0]['doc_type'] = docinfo.get('doc_type')
+            attending_doctor[0]['price'] = docinfo.get('price')
+            attending_doctor[0]['appointment_id'] = docinfo.get('appointment_id')
+            redis_client.hset(APPT_ATTENDING_DOCTOR_KEY, key, json.dumps(attending_doctor, default=str))
+            redis_client.hset(APPT_DOCTOR_TO_PROJ_KEY, new_doc_his_name, json.dumps([attending_doctor[0]], default=str))
+        else:
+            # 不存在新增
+            proj_id = change_proj_id
+            projinfo = redis_client.hget(APPT_PROJECTS_KEY, str(proj_id))
+            projinfo = json.loads(projinfo)
+            new_attending_doctor = {'proj_id': proj_id}
+            new_attending_doctor['consultation_room'] = projinfo.get('proj_room')
+            new_attending_doctor['day_of_week'] = day_of_week
+            new_attending_doctor['period'] = change_period
+            new_attending_doctor['doc_his_name'] = docinfo.get('doc_his_name')
+            new_attending_doctor['doc_name'] = docinfo.get('doc_name')
+            new_attending_doctor['dept_id'] = docinfo.get('dept_id')
+            new_attending_doctor['dept_name'] = docinfo.get('dept_name')
+            new_attending_doctor['doc_id'] = docinfo.get('doc_id')
+            new_attending_doctor['doc_type'] = docinfo.get('doc_type')
+            new_attending_doctor['price'] = docinfo.get('price')
+            new_attending_doctor['appointment_id'] = docinfo.get('appointment_id')
+            redis_client.hset(APPT_ATTENDING_DOCTOR_KEY, key, json.dumps([new_attending_doctor], default=str))
+            redis_client.hset(APPT_DOCTOR_TO_PROJ_KEY, new_doc_his_name, json.dumps([new_attending_doctor], default=str))
+    else:
+        raise Exception('系统中不存在当前医生信息，换班失败')
+
+    # 换班成功后，修改当天未处理的预约记录
+    update_sql = f'UPDATE nsyy_gyl.appt_record SET is_doc_change = 1 WHERE state = 1 ' \
+                 f'and appt_proj_id = {change_proj_id} and appt_date = \'{today}\' and appt_date_period = {change_period} '
+    db.execute(update_sql, need_commit=True)
+    del db
+
+
+def doc_list():
+    redis_client = redis.Redis(connection_pool=pool)
+    docl = redis_client.hvals(APPT_DOCTOR_INFO_KEY)
+    parsed_values = []
+    for value in docl:
+        parsed_value = json.loads(value)
+        parsed_values.append(parsed_value)
+
+    return parsed_values
 
 
 """
@@ -796,8 +889,10 @@ def query_advice_by_father_appt_id(father_appt_id):
 
 
 def load_appt_data_into_cache():
+    # todo 过期的预约记录 如何处理
+
     current_time = datetime.now()
-    print(" 执行综合预约定时任务 ", current_time)
+    print("开始执行综合预约定时任务 - ", current_time)
 
     redis_client = redis.Redis(connection_pool=pool)
     db = DbUtil(global_config.DB_HOST, global_config.DB_USERNAME, global_config.DB_PASSWORD,
@@ -805,107 +900,138 @@ def load_appt_data_into_cache():
 
     # 清空旧的预约数据
     keys = redis_client.keys('APPT_*')
-    for key in keys:
-        redis_client.delete(key)
+    redis_client.delete(*keys)
 
     # 缓存执行科室信息
     query_sql = 'select * from nsyy_gyl.appt_dept_info'
     dept_infol = db.query_all(query_sql)
     for item in dept_infol:
-        redis_client.hset(appt_config.APPT_DEPT_INFO_KEY, str(item.get('dept_id')), json.dumps(item, default=str))
+        redis_client.hset(APPT_EXECUTION_DEPT_INFO_KEY, str(item.get('dept_id')), json.dumps(item, default=str))
 
-    # 缓存医嘱信息 todo 是否近缓存当天的医嘱?
-    query_sql = 'select * from nsyy_gyl.appt_doctor_advice'
-    advice_list = db.query_all(query_sql)
-    adviced = {}
-    for item in advice_list:
-        if str(item.get('appt_id')) not in adviced:
-            adviced[str(item.get('appt_id'))] = []
-        adviced[str(item.get('appt_id'))].append(item)
+    # 缓存所有项目信息
+    query_sql = f'select * from nsyy_gyl.appt_project'
+    appt_projectl = db.query_all(query_sql)
+    for appt_project in appt_projectl:
+        redis_client.hset(APPT_PROJECTS_KEY, str(appt_project['id']), json.dumps(appt_project, default=str))
 
-    for key, value in adviced.items():
-        redis_client.hset(appt_config.APPT_DOCTOR_ADVICE_KEY, str(key), json.dumps(value, default=str))
+    # 缓存医生信息
+    query_sql = 'select * from nsyy_gyl.appt_doctor'
+    doctorl = db.query_all(query_sql)
+    for item in doctorl:
+        redis_client.hset(APPT_DOCTOR_INFO_KEY, item.get('doc_his_name'), json.dumps(item, default=str))
 
-    # 取消所有过期预约记录
-    today_str = str(datetime.now().date())
-    update_sql = 'UPDATE nsyy_gyl.appt_record SET state = {}, cancel_time = \'{}\'' \
-                 ' where appt_date < \'{}\' and state < {} ' \
-        .format(appt_config.APPT_STATE['canceled'], str(current_time)[:19], today_str,
-                appt_config.APPT_STATE['completed'])
-    db.execute(sql=update_sql, need_commit=True)
+    # 门诊医生图片
+    query_sql = 'select * from nsyy_gyl.appt_doctor_photo'
+    photol = db.query_all(query_sql)
+    for item in photol:
+        redis_client.hset(APPT_DOCTOR_PHOTO_INFO_KEY, item.get('doc_his_name'), item.get('photo'))
 
-    # 查询当天所有未取消的预约, 缓存预约人的紧急情况 & 签到计数
-    query_sql = f'select * from nsyy_gyl.appt_record where appt_date = \'{today_str}\' and state < 6'
+    # 查询当天所有未取消的预约 缓存签到计数  todo 优化 sql 查询
+    query_sql = 'select * from nsyy_gyl.appt_record where appt_date = \'{}\' and state < {} '\
+        .format(str(datetime.now().date()), APPT_STATE['canceled'])
     appt_recordl = db.query_all(query_sql)
     for record in appt_recordl:
-        # 缓存紧急程度
-        key = str(record['patient_id']) + '_' + str(record['appt_proj_id'])
-        redis_client.hset(APPT_URGENCY_LEVEL_KEY, key, record['urgency_level'])
-
         # 更新当天的签到计数
-        appt_proj_id = int(record['appt_proj_id'])
         if record['sign_in_num']:
             sign_in_num = int(record['sign_in_num']) or -1
-            old_num = redis_client.hget(APPT_SIGN_IN_NUM_KEY, appt_proj_id) or 0
+            old_num = redis_client.hget(APPT_SIGN_IN_NUM_KEY, int(record['appt_proj_id'])) or 0
             if sign_in_num and int(old_num) < sign_in_num:
-                redis_client.hset(APPT_SIGN_IN_NUM_KEY, appt_proj_id, sign_in_num)
+                redis_client.hset(APPT_SIGN_IN_NUM_KEY, int(record['appt_proj_id']), sign_in_num)
 
-    # 缓存医生照片信息
-    query_sql = 'select * from nsyy_gyl.appt_doctor_info'
-    appt_doctor_infol = db.query_all(query_sql)
-    for item in appt_doctor_infol:
-        key = item.get('room') + item.get('name')
-        redis_client.hset(APPT_DOCTOR_INFO_KEY, key, item.get('photo'))
-
-    weekday_number = (datetime.today().weekday() + 1) % 8
     # 缓存坐诊医生信息 & 当天的坐诊医生到项目的映射
-    query_sql = 'select appt_doctor_sched.doctor_his_name, ' \
-                'appt_doctor_sched.doctor_name, appt_doctor_sched.consultation_room, ' \
+    query_sql = 'select appt_doctor_sched.doc_his_name, ' \
+                'appt_doctor_sched.doc_name, appt_doctor_sched.consultation_room, ' \
                 'appt_doctor_sched.proj_id, appt_doctor_sched.day_of_week, ' \
                 'appt_doctor_sched.period, appt_doctor.dept_id, appt_doctor.dept_name, ' \
-                'appt_doctor.doctor_id, appt_doctor.doctor_type, appt_doctor.price, appt_doctor.appointment_id ' \
+                'appt_doctor.doc_id, appt_doctor.doc_type, appt_doctor.price, appt_doctor.appointment_id ' \
                 'from nsyy_gyl.appt_doctor_sched ' \
-                'INNER JOIN nsyy_gyl.appt_doctor ON appt_doctor_sched.doctor_his_name = appt_doctor.doctor_name'
+                'INNER JOIN nsyy_gyl.appt_doctor ON appt_doctor_sched.doc_his_name = appt_doctor.doc_his_name'
     doctor_schedl = db.query_all(query_sql)
-    doctord = {}
-    doctor_to_proj = {}
+    doctord, doctor_to_proj = {}, {}
+    weekday_number = (datetime.today().weekday() + 1) % 8
     for item in doctor_schedl:
         key = f"{item['proj_id']}_{item['day_of_week']}_{item['period']}"
         if key not in doctord:
             doctord[key] = []
         doctord[key].append(item)
 
-        # 如果是当天的 缓存 医生和项目的映射
+        # 如果是当天的 缓存医生-项目的映射, 针对自助取号的用户创建预约时使用
         if int(item['day_of_week']) == int(weekday_number):
-            if item['doctor_his_name'] not in doctor_to_proj:
-                doctor_to_proj[item.get('doctor_his_name')] = []
-            doctor_to_proj[item.get('doctor_his_name')].append(item)
+            if item['doc_his_name'] not in doctor_to_proj:
+                doctor_to_proj[item.get('doc_his_name')] = []
+            doctor_to_proj[item.get('doc_his_name')].append(item)
 
     for key, item in doctord.items():
         redis_client.hset(APPT_ATTENDING_DOCTOR_KEY, key, json.dumps(item, default=str))
-
     for key, item in doctor_to_proj.items():
-        redis_client.hset(appt_config.APPT_DOCTOR_TO_PROJ_KEY, key, json.dumps(item, default=str))
+        redis_client.hset(APPT_DOCTOR_TO_PROJ_KEY, key, json.dumps(item, default=str))
 
-    # 缓存所有项目, 缓存近 7 天的项目可预约情况
+    # 根据换班信息，更新当天坐诊医生信息
+    today = str(datetime.now().date())
+    query_sql = f'select * from nsyy_gyl.appt_doctor_shift_change where change_date = \'{today}\''
+    change_log = db.query_all(query_sql)
+    for item in change_log:
+        docinfo = redis_client.hget(APPT_DOCTOR_INFO_KEY, item.get('new_doc_his_name'))
+        if docinfo:
+            # 更新排班信息
+            docinfo = json.loads(docinfo)
+            key = f"{item['change_proj_id']}_{item['day_of_week']}_{item['change_period']}"
+            attending_doctor = redis_client.hget(APPT_ATTENDING_DOCTOR_KEY, key)
+            if attending_doctor:
+                # 存在更新
+                attending_doctor = json.loads(attending_doctor)
+                attending_doctor[0]['doc_his_name'] = docinfo.get('doc_his_name')
+                attending_doctor[0]['doc_name'] = docinfo.get('doc_name')
+                attending_doctor[0]['dept_id'] = docinfo.get('dept_id')
+                attending_doctor[0]['dept_name'] = docinfo.get('dept_name')
+                attending_doctor[0]['doc_id'] = docinfo.get('doc_id')
+                attending_doctor[0]['doc_type'] = docinfo.get('doc_type')
+                attending_doctor[0]['price'] = docinfo.get('price')
+                attending_doctor[0]['appointment_id'] = docinfo.get('appointment_id')
+                redis_client.hset(APPT_ATTENDING_DOCTOR_KEY, key, json.dumps(attending_doctor, default=str))
+                redis_client.hset(APPT_DOCTOR_TO_PROJ_KEY, docinfo.get('doc_his_name'),
+                                  json.dumps([attending_doctor[0]], default=str))
+            else:
+                # 不存在新增
+                proj_id = item['change_proj_id']
+                projinfo = redis_client.hget(APPT_PROJECTS_KEY, str(proj_id))
+                projinfo = json.loads(projinfo)
+                new_attending_doctor = {'proj_id': proj_id}
+                new_attending_doctor['consultation_room'] = projinfo.get('proj_room')
+                new_attending_doctor['day_of_week'] = item['day_of_week']
+                new_attending_doctor['period'] = item['change_period']
+                new_attending_doctor['doc_his_name'] = docinfo.get('doc_his_name')
+                new_attending_doctor['doc_name'] = docinfo.get('doc_name')
+                new_attending_doctor['dept_id'] = docinfo.get('dept_id')
+                new_attending_doctor['dept_name'] = docinfo.get('dept_name')
+                new_attending_doctor['doc_id'] = docinfo.get('doc_id')
+                new_attending_doctor['doc_type'] = docinfo.get('doc_type')
+                new_attending_doctor['price'] = docinfo.get('price')
+                new_attending_doctor['appointment_id'] = docinfo.get('appointment_id')
+                redis_client.hset(APPT_ATTENDING_DOCTOR_KEY, key, json.dumps([new_attending_doctor], default=str))
+                redis_client.hset(APPT_DOCTOR_TO_PROJ_KEY, docinfo.get('doc_his_name'),
+                                  json.dumps([new_attending_doctor], default=str))
+        else:
+            print('系统中未找到医生信息', item)
+
+    # 缓存所有项目, 缓存近 7 天，项目的可预约情况
     query_sql = f'select * from nsyy_gyl.appt_project'
     appt_projectl = db.query_all(query_sql)
     group_by_categoryd = {}
-    # 按 category 分组
+    # 按 category 分组进行缓存，方便查询项目列表时使用
     for item in appt_projectl:
         category = item['proj_category']
         if category not in group_by_categoryd:
             group_by_categoryd[category] = []
         group_by_categoryd[category].append(item)
-    for category, list in group_by_categoryd.items():
-        redis_client.hset(APPT_PROJECTS_CATEGORY_KEY, str(category), json.dumps(list, default=str))
+    for category, projl in group_by_categoryd.items():
+        redis_client.hset(APPT_PROJECTS_CATEGORY_KEY, str(category), json.dumps(projl, default=str))
 
+    # 缓存单个项目近七天的可预约情况
     for appt_project in appt_projectl:
-        redis_client.hset(APPT_PROJECTS_KEY, int(appt_project['id']), json.dumps(appt_project, default=str))
-        # 缓存预约项目近 7 天的剩余可预约数量
         quantity = appt_project.get('proj_capacity')
         quantity_data = {}
-        # 缓存近 7 天的可预约数量
+        # 近 7 天的可预约数量
         today = datetime.now().date()
         for i in range(7):
             nextday = today + timedelta(days=i)
@@ -916,12 +1042,13 @@ def load_appt_data_into_cache():
             if doct:
                 doct = json.loads(doct)
                 # 多个医生，提取 doctor_name 字段并拼接成字符串
-                doctorl = ', '.join([d['doctor_his_name'] for d in doct])
+                doctorl = ', '.join([d['doc_his_name'] for d in doct])
                 price = max(doct, key=lambda x: float(x['price']))['price']
                 dept_id = doct[0].get('dept_id')
                 # 根据房间号和医生名字找医生图片
-                key = doct[0].get('consultation_room') + doct[0].get('doctor_name')
-                photo = redis_client.hget(appt_config.APPT_DOCTOR_INFO_KEY, key)
+                photo = redis_client.hget(appt_config.APPT_DOCTOR_PHOTO_INFO_KEY, doct[0].get('doc_his_name')) \
+                    if redis_client.hexists(appt_config.APPT_DOCTOR_PHOTO_INFO_KEY, doct[0].get('doc_his_name')) \
+                    else appt_config.default_photo
                 # 计算半小时的容量
                 hq = int(quantity / 8)
                 value['1'] = {
@@ -937,17 +1064,18 @@ def load_appt_data_into_cache():
                     'proj_id': appt_project.get('id'),
                     'proj_type': appt_project.get('proj_type'),
                     'proj_category': appt_project.get('proj_category'),
-                    'doctor_photo': photo if photo else ''
+                    'doctor_photo': photo
                 }
             doct = redis_client.hget(APPT_ATTENDING_DOCTOR_KEY, f"{appt_project['id']}_{weekday_number}_2")
             if doct:
                 doct = json.loads(doct)
-                doctorl = ', '.join([d['doctor_his_name'] for d in doct])
+                doctorl = ', '.join([d['doc_his_name'] for d in doct])
                 price = max(doct, key=lambda x: float(x['price']))['price']
                 dept_id = doct[0].get('dept_id')
-                # 根据房间号和医生名字找医生图片
-                key = doct[0].get('consultation_room') + doct[0].get('doctor_name')
-                photo = redis_client.hget(appt_config.APPT_DOCTOR_INFO_KEY, key)
+                # 根据 doc his name 找图片
+                photo = redis_client.hget(appt_config.APPT_DOCTOR_PHOTO_INFO_KEY, doct[0].get('doc_his_name')) \
+                    if redis_client.hexists(appt_config.APPT_DOCTOR_PHOTO_INFO_KEY, doct[0].get('doc_his_name')) \
+                    else appt_config.default_photo
                 hq = int(quantity / 8)
                 value['2'] = {'date': 'pm',
                               'quantity': quantity,
@@ -961,7 +1089,7 @@ def load_appt_data_into_cache():
                               'proj_id': appt_project.get('id'),
                               'proj_type': appt_project.get('proj_type'),
                               'proj_category': appt_project.get('proj_category'),
-                              'doctor_photo': photo if photo else ''
+                              'doctor_photo': photo
                               }
             if not doct and int(appt_project['proj_type']) == 2:
                 # 院内项目不指定医生
@@ -994,14 +1122,13 @@ def load_appt_data_into_cache():
             if value:
                 quantity_data[str(nextday)] = value
         if quantity_data:
-            redis_client.hset(APPT_REMAINING_RESERVATION_QUANTITY_KEY, int(appt_project['id']),
+            redis_client.hset(APPT_REMAINING_RESERVATION_QUANTITY_KEY, str(appt_project['id']),
                               json.dumps(quantity_data, default=str))
 
     # 根据已产生的预约更新剩余可预约数量
     today = datetime.now().date()
-    query_sql = 'select * from nsyy_gyl.appt_record where appt_date >= {} and state < {}'.format(str(today),
-                                                                                                 appt_config.APPT_STATE[
-                                                                                                     'canceled'])
+    query_sql = 'select * from nsyy_gyl.appt_record where appt_date >= {} and state < {}'\
+        .format(str(today), appt_config.APPT_STATE['canceled'])
     appt_record_list = db.query_all(query_sql)
     appt_proj_id_to_appt = {}
     for item in appt_record_list:
@@ -1012,7 +1139,7 @@ def load_appt_data_into_cache():
     del db
 
     for proj_id, recordl in appt_proj_id_to_appt.items():
-        data = redis_client.hget(APPT_REMAINING_RESERVATION_QUANTITY_KEY, int(proj_id))
+        data = redis_client.hget(APPT_REMAINING_RESERVATION_QUANTITY_KEY, str(proj_id))
         if not data:
             continue
         data = json.loads(data)
@@ -1024,7 +1151,7 @@ def load_appt_data_into_cache():
                 data[datestr][str(period)]['quantity'] = int(data[datestr][str(period)]['quantity']) - 1
                 data[datestr][str(period)]['hourly_quantity'][time_slot] = int(data[datestr][str(period)]['hourly_quantity'][time_slot]) - 1
 
-        redis_client.hset(APPT_REMAINING_RESERVATION_QUANTITY_KEY, int(proj_id),
+        redis_client.hset(APPT_REMAINING_RESERVATION_QUANTITY_KEY, str(proj_id),
                           json.dumps(data, default=str))
 
     print(" 综合预约定时任务执行完成 ", datetime.now())
