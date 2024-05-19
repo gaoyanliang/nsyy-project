@@ -744,10 +744,10 @@ def report_form(json_data):
                 f'dept_name AS name, ' \
                 f'1 type, ' \
                 f'COUNT(*) AS total_cv_count, ' \
-                f'SUM(CASE WHEN handle_doctor_name IS NOT NULL THEN 1 ELSE 0 END) AS handled_count, ' \
-                f'SUM(CASE WHEN handle_doctor_name IS NULL THEN 1 ELSE 0 END) AS handled_undo_count, ' \
+                f'SUM(CASE WHEN handle_time IS NOT NULL THEN 1 ELSE 0 END) AS handled_count, ' \
+                f'SUM(CASE WHEN handle_time IS NULL THEN 1 ELSE 0 END) AS handled_undo_count, ' \
                 f'SUM(CASE WHEN (is_doctor_recv_timeout = 1 OR is_doctor_handle_timeout = 1) THEN 1 ELSE 0 END) AS handled_timeout_count, ' \
-                f'ROUND((SUM(CASE WHEN handle_doctor_name IS NOT NULL THEN 1 ELSE 0 END) / COUNT(*)) * 100, 2) AS handling_rate, ' \
+                f'ROUND((SUM(CASE WHEN handle_time IS NOT NULL THEN 1 ELSE 0 END) / COUNT(*)) * 100, 2) AS handling_rate, ' \
                 f'ROUND((SUM(CASE WHEN (is_doctor_recv_timeout = 1 OR is_doctor_handle_timeout = 1) THEN 1 ELSE 0 END) / COUNT(*)) * 100, 2) AS handling_timeout_rate ' \
                 f'FROM nsyy_gyl.cv_info {time_condition} GROUP BY dept_name ' \
                 f'UNION ALL ' \
@@ -756,10 +756,10 @@ def report_form(json_data):
                 f'ward_name AS name, ' \
                 f'2 type, ' \
                 f'COUNT(*) AS total_cv_count, ' \
-                f'SUM(CASE WHEN nurse_recv_name IS NOT NULL OR (nurse_recv_name IS NULL AND handle_doctor_name IS NOT NULL) THEN 1 ELSE 0 END ) AS handled_count, ' \
-                f'SUM(CASE WHEN nurse_recv_name IS NULL AND handle_doctor_name IS NULL THEN 1 ELSE 0 END ) AS handled_undo_count, ' \
+                f'SUM(CASE WHEN nurse_recv_time IS NOT NULL OR (nurse_recv_time IS NULL AND handle_time IS NOT NULL) THEN 1 ELSE 0 END ) AS handled_count, ' \
+                f'SUM(CASE WHEN nurse_recv_time IS NULL AND handle_time IS NULL THEN 1 ELSE 0 END ) AS handled_undo_count, ' \
                 f'SUM(CASE WHEN (is_nurse_recv_timeout = 1 OR is_nurse_send_timeout = 1 OR is_timeout = 1) THEN 1 ELSE 0 END) AS handled_timeout_count, ' \
-                f'ROUND((SUM(CASE WHEN nurse_recv_name IS NOT NULL OR (nurse_recv_name IS NULL AND handle_doctor_name IS NOT NULL) THEN 1 ELSE 0 END) / COUNT(*)) * 100, 2) AS handling_rate, ' \
+                f'ROUND((SUM(CASE WHEN nurse_recv_time IS NOT NULL OR (nurse_recv_time IS NULL AND handle_time IS NOT NULL) THEN 1 ELSE 0 END) / COUNT(*)) * 100, 2) AS handling_rate, ' \
                 f'ROUND((SUM(CASE WHEN (is_nurse_recv_timeout = 1 OR is_nurse_send_timeout = 1 OR is_timeout = 1) THEN 1 ELSE 0 END ) / COUNT(*)) * 100, 2) AS handling_timeout_rate ' \
                 f'FROM nsyy_gyl.cv_info {time_condition} GROUP BY ward_name '
 
