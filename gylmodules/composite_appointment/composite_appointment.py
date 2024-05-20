@@ -37,6 +37,7 @@ def call_third_systems_obtain_data(url: str, type: str, param: dict):
             # 门诊挂号 当天
             from tools import his_visit_reg
             data = his_visit_reg(param)
+            data = data.get('ResultCode')
         elif type == 'his_visit_check':
             # 查询当天患者挂号信息
             from tools import his_visit_check
@@ -116,7 +117,7 @@ def check_appointment_quantity(proj_id, appt_date, period, last_slot):
         slot = appt_config.appt_slot_dict[datetime.now().hour]
         book_ok = False
         for i in range(slot, 17):
-            if int(last_slot) != -1 and i == int(last_slot) and i < 16:
+            if int(last_slot) != -1 and i <= int(last_slot) and i < 16:
                 continue
             num = quantity_data[appt_date][str(period)]['hourly_quantity'].get(str(i))
             if num and int(num) > 0:
@@ -570,8 +571,12 @@ def call(json_data):
         print("Socket Push Status: ", response.status_code, "Response: ", response.text)
     else:
         # 正式环境： todo 待测试正式环境 socket 发送用法是否有问题
-        from tools import socket_send
-        socket_send(socket_data, 'm_user', socket_id)
+        # from tools import socket_send
+        # socket_send(socket_data, 'm_user', socket_id)
+        data = {'msg_list': [{'socket_data': socket_data, 'pers_id': socket_id, 'socketd': 'w_site'}]}
+        headers = {'Content-Type': 'application/json'}
+        response = requests.post("http://localhost:6080/inter_socket_msg", data=json.dumps(data), headers=headers)
+        print("Socket Push Status: ", response.status_code, "Response: ", response.text)
 
 
 """
@@ -580,7 +585,7 @@ def call(json_data):
 
 
 def next_num(id, is_group):
-    data_list, photo = query_wait_list({'type': 1, 'wait_id': id})
+    data_list, photo, doctor = query_wait_list({'type': 1, 'wait_id': id})
 
     # 更新列表中第一个为处理中
     if data_list:
@@ -713,15 +718,18 @@ def query_wait_list(json_data):
 
     # 如果是诊室，查询医生图片
     photo = ''
+    cur_doctor = ''
     if type == 1:
         period = 1 if datetime.now().hour < 12 else 2
-        today_date = str(date.today())
-        proj_info = redis_client.hget(APPT_REMAINING_RESERVATION_QUANTITY_KEY, str(wait_id))
-        if proj_info:
-            proj_info = json.loads(proj_info)
-            appt_info = proj_info.get(today_date)
-            if appt_info and str(period) in appt_info:
-                photo = appt_info.get(str(period)).get("doctor_photo")
+        day_of_week = (datetime.today().weekday() + 1) % 8
+        attending_doctor = redis_client.hget(APPT_ATTENDING_DOCTOR_KEY, f'{str(wait_id)}_{str(day_of_week)}_{period}')
+        if attending_doctor:
+            attending_doctor = json.loads(attending_doctor)
+            photo = attending_doctor[0].get("photo")
+            cur_doctor = attending_doctor[0].get("doc_name")
+
+    if not photo:
+        photo = appt_config.default_photo
 
     # proj_id 存在说明要查询排队列表，排队列表需要排队
     # 1. 按照紧急程度排序 降序
@@ -749,7 +757,7 @@ def query_wait_list(json_data):
         }
         result.append(ret)
 
-    return result, photo
+    return result, photo, cur_doctor
 
 
 """
@@ -806,9 +814,11 @@ def doctor_shift_change(json_data):
     # 根据换班信息，更新当天坐诊医生信息
     today = str(datetime.now().date())
     day_of_week = (datetime.today().weekday() + 1) % 8
-
+    change_period = 1 if datetime.now().hour < 12 else 2
     json_data['change_date'] = today
     json_data['day_of_week'] = day_of_week
+    json_data['change_period'] = change_period
+
     # 插入换班记录
     fileds = ','.join(json_data.keys())
     args = str(tuple(json_data.values()))
@@ -819,7 +829,6 @@ def doctor_shift_change(json_data):
         raise Exception("换班记录入库失败! sql = " + insert_sql)
 
     change_proj_id = int(json_data.get('change_proj_id'))
-    change_period = int(json_data.get('change_period'))
     new_doc_his_name = json_data.get('new_doc_his_name')
     docinfo = redis_client.hget(APPT_DOCTOR_INFO_KEY, new_doc_his_name)
     if docinfo:
@@ -840,6 +849,18 @@ def doctor_shift_change(json_data):
             attending_doctor[0]['appointment_id'] = docinfo.get('appointment_id')
             redis_client.hset(APPT_ATTENDING_DOCTOR_KEY, key, json.dumps(attending_doctor, default=str))
             redis_client.hset(APPT_DOCTOR_TO_PROJ_KEY, new_doc_his_name, json.dumps([attending_doctor[0]], default=str))
+
+            # 更新当前时段项目信息
+            remaining_reservation_quantity = redis_client.hget(APPT_REMAINING_RESERVATION_QUANTITY_KEY, str(change_proj_id))
+            if remaining_reservation_quantity:
+                remaining_reservation_quantity = json.loads(remaining_reservation_quantity)
+                cur_info = remaining_reservation_quantity.get(today)
+                if cur_info and str(change_period) in cur_info:
+                    remaining_reservation_quantity[today][str(change_period)]['doctor'] = docinfo.get('doc_name')
+                    remaining_reservation_quantity[today][str(change_period)]['doctor_dept_id'] = docinfo.get('dept_id')
+                    remaining_reservation_quantity[today][str(change_period)]['price'] = docinfo.get('price')
+                    remaining_reservation_quantity[today][str(change_period)]['doctor_photo'] = docinfo.get('photo')
+                    redis_client.hset(APPT_REMAINING_RESERVATION_QUANTITY_KEY, str(change_proj_id), json.dumps(remaining_reservation_quantity, default=str))
         else:
             # 不存在新增
             proj_id = change_proj_id
@@ -859,6 +880,9 @@ def doctor_shift_change(json_data):
             new_attending_doctor['appointment_id'] = docinfo.get('appointment_id')
             redis_client.hset(APPT_ATTENDING_DOCTOR_KEY, key, json.dumps([new_attending_doctor], default=str))
             redis_client.hset(APPT_DOCTOR_TO_PROJ_KEY, new_doc_his_name, json.dumps([new_attending_doctor], default=str))
+
+            # todo 暂时全部重新加载数据，之后仅更新需要的医生数据
+            load_appt_data_into_cache()
     else:
         raise Exception('系统中不存在当前医生信息，换班失败')
 
@@ -914,17 +938,21 @@ def load_appt_data_into_cache():
     for appt_project in appt_projectl:
         redis_client.hset(APPT_PROJECTS_KEY, str(appt_project['id']), json.dumps(appt_project, default=str))
 
-    # 缓存医生信息
-    query_sql = 'select * from nsyy_gyl.appt_doctor'
-    doctorl = db.query_all(query_sql)
-    for item in doctorl:
-        redis_client.hset(APPT_DOCTOR_INFO_KEY, item.get('doc_his_name'), json.dumps(item, default=str))
-
     # 门诊医生图片
     query_sql = 'select * from nsyy_gyl.appt_doctor_photo'
     photol = db.query_all(query_sql)
     for item in photol:
         redis_client.hset(APPT_DOCTOR_PHOTO_INFO_KEY, item.get('doc_his_name'), item.get('photo'))
+
+    # 缓存医生信息
+    query_sql = 'select * from nsyy_gyl.appt_doctor'
+    doctorl = db.query_all(query_sql)
+    for item in doctorl:
+        if redis_client.hexists(APPT_DOCTOR_PHOTO_INFO_KEY, item['doc_his_name']):
+            item['photo'] = redis_client.hget(APPT_DOCTOR_PHOTO_INFO_KEY, item['doc_his_name'])
+        else:
+            item['photo'] = appt_config.default_photo
+        redis_client.hset(APPT_DOCTOR_INFO_KEY, item.get('doc_his_name'), json.dumps(item, default=str))
 
     # 查询当天所有未取消的预约 缓存签到计数  todo 优化 sql 查询
     query_sql = 'select * from nsyy_gyl.appt_record where appt_date = \'{}\' and state < {} '\
@@ -950,6 +978,10 @@ def load_appt_data_into_cache():
     doctord, doctor_to_proj = {}, {}
     weekday_number = (datetime.today().weekday() + 1) % 8
     for item in doctor_schedl:
+        if redis_client.hexists(APPT_DOCTOR_PHOTO_INFO_KEY, item['doc_his_name']):
+            item['photo'] = redis_client.hget(APPT_DOCTOR_PHOTO_INFO_KEY, item['doc_his_name'])
+        else:
+            item['photo'] = appt_config.default_photo
         key = f"{item['proj_id']}_{item['day_of_week']}_{item['period']}"
         if key not in doctord:
             doctord[key] = []

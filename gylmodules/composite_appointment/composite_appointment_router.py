@@ -198,7 +198,7 @@ def query_room_list():
 def query_wait_list():
     try:
         json_data = json.loads(request.get_data().decode('utf-8'))
-        wait_list, photo = appointment.query_wait_list(json_data)
+        wait_list, photo, doctor = appointment.query_wait_list(json_data)
     except Exception as e:
         timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
         print(f"[{timestamp}] Exception occurred: {traceback.print_exc()}")
@@ -211,7 +211,8 @@ def query_wait_list():
         'code': 20000,
         'data': {
             'wait_list': wait_list,
-            'photo': photo
+            'photo': photo,
+            'doctor': doctor
         }
     })
 

@@ -56,7 +56,7 @@ appt_slot_dict = {
 # 测试环境推送地址
 socket_push_url = 'http://192.168.124.53:6080/inter_socket_msg'
 
-default_photo = 'L2hvbWUvY2MvYXR0L3B1YmxpYy9kb2NfcGhvdG8vZGVmYXVsdC5qcGcK'
+default_photo = 'L2hvbWUvY2MvYXR0L3B1YmxpYy9kb2NfcGhvdG8vZGVmYXVsdC5qcGc='
 
 # 签到计数
 APPT_SIGN_IN_NUM_KEY = 'APPT_SIGN_IN_NUM'
