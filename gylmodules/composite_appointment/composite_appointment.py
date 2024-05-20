@@ -453,17 +453,38 @@ def create_appt_by_doctor_advice(patient_id: str, doc_name: str, appt_id, urgenc
     del db
 
 
+def push_patient(patient_name: str, socket_id: str):
+    socket_data = {"patient_name": patient_name, "type": 300}
+    if global_config.run_in_local:
+        # 测试环境
+        data = {'msg_list': [{'socket_data': socket_data, 'pers_id': socket_id, 'socketd': 'w_site'}]}
+        headers = {'Content-Type': 'application/json'}
+        response = requests.post(socket_push_url, data=json.dumps(data), headers=headers)
+        print("Socket Push Status: ", response.status_code, "Response: ", response.text, "socket_data: ", socket_data, "socket_id: ", socket_id)
+    else:
+        data = {'msg_list': [{'socket_data': socket_data, 'pers_id': socket_id, 'socketd': 'w_site'}]}
+        headers = {'Content-Type': 'application/json'}
+        response = requests.post("http://127.0.0.1:6088/inter_socket_msg", data=json.dumps(data), headers=headers)
+        print("Socket Push Status: ", response.status_code, "Response: ", response.text, "socket_data: ", socket_data, "socket_id: ", socket_id)
+
+
 """
 预约签到
 """
 
 
 def sign_in(json_data):
+    # todo 签到之后通过 socket 将排队信息推送到前端
+    socket_id = ''
     db = DbUtil(global_config.DB_HOST, global_config.DB_USERNAME, global_config.DB_PASSWORD,
                 global_config.DB_DATABASE_GYL)
+    redis_client = redis.Redis(connection_pool=pool)
     appt_id = int(json_data['appt_id'])
     appt_type = int(json_data.get('appt_type'))
     patient_id = int(json_data.get('patient_id'))
+
+    query_sql = f'select * from nsyy_gyl.appt_record where id = {appt_id} '
+    apptinfo = db.query_one(query_sql)
 
     # 如果是医嘱预约，检查付款状态
     if appt_type == 4:
@@ -484,7 +505,13 @@ def sign_in(json_data):
 
     # 签到前到 his 中取号, 小程序预约，现场预约需要取号。 自助挂号机挂号的预约不需要挂号. todo 取号价格待更换为真实的数据
     if appt_type in (1, 2):
+        doctorinfo = redis_client.hget(APPT_DOCTOR_INFO_KEY, apptinfo.get('doctor'))
         param = {"type": "his_visit_reg", "patient_id": json_data.get('patient_id'), "AsRowid": 2116, "PayAmt": 0.01}
+        if doctorinfo:
+            doctorinfo = json.loads(doctorinfo)
+            param = {"type": "his_visit_reg", "patient_id": json_data.get('patient_id'),
+                     "AsRowid": int(doctorinfo.get('appointment_id')),
+                     "PayAmt": float(doctorinfo.get('price'))}
         his_socket_ret_code = call_third_systems_obtain_data('his_socket', 'his_visit_reg', param)
         if his_socket_ret_code != '0':
             raise Exception('在 his 中取号失败， 签到失败, ResultCode: ', his_socket_ret_code)
@@ -509,6 +536,13 @@ def sign_in(json_data):
                                                                             appt_config.APPT_STATE['in_queue'])
     update_sql = f'UPDATE nsyy_gyl.appt_record SET {op_sql}{change_proj_sql} WHERE id = {appt_id} '
     db.execute(sql=update_sql, need_commit=True)
+
+    proj_id = apptinfo.get('appt_proj_id')
+    patient_name = apptinfo.get('appt_name')
+    # 签到成功之后，将患者名字推送给前端
+    socket_id = 'z' + str(proj_id)
+    push_patient(patient_name, socket_id)
+
     del db
 
     # 如果更换项目，更新可预约数量
@@ -568,15 +602,12 @@ def call(json_data):
         data = {'msg_list': [{'socket_data': socket_data, 'pers_id': socket_id, 'socketd': 'w_site'}]}
         headers = {'Content-Type': 'application/json'}
         response = requests.post(socket_push_url, data=json.dumps(data), headers=headers)
-        print("Socket Push Status: ", response.status_code, "Response: ", response.text)
+        print("Socket Push Status: ", response.status_code, "Response: ", response.text, "socket_data: ", socket_data, 'socket_id: ', socket_id)
     else:
-        # 正式环境： todo 待测试正式环境 socket 发送用法是否有问题
-        # from tools import socket_send
-        # socket_send(socket_data, 'm_user', socket_id)
         data = {'msg_list': [{'socket_data': socket_data, 'pers_id': socket_id, 'socketd': 'w_site'}]}
         headers = {'Content-Type': 'application/json'}
-        response = requests.post("http://localhost:6080/inter_socket_msg", data=json.dumps(data), headers=headers)
-        print("Socket Push Status: ", response.status_code, "Response: ", response.text)
+        response = requests.post("http://127.0.0.1:6088/inter_socket_msg", data=json.dumps(data), headers=headers)
+        print("Socket Push Status: ", response.status_code, "Response: ", response.text, "socket_data: ", socket_data, 'socket_id: ', socket_id)
 
 
 """
@@ -658,8 +689,8 @@ def query_all_appt_project(type: int):
             #     "list": list(group)
             # })
             list_group = list(group)
-            for item in list_group:
-                item['price'] = float(0.01)
+            # for item in list_group:
+            #     item['price'] = float(0.01)
             data_list.append({
                 "date": key[0],
                 "period": key[1],
@@ -740,22 +771,22 @@ def query_wait_list(json_data):
     from collections import defaultdict
     transformed_data = defaultdict(list)
     for item in appts:
-        key = (item['appt_proj_name'], item['doctor'], item['room'])
+        key = item['room']
         transformed_data[key].append(item)
 
     result = []
     for key, value in transformed_data.items():
-        appt_proj_name, doctor, room = key
         wait_list = value
         for index, item in enumerate(wait_list):
             item["sort_index"] = index + 1  # 排序字段从 1 开始
-        ret = {
-            'appt_proj_name': appt_proj_name,
-            'doctor': doctor,
-            'room': room,
-            'wait_list': wait_list
-        }
-        result.append(ret)
+        if len(wait_list) > 0:
+            ret = {
+                'appt_proj_name': wait_list[0].get('appt_proj_name'),
+                'doctor': wait_list[0].get('doctor'),
+                'room': wait_list[0].get('room'),
+                'wait_list': wait_list
+            }
+            result.append(ret)
 
     return result, photo, cur_doctor
 
