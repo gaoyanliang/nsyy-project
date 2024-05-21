@@ -53,8 +53,8 @@ appt_slot_dict = {
     23: 1,
 }
 
-# 测试环境推送地址
-socket_push_url = 'http://192.168.124.53:6080/inter_socket_msg'
+# socket 推送地址
+socket_push_url = 'http://120.194.96.67:6066/inter_socket_msg'
 
 default_photo = 'L2hvbWUvY2MvYXR0L3B1YmxpYy9kb2NfcGhvdG8vZGVmYXVsdC5qcGc='
 

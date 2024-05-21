@@ -361,6 +361,8 @@ def operate_appt(appt_id: int, type: int):
     push_patient('', socket_id)
     socket_id = 'z' + str(record.get('appt_proj_id'))
     push_patient('', socket_id)
+
+
 """
 根据医嘱创建预约
 """
@@ -462,17 +464,11 @@ def create_appt_by_doctor_advice(patient_id: str, doc_name: str, appt_id, urgenc
 
 def push_patient(patient_name: str, socket_id: str):
     socket_data = {"patient_name": patient_name, "type": 300}
-    if global_config.run_in_local:
-        # 测试环境
-        data = {'msg_list': [{'socket_data': socket_data, 'pers_id': socket_id, 'socketd': 'w_site'}]}
-        headers = {'Content-Type': 'application/json'}
-        response = requests.post(socket_push_url, data=json.dumps(data), headers=headers)
-        print("Socket Push Status: ", response.status_code, "Response: ", response.text, "socket_data: ", socket_data, "socket_id: ", socket_id)
-    else:
-        data = {'msg_list': [{'socket_data': socket_data, 'pers_id': socket_id, 'socketd': 'w_site'}]}
-        headers = {'Content-Type': 'application/json'}
-        response = requests.post("http://127.0.0.1:6088/inter_socket_msg", data=json.dumps(data), headers=headers)
-        print("Socket Push Status: ", response.status_code, "Response: ", response.text, "socket_data: ", socket_data, "socket_id: ", socket_id)
+    data = {'msg_list': [{'socket_data': socket_data, 'pers_id': socket_id, 'socketd': 'w_site'}]}
+    headers = {'Content-Type': 'application/json'}
+    response = requests.post(socket_push_url, data=json.dumps(data), headers=headers)
+    print("Socket Push Status: ", response.status_code, "Response: ", response.text, "socket_data: ", socket_data,
+          "socket_id: ", socket_id)
 
 
 """
@@ -482,7 +478,6 @@ def push_patient(patient_name: str, socket_id: str):
 
 def sign_in(json_data):
     # todo 签到之后通过 socket 将排队信息推送到前端
-    socket_id = ''
     db = DbUtil(global_config.DB_HOST, global_config.DB_USERNAME, global_config.DB_PASSWORD,
                 global_config.DB_DATABASE_GYL)
     redis_client = redis.Redis(connection_pool=pool)
@@ -604,17 +599,11 @@ def call(json_data):
     socket_data = {"msg": '请患者 {} 到 {} {} 号诊室就诊'.format(json_data.get('name'), json_data.get('proj_name'),
                                                                  str(json_data.get('proj_room'))),
                    "type": 200}
-    if global_config.run_in_local:
-        # 测试环境
-        data = {'msg_list': [{'socket_data': socket_data, 'pers_id': socket_id, 'socketd': 'w_site'}]}
-        headers = {'Content-Type': 'application/json'}
-        response = requests.post(socket_push_url, data=json.dumps(data), headers=headers)
-        print("Socket Push Status: ", response.status_code, "Response: ", response.text, "socket_data: ", socket_data, 'socket_id: ', socket_id)
-    else:
-        data = {'msg_list': [{'socket_data': socket_data, 'pers_id': socket_id, 'socketd': 'w_site'}]}
-        headers = {'Content-Type': 'application/json'}
-        response = requests.post("http://127.0.0.1:6088/inter_socket_msg", data=json.dumps(data), headers=headers)
-        print("Socket Push Status: ", response.status_code, "Response: ", response.text, "socket_data: ", socket_data, 'socket_id: ', socket_id)
+    data = {'msg_list': [{'socket_data': socket_data, 'pers_id': socket_id, 'socketd': 'w_site'}]}
+    headers = {'Content-Type': 'application/json'}
+    response = requests.post(socket_push_url, data=json.dumps(data), headers=headers)
+    print("Socket Push Status: ", response.status_code, "Response: ", response.text, "socket_data: ", socket_data,
+          'socket_id: ', socket_id)
 
 
 """
@@ -957,8 +946,6 @@ def doc_list():
 
 
 def load_appt_data_into_cache():
-    # todo 过期的预约记录 如何处理
-
     current_time = datetime.now()
     print("开始执行综合预约定时任务 - ", current_time)
 
@@ -969,6 +956,15 @@ def load_appt_data_into_cache():
     # 清空旧的预约数据
     keys = redis_client.keys('APPT_*')
     redis_client.delete(*keys)
+
+    # 取消今天之前未完成的预约
+    all_cancel_state = (appt_config.APPT_TYPE['offline'], appt_config.APPT_TYPE['auto_appt'],
+                        appt_config.APPT_TYPE['advice_appt'])
+    update_sql = 'UPDATE nsyy_gyl.appt_record SET state = {}, cancel_time = \'{}\' ' \
+                 'WHERE appt_date < \'{}\' AND state < {} AND appt_type IN {}'\
+        .format(appt_config.APPT_STATE['canceled'], datetime.now().strftime('%Y-%m-%d %H:%M:%S'),
+                date.today().strftime('%Y-%m-%d'), appt_config.APPT_STATE['completed'], tuple(all_cancel_state))
+    db.execute(update_sql, need_commit=True)
 
     # 缓存执行科室信息
     query_sql = 'select * from nsyy_gyl.appt_dept_info'
@@ -1044,7 +1040,11 @@ def load_appt_data_into_cache():
 
     # 根据换班信息，更新当天坐诊医生信息
     today = str(datetime.now().date())
-    query_sql = f'select * from nsyy_gyl.appt_doctor_shift_change where change_date = \'{today}\''
+    # query_sql = f'select * from nsyy_gyl.appt_doctor_shift_change where change_date = \'{today}\''
+    query_sql = f'select * FROM nsyy_gyl.appt_doctor_shift_change ' \
+                f'where id in (select max(id) from nsyy_gyl.appt_doctor_shift_change ' \
+                f'where change_date = \'{today}\' GROUP BY appt_doctor_shift_change.change_proj_id, ' \
+                f'appt_doctor_shift_change.change_period, appt_doctor_shift_change.day_of_week)'
     change_log = db.query_all(query_sql)
     for item in change_log:
         docinfo = redis_client.hget(APPT_DOCTOR_INFO_KEY, item.get('new_doc_his_name'))
