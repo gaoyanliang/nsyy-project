@@ -886,6 +886,7 @@ def doctor_shift_change(json_data):
             attending_doctor[0]['doc_type'] = docinfo.get('doc_type')
             attending_doctor[0]['price'] = docinfo.get('price')
             attending_doctor[0]['appointment_id'] = docinfo.get('appointment_id')
+            attending_doctor[0]['photo'] = docinfo.get('photo')
             redis_client.hset(APPT_ATTENDING_DOCTOR_KEY, key, json.dumps(attending_doctor, default=str))
             redis_client.hset(APPT_DOCTOR_TO_PROJ_KEY, new_doc_his_name, json.dumps([attending_doctor[0]], default=str))
 
@@ -917,6 +918,7 @@ def doctor_shift_change(json_data):
             new_attending_doctor['doc_type'] = docinfo.get('doc_type')
             new_attending_doctor['price'] = docinfo.get('price')
             new_attending_doctor['appointment_id'] = docinfo.get('appointment_id')
+            new_attending_doctor['photo'] = docinfo.get('photo')
             redis_client.hset(APPT_ATTENDING_DOCTOR_KEY, key, json.dumps([new_attending_doctor], default=str))
             redis_client.hset(APPT_DOCTOR_TO_PROJ_KEY, new_doc_his_name, json.dumps([new_attending_doctor], default=str))
 
@@ -1062,6 +1064,7 @@ def load_appt_data_into_cache():
                 attending_doctor[0]['doc_type'] = docinfo.get('doc_type')
                 attending_doctor[0]['price'] = docinfo.get('price')
                 attending_doctor[0]['appointment_id'] = docinfo.get('appointment_id')
+                attending_doctor[0]['photo'] = docinfo.get('photo')
                 redis_client.hset(APPT_ATTENDING_DOCTOR_KEY, key, json.dumps(attending_doctor, default=str))
                 redis_client.hset(APPT_DOCTOR_TO_PROJ_KEY, docinfo.get('doc_his_name'),
                                   json.dumps([attending_doctor[0]], default=str))
@@ -1082,6 +1085,7 @@ def load_appt_data_into_cache():
                 new_attending_doctor['doc_type'] = docinfo.get('doc_type')
                 new_attending_doctor['price'] = docinfo.get('price')
                 new_attending_doctor['appointment_id'] = docinfo.get('appointment_id')
+                new_attending_doctor['photo'] = docinfo.get('photo')
                 redis_client.hset(APPT_ATTENDING_DOCTOR_KEY, key, json.dumps([new_attending_doctor], default=str))
                 redis_client.hset(APPT_DOCTOR_TO_PROJ_KEY, docinfo.get('doc_his_name'),
                                   json.dumps([new_attending_doctor], default=str))
