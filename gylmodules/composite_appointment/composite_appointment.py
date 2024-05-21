@@ -206,8 +206,10 @@ def auto_create_appt_by_self_reg(patient_id: int):
     for item in self_reg_record:
         # 这里的doctor 是 his name
         doctor = item.get('执行人')
+        doctor_dept_id = item.get('执行部门ID')
         # 查询是否已经创建预约了, 创建过跳过 todo 预约完成后复查的如何处理
-        query_sql = f'select * from nsyy_gyl.appt_record where patient_id = {patient_id} and doctor = \'{doctor}\' and appt_date = \'{today}\''
+        query_sql = f'select * from nsyy_gyl.appt_record ' \
+                    f' where patient_id = {patient_id} and doctor = \'{doctor}\' and appt_date = \'{today}\''
         appt_record = db.query_all(query_sql)
         if appt_record:
             continue
@@ -234,12 +236,14 @@ def auto_create_appt_by_self_reg(patient_id: int):
                     'appt_proj_type': appt_proj_info.get('proj_type'),
                     'patient_id': patient_id,
                     "price": proj.get('price'),
+                    'doctor': doctor,
+                    'doctor_dept_id': doctor_dept_id,
                     "room": appt_proj_info.get('proj_room'),
                     "state": appt_config.APPT_STATE['booked'],
                     "urgency_level": 1,
                 }
                 create_appt(record, -1)
-                continue
+                break
 
 
 """
