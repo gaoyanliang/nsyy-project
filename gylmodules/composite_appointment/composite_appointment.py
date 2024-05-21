@@ -357,7 +357,10 @@ def operate_appt(appt_id: int, type: int):
         sign_in({'appt_proj_id': str(record.get('appt_proj_id')), 'appt_id': str(record.get('id')),
                  'appt_type': int(record.get('appt_type')), 'patient_id': str(record.get('patient_id'))})
 
-
+    socket_id = 'd' + str(record.get('appt_proj_category'))
+    push_patient('', socket_id)
+    socket_id = 'z' + str(record.get('appt_proj_id'))
+    push_patient('', socket_id)
 """
 根据医嘱创建预约
 """
@@ -843,6 +846,7 @@ def query_advice_by_father_appt_id(json_data):
 
 
 def doctor_shift_change(json_data):
+    # todo 医生换班之后，给前端推送消息，更换小屏幕图片
     db = DbUtil(global_config.DB_HOST, global_config.DB_USERNAME, global_config.DB_PASSWORD,
                 global_config.DB_DATABASE_GYL)
     redis_client = redis.Redis(connection_pool=pool)
@@ -926,6 +930,9 @@ def doctor_shift_change(json_data):
                  f'and appt_proj_id = {change_proj_id} and appt_date = \'{today}\' and appt_date_period = {change_period} '
     db.execute(update_sql, need_commit=True)
     del db
+
+    socket_id = 'z' + str(change_proj_id)
+    push_patient('', socket_id)
 
 
 def doc_list():
