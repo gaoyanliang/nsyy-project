@@ -46,6 +46,9 @@ def call_third_systems_obtain_data(url: str, type: str, param: dict):
             # 查询当天患者医嘱信息
             from tools import his_yizhu_info
             data = his_yizhu_info(param)
+        elif type == 'his_pay_info':
+            from tools import his_pay_info
+            data = his_pay_info(param)
 
     return data
 
@@ -119,6 +122,8 @@ def check_appointment_quantity(proj_id, appt_date, period, last_slot):
         for i in range(slot, 17):
             if int(last_slot) != -1 and i <= int(last_slot) and i < 16:
                 continue
+            if period == 1 and i > 8:
+                period = 2
             num = quantity_data[appt_date][str(period)]['hourly_quantity'].get(str(i))
             if num and int(num) > 0:
                 book_ok = True
@@ -128,9 +133,12 @@ def check_appointment_quantity(proj_id, appt_date, period, last_slot):
             raise Exception('当前项目已饱和，请选择其他时间')
     else:
         book_ok = False
-        for i in range(1, 17):
+        start_i = 1 if period == 1 else 9
+        for i in range(start_i, 17):
             if int(last_slot) != -1 and i == int(last_slot) and i < 16:
                 continue
+            if period == 1 and i > 8:
+                period = 2
             num = quantity_data[appt_date][str(period)]['hourly_quantity'].get(str(i))
             if num and int(num) > 0:
                 book_ok = True
@@ -159,6 +167,11 @@ def create_appt(json_data, last_slot):
                                                           json_data['appt_date_period'], last_slot)
     json_data['time_slot'] = time_slot
     json_data['state'] = appt_config.APPT_STATE['booked']
+
+    if time_slot < 9:
+        json_data['appt_date_period'] = 1
+    else:
+        json_data['appt_date_period'] = 2
 
     fileds = ','.join(json_data.keys())
     args = str(tuple(json_data.values()))
@@ -389,10 +402,6 @@ def create_appt_by_doctor_advice(patient_id: str, doc_name: str, appt_id, urgenc
 
     last_slot = -1
     for dept_id, advicel in advice_dict.items():
-        price = 0
-        for d in advicel:
-            price += d.get('实收金额')
-
         # 根据医嘱中的执行科室id 查询出院内项目
         query_sql = f'select * from nsyy_gyl.appt_project where proj_type = 2 and dept_id = {dept_id}'
         projl = db.query_all(query_sql)
@@ -427,12 +436,13 @@ def create_appt_by_doctor_advice(patient_id: str, doc_name: str, appt_id, urgenc
             "appt_proj_name": appt_proj_name,
             "appt_proj_type": appt_proj_type,
             "patient_id": patient_id,
-            "price": price,
             "room": room,
             "state": 1,
             "urgency_level": int(urgency_level),
-            "location_id": location_id
+            "location_id": location_id,
+            'doctor_dept_id': dept_id
         }
+        # 根据医嘱创建的预约，将执行科室的 id 存入 doctor_dept_id 中
         new_appt_id, slot = create_appt(record, last_slot)
         last_slot = slot
 
@@ -462,6 +472,140 @@ def create_appt_by_doctor_advice(patient_id: str, doc_name: str, appt_id, urgenc
     del db
 
 
+"""
+更新医嘱
+"""
+
+
+def update_advice(json_data):
+    patient_id = int(json_data.get('patient_id'))
+    doc_name = json_data.get('doc_name')
+    param = {"type": "his_yizhu_info", 'patient_id': patient_id, 'doc_name': doc_name}
+    new_doctor_advice = call_third_systems_obtain_data('his_info', 'his_yizhu_info', param)
+    if not new_doctor_advice:
+        # 没有医嘱直接返回
+        return
+
+    # 查询老医嘱内容
+    appt_id = int(json_data.get('appt_id'))
+    old_doctor_advice_appt = query_advice_by_father_appt_id({'father_appt_id': appt_id})
+    old_advicel_proj_dict = {str(item['appt_proj_id']): item for item in old_doctor_advice_appt}
+
+    redis_client = redis.Redis(connection_pool=pool)
+    db = DbUtil(global_config.DB_HOST, global_config.DB_USERNAME, global_config.DB_PASSWORD,
+                global_config.DB_DATABASE_GYL)
+
+    query_sql = f'select * from nsyy_gyl.appt_record where id = {appt_id}'
+    old_father_appt = db.query_one(query_sql)
+
+    # 按执行科室分组
+    new_advicel = {}
+    for item in new_doctor_advice:
+        key = item.get('执行部门ID')
+        if key not in new_advicel:
+            new_advicel[key] = []
+        new_advicel[key].append(item)
+
+    # 取之前创建的预约的最后一条
+    last_slot = appt_config.APPT_PERIOD_STR_INFO[old_doctor_advice_appt[len(old_doctor_advice_appt) - 1].get('time_slot')] if old_doctor_advice_appt else -1
+    for dept_id, advicel in new_advicel.items():
+        # 根据医嘱中的执行科室id 查询出院内项目
+        query_sql = f'select * from nsyy_gyl.appt_project where proj_type = 2 and dept_id = {dept_id}'
+        projl = db.query_all(query_sql)
+        if not projl:
+            print('当前医嘱没有可预约项目，使用默认项目创建预约', dept_id)
+            appt_proj_category = 500
+            appt_proj_id = 500
+            appt_proj_name = "其他项目"
+            appt_proj_type = 2
+            room = "其他项目"
+        else:
+            appt_proj_category = projl[0].get('proj_category')
+            appt_proj_id = projl[0].get('id')
+            appt_proj_name = projl[0].get('proj_name')
+            appt_proj_type = projl[0].get('proj_type')
+            room = projl[0].get('proj_room')
+        dept_info = redis_client.hget(APPT_EXECUTION_DEPT_INFO_KEY, str(dept_id))
+        location_id = ''
+        if dept_info:
+            dept_info = json.loads(dept_info)
+            location_id = dept_info.get('location_id')
+
+        old_appt = old_advicel_proj_dict.get(str(appt_proj_id))
+        if old_appt:
+            # 当前执行科室已经创建了预约，有新医嘱更新
+            old_pay_ids = list(set(item["pay_id"] for item in old_appt.get('doctor_advice')))
+            for key, group in groupby(advicel, key=lambda x: x['NO']):
+                group_list = list(group)
+                if group_list[0].get('NO') in old_pay_ids:
+                    continue
+
+                combined_advice_desc = '; '.join(item['检查明细项'] for item in group_list)
+                total_price = sum(item['实收金额'] for item in group_list)
+                json_data = {
+                    'appt_id': old_appt.get('id'),
+                    'pay_id': group_list[0].get('NO'),
+                    'advice_desc': combined_advice_desc,
+                    'dept_id': group_list[0].get('执行部门ID'),
+                    'dept_name': group_list[0].get('执行科室'),
+                    'price': total_price
+                }
+                fileds = ','.join(json_data.keys())
+                args = str(tuple(json_data.values()))
+                insert_sql = f"INSERT INTO nsyy_gyl.appt_doctor_advice ({fileds}) VALUES {args}"
+                last_rowid = db.execute(sql=insert_sql, need_commit=True)
+                if last_rowid == -1:
+                    raise Exception("医嘱记录入库失败! sql = " + insert_sql)
+        else:
+            record = {
+                'father_id': int(appt_id),
+                "appt_date": str(date.today()),
+                "appt_date_period": 1 if datetime.now().hour < 12 else 2,
+                "appt_type": 4,
+                "appt_name": advicel[0].get('姓名'),
+                "appt_proj_category": appt_proj_category,
+                "appt_proj_id": appt_proj_id,
+                "appt_proj_name": appt_proj_name,
+                "appt_proj_type": appt_proj_type,
+                "patient_id": patient_id,
+                "room": room,
+                "state": 1,
+                "urgency_level": old_father_appt.get('urgency_level'),
+                "location_id": location_id,
+                'doctor_dept_id': dept_id
+            }
+
+            # 根据医嘱创建的预约，将执行科室的 id 存入 doctor_dept_id 中
+            new_appt_id, slot = create_appt(record, last_slot)
+            last_slot = slot
+
+            # 按 pay_id 排序，后按 pay_id 分组
+            advicel.sort(key=lambda x: x['NO'])
+            # 根据 pay_id 分组并计算每个分组的 price 总和
+            for key, group in groupby(advicel, key=lambda x: x['NO']):
+                group_list = list(group)
+                combined_advice_desc = '; '.join(item['检查明细项'] for item in group_list)
+                total_price = sum(item['实收金额'] for item in group_list)
+                # 使用第一个元素的字典结构来创建合并后的记录
+                json_data = {
+                    'appt_id': new_appt_id,
+                    'pay_id': group_list[0].get('NO'),
+                    'advice_desc': combined_advice_desc,
+                    'dept_id': group_list[0].get('执行部门ID'),
+                    'dept_name': group_list[0].get('执行科室'),
+                    'price': total_price
+                }
+
+                fileds = ','.join(json_data.keys())
+                args = str(tuple(json_data.values()))
+                insert_sql = f"INSERT INTO nsyy_gyl.appt_doctor_advice ({fileds}) VALUES {args}"
+                last_rowid = db.execute(sql=insert_sql, need_commit=True)
+                if last_rowid == -1:
+                    raise Exception("医嘱记录入库失败! sql = " + insert_sql)
+
+    del db
+
+
 def push_patient(patient_name: str, socket_id: str):
     socket_data = {"patient_name": patient_name, "type": 300}
     data = {'msg_list': [{'socket_data': socket_data, 'pers_id': socket_id, 'socketd': 'w_site'}]}
@@ -482,11 +626,13 @@ def sign_in(json_data):
                 global_config.DB_DATABASE_GYL)
     redis_client = redis.Redis(connection_pool=pool)
     appt_id = int(json_data['appt_id'])
-    appt_type = int(json_data.get('appt_type'))
-    patient_id = int(json_data.get('patient_id'))
+    # appt_type = int(json_data.get('appt_type'))
+    # patient_id = int(json_data.get('patient_id'))
 
     query_sql = f'select * from nsyy_gyl.appt_record where id = {appt_id} '
     apptinfo = db.query_one(query_sql)
+    appt_type = int(apptinfo.get('appt_type'))
+    patient_id = int(apptinfo.get('patient_id'))
 
     # 如果是医嘱预约，检查付款状态
     if appt_type == 4:

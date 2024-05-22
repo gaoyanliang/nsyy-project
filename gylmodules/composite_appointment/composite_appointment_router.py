@@ -342,5 +342,21 @@ def doc_list():
     })
 
 
+@appt.route('/update_advice', methods=['POST'])
+def update_advice():
+    try:
+        json_data = json.loads(request.get_data().decode('utf-8'))
+        appointment.update_advice(json_data)
+    except Exception as e:
+        timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        print(f"[{timestamp}] Exception occurred: {traceback.print_exc()}")
+        return jsonify({
+            'code': 50000,
+            'res': e.__str__()
+        })
+
+    return jsonify({
+        'code': 20000
+    })
 
 
