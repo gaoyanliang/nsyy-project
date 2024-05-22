@@ -13,102 +13,113 @@ from gylmodules import global_config
 from gylmodules.composite_appointment import appt_config
 from gylmodules.utils.db_utils import DbUtil
 
-old_list = [
-    {"dept_id": 1, "advicel": [{'pay_id: ': 1, 'body': 'test1'}, {'pay_id: ': 2, 'body': 'test2'}]},
-    {"dept_id": 2, "advicel": [{'pay_id: ': 3, 'body': 'test1'}, {'pay_id: ': 4, 'body': 'test2'}]},
-    {"dept_id": 3, "advicel": [{'pay_id: ': 5, 'body': 'test1'}, {'pay_id: ': 6, 'body': 'test2'}]}
-]
 
-# 按照 dept_id 分组
-grouped_dict = {}
-for item in old_list:
-    dept_id = item["dept_id"]
-    advicel = item["advicel"]
-
-    if dept_id not in grouped_dict:
-        grouped_dict[dept_id] = []
-
-    grouped_dict[dept_id].extend(advicel)
+socket_push_url = 'http://120.194.96.67:6066/inter_socket_msg'
+socket_data = {"patient_name": '', "type": 400}
+data = {'msg_list': [{'socket_data': socket_data, 'pers_id': 'w1', 'socketd': 'w_site'}]}
+headers = {'Content-Type': 'application/json'}
+response = requests.post(socket_push_url, data=json.dumps(data), headers=headers)
+print("Socket Push Status: ", response.status_code, "Response: ", response.text, "socket_data: ", socket_data,
+      "socket_id: ", 'w1')
 
 
-
-
-
-old_list = [
-    {"dept_id": 1, "advicel": [{'pay_id: ': 1, 'body': 'test1'}, {'pay_id: ': 2, 'body': 'test2'}]},
-    {"dept_id": 2, "advicel": [{'pay_id: ': 3, 'body': 'test1'}, {'pay_id: ': 4, 'body': 'test2'}]},
-    {"dept_id": 3, "advicel": [{'pay_id: ': 5, 'body': 'test1'}, {'pay_id: ': 6, 'body': 'test2'}]}
-]
-
-
-new_list = [
-    {"dept_id": 1, "advicel": [{'pay_id: ': 1, 'body': 'test1'}, {'pay_id: ': 2, 'body': 'test2'}, {'pay_id: ': 7, 'body': 'test2'}]},
-    {"dept_id": 2, "advicel": [{'pay_id: ': 3, 'body': 'test1'}, {'pay_id: ': 4, 'body': 'test2'}]},
-    {"dept_id": 3, "advicel": [{'pay_id: ': 5, 'body': 'test1'}, {'pay_id: ': 6, 'body': 'test2'}]},
-    {"dept_id": 4, "advicel": [{'pay_id: ': 8, 'body': 'test1'}, {'pay_id: ': 9, 'body': 'test2'}]},
-]
-# 创建字典，以 dept_id 为键
-old_dict = {item['dept_id']: item['advicel'] for item in old_list}
-new_dict = {item['dept_id']: item['advicel'] for item in new_list}
-
-new_advices_grouped = {}
-
-# 比较每个部门的 advicel
-for dept_id, new_advicel in new_dict.items():
-    old_advicel = old_dict.get(dept_id, [])
-    old_advicel_set = {frozenset(advice.items()) for advice in old_advicel}
-    new_advicel_set = {frozenset(advice.items()) for advice in new_advicel}
-
-    added_advices = new_advicel_set - old_advicel_set
-    if added_advices:
-        new_advices_grouped[dept_id] = [dict(advice) for advice in added_advices]
-
-print(new_advices_grouped)
-
-
-param = {"type": "his_yizhu_info", 'patient_id': 3563057, 'doc_name': '夏明栓'}
-# new_doctor_advice = call_third_systems_obtain_data('his_info', 'his_yizhu_info', param)
-try:
-    # 发送 POST 请求，将字符串数据传递给 data 参数
-    response = requests.post(f"http://192.168.124.53:6080/his_info", json=param)
-    data = response.text
-    data = json.loads(data)
-    if type == 'his_visit_reg':
-        data = data.get('ResultCode')
-    else:
-        data = data.get('data')
-except Exception as e:
-    print('调用第三方系统方法失败：type = ' + type + ' param = ' + str(param) + "   " + e.__str__())
-
-new_doctor_advice = data
-
-# 按执行科室分组
-advice_dict = {}
-for item in new_doctor_advice:
-    key = item.get('执行部门ID')
-    if key not in advice_dict:
-        advice_dict[key] = []
-    advice_dict[key].append(item)
-
-dept_to_advice = {}
-for dept_id, advicel in advice_dict.items():
-    # 按 pay_id 排序，后按 pay_id 分组
-    advicel.sort(key=lambda x: x['NO'])
-    dept_to_advice[dept_id] = []
-    for key, group in groupby(advicel, key=lambda x: x['NO']):
-        group_list = list(group)
-        combined_advice_desc = '; '.join(item['检查明细项'] for item in group_list)
-        total_price = sum(item['实收金额'] for item in group_list)
-        json_data = {
-            'pay_id': group_list[0].get('NO'),
-            'advice_desc': combined_advice_desc,
-            'dept_id': group_list[0].get('执行部门ID'),
-            'dept_name': group_list[0].get('执行科室'),
-            'price': total_price
-        }
-        dept_to_advice[dept_id].append(json_data)
-
-print(dept_to_advice)
+#
+# old_list = [
+#     {"dept_id": 1, "advicel": [{'pay_id: ': 1, 'body': 'test1'}, {'pay_id: ': 2, 'body': 'test2'}]},
+#     {"dept_id": 2, "advicel": [{'pay_id: ': 3, 'body': 'test1'}, {'pay_id: ': 4, 'body': 'test2'}]},
+#     {"dept_id": 3, "advicel": [{'pay_id: ': 5, 'body': 'test1'}, {'pay_id: ': 6, 'body': 'test2'}]}
+# ]
+#
+# # 按照 dept_id 分组
+# grouped_dict = {}
+# for item in old_list:
+#     dept_id = item["dept_id"]
+#     advicel = item["advicel"]
+#
+#     if dept_id not in grouped_dict:
+#         grouped_dict[dept_id] = []
+#
+#     grouped_dict[dept_id].extend(advicel)
+#
+#
+#
+#
+#
+# old_list = [
+#     {"dept_id": 1, "advicel": [{'pay_id: ': 1, 'body': 'test1'}, {'pay_id: ': 2, 'body': 'test2'}]},
+#     {"dept_id": 2, "advicel": [{'pay_id: ': 3, 'body': 'test1'}, {'pay_id: ': 4, 'body': 'test2'}]},
+#     {"dept_id": 3, "advicel": [{'pay_id: ': 5, 'body': 'test1'}, {'pay_id: ': 6, 'body': 'test2'}]}
+# ]
+#
+#
+# new_list = [
+#     {"dept_id": 1, "advicel": [{'pay_id: ': 1, 'body': 'test1'}, {'pay_id: ': 2, 'body': 'test2'}, {'pay_id: ': 7, 'body': 'test2'}]},
+#     {"dept_id": 2, "advicel": [{'pay_id: ': 3, 'body': 'test1'}, {'pay_id: ': 4, 'body': 'test2'}]},
+#     {"dept_id": 3, "advicel": [{'pay_id: ': 5, 'body': 'test1'}, {'pay_id: ': 6, 'body': 'test2'}]},
+#     {"dept_id": 4, "advicel": [{'pay_id: ': 8, 'body': 'test1'}, {'pay_id: ': 9, 'body': 'test2'}]},
+# ]
+# # 创建字典，以 dept_id 为键
+# old_dict = {item['dept_id']: item['advicel'] for item in old_list}
+# new_dict = {item['dept_id']: item['advicel'] for item in new_list}
+#
+# new_advices_grouped = {}
+#
+# # 比较每个部门的 advicel
+# for dept_id, new_advicel in new_dict.items():
+#     old_advicel = old_dict.get(dept_id, [])
+#     old_advicel_set = {frozenset(advice.items()) for advice in old_advicel}
+#     new_advicel_set = {frozenset(advice.items()) for advice in new_advicel}
+#
+#     added_advices = new_advicel_set - old_advicel_set
+#     if added_advices:
+#         new_advices_grouped[dept_id] = [dict(advice) for advice in added_advices]
+#
+# print(new_advices_grouped)
+#
+#
+# param = {"type": "his_yizhu_info", 'patient_id': 3563057, 'doc_name': '夏明栓'}
+# # new_doctor_advice = call_third_systems_obtain_data('his_info', 'his_yizhu_info', param)
+# try:
+#     # 发送 POST 请求，将字符串数据传递给 data 参数
+#     response = requests.post(f"http://192.168.124.53:6080/his_info", json=param)
+#     data = response.text
+#     data = json.loads(data)
+#     if type == 'his_visit_reg':
+#         data = data.get('ResultCode')
+#     else:
+#         data = data.get('data')
+# except Exception as e:
+#     print('调用第三方系统方法失败：type = ' + type + ' param = ' + str(param) + "   " + e.__str__())
+#
+# new_doctor_advice = data
+#
+# # 按执行科室分组
+# advice_dict = {}
+# for item in new_doctor_advice:
+#     key = item.get('执行部门ID')
+#     if key not in advice_dict:
+#         advice_dict[key] = []
+#     advice_dict[key].append(item)
+#
+# dept_to_advice = {}
+# for dept_id, advicel in advice_dict.items():
+#     # 按 pay_id 排序，后按 pay_id 分组
+#     advicel.sort(key=lambda x: x['NO'])
+#     dept_to_advice[dept_id] = []
+#     for key, group in groupby(advicel, key=lambda x: x['NO']):
+#         group_list = list(group)
+#         combined_advice_desc = '; '.join(item['检查明细项'] for item in group_list)
+#         total_price = sum(item['实收金额'] for item in group_list)
+#         json_data = {
+#             'pay_id': group_list[0].get('NO'),
+#             'advice_desc': combined_advice_desc,
+#             'dept_id': group_list[0].get('执行部门ID'),
+#             'dept_name': group_list[0].get('执行科室'),
+#             'price': total_price
+#         }
+#         dept_to_advice[dept_id].append(json_data)
+#
+# print(dept_to_advice)
 
 # pool = redis.ConnectionPool(host=appt_config.APPT_REDIS_HOST, port=appt_config.APPT_REDIS_PORT,
 #                             db=appt_config.APPT_REDIS_DB, decode_responses=True)

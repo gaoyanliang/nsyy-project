@@ -166,7 +166,8 @@ def create_appt(json_data, last_slot):
                                                           json_data['appt_date'],
                                                           json_data['appt_date_period'], last_slot)
     json_data['time_slot'] = time_slot
-    json_data['state'] = appt_config.APPT_STATE['booked']
+    if 'state' not in json_data:
+        json_data['state'] = appt_config.APPT_STATE['booked']
 
     if time_slot < 9:
         json_data['appt_date_period'] = 1
@@ -275,10 +276,28 @@ def query_appt(json_data):
     if patient_id:
         auto_create_appt_by_self_reg(int(patient_id))
 
-    state_sql = 'state > 0 '
-    if 'is_completed' in json_data:
-        state_sql = ' state >= {}'.format(appt_config.APPT_STATE['completed']) if int(json_data.get('is_completed')) \
-            else 'state < {}'.format(appt_config.APPT_STATE['completed'])
+    # oa 页面仅查询所有状态 > 0 的预约记录
+    # 手机小程序 根据 patient id 查询所有的预约记录
+    is_completed = int(json_data.get('is_complete')) if json_data.get('is_complete') else 0
+    if is_completed:
+        # 查询已完成的
+        state_sql = ' state >= {} '.format(appt_config.APPT_STATE['completed'])
+    else:
+        # 查询未完成的记录, 如果是 patient_id 查询
+        # 分诊护士只关注待签到的预约，
+        state_sql = ' state >= {} and state < {} '.format(appt_config.APPT_STATE['new'],
+                                                          appt_config.APPT_STATE['completed'])
+
+    triage_id = json_data.get('triage_id')
+    triage_sql = ''
+    if triage_id:
+        state_sql = ' state = {} '.format(appt_config.APPT_STATE['booked'])
+        triage_sql = ' and appt_date = \'{}\' and appt_proj_category = {} '.format(str(date.today()), int(triage_id))
+
+    # state_sql = 'state >= 0 '
+    # if 'is_completed' in json_data:
+    #     state_sql = ' state >= {}'.format(appt_config.APPT_STATE['completed']) if int(json_data.get('is_completed')) \
+    #         else 'state < {}'.format(appt_config.APPT_STATE['completed'])
 
     openid = json_data.get('openid')
     openid_sql = f' and openid = \'{openid}\' ' if openid else ''
@@ -295,7 +314,7 @@ def query_appt(json_data):
     patient_id_sql = f' and patient_id = \'{patient_id}\' ' if patient_id else ''
 
     query_sql = f"select * from nsyy_gyl.appt_record " \
-                f"where {state_sql}{doctor_sql}{openid_sql}{id_card_no_sql}{time_sql}{name_sql}{proj_id_sql}{patient_id_sql}"
+                f"where {state_sql}{doctor_sql}{openid_sql}{id_card_no_sql}{time_sql}{name_sql}{proj_id_sql}{patient_id_sql}{triage_sql}"
     appts = db.query_all(query_sql)
 
     # 组装医嘱信息
@@ -332,6 +351,7 @@ def operate_appt(appt_id: int, type: int):
     if not record:
         raise Exception(f'预约id {appt_id} 预约记录不存在，请检查入参.')
 
+    op_sql = ''
     if type == 1:
         # 预约完成
         op_sql = ' state = {} '.format(appt_config.APPT_STATE['completed'])
@@ -341,13 +361,16 @@ def operate_appt(appt_id: int, type: int):
     elif type == 3:
         # 过号
         op_sql = ' state = {} '.format(appt_config.APPT_STATE['over_num'])
+    elif type == 4:
+        # 报道 仅院内项目使用
+        op_sql = ' state = {} '.format(appt_config.APPT_STATE['booked'])
 
     update_sql = f'UPDATE nsyy_gyl.appt_record SET {op_sql} WHERE id = {appt_id} '
     db.execute(sql=update_sql, need_commit=True)
     del db
 
     # 预约完成，查询医嘱打印 引导单
-    if type == 1:
+    if type == 1 and int(record.get('appt_type')) < 4:
         create_appt_by_doctor_advice(record.get('patient_id'), record.get('doctor'), appt_id, int(record.get('urgency_level')))
 
     # 取消预约，可预约数量 + 1
@@ -369,6 +392,12 @@ def operate_appt(appt_id: int, type: int):
     if type == 3:
         sign_in({'appt_proj_id': str(record.get('appt_proj_id')), 'appt_id': str(record.get('id')),
                  'appt_type': int(record.get('appt_type')), 'patient_id': str(record.get('patient_id'))})
+
+    if type == 4:
+        # 报道时需要给分诊护士发送 socket
+        socket_id = 'w' + str(record.get('appt_proj_category'))
+        push_patient('', socket_id)
+        return
 
     socket_id = 'd' + str(record.get('appt_proj_category'))
     push_patient('', socket_id)
@@ -437,7 +466,7 @@ def create_appt_by_doctor_advice(patient_id: str, doc_name: str, appt_id, urgenc
             "appt_proj_type": appt_proj_type,
             "patient_id": patient_id,
             "room": room,
-            "state": 1,
+            "state": 0,
             "urgency_level": int(urgency_level),
             "location_id": location_id,
             'doctor_dept_id': dept_id
@@ -569,7 +598,7 @@ def update_advice(json_data):
                 "appt_proj_type": appt_proj_type,
                 "patient_id": patient_id,
                 "room": room,
-                "state": 1,
+                "state": 0,
                 "urgency_level": old_father_appt.get('urgency_level'),
                 "location_id": location_id,
                 'doctor_dept_id': dept_id
@@ -687,13 +716,22 @@ def sign_in(json_data):
 
     proj_id = apptinfo.get('appt_proj_id')
     patient_name = apptinfo.get('appt_name')
-    # 签到成功之后，将患者名字推送给前端
-    socket_id = 'z' + str(proj_id)
-    push_patient(patient_name, socket_id)
+
+    if int(apptinfo.get('appt_type')) == 4:
+        socket_id = 'd' + str(apptinfo.get('appt_proj_category'))
+        push_patient(patient_name, socket_id)
+    else:
+        # 签到成功之后，将患者名字推送给前端
+        socket_id = 'z' + str(proj_id)
+        push_patient(patient_name, socket_id)
+
+    # 签到之后给医生发送 socket
+    socket_id = 'y' + str(proj_id)
+    push_patient('', socket_id)
 
     del db
 
-    # 如果更换项目，更新可预约数量
+        # 如果更换项目，更新可预约数量
     if quantity_data:
         redis_client = redis.Redis(connection_pool=pool)
         appt_date = json_data['appt_date']
@@ -858,7 +896,9 @@ def query_room_list(type: int):
         query_sql = 'select * from nsyy_gyl.appt_project '
         room_list = db.query_all(query_sql)
     elif int(type) == 2:
-        query_sql = 'select proj_category as id, max(proj_name) as proj_name from nsyy_gyl.appt_project where is_group = 1 group by proj_category'
+        query_sql = 'select proj_category as id, max(proj_name) as proj_name ' \
+                    'from nsyy_gyl.appt_project ' \
+                    'where is_group = 1 group by proj_category'
         room_list = db.query_all(query_sql)
     del db
     return room_list
