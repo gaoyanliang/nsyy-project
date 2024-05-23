@@ -164,7 +164,7 @@ def create_appt(json_data, last_slot):
     # 检查项目是否可以预约，以及获取预估时间段
     quantity_data, time_slot = check_appointment_quantity(json_data['appt_proj_id'],
                                                           json_data['appt_date'],
-                                                          json_data['appt_date_period'], last_slot)
+                                                          int(json_data['appt_date_period']), last_slot)
     json_data['time_slot'] = time_slot
     if 'state' not in json_data:
         json_data['state'] = appt_config.APPT_STATE['booked']
@@ -278,7 +278,7 @@ def query_appt(json_data):
 
     # oa 页面仅查询所有状态 > 0 的预约记录
     # 手机小程序 根据 patient id 查询所有的预约记录
-    is_completed = int(json_data.get('is_complete')) if json_data.get('is_complete') else 0
+    is_completed = int(json_data.get('is_completed')) if json_data.get('is_completed') else 0
     if is_completed:
         # 查询已完成的
         state_sql = ' state >= {} '.format(appt_config.APPT_STATE['completed'])
@@ -294,6 +294,8 @@ def query_appt(json_data):
         state_sql = ' state = {} '.format(appt_config.APPT_STATE['booked'])
         triage_sql = ' and appt_date = \'{}\' and appt_proj_category = {} '.format(str(date.today()), int(triage_id))
 
+    if len(json_data.keys()) == 1 and 'patient_id' in json_data:
+        state_sql = ' state >= 0 '
     # state_sql = 'state >= 0 '
     # if 'is_completed' in json_data:
     #     state_sql = ' state >= {}'.format(appt_config.APPT_STATE['completed']) if int(json_data.get('is_completed')) \
@@ -377,6 +379,8 @@ def operate_appt(appt_id: int, type: int):
     if type == 2:
         proj_id, period, appt_date = str(record.get('appt_proj_id')), str(
             record.get('appt_date_period')), record.get('appt_date')
+        if appt_date < str(date.today()):
+            return
         redis_client = redis.Redis(connection_pool=pool)
         quantity_data = redis_client.hget(APPT_REMAINING_RESERVATION_QUANTITY_KEY, str(proj_id))
         if not quantity_data:
@@ -391,7 +395,8 @@ def operate_appt(appt_id: int, type: int):
     # 过号，重新取号，排在最后
     if type == 3:
         sign_in({'appt_proj_id': str(record.get('appt_proj_id')), 'appt_id': str(record.get('id')),
-                 'appt_type': int(record.get('appt_type')), 'patient_id': str(record.get('patient_id'))})
+                 'appt_type': int(record.get('appt_type')), 'patient_id': str(record.get('patient_id'))},
+                his_sign=False)
 
     if type == 4:
         # 报道时需要给分诊护士发送 socket
@@ -649,7 +654,7 @@ def push_patient(patient_name: str, socket_id: str):
 """
 
 
-def sign_in(json_data):
+def sign_in(json_data, his_sign: bool):
     # todo 签到之后通过 socket 将排队信息推送到前端
     db = DbUtil(global_config.DB_HOST, global_config.DB_USERNAME, global_config.DB_PASSWORD,
                 global_config.DB_DATABASE_GYL)
@@ -678,10 +683,10 @@ def sign_in(json_data):
                     is_ok = True
                     break
             if not is_ok:
-                raise Exception('所有医嘱项目均为付款，请及时付款', param)
+                raise Exception('所有医嘱项目均未付款，请及时付款', param)
 
     # 签到前到 his 中取号, 小程序预约，现场预约需要取号。 自助挂号机挂号的预约不需要挂号. todo 取号价格待更换为真实的数据
-    if appt_type in (1, 2):
+    if appt_type in (1, 2) and his_sign:
         doctorinfo = redis_client.hget(APPT_DOCTOR_INFO_KEY, apptinfo.get('doctor'))
         param = {"type": "his_visit_reg", "patient_id": json_data.get('patient_id'), "AsRowid": 2116, "PayAmt": 0.01}
         if doctorinfo:
@@ -700,7 +705,7 @@ def sign_in(json_data):
     if 'appt_proj_name' in json_data and json_data.get('appt_proj_name'):
         # 检查项目是否可以预约
         quantity_data, time_slot = check_appointment_quantity(json_data['appt_proj_id'], json_data['appt_date'],
-                                                   json_data['appt_date_period'], -1)
+                                                   int(json_data['appt_date_period']), -1)
 
         change_proj_sql = ', appt_proj_id = {}, appt_proj_type = {}, appt_proj_category = {},' \
                           ' appt_proj_name = \'{}\', room = \'{}\' ' \
@@ -780,8 +785,9 @@ def if_the_current_time_period_is_available(period):
 
 def call(json_data):
     socket_id = json_data.get('socket_id')
-    socket_data = {"msg": '请患者 {} 到 {} {} 号诊室就诊'.format(json_data.get('name'), json_data.get('proj_name'),
-                                                                 str(json_data.get('proj_room'))),
+    room = ' '.join(list(json_data.get('proj_room')))
+    socket_data = {"msg": '请患者 {} 到 {} {} 诊室就诊'.format(json_data.get('name'), json_data.get('proj_name'),
+                                                                 room),
                    "type": 200}
     data = {'msg_list': [{'socket_data': socket_data, 'pers_id': socket_id, 'socketd': 'w_site'}]}
     headers = {'Content-Type': 'application/json'}

@@ -29,6 +29,7 @@ def wx_appt():
         appointment.online_appt(json_data)
     except Exception as e:
         timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        print('参数： ', json_data)
         print(f"[{timestamp}] Exception occurred: {traceback.print_exc()}")
         return jsonify({
             'code': 50000,
@@ -59,6 +60,7 @@ def offline_appt():
         appointment.offline_appt(json_data)
     except Exception as e:
         timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        print('参数： ', json_data)
         print(f"[{timestamp}] Exception occurred: {traceback.print_exc()}")
         return jsonify({
             'code': 50000,
@@ -127,7 +129,7 @@ def cancel_appt():
 def sign_in():
     try:
         json_data = json.loads(request.get_data().decode('utf-8'))
-        appointment.sign_in(json_data)
+        appointment.sign_in(json_data, his_sign=True)
     except Exception as e:
         timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
         print(f"[{timestamp}] Exception occurred: {traceback.print_exc()}")
