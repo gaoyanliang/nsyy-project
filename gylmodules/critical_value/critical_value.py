@@ -2,7 +2,7 @@ import redis
 import json
 import threading
 import requests
-import time
+from suds.client import Client
 
 from datetime import datetime
 
@@ -17,7 +17,6 @@ pool = redis.ConnectionPool(host=cv_config.CV_REDIS_HOST, port=cv_config.CV_REDI
 
 scheduler = BackgroundScheduler()
 cv_id_lock = threading.Lock()
-
 
 """
 调用第三方系统获取数据
@@ -167,7 +166,6 @@ def pull_running_cv():
 
 # 启动时先运行该方法，加载数据
 pull_running_cv()
-
 
 """
 查询所有运行中的危机值id列表
@@ -536,6 +534,7 @@ def async_alert(type, id, msg):
                     requests.post(url, json=payload)
                 except Exception as e:
                     return
+
     thread_b = threading.Thread(target=alert, args=(type, id, msg))
     thread_b.start()
 
@@ -720,7 +719,16 @@ def doctor_handle_cv(json_data):
     delete_cache(key)
 
     # 护士接收之后，进行数据回传
-    data_feedback(cv_id, int(cv_source), handler_name, timer, '', 3)
+    if int(cv_source) == 4:
+        # 心电危机值特殊处理
+        xindian_data_feedback({
+            "cv_id": cv_id,
+            "doc_id": handler_id,
+            "doc_name": handler_name,
+            "body": method
+        })
+    else:
+        data_feedback(cv_id, int(cv_source), handler_name, timer, '', 3)
 
 
 """
@@ -850,6 +858,26 @@ def data_feedback(cv_id, cv_source, confirmer, timer, confirm_info, type: int):
     }
 
     call_third_systems_obtain_data('data_feedback', param)
+
+
+def xindian_data_feedback(json_data):
+    cv_id = json_data.get('cv_id')
+    doc_id = json_data.get('doc_id')
+    doc_name = json_data.get('doc_name')
+    body = json_data.get('body')
+    param = "<Root>" \
+            f"<repGuid>{cv_id}</repGuid>" \
+            f"<HandleDoctorCode>{doc_id}</HandleDoctorCode>" \
+            f"<HandleDoctorName>{doc_name}</HandleDoctorName>" \
+            f"<HandleDoctorNote>{body}</HandleDoctorNote>" \
+            "</Root>"
+
+    client = Client('http://192.168.3.43:8082?wsdl')
+    res = client.service.SendCriricalHandelInfo(param)
+    # 关闭客户端对象
+    client.options.cache.clear()  # 清除缓存
+    print('心电危机值处理后数据回调， res: ', res, ' param: ', param)
+    return res
 
 
 """

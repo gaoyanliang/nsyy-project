@@ -408,3 +408,24 @@ def alert_dept_list():
         'code': 20000,
         'data': dept_list
     })
+
+
+@cv.route('/xindian_feedback', methods=['POST'])
+def xindian_feedback():
+    try:
+        json_data = json.loads(request.get_data().decode('utf-8'))
+        res = critical_value.xindian_data_feedback(json_data)
+    except Exception as e:
+        timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        print(f"[{timestamp}] Exception occurred: {traceback.print_exc()}")
+        return jsonify({
+            'code': 50000,
+            'res': e.__str__(),
+            'data': []
+        })
+
+    return jsonify({
+        'code': 20000,
+        'data': res
+    })
+
