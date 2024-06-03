@@ -431,7 +431,7 @@ def create_cv_by_system(json_data, cv_source):
 
 
 def get_cv_list(json_data):
-    # type =1 未处理， type =2 已处理, type = 3 总流程超时
+    # type =1 未处理， type =2 已处理, type = 3 总流程超时, type = 4 所有状态
     db = DbUtil(global_config.DB_HOST, global_config.DB_USERNAME, global_config.DB_PASSWORD,
                 global_config.DB_DATABASE_GYL)
 
@@ -444,6 +444,8 @@ def get_cv_list(json_data):
         state_sql = ' state in {} and is_timeout = 0 '.format(states)
     if int(json_data.get('type')) == 3:
         state_sql = ' is_timeout = 1 '
+    if int(json_data.get('type')) == 4:
+        state_sql = ' state >= 0 '
 
     alert_dept_id = json_data.get('alert_dept_id')
     alert_dept_id_sql = ''
@@ -464,6 +466,9 @@ def get_cv_list(json_data):
             condation_sql = f' and dept_id = {dept_id} '
         if ward_id:
             condation_sql = f' and ward_id = {ward_id} '
+
+    if json_data.get('cv_id'):
+        condation_sql += ' and cv_id = \'{}\' '.format(json_data.get('cv_id'))
 
     query_sql = f'select * from nsyy_gyl.cv_info where {state_sql} {time_sql} {condation_sql} {alert_dept_id_sql}'
     cv_list = db.query_all(query_sql)
@@ -752,11 +757,11 @@ def report_form(json_data):
                 f'dept_name AS name, ' \
                 f'1 type, ' \
                 f'COUNT(*) AS total_cv_count, ' \
-                f'SUM(CASE WHEN handle_time IS NOT NULL THEN 1 ELSE 0 END) AS handled_count, ' \
-                f'SUM(CASE WHEN handle_time IS NULL THEN 1 ELSE 0 END) AS handled_undo_count, ' \
-                f'SUM(CASE WHEN (is_doctor_recv_timeout = 1 OR is_doctor_handle_timeout = 1) THEN 1 ELSE 0 END) AS handled_timeout_count, ' \
-                f'ROUND((SUM(CASE WHEN handle_time IS NOT NULL THEN 1 ELSE 0 END) / COUNT(*)) * 100, 2) AS handling_rate, ' \
-                f'ROUND((SUM(CASE WHEN (is_doctor_recv_timeout = 1 OR is_doctor_handle_timeout = 1) THEN 1 ELSE 0 END) / COUNT(*)) * 100, 2) AS handling_timeout_rate ' \
+                f'SUM(CASE WHEN (state = 9 or state = 0) THEN 1 ELSE 0 END) AS handled_count, ' \
+                f'SUM(CASE WHEN (handle_time IS NULL and state != 0) THEN 1 ELSE 0 END) AS handled_undo_count, ' \
+                f'SUM(CASE WHEN (is_doctor_recv_timeout = 1 OR is_doctor_handle_timeout = 1) and state != 0 THEN 1 ELSE 0 END) AS handled_timeout_count, ' \
+                f'ROUND((SUM(CASE WHEN (state = 9 or state = 0) THEN 1 ELSE 0 END) / COUNT(*)) * 100, 2) AS handling_rate, ' \
+                f'ROUND((SUM(CASE WHEN ((is_doctor_recv_timeout = 1 OR is_doctor_handle_timeout = 1) and state != 0) THEN 1 ELSE 0 END) / COUNT(*)) * 100, 2) AS handling_timeout_rate ' \
                 f'FROM nsyy_gyl.cv_info {time_condition} GROUP BY dept_name ' \
                 f'UNION ALL ' \
                 f'SELECT ' \
@@ -765,10 +770,10 @@ def report_form(json_data):
                 f'2 type, ' \
                 f'COUNT(*) AS total_cv_count, ' \
                 f'SUM(CASE WHEN nurse_recv_time IS NOT NULL OR (nurse_recv_time IS NULL AND handle_time IS NOT NULL) THEN 1 ELSE 0 END ) AS handled_count, ' \
-                f'SUM(CASE WHEN nurse_recv_time IS NULL AND handle_time IS NULL THEN 1 ELSE 0 END ) AS handled_undo_count, ' \
-                f'SUM(CASE WHEN (is_nurse_recv_timeout = 1 OR is_nurse_send_timeout = 1 OR is_timeout = 1) THEN 1 ELSE 0 END) AS handled_timeout_count, ' \
+                f'SUM(CASE WHEN nurse_recv_time IS NULL AND handle_time IS NULL AND state != 0 THEN 1 ELSE 0 END ) AS handled_undo_count, ' \
+                f'SUM(CASE WHEN (is_nurse_recv_timeout = 1 OR is_nurse_send_timeout = 1 OR is_timeout = 1) AND state != 0 THEN 1 ELSE 0 END) AS handled_timeout_count, ' \
                 f'ROUND((SUM(CASE WHEN nurse_recv_time IS NOT NULL OR (nurse_recv_time IS NULL AND handle_time IS NOT NULL) THEN 1 ELSE 0 END) / COUNT(*)) * 100, 2) AS handling_rate, ' \
-                f'ROUND((SUM(CASE WHEN (is_nurse_recv_timeout = 1 OR is_nurse_send_timeout = 1 OR is_timeout = 1) THEN 1 ELSE 0 END ) / COUNT(*)) * 100, 2) AS handling_timeout_rate ' \
+                f'ROUND((SUM(CASE WHEN (is_nurse_recv_timeout = 1 OR is_nurse_send_timeout = 1 OR is_timeout = 1) AND state != 0 THEN 1 ELSE 0 END ) / COUNT(*)) * 100, 2) AS handling_timeout_rate ' \
                 f'FROM nsyy_gyl.cv_info {time_condition} GROUP BY ward_name '
 
     report = db.query_all(query_sql)
