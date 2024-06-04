@@ -19,7 +19,6 @@ appt = Blueprint('composite appointment', __name__, url_prefix='/appt')
 def wx_appt():
     try:
         json_data = json.loads(request.get_data().decode('utf-8'))
-        print(json_data)
         id_card_no = json_data.get('id_card_no')
         openid = json_data.get('openid')
         patient_name = json_data.get('patient_name')
@@ -52,7 +51,6 @@ def wx_appt():
 def offline_appt():
     try:
         json_data = json.loads(request.get_data().decode('utf-8'))
-        print(json_data)
         id_card_no = json_data.get('id_card_no')
         patient_id = json_data.get('patient_id')
         patient_name = json_data.get('patient_name')
@@ -84,7 +82,6 @@ def offline_appt():
 def query_appt():
     try:
         json_data = json.loads(request.get_data().decode('utf-8'))
-        print(json_data)
         appts, total = ca_server.query_appt_record(json_data)
     except Exception as e:
         timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
@@ -111,7 +108,6 @@ def query_appt():
 def op_appt():
     try:
         json_data = json.loads(request.get_data().decode('utf-8'))
-        print(json_data)
         ca_server.operate_appt(int(json_data.get('appt_id')), int(json_data.get('type')))
     except Exception as e:
         timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
@@ -134,7 +130,6 @@ def op_appt():
 def sign_in():
     try:
         json_data = json.loads(request.get_data().decode('utf-8'))
-        print(json_data)
         ca_server.sign_in(json_data, his_sign=True)
     except Exception as e:
         timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
@@ -158,7 +153,6 @@ def sign_in():
 def get_all_project():
     try:
         json_data = json.loads(request.get_data().decode('utf-8'))
-        print(json_data)
         projectl = ca_server.query_all_appt_project(int(json_data.get('type')))
     except Exception as e:
         timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
@@ -183,7 +177,6 @@ def get_all_project():
 def query_room_list():
     try:
         json_data = json.loads(request.get_data().decode('utf-8'))
-        print(json_data)
         room_list = ca_server.query_room_list(int(json_data.get('type')))
     except Exception as e:
         timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
@@ -208,7 +201,6 @@ def query_room_list():
 def query_wait_list():
     try:
         json_data = json.loads(request.get_data().decode('utf-8'))
-        print(json_data)
         wait_list, doctor, proj = ca_server.query_wait_list(json_data)
     except Exception as e:
         timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
@@ -237,7 +229,6 @@ def query_wait_list():
 def next_num():
     try:
         json_data = json.loads(request.get_data().decode('utf-8'))
-        print(json_data)
         data_list = ca_server.next_num(int(json_data.get('id')), int(json_data.get('is_group')))
     except Exception as e:
         timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
@@ -285,7 +276,6 @@ def call_patient():
 def query_advice_by_father_appt_id():
     try:
         json_data = json.loads(request.get_data().decode('utf-8'))
-        print(json_data)
         advice_info = ca_server.query_advice_by_father_appt_id(json_data)
     except Exception as e:
         timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
@@ -310,7 +300,6 @@ def query_advice_by_father_appt_id():
 def update_doctor_advice_pay_state():
     try:
         json_data = json.loads(request.get_data().decode('utf-8'))
-        print(json_data)
         ca_server.update_doctor_advice_pay_state(json_data.get('idl'))
     except Exception as e:
         timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
@@ -334,7 +323,6 @@ def update_doctor_advice_pay_state():
 def update_advice():
     try:
         json_data = json.loads(request.get_data().decode('utf-8'))
-        print(json_data)
         ca_server.update_advice(json_data)
     except Exception as e:
         timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
