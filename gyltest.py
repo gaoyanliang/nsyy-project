@@ -11,16 +11,69 @@ import xlrd
 
 from gylmodules import global_config
 from gylmodules.composite_appointment import appt_config
+from gylmodules.critical_value import cv_config
 from gylmodules.utils.db_utils import DbUtil
+from suds.client import Client
+
+from zeep import Client
+from zeep.exceptions import Fault
+from zeep.transports import Transport
+import logging
+import requests
 
 
-socket_push_url = 'http://120.194.96.67:6066/inter_socket_msg'
-socket_data = {"patient_name": '', "type": 400}
-data = {'msg_list': [{'socket_data': socket_data, 'pers_id': 'w1', 'socketd': 'w_site'}]}
-headers = {'Content-Type': 'application/json'}
-response = requests.post(socket_push_url, data=json.dumps(data), headers=headers)
-print("Socket Push Status: ", response.status_code, "Response: ", response.text, "socket_data: ", socket_data,
-      "socket_id: ", 'w1')
+data = {'test': 112}
+print(data.get('tessst') or appt_config.APPT_URGENCY_LEVEL['green'])
+
+num_people = 4
+ans = [0] * num_people
+
+print(ans)
+#
+#
+# call_webservices('08ef7020-5a22-405a-a2ff-9f0259478e3d', '001', '123', '123')
+#
+#
+# sched_data = [
+#
+#     {'did': 417, 'rid': 152, 'pid': 80, 'worktime': 1, 'ampm': 1, 'state': 1},
+#     {'did': 417, 'rid': 152, 'pid': 80, 'worktime': 1, 'ampm': 2, 'state': 1},
+#     {'did': 417, 'rid': 152, 'pid': 80, 'worktime': 2, 'ampm': 1, 'state': 1},
+#     {'did': 417, 'rid': 152, 'pid': 80, 'worktime': 2, 'ampm': 2, 'state': 1},
+#     {'did': 417, 'rid': 152, 'pid': 80, 'worktime': 3, 'ampm': 1, 'state': 1},
+#     {'did': 417, 'rid': 152, 'pid': 80, 'worktime': 3, 'ampm': 2, 'state': 1},
+#     {'did': 417, 'rid': 152, 'pid': 80, 'worktime': 4, 'ampm': 1, 'state': 1},
+#     {'did': 417, 'rid': 152, 'pid': 80, 'worktime': 4, 'ampm': 2, 'state': 1},
+#     {'did': 417, 'rid': 152, 'pid': 80, 'worktime': 5, 'ampm': 1, 'state': 1},
+#     {'did': 417, 'rid': 152, 'pid': 80, 'worktime': 5, 'ampm': 2, 'state': 1},
+#     {'did': 417, 'rid': 152, 'pid': 80, 'worktime': 6, 'ampm': 1, 'state': 1},
+#     {'did': 417, 'rid': 152, 'pid': 80, 'worktime': 6, 'ampm': 2, 'state': 1},
+#     {'did': 417, 'rid': 152, 'pid': 80, 'worktime': 7, 'ampm': 1, 'state': 1},
+#     {'did': 417, 'rid': 152, 'pid': 80, 'worktime': 7, 'ampm': 2, 'state': 1},
+#
+# ]
+#
+# db = DbUtil(global_config.DB_HOST, global_config.DB_USERNAME, global_config.DB_PASSWORD, global_config.DB_DATABASE_GYL)
+#
+# for json_data in sched_data:
+#     fileds = ','.join(json_data.keys())
+#     args = str(tuple(json_data.values()))
+#     db = DbUtil(global_config.DB_HOST, global_config.DB_USERNAME, global_config.DB_PASSWORD,
+#                 global_config.DB_DATABASE_GYL)
+#     insert_sql = f"INSERT INTO appt.appt_scheduling ({fileds}) VALUES {args}"
+#     last_rowid = db.execute(sql=insert_sql, need_commit=True)
+#     if last_rowid == -1:
+#         del db
+#         raise Exception("入库失败! sql = " + insert_sql)
+# del db
+
+# socket_push_url = 'http://120.194.96.67:6066/inter_socket_msg'
+# socket_data = {"patient_name": '', "type": 400}
+# data = {'msg_list': [{'socket_data': socket_data, 'pers_id': 'w1', 'socketd': 'w_site'}]}
+# headers = {'Content-Type': 'application/json'}
+# response = requests.post(socket_push_url, data=json.dumps(data), headers=headers)
+# print("Socket Push Status: ", response.status_code, "Response: ", response.text, "socket_data: ", socket_data,
+#       "socket_id: ", 'w1')
 
 
 #

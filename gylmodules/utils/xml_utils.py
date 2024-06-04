@@ -73,54 +73,50 @@ from gylmodules.utils.db_utils import DbUtil
 
 
 # 缓存医生图片
-main_dir = '/Users/gaoyanliang/nsyy/综合预约/doc_photo'
+# main_dir = '/Users/gaoyanliang/nsyy/综合预约/医生图片'
+#
+# db = DbUtil(global_config.DB_HOST, global_config.DB_USERNAME, global_config.DB_PASSWORD,
+#             global_config.DB_DATABASE_GYL)
+# #
+# query_sql = 'select doc_his_name, doc_name, consultation_room as room FROM nsyy_gyl.appt_doctor_sched GROUP BY doc_his_name, doc_name, consultation_room '
+# docl = db.query_all(query_sql)
+#
+# docd = {}
+# for item in docl:
+#     docd[item.get('doc_name') + item.get('room')] = item.get('doc_his_name')
+#
+# json_datal = []
+# for root, dirs, files in os.walk(main_dir):
+#     # root 是当前目录路径
+#     # dirs 是当前目录下的子目录列表
+#     # files 是当前目录下的文件列表
+#
+#     # 我们只关心第一层子目录，因此直接跳过 root 本身
+#     # if root == main_dir:
+#     #     continue
+#
+#     # 从当前目录路径中提取子目录名
+#     subdir_name = os.path.basename(root)
+#
+#     for file in files:
+#         # 获取文件名，不包含扩展名
+#         file_name = os.path.splitext(file)[0]
+#
+#         server_path = '/home/cc/att/public/doc/' + file
+#
+#         encoded_string = base64.b64encode(server_path.encode("utf-8")).decode().replace("+", "%2B")
+#
+#         update_sql = f'UPDATE appt.appt_doctor SET photo = \'{encoded_string}\' WHERE his_name = \'{file_name}\' '
+#         db.execute(sql=update_sql, need_commit=True)
 
-db = DbUtil(global_config.DB_HOST, global_config.DB_USERNAME, global_config.DB_PASSWORD,
-            global_config.DB_DATABASE_GYL)
 
-query_sql = 'select doc_his_name, doc_name, consultation_room as room FROM nsyy_gyl.appt_doctor_sched GROUP BY doc_his_name, doc_name, consultation_room '
-docl = db.query_all(query_sql)
-
-docd = {}
-for item in docl:
-    docd[item.get('doc_name') + item.get('room')] = item.get('doc_his_name')
-
-json_datal = []
-for root, dirs, files in os.walk(main_dir):
-    # root 是当前目录路径
-    # dirs 是当前目录下的子目录列表
-    # files 是当前目录下的文件列表
-
-    # 我们只关心第一层子目录，因此直接跳过 root 本身
-    if root == main_dir:
-        continue
-
-    # 从当前目录路径中提取子目录名
-    subdir_name = os.path.basename(root)
-
-    for file in files:
-        # 获取文件名，不包含扩展名
-        file_name = os.path.splitext(file)[0]
-
-        server_path = '/home/cc/att/public/doc_photo/' + subdir_name + '/' + file
-
-
-        # # 将字符串转换为字节
-        # byte_data = server_path.encode('utf-8')
-        # # 对字节进行Base64编码
-        # base64_encoded = base64.b64encode(byte_data)
-        # # 将Base64编码的字节转换回字符串
-        # encoded_string = base64_encoded.decode('utf-8')
-
-        encoded_string = base64.b64encode(server_path.encode("utf-8")).decode().replace("+", "%2B")
-
-        json_datal.append({
-            'room': str(subdir_name),
-            'doc_name': file_name,
-            'doc_his_name': docd.get(file_name+str(subdir_name)) if docd.get(file_name+str(subdir_name)) else '',
-            'photo': encoded_string
-        })
-        print(encoded_string)
+        # data = {
+        #     'doc_name': file_name,
+        #     'photo': encoded_string
+        # }
+        # json_datal.append(data)
+        #
+        # print(data)
 
 # for json_data in json_datal:
 #     fileds = ','.join(json_data.keys())
@@ -185,3 +181,24 @@ for root, dirs, files in os.walk(main_dir):
 # #
 # #
 # # print(base64.b64encode(path.encode("utf-8")).decode().replace("+", "%2B"))
+
+
+server_path1 = '/home/cc/att/public/doc/王远.png'
+server_path2 = '/home/cc/att/public/doc/朱敏敏.png'
+server_path3 = '/home/cc/att/public/doc/杨瑞环.png'
+server_path4 = '/home/cc/att/public/doc/梁博.png'
+server_path5 = '/home/cc/att/public/doc/肖聃.png'
+server_path6 = '/home/cc/att/public/doc/贺海花.png'
+
+
+print(base64.b64encode(server_path1.encode("utf-8")).decode().replace("+", "%2B"))
+print(base64.b64encode(server_path2.encode("utf-8")).decode().replace("+", "%2B"))
+print(base64.b64encode(server_path3.encode("utf-8")).decode().replace("+", "%2B"))
+print(base64.b64encode(server_path4.encode("utf-8")).decode().replace("+", "%2B"))
+print(base64.b64encode(server_path5.encode("utf-8")).decode().replace("+", "%2B"))
+print(base64.b64encode(server_path6.encode("utf-8")).decode().replace("+", "%2B"))
+
+
+# update_sql = f'UPDATE appt.appt_doctor SET photo = \'{encoded_string}\' WHERE his_name = \'{file_name}\' '
+# db.execute(sql=update_sql, need_commit=True)
+

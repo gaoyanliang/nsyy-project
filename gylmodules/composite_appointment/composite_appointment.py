@@ -12,7 +12,7 @@ from gylmodules.utils.db_utils import DbUtil
 from gylmodules.composite_appointment.appt_config import APPT_STATE, \
     APPT_SIGN_IN_NUM_KEY, APPT_PROJECTS_KEY, APPT_DOCTOR_PHOTO_INFO_KEY, \
     APPT_PROJECTS_CATEGORY_KEY, APPT_REMAINING_RESERVATION_QUANTITY_KEY, APPT_ATTENDING_DOCTOR_KEY, \
-    APPT_DOCTOR_INFO_KEY, APPT_EXECUTION_DEPT_INFO_KEY, APPT_DOCTOR_TO_PROJ_KEY, socket_push_url
+    APPT_DOCTORS_KEY, APPT_EXECUTION_DEPT_INFO_KEY, APPT_DOCTOR_TO_PROJ_KEY, socket_push_url
 
 pool = redis.ConnectionPool(host=appt_config.APPT_REDIS_HOST, port=appt_config.APPT_REDIS_PORT,
                             db=appt_config.APPT_REDIS_DB, decode_responses=True)
@@ -512,6 +512,10 @@ def create_appt_by_doctor_advice(patient_id: str, doc_name: str, appt_id, urgenc
 
 
 def update_advice(json_data):
+    # todo 更新医嘱目前实现有问题
+    # todo 暂时仅实现了新增医嘱的更新
+    # todo 医嘱有可能新增，也有可能移除
+    # todo 同一执行科室，已经付款的部分医嘱可以撤销吗，撤销过如何处理？？
     patient_id = int(json_data.get('patient_id'))
     doc_name = json_data.get('doc_name')
     param = {"type": "his_yizhu_info", 'patient_id': patient_id, 'doc_name': doc_name}
@@ -687,7 +691,7 @@ def sign_in(json_data, his_sign: bool):
 
     # 签到前到 his 中取号, 小程序预约，现场预约需要取号。 自助挂号机挂号的预约不需要挂号. todo 取号价格待更换为真实的数据
     if appt_type in (1, 2) and his_sign:
-        doctorinfo = redis_client.hget(APPT_DOCTOR_INFO_KEY, apptinfo.get('doctor'))
+        doctorinfo = redis_client.hget(APPT_DOCTORS_KEY, apptinfo.get('doctor'))
         param = {"type": "his_visit_reg", "patient_id": json_data.get('patient_id'), "AsRowid": 2116, "PayAmt": 0.01}
         if doctorinfo:
             doctorinfo = json.loads(doctorinfo)
@@ -1050,7 +1054,7 @@ def doctor_shift_change(json_data):
 
     change_proj_id = int(json_data.get('change_proj_id'))
     new_doc_his_name = json_data.get('new_doc_his_name')
-    docinfo = redis_client.hget(APPT_DOCTOR_INFO_KEY, new_doc_his_name)
+    docinfo = redis_client.hget(APPT_DOCTORS_KEY, new_doc_his_name)
     if docinfo:
         # 更新排班信息
         docinfo = json.loads(docinfo)
@@ -1120,7 +1124,7 @@ def doctor_shift_change(json_data):
 
 def doc_list():
     redis_client = redis.Redis(connection_pool=pool)
-    docl = redis_client.hvals(APPT_DOCTOR_INFO_KEY)
+    docl = redis_client.hvals(APPT_DOCTORS_KEY)
     parsed_values = []
     for value in docl:
         parsed_value = json.loads(value)
@@ -1184,7 +1188,7 @@ def load_appt_data_into_cache():
             item['photo'] = redis_client.hget(APPT_DOCTOR_PHOTO_INFO_KEY, item['doc_his_name'])
         else:
             item['photo'] = appt_config.default_photo
-        redis_client.hset(APPT_DOCTOR_INFO_KEY, item.get('doc_his_name'), json.dumps(item, default=str))
+        redis_client.hset(APPT_DOCTORS_KEY, item.get('doc_his_name'), json.dumps(item, default=str))
 
     # 查询当天所有未取消的预约 缓存签到计数  todo 优化 sql 查询
     query_sql = 'select * from nsyy_gyl.appt_record where appt_date = \'{}\' and state < {} '\
@@ -1239,7 +1243,7 @@ def load_appt_data_into_cache():
                 f'appt_doctor_shift_change.change_period, appt_doctor_shift_change.day_of_week)'
     change_log = db.query_all(query_sql)
     for item in change_log:
-        docinfo = redis_client.hget(APPT_DOCTOR_INFO_KEY, item.get('new_doc_his_name'))
+        docinfo = redis_client.hget(APPT_DOCTORS_KEY, item.get('new_doc_his_name'))
         if docinfo:
             # 更新排班信息
             docinfo = json.loads(docinfo)
