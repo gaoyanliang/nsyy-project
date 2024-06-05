@@ -22,13 +22,12 @@ import logging
 import requests
 
 
-data = {'test': 112}
-print(data.get('tessst') or appt_config.APPT_URGENCY_LEVEL['green'])
+server_path1 = '/home/cc/att/public/doc/贾玲.png'
+server_path2 = '/home/cc/att/public/doc/席三营.png'
 
-num_people = 4
-ans = [0] * num_people
 
-print(ans)
+print(base64.b64encode(server_path1.encode("utf-8")).decode().replace("+", "%2B"))
+print(base64.b64encode(server_path2.encode("utf-8")).decode().replace("+", "%2B"))
 #
 #
 # call_webservices('08ef7020-5a22-405a-a2ff-9f0259478e3d', '001', '123', '123')

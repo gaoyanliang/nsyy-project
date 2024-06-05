@@ -1012,7 +1012,7 @@ def query_room_list(type: int):
     elif int(type) == 2:
         room_list = redis_client.hvals(APPT_PROJECTS_KEY)
         room_list = [json.loads(item) for item in room_list]
-        room_list = [item for item in room_list if int(item['is_group']) == 1 and int(item['proj_type']) == 2]
+        room_list = [item for item in room_list if int(item['is_group']) == 1]
     return room_list
 
 
@@ -1138,22 +1138,22 @@ def query_advice_by_father_appt_id(json_data):
 """
 
 
-def query_sched():
+def query_sched(rid: int):
+    db = DbUtil(global_config.DB_HOST, global_config.DB_USERNAME, global_config.DB_PASSWORD,
+                global_config.DB_DATABASE_GYL)
     redis_client = redis.Redis(connection_pool=pool)
-    all_sched = redis_client.hgetall(APPT_SCHEDULING_KEY)
-    data = []
-    for pid, schedl in all_sched.items():
-        proj = json.loads(redis_client.hget(APPT_PROJECTS_KEY, pid))
-        schedl = json.loads(schedl)
-        for item in schedl:
-            if item.get('did'):
-                item['doctor'] = json.loads(redis_client.hget(APPT_DOCTORS_KEY, str(item.get('did'))))
-            if item.get('pid'):
-                item['project'] = json.loads(redis_client.hget(APPT_PROJECTS_KEY, str(item.get('pid'))))
-            item['room'] = json.loads(redis_client.hget(APPT_ROOMS_KEY, str(item.get('rid'))))
-        proj['sched'] = schedl
-        data.append(proj)
-    return data
+
+    query_sql = f'select * from {database}.appt_scheduling where rid = {rid}'
+    all_sched = db.query_all(query_sql)
+    del db
+
+    for schedl in all_sched:
+        if schedl.get('did'):
+            schedl['doctor'] = json.loads(redis_client.hget(APPT_DOCTORS_KEY, str(schedl.get('did'))))
+        if schedl.get('pid'):
+            schedl['project'] = json.loads(redis_client.hget(APPT_PROJECTS_KEY, str(schedl.get('pid'))))
+            schedl['room'] = json.loads(redis_client.hget(APPT_ROOMS_KEY, str(schedl.get('rid'))))
+    return all_sched
 
 
 """
@@ -1205,16 +1205,16 @@ def query_doc():
 def update_doc(json_data):
     db = DbUtil(global_config.DB_HOST, global_config.DB_USERNAME, global_config.DB_PASSWORD,
                 global_config.DB_DATABASE_GYL)
-    condition_sql = ' name = \'{}\' '.format(json_data.get('name'))
+
+    condition_sql = ' name = \'{}\' '.format(json_data.get('name')) if json_data.get('name') else ''
+    condition_sql += ', no = {} '.format(json_data.get('no')) if json_data.get('no') else ''
     condition_sql += ', dept_id = {} '.format(json_data.get('dept_id')) if json_data.get('dept_id') else ''
     condition_sql += ', dept_name = \'{}\' '.format(json_data.get('dept_name')) if json_data.get('dept_name') else ''
-    condition_sql += ', no = {} '.format(json_data.get('no')) if json_data.get('no') else ''
-    condition_sql += ', his_name = \'{}\' '.format(json_data.get('his_name')) if json_data.get('his_name') else ''
     condition_sql += ', career = \'{}\' '.format(json_data.get('career')) if json_data.get('career') else ''
     condition_sql += ', fee = {} '.format(json_data.get('fee')) if json_data.get('fee') else ''
     condition_sql += ', appointment_id = {} '.format(json_data.get('appointment_id')) if json_data.get('appointment_id') else ''
     condition_sql += ', photo = \'{}\' '.format(json_data.get('photo')) if json_data.get('photo') else ''
-    condition_sql += ', desc = \'{}\' '.format(json_data.get('desc')) if json_data.get('desc') else ''
+    condition_sql += ', `desc` = \'{}\' '.format(json_data.get('desc')) if json_data.get('desc') else ''
     condition_sql += ', phone = \'{}\' '.format(json_data.get('phone')) if json_data.get('phone') else ''
 
     id = int(json_data.get('id'))
@@ -1226,7 +1226,7 @@ def update_doc(json_data):
 
 
 """
-查询医生列表
+查询项目列表
 """
 
 
@@ -1266,35 +1266,36 @@ def update_sched(json_data):
                 global_config.DB_DATABASE_GYL)
 
     id = int(json_data.get('id'))
-    did = int(json_data.get('did'))
-    rid = int(json_data.get('rid'))
-    pid = int(json_data.get('pid'))
-    state = int(json_data.get('state'))
-
     query_sql = f'select * from {database}.appt_scheduling where id = {id}'
     old_sched = db.query_one(query_sql)
-    if int(old_sched.get('did')) == did and int(old_sched.get('pid')) == pid and int(old_sched.get('state')) == state:
-        # 没有变化，直接返回
-        return
 
-    worktime = int(old_sched.get('worktime'))
-    ampm = int(old_sched.get('ampm'))
-    query_sql = f'select * from {database}.appt_scheduling where worktime = {worktime} and ampm = {ampm} ' \
-                f'and rid = {rid} and did = {did} and pid = {pid} and state = 1'
-    record = db.query_one(query_sql)
-    if record:
-        raise Exception('排班信息和 {} 存在冲突'.format(record.get('id')))
-    update_sql = f'UPDATE {database}.appt_scheduling SET did = {did}, pid = {pid}, state = {state} ' \
+    rid = int(json_data.get('rid'))
+    condition_sql = f' rid = {rid} '
+    condition_sql += ', did = {} '.format(int(json_data.get('did'))) if json_data.get('did') else ''
+    condition_sql += ', pid = {} '.format(int(json_data.get('pid'))) if json_data.get('pid') else ''
+    condition_sql += ', state = {} '.format(int(json_data.get('state'))) if json_data.get('state') else ''
+
+    # worktime = int(old_sched.get('worktime'))
+    # ampm = int(old_sched.get('ampm'))
+    # query_sql = f'select * from {database}.appt_scheduling where worktime = {worktime} and ampm = {ampm} ' \
+    #             f'and rid = {rid} and did = {did} and pid = {pid} and state = 1'
+    # record = db.query_one(query_sql)
+    # if record:
+    #     raise Exception('排班信息和 {} 存在冲突'.format(record.get('id')))
+    update_sql = f'UPDATE {database}.appt_scheduling SET {condition_sql} ' \
                  f' WHERE id = {id}'
     db.execute(update_sql, need_commit=True)
 
-    # 医生发生变化, 或停诊
-    old_did = int(old_sched.get('did'))
-    old_pid = int(old_sched.get('pid'))
-    if old_did != did or state == 3:
-        update_sql = f'UPDATE {database}.appt_record SET is_doc_change = 1 WHERE state = 1 ' \
-                     f'and pid = {old_pid} and rid = {rid} and book_period = {ampm} and doc_id = {old_did} '
-        db.execute(update_sql, need_commit=True)
+    # 医生发生变化
+    if json_data.get('did'):
+        cur_worktime = (datetime.now().weekday() + 1) % 8
+        cur_period = 1 if datetime.now().hour < 12 else 2
+        if int(old_sched.get('ampm')) == cur_period and int(old_sched.get('worktime')) == cur_worktime:
+            update_sql = f'UPDATE {database}.appt_record SET is_doc_change = 1 WHERE state = 1 ' \
+                         'and book_date = \'{}\' and rid = {} and book_period = {} '.\
+                format(str(date.today()), int(old_sched.get('rid')),
+                       int(old_sched.get('ampm')), int(old_sched.get('did')))
+            db.execute(update_sql, need_commit=True)
 
     socket_id = 'z' + str(rid)
     push_patient('', socket_id)
@@ -1302,7 +1303,6 @@ def update_sched(json_data):
     push_patient('', socket_id)
 
     del db
-
     # 更新数据
     run_everyday()
 
