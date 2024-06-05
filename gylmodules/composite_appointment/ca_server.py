@@ -1368,7 +1368,7 @@ def load_data_into_cache():
         f'select pay_no from {database}.appt_record where book_date = \'{str(date.today())}\' and pay_no is not null ')
     if pay_nol:
         for no in pay_nol:
-            redis_client.sadd(APPT_DAILY_AUTO_REG_RECORD_KEY, no)
+            redis_client.sadd(APPT_DAILY_AUTO_REG_RECORD_KEY, no.get('pay_no'))
 
     del db
     print("数据加载完成 - ", datetime.now())
