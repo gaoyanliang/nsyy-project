@@ -1432,6 +1432,8 @@ def run_everyday():
             for item in schedl:
                 room = redis_client.hget(APPT_ROOMS_KEY, str(item.get('rid')))
                 room = json.loads(room)
+                if not item.get('did'):
+                    continue
                 if int(proj_info.get('proj_type')) == 1:
                     hq = int(quantity / 8)
                     doc_info = redis_client.hget(APPT_DOCTORS_KEY, str(item.get('did')))
