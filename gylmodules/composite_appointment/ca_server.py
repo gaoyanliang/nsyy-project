@@ -20,7 +20,7 @@ pool = redis.ConnectionPool(host=appt_config.APPT_REDIS_HOST, port=appt_config.A
 
 lock_redis_client = redis.Redis(connection_pool=pool)
 
-database = 'appt'
+database = 'nsyy_gyl'
 
 appt_lock_name = 'appt_lock_name'
 sign_lock_name = 'sign_lock_name'
@@ -1452,6 +1452,7 @@ def run_everyday():
                             'room': room,
                             'rid': item.get('rid'),
                             'proj_name': proj_info.get('proj_name'),
+                            'proj_type': proj_info.get('proj_type'),
                             'proj_id': proj_info.get('id')
                         }
                     else:
@@ -1466,6 +1467,7 @@ def run_everyday():
                             'room': room,
                             'rid': item.get('rid'),
                             'proj_name': proj_info.get('proj_name'),
+                            'proj_type': proj_info.get('proj_type'),
                             'proj_id': proj_info.get('id')
                         }
                 else:
@@ -1479,6 +1481,7 @@ def run_everyday():
                             'room': room,
                             'rid': item.get('rid'),
                             'proj_name': proj_info.get('proj_name'),
+                            'proj_type': proj_info.get('proj_type'),
                             'proj_id': proj_info.get('id')
                         }
                     else:
@@ -1490,6 +1493,7 @@ def run_everyday():
                             'room': room,
                             'rid': item.get('rid'),
                             'proj_name': proj_info.get('proj_name'),
+                            'proj_type': proj_info.get('proj_type'),
                             'proj_id': proj_info.get('id')
                         }
             data_from_last_seven[str(nextday)] = {'1': aml, '2': pml}
