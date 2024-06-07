@@ -1117,6 +1117,7 @@ def query_advice_by_father_appt_id(json_data):
     if father_appt_id:
         condition_sql = f'father_id = {int(father_appt_id)} '
     if patient_id:
+        # todo 是否仅查询当天的 today_str = str(date.today())
         condition_sql = f'type = 4 and patient_id = {int(patient_id)}'
     db = DbUtil(global_config.DB_HOST, global_config.DB_USERNAME, global_config.DB_PASSWORD,
                 global_config.DB_DATABASE_GYL)

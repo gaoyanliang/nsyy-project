@@ -3,11 +3,10 @@ from datetime import datetime, timedelta
 import redis
 
 from gylmodules import global_config
-from gylmodules.composite_appointment.ca_server import load_data_into_cache, run_everyday
-from gylmodules.composite_appointment.composite_appointment import load_appt_data_into_cache
+from gylmodules.composite_appointment.ca_server import run_everyday
 from gylmodules.critical_value import cv_config
 from gylmodules.critical_value.critical_value import write_cache, \
-    call_third_systems_obtain_data, async_alert
+    call_third_systems_obtain_data, async_alert, cache_single_cv
 from apscheduler.schedulers.background import BackgroundScheduler
 
 from gylmodules.utils.db_utils import DbUtil
@@ -99,7 +98,7 @@ def regular_update_dept_info():
 
 
 def task_state():
-    print('======== gyl schedule task state ========')
+    print('========   gyl schedule task state   ========')
     print('cur time = ', datetime.now())
     print('schedule is_running = ', gylmodule_scheduler.running)
     print('schedule state = ', gylmodule_scheduler.state)
@@ -111,18 +110,23 @@ def task_state():
             'next_run_time': job.next_run_time.strftime('%Y-%m-%d %H:%M:%S') if job.next_run_time else None
         }
         print(job_info)
-    print('======== gyl schedule task state end========')
+    print('======== gyl schedule task state end ========')
 
 
 def schedule_task():
     # ====================== 危机值系统定时任务 ======================
     # 定时判断危机值是否超时
     if global_config.schedule_task['cv_timeout']:
-        print(" 执行危机值定时任务-超时管理 ", datetime.now())
+        print("危机值超时管理 定时任务启动 ", datetime.now())
         gylmodule_scheduler.add_job(handle_timeout_cv, trigger='interval', seconds=60, max_instances=10, id='cv_timeout')
+
+        print("缓存单次上报危机值信息 定时任务启动 ", datetime.now())
+        gylmodule_scheduler.add_job(cache_single_cv, trigger='date', run_date=datetime.now())
+        gylmodule_scheduler.add_job(cache_single_cv, 'cron', hour=2, minute=10, id='cache_single_cv')
+
     # 定时更新所有部门信息
     if global_config.schedule_task['cv_dept_update']:
-        print(" 执行危机值定时任务-部门信息更新 ", datetime.now())
+        print("危机值部门信息更新 定时任务 ", datetime.now())
         one_hour = 60 * 60
         gylmodule_scheduler.add_job(regular_update_dept_info, trigger='interval', seconds=one_hour, max_instances=10, id='cv_dept_update')
 
@@ -132,9 +136,9 @@ def schedule_task():
         gylmodule_scheduler.add_job(run_everyday, trigger='date', run_date=datetime.now())
         gylmodule_scheduler.add_job(run_everyday, 'cron', hour=1, minute=10, id='appt_daily')
 
-    one_hour = 60 * 60
+    six_hour = 6 * 60 * 60
     # one_min = 60
-    gylmodule_scheduler.add_job(task_state, trigger='interval', seconds=one_hour, max_instances=10,
+    gylmodule_scheduler.add_job(task_state, trigger='interval', seconds=six_hour, max_instances=10,
                                 id='sched_state')
 
     # ======================  Start ======================

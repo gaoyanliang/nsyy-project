@@ -55,3 +55,18 @@ RUNNING_CVS_REDIS_KEY = 'CV_RUNNING_CVS'
 
 # 站点类型
 CV_SITES_REDIS_KEY = {1: 'CV_SITES_WARD_', 2: 'CV_SITES_DEPT_'}
+
+# 单次危机值针对只需要上报一次的危机值
+#（缓存最近一段时间出现过该危机值的病患） key=检查项目名称 value=【patient_id】
+SINGLE_CV_REDIS_KEY = 'SINGLE_CVS'
+
+# 所有单次上报危机值的检查项目名称集合
+SINGLE_CRISIS_VALUE_NAME_LIST = [
+    '*尿素（速率法）',
+    '*肌酐（酶法）',
+    '肌酸激酶同工酶',
+    '肌酸激酶同工酶（速率法）',
+    '肌钙蛋白I(免疫荧光法)',
+    '高敏肌钙蛋白I',
+    '淀粉酶（速率法）'
+]

@@ -63,6 +63,11 @@ def system_create_cv():
     except Exception as e:
         timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
         print(f"[{timestamp}] Exception occurred: {traceback.print_exc()}")
+        return jsonify({
+            'code': 50000,
+            'res': e.__str__(),
+            'data': '危机值上报失败，请稍后重试'
+        })
 
     return jsonify({
         'code': 20000

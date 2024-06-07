@@ -4,7 +4,7 @@ import threading
 import requests
 from suds.client import Client
 
-from datetime import datetime
+from datetime import datetime, timedelta
 
 from apscheduler.schedulers.background import BackgroundScheduler
 
@@ -61,8 +61,8 @@ def call_third_systems_obtain_data(type: str, param: dict):
         redis_client = redis.Redis(connection_pool=pool)
         if len(data) > 0:
             for d in data:
-                redis_client.hset(cv_config.DEPT_INFO_REDIS_KEY, d.get('his_dept_id'), d.get('dept_name'))
-                redis_client.hset(cv_config.DEPT_INFO_REDIS_KEY, d.get('dept_code'), d.get('dept_name'))
+                redis_client.hset(cv_config.DEPT_INFO_REDIS_KEY, d.get('his_dept_id'), json.dumps(d, default=str))
+                redis_client.hset(cv_config.DEPT_INFO_REDIS_KEY, d.get('dept_code'), json.dumps(d, default=str))
 
 
 """
@@ -339,6 +339,85 @@ def invalid_crisis_value(cv_ids, cv_source):
 
 
 """
+作废远程危机值(主要针对仅需要上报一次的危机值)
+"""
+
+
+def invalid_remote_crisis_value(cv_id, cv_source):
+    if int(cv_source) == 2:
+        table_name = "inter_lab_resultalert"
+    else:
+        table_name = "NS_EXT.PACS危急值上报表"
+    param = {
+        "type": "orcl_db_update",
+        "db_source": "ztorcl",
+        "randstr": "XPFDFZDF7193CIONS1PD7XCJ3AD4ORRC",
+        "table_name": table_name,
+        "datal": [{"RESULTALERTID": cv_id, "VALIDFLAG": "0"}],
+        "updatel": ["VALIDFLAG"],
+        "datel": [],
+        "intl": [],
+        "keyl": ["RESULTALERTID"]
+    }
+    call_third_systems_obtain_data('data_feedback', param)
+
+
+"""
+缓存最近一段时间，所有仅需要上报一次的危机值
+ key=检查项目名称 value=【patient_id】
+"""
+
+
+def cache_single_cv():
+    db = DbUtil(global_config.DB_HOST, global_config.DB_USERNAME, global_config.DB_PASSWORD,
+                global_config.DB_DATABASE_GYL)
+
+    day_before_yesterday = datetime.now() - timedelta(days=2)
+    # 设置时间为午夜（0时0分0秒）
+    day_before_yesterday_midnight = day_before_yesterday.replace(hour=0, minute=0, second=0, microsecond=0)
+    formatted_date = day_before_yesterday_midnight.strftime("%Y-%m-%d %H:%M:%S")
+
+    query_sql = f'select * from nsyy_gyl.cv_info where alertdt > \'{formatted_date}\' '
+    cvs = db.query_all(query_sql)
+    del db
+
+    # 按照 cv_name 分组
+    data = {}
+    for cv in cvs:
+        cvname = cv.get('cv_name')
+        if cvname not in cv_config.SINGLE_CRISIS_VALUE_NAME_LIST:
+            continue
+        if cvname not in data:
+            data[cvname] = []
+        data[cvname].append(cv.get('patient_treat_id'))
+    redis_client = redis.Redis(connection_pool=pool)
+    redis_client.delete(cv_config.SINGLE_CV_REDIS_KEY)
+    for key, value in data.items():
+        redis_client.hset(cv_config.SINGLE_CV_REDIS_KEY, key, json.dumps(value, default=str))
+
+
+def check_single_crisis_value(json_data, cv_source):
+    # 检查当前危机值是否仅需要上报一次
+    itemname = json_data.get('RPT_ITEMNAME')
+    if itemname not in cv_config.SINGLE_CRISIS_VALUE_NAME_LIST:
+        return False, False
+
+    redis_client = redis.Redis(connection_pool=pool)
+    all_patient = json.loads(redis_client.hget(cv_config.SINGLE_CV_REDIS_KEY, itemname)) \
+        if redis_client.hget(cv_config.SINGLE_CV_REDIS_KEY, itemname) else []
+
+    # 该患者最近出现过相同危机值，不再上报，并作废远程危机值
+    pat_no = json_data.get('PAT_NO')
+    if pat_no in all_patient:
+        cv_id = json_data.get('RESULTALERTID')
+        print(f'最近患者 {pat_no} 已经出现过危机值 {itemname}, 当前危机值 cv_id = {cv_id} cv_source = {cv_source} 不再上报, 并作废远程危机值')
+        invalid_remote_crisis_value(cv_id, cv_source)
+        return True, False
+
+    return False, True
+
+
+"""
 系统创建危机值
 """
 
@@ -352,6 +431,14 @@ def create_cv_by_system(json_data, cv_source):
     if cvd['dept_id'] and not cvd['dept_id'].isdigit():
         # print('当前危机值病人科室不是数字，跳过。 ' + str(json_data))
         return
+
+    # 检查是否是仅需要上报一次的危机值类型，如果是检查最近有没有上报过同类型的危机值
+    try:
+        return_now, need_cache = check_single_crisis_value(json_data, cv_source)
+        if return_now:
+            return
+    except Exception as e:
+        print('error: check_single_crisis_value exception = ', e.__str__())
 
     # 解析危机值上报信息
     cvd['cv_id'] = json_data.get('RESULTALERTID')
@@ -379,8 +466,16 @@ def create_cv_by_system(json_data, cv_source):
     cvd['patient_bed_num'] = json_data.get('REQ_BEDNO')
     cvd['req_docno'] = json_data.get('REQ_DOCNO')
     cvd['ward_id'] = json_data.get('REQ_WARDNO')
-    cvd['ward_name'] = redis_client.hget(cv_config.DEPT_INFO_REDIS_KEY, cvd['ward_id']) or ''
-    cvd['dept_name'] = redis_client.hget(cv_config.DEPT_INFO_REDIS_KEY, cvd['dept_id']) or ''
+
+    # 心电系统传的 dept_id 是 dept_code 而不是 his_dept_id， 为了保持逻辑一致性，这里特殊处理下
+    if cvd['ward_id'] and redis_client.hexists(cv_config.DEPT_INFO_REDIS_KEY, cvd['ward_id']):
+        dept_info = json.loads(redis_client.hget(cv_config.DEPT_INFO_REDIS_KEY, cvd['ward_id']))
+        cvd['ward_name'] = dept_info.get('dept_name')
+        cvd['ward_id'] = dept_info.get('his_dept_id')
+    if cvd['dept_id'] and redis_client.hexists(cv_config.DEPT_INFO_REDIS_KEY, cvd['dept_id']):
+        dept_info = json.loads(redis_client.hget(cv_config.DEPT_INFO_REDIS_KEY, cvd['dept_id']))
+        cvd['dept_name'] = dept_info.get('dept_name')
+        cvd['dept_id'] = dept_info.get('his_dept_id')
 
     # 解析危机值内容信息
     cvd['cv_name'] = json_data.get('RPT_ITEMNAME')
@@ -410,6 +505,16 @@ def create_cv_by_system(json_data, cv_source):
     last_rowid = db.execute(insert_sql, need_commit=True)
     if last_rowid == -1:
         raise Exception("系统危机值入库失败! " + str(args))
+
+    # 如果时仅需要上报一次的危机值类型，缓存下载，防止多次上报
+    if need_cache:
+        data = redis_client.hget(cv_config.SINGLE_CV_REDIS_KEY, json_data.get('RPT_ITEMNAME'))
+        if not data:
+            data = []
+        else:
+            data = json.loads(data)
+        data.append(json_data.get('PAT_NO'))
+        redis_client.hset(cv_config.SINGLE_CV_REDIS_KEY, json_data.get('RPT_ITEMNAME'), json.dumps(data, default=str))
 
     # 发送危机值 直接通知医生和护士
     pat_name = cvd['patient_name']
