@@ -20,7 +20,7 @@ pool = redis.ConnectionPool(host=appt_config.APPT_REDIS_HOST, port=appt_config.A
 
 lock_redis_client = redis.Redis(connection_pool=pool)
 
-database = 'nsyy_gyl'
+database = 'appt'
 
 appt_lock_name = 'appt_lock_name'
 sign_lock_name = 'sign_lock_name'
@@ -1223,6 +1223,7 @@ def update_doc(json_data):
                  f' WHERE id = {id}'
     db.execute(update_sql, need_commit=True)
     del db
+    # todo 根据医生id 和 坐班日期查询出排班信息，更新内存数据
     run_everyday()
 
 
@@ -1288,9 +1289,9 @@ def update_sched(json_data):
     db.execute(update_sql, need_commit=True)
 
     # 医生发生变化
+    cur_worktime = (datetime.now().weekday() + 1) % 8
+    cur_period = 1 if datetime.now().hour < 12 else 2
     if json_data.get('did'):
-        cur_worktime = (datetime.now().weekday() + 1) % 8
-        cur_period = 1 if datetime.now().hour < 12 else 2
         if int(old_sched.get('ampm')) == cur_period and int(old_sched.get('worktime')) == cur_worktime:
             update_sql = f'UPDATE {database}.appt_record SET is_doc_change = 1 WHERE state = 1 ' \
                          'and book_date = \'{}\' and rid = {} and book_period = {} '.\
@@ -1304,8 +1305,9 @@ def update_sched(json_data):
     push_patient('', socket_id)
 
     del db
-    # 更新数据
-    run_everyday()
+    # 更新数据 todo 根据修改的内容精确修改
+    if int(cur_worktime) == int(old_sched.get('worktime')):
+        run_everyday()
 
 
 """

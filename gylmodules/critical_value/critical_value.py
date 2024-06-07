@@ -469,13 +469,17 @@ def create_cv_by_system(json_data, cv_source):
 
     # 心电系统传的 dept_id 是 dept_code 而不是 his_dept_id， 为了保持逻辑一致性，这里特殊处理下
     if cvd['ward_id'] and redis_client.hexists(cv_config.DEPT_INFO_REDIS_KEY, cvd['ward_id']):
-        dept_info = json.loads(redis_client.hget(cv_config.DEPT_INFO_REDIS_KEY, cvd['ward_id']))
-        cvd['ward_name'] = dept_info.get('dept_name')
-        cvd['ward_id'] = dept_info.get('his_dept_id')
+        dept_info = redis_client.hget(cv_config.DEPT_INFO_REDIS_KEY, cvd['ward_id'])
+        if dept_info:
+            dept_info = json.loads(dept_info)
+            cvd['ward_name'] = dept_info.get('dept_name')
+            cvd['ward_id'] = dept_info.get('his_dept_id')
     if cvd['dept_id'] and redis_client.hexists(cv_config.DEPT_INFO_REDIS_KEY, cvd['dept_id']):
-        dept_info = json.loads(redis_client.hget(cv_config.DEPT_INFO_REDIS_KEY, cvd['dept_id']))
-        cvd['dept_name'] = dept_info.get('dept_name')
-        cvd['dept_id'] = dept_info.get('his_dept_id')
+        dept_info = redis_client.hget(cv_config.DEPT_INFO_REDIS_KEY, cvd['dept_id'])
+        if dept_info:
+            dept_info = json.loads(dept_info)
+            cvd['dept_name'] = dept_info.get('dept_name')
+            cvd['dept_id'] = dept_info.get('his_dept_id')
 
     # 解析危机值内容信息
     cvd['cv_name'] = json_data.get('RPT_ITEMNAME')
