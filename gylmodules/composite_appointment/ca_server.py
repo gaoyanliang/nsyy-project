@@ -612,6 +612,7 @@ def create_appt_by_doctor_advice(patient_id: str, doc_name: str, id_card_no, app
 
 
 def update_advice(json_data):
+    father_appt_id = int(json_data.get('appt_id'))
     patient_id = int(json_data.get('patient_id'))
     doc_name = json_data.get('doc_name')
     param = {"type": "his_yizhu_info", 'patient_id': patient_id, 'doc_name': doc_name}
@@ -683,7 +684,7 @@ def update_advice(json_data):
 
             room = json.loads(redis_client.hget(APPT_ROOMS_BY_PROJ_KEY, pid))
             record = {
-                'father_id': int(json_data.get('appt_id')),
+                'father_id': father_appt_id,
                 "book_date": str(date.today()),
                 "book_period": 1 if datetime.now().hour < 12 else 2,
                 "type": 4,
@@ -727,7 +728,7 @@ def update_advice(json_data):
 
     if other_advice:
         record = {
-            'father_id': int(json_data.get('appt_id')),
+            'father_id': father_appt_id,
             "book_date": str(date.today()),
             "book_period": 1 if datetime.now().hour < 12 else 2,
             "type": 4,
@@ -1435,8 +1436,8 @@ def run_everyday():
             for item in schedl:
                 room = redis_client.hget(APPT_ROOMS_KEY, str(item.get('rid')))
                 room = json.loads(room)
-                if not item.get('did'):
-                    continue
+                # if not item.get('did'):
+                #     continue
                 if int(proj_info.get('proj_type')) == 1:
                     hq = int(quantity / 8)
                     doc_info = redis_client.hget(APPT_DOCTORS_KEY, str(item.get('did')))
