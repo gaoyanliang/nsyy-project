@@ -21,8 +21,19 @@ from zeep.transports import Transport
 import logging
 import requests
 
-if '0':
-    print('adfa')
+socket_data = {"patient_name": "patient_name", "type": 300}
+data = {'msg_list': [{'socket_data': socket_data, 'pers_id': 'z11', 'socketd': 'w_site'}]}
+headers = {'Content-Type': 'application/json'}
+response = requests.post('http://120.194.96.67:6066/inter_socket_msg', data=json.dumps(data), headers=headers)
+print("Socket Push Status: ", response.status_code, "Response: ", response.text, "socket_data: ", socket_data,
+      "socket_id: ")
+
+
+data = {}
+
+data['id'] = 'ad'
+data['saf']['adf'] = {'afda': 'afd'}
+print(data)
 
 # for i in range(1, 10):
 #     index = i

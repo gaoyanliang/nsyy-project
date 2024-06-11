@@ -10,6 +10,10 @@ APPT_TYPE = {'online': 1, 'offline': 2, 'auto_appt': 3, 'advice_appt': 4}
 # 预约紧急程度
 APPT_URGENCY_LEVEL = {'green': 1, 'yellow': 2, 'red': 3}
 
+# 预约付款状态
+# oa 和 his 均付款的情况下 oa付款支持退款
+appt_pay_state = {'unpaid': 0, 'oa_pay': 1, 'his_pay': 2, 'oa_his_both_pay': 3}
+
 # 0=保留 1=已预约 2=排队中 3=处理中 4=过号 5=已完成 6=已取消
 APPT_STATE = {'new': 0, 'booked': 1, 'in_queue': 2, 'processing': 3, 'over_num': 4, 'completed': 5, 'canceled': 6}
 
