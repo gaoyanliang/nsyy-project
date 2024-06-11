@@ -1441,7 +1441,10 @@ def run_everyday():
                 if int(proj_info.get('proj_type')) == 1:
                     hq = int(quantity / 8)
                     doc_info = redis_client.hget(APPT_DOCTORS_KEY, str(item.get('did')))
-                    doc_info = json.loads(doc_info)
+                    if not doc_info:
+                        doc_info = {'fee': 0}
+                    else:
+                        doc_info = json.loads(doc_info)
                     if int(item.get('ampm')) == 1:
                         # 上午
                         aml[item.get('rid')] = {
