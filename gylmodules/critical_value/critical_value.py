@@ -647,7 +647,7 @@ def async_alert(type, id, msg):
                 try:
                     requests.post(url, json=payload)
                 except Exception as e:
-                    return
+                    pass
 
     thread_b = threading.Thread(target=alert, args=(type, id, msg))
     thread_b.start()
@@ -678,23 +678,25 @@ def push(json_data):
 
     # 护理（病区护士站 门诊 急诊） -> 医生
     if push_type == 1:
-        # 更新危机值状态为 【通知医生】
-        update_sql = 'UPDATE nsyy_gyl.cv_info SET state = %s, nurse_send_time = %s ' \
-                     'WHERE cv_id = %s and cv_source = %s and state != 0'
-        args = (cv_config.NOTIFICATION_DOCTOR_STATE, timer, cv_id, cv_source)
-        db.execute(update_sql, args, need_commit=True)
-        del db
-
         # 同步更新常量中的状态
         key = cv_id + '_' + str(cv_source)
         value = read_cache(key)
         if not value:
             return
-        value['state'] = cv_config.NOTIFICATION_DOCTOR_STATE
-        value['nurse_send_time'] = timer
-        write_cache(key, value)
+        if int(value['state']) < cv_config.NOTIFICATION_DOCTOR_STATE:
+            # 更新危机值状态为 【通知医生】
+            update_sql = 'UPDATE nsyy_gyl.cv_info SET state = %s, nurse_send_time = %s ' \
+                         'WHERE cv_id = %s and cv_source = %s and state != 0'
+            args = (cv_config.NOTIFICATION_DOCTOR_STATE, timer, cv_id, cv_source)
+            db.execute(update_sql, args, need_commit=True)
+
+            value['state'] = cv_config.NOTIFICATION_DOCTOR_STATE
+            value['nurse_send_time'] = timer
+            write_cache(key, value)
         # 弹框提醒医生
         async_alert(2, dept_id, f"病人 {patient_name} 出现危机值, 请及时查看并处理")
+    del db
+
 
 
 """
@@ -720,50 +722,51 @@ def confirm_receipt_cv(json_data):
     timer = datetime.now()
     timer = timer.strftime("%Y-%m-%d %H:%M:%S")
     if confirm_type == 0:
-        # 更新危机值状态为 【护理确认接收】
-        update_sql = 'UPDATE nsyy_gyl.cv_info SET state = %s, nurse_recv_id = %s, nurse_recv_name = %s,' \
-                     'nurse_recv_time = %s, nurse_recv_info = %s  WHERE cv_id = %s and cv_source = %s and state != 0'
-        args = (cv_config.NURSE_RECV_STATE, confirmer_id, confirmer_name, timer, confirm_info, cv_id, cv_source)
-        db.execute(update_sql, args, need_commit=True)
-        del db
-
         # 同步更新常量中的状态
         key = cv_id + '_' + str(cv_source)
         value = read_cache(key)
         if not value:
             return
-        value['state'] = cv_config.NURSE_RECV_STATE
-        value['nurse_recv_id'] = confirmer_id
-        value['nurse_recv_name'] = confirmer_name
-        value['nurse_recv_time'] = timer
-        value['nurse_recv_info'] = confirm_info
-        write_cache(key, value)
+        if int(value['state']) < cv_config.NURSE_RECV_STATE:
+            # 更新危机值状态为 【护理确认接收】
+            update_sql = 'UPDATE nsyy_gyl.cv_info SET state = %s, nurse_recv_id = %s, nurse_recv_name = %s,' \
+                         'nurse_recv_time = %s, nurse_recv_info = %s  WHERE cv_id = %s and cv_source = %s and state != 0'
+            args = (cv_config.NURSE_RECV_STATE, confirmer_id, confirmer_name, timer, confirm_info, cv_id, cv_source)
+            db.execute(update_sql, args, need_commit=True)
+
+            value['state'] = cv_config.NURSE_RECV_STATE
+            value['nurse_recv_id'] = confirmer_id
+            value['nurse_recv_name'] = confirmer_name
+            value['nurse_recv_time'] = timer
+            value['nurse_recv_info'] = confirm_info
+            write_cache(key, value)
 
         # 护士接收之后，进行数据回传
         data_feedback(cv_id, int(cv_source), confirmer_name, timer, confirm_info, 1)
 
     elif confirm_type == 1:
-
-        # 更新危机值状态为 【医生确认接收】
-        update_sql = 'UPDATE nsyy_gyl.cv_info SET state = %s, doctor_recv_id = %s, ' \
-                     'doctor_recv_name = %s, doctor_recv_time = %s WHERE cv_id = %s and cv_source = %s and state != 0'
-        args = (cv_config.DOCTOR_RECV_STATE, confirmer_id, confirmer_name, timer, cv_id, cv_source)
-        db.execute(update_sql, args, need_commit=True)
-        del db
-
         # 同步更新常量中的状态
         key = cv_id + '_' + str(cv_source)
         value = read_cache(key)
         if not value:
             return
-        value['state'] = cv_config.DOCTOR_RECV_STATE
-        value['doctor_recv_id'] = confirmer_id
-        value['doctor_recv_name'] = confirmer_name
-        value['doctor_recv_time'] = timer
-        write_cache(key, value)
+
+        if int(value['state']) < cv_config.DOCTOR_RECV_STATE:
+            # 更新危机值状态为 【医生确认接收】
+            update_sql = 'UPDATE nsyy_gyl.cv_info SET state = %s, doctor_recv_id = %s, ' \
+                         'doctor_recv_name = %s, doctor_recv_time = %s WHERE cv_id = %s and cv_source = %s and state != 0'
+            args = (cv_config.DOCTOR_RECV_STATE, confirmer_id, confirmer_name, timer, cv_id, cv_source)
+            db.execute(update_sql, args, need_commit=True)
+
+            value['state'] = cv_config.DOCTOR_RECV_STATE
+            value['doctor_recv_id'] = confirmer_id
+            value['doctor_recv_name'] = confirmer_name
+            value['doctor_recv_time'] = timer
+            write_cache(key, value)
 
         # 医生接收之后，进行数据回传
         data_feedback(cv_id, int(cv_source), confirmer_name, timer, '', 2)
+    del db
 
 
 """
@@ -807,42 +810,45 @@ def doctor_handle_cv(json_data):
     db = DbUtil(global_config.DB_HOST, global_config.DB_USERNAME, global_config.DB_PASSWORD,
                 global_config.DB_DATABASE_GYL)
 
-    # 从缓存中获取总流程的超时时间，如果不存在，默认 10 分钟
-    redis_client = redis.Redis(connection_pool=pool)
-    timeout = redis_client.get(cv_config.TIMEOUT_REDIS_KEY['total'])
-    if not timeout:
-        timeout = 10 * 60
+    query_sql = f'select * from nsyy_gyl.cv_info where cv_id = \'{cv_id}\' and cv_source = {cv_source}'
+    record = db.query_one(query_sql)
+    if int(record.get('state')) < cv_config.DOCTOR_HANDLE_STATE:
+        # 从缓存中获取总流程的超时时间，如果不存在，默认 10 分钟
+        redis_client = redis.Redis(connection_pool=pool)
+        timeout = redis_client.get(cv_config.TIMEOUT_REDIS_KEY['total'])
+        if not timeout:
+            timeout = 10 * 60
 
-    cur_time = datetime.now()
-    create_time = datetime.strptime(create_time, "%a, %d %b %Y %H:%M:%S GMT")
-    update_total_timeout_sql = ''
-    if (cur_time - create_time).seconds > int(timeout):
-        update_total_timeout_sql = 'is_timeout = 1 , '
+        cur_time = datetime.now()
+        create_time = datetime.strptime(create_time, "%a, %d %b %Y %H:%M:%S GMT")
+        update_total_timeout_sql = ''
+        if (cur_time - create_time).seconds > int(timeout):
+            update_total_timeout_sql = 'is_timeout = 1 , '
 
-    timer = cur_time.strftime("%Y-%m-%d %H:%M:%S")
-    # 更新危机值状态为 【医生处理】
-    update_sql = f'UPDATE nsyy_gyl.cv_info SET {update_total_timeout_sql} state = %s, analysis = %s, method = %s, ' \
-                 'handle_time = %s, handle_doctor_name = %s, handle_doctor_id = %s ' \
-                 'WHERE cv_id = %s and cv_source = %s '
-    args = (cv_config.DOCTOR_HANDLE_STATE, analysis, method, timer, handler_name, handler_id, cv_id, cv_source)
-    db.execute(update_sql, args, need_commit=True)
+        timer = cur_time.strftime("%Y-%m-%d %H:%M:%S")
+        # 更新危机值状态为 【医生处理】
+        update_sql = f'UPDATE nsyy_gyl.cv_info SET {update_total_timeout_sql} state = %s, analysis = %s, method = %s, ' \
+                     'handle_time = %s, handle_doctor_name = %s, handle_doctor_id = %s ' \
+                     'WHERE cv_id = %s and cv_source = %s '
+        args = (cv_config.DOCTOR_HANDLE_STATE, analysis, method, timer, handler_name, handler_id, cv_id, cv_source)
+        db.execute(update_sql, args, need_commit=True)
+
+        # 同步更新常量中的状态
+        key = cv_id + '_' + str(cv_source)
+        delete_cache(key)
+
+        # 护士接收之后，进行数据回传
+        if int(cv_source) == 4:
+            # 心电危机值特殊处理
+            xindian_data_feedback({
+                "cv_id": cv_id,
+                "doc_id": handler_id,
+                "doc_name": handler_name,
+                "body": method
+            })
+        else:
+            data_feedback(cv_id, int(cv_source), handler_name, timer, '', 3)
     del db
-
-    # 同步更新常量中的状态
-    key = cv_id + '_' + str(cv_source)
-    delete_cache(key)
-
-    # 护士接收之后，进行数据回传
-    if int(cv_source) == 4:
-        # 心电危机值特殊处理
-        xindian_data_feedback({
-            "cv_id": cv_id,
-            "doc_id": handler_id,
-            "doc_name": handler_name,
-            "body": method
-        })
-    else:
-        data_feedback(cv_id, int(cv_source), handler_name, timer, '', 3)
 
 
 """

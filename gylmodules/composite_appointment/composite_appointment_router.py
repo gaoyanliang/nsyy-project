@@ -4,7 +4,6 @@ import traceback
 from datetime import datetime
 from flask import Blueprint, jsonify, request
 
-from gylmodules.composite_appointment import composite_appointment as appointment
 from gylmodules.composite_appointment import ca_server as ca_server
 
 appt = Blueprint('composite appointment', __name__, url_prefix='/appt')
@@ -438,16 +437,56 @@ def query_proj():
     })
 
 
+# """
+# 医生换班签到
+# """
+#
+#
+# @appt.route('/doc_change', methods=['POST'])
+# def doc_change():
+#     try:
+#         json_data = json.loads(request.get_data().decode('utf-8'))
+#         appointment.doctor_shift_change(json_data)
+#     except Exception as e:
+#         timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+#         print(f"[{timestamp}] Exception occurred: {traceback.print_exc()}")
+#         return jsonify({
+#             'code': 50000,
+#             'res': e.__str__()
+#         })
+#
+#     return jsonify({
+#         'code': 20000
+#     })
+
+
+# @appt.route('/doc_list', methods=['POST'])
+# def doc_list():
+#     try:
+#         data = appointment.doc_list()
+#     except Exception as e:
+#         timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+#         print(f"[{timestamp}] Exception occurred: {traceback.print_exc()}")
+#         return jsonify({
+#             'code': 50000,
+#             'res': e.__str__()
+#         })
+#
+#     return jsonify({
+#         'code': 20000,
+#         'data': data
+#     })
+
+
 """
-医生换班签到
+供定时任务调用，每天凌晨更新最近七天的可预约数量
 """
 
 
-@appt.route('/doc_change', methods=['POST'])
-def doc_change():
+@appt.route('/update_capacity', methods=['POST'])
+def update_capacity():
     try:
-        json_data = json.loads(request.get_data().decode('utf-8'))
-        appointment.doctor_shift_change(json_data)
+        ca_server.cache_capacity()
     except Exception as e:
         timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
         print(f"[{timestamp}] Exception occurred: {traceback.print_exc()}")
@@ -459,22 +498,3 @@ def doc_change():
     return jsonify({
         'code': 20000
     })
-
-
-@appt.route('/doc_list', methods=['POST'])
-def doc_list():
-    try:
-        data = appointment.doc_list()
-    except Exception as e:
-        timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-        print(f"[{timestamp}] Exception occurred: {traceback.print_exc()}")
-        return jsonify({
-            'code': 50000,
-            'res': e.__str__()
-        })
-
-    return jsonify({
-        'code': 20000,
-        'data': data
-    })
-

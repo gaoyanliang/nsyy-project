@@ -1,6 +1,7 @@
 import json
 from datetime import datetime, timedelta
 import redis
+import requests
 
 from gylmodules import global_config
 from gylmodules.composite_appointment.ca_server import run_everyday
@@ -74,6 +75,7 @@ def handle_timeout_cv():
                 update_sql = f'UPDATE nsyy_gyl.cv_info SET {update_field} = 1 {update_state_sql} ' \
                              f'WHERE cv_id = \'{cv_id}\' and cv_source = {cv_source} and state != 0'
                 db.execute(update_sql, need_commit=True)
+                del db
 
                 # 更新 redis 状态
                 value[needd['timeout_flag']] = 1
@@ -90,6 +92,22 @@ def regular_update_dept_info():
         "randstr": "XPFDFZDF7193CIONS1PD7XCJ3AD4ORRC"
     }
     call_third_systems_obtain_data('cache_all_dept_info', param)
+
+
+"""
+每日凌晨更新最近七天的可预约数量
+"""
+
+
+def update_appt_capacity():
+    url = "http://127.0.0.1:6092/gyl/appt/update_capacity"
+    # url = "http://127.0.0.1:8080/gyl/appt/update_capacity"
+    response = requests.post(url)
+    if response.status_code == 200:
+        print("Successfully updated appointment capacity.")
+    else:
+        print("Failed to update appointment capacity. Status code:", response.status_code)
+
 
 
 """
