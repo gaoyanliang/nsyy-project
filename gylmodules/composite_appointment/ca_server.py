@@ -20,8 +20,8 @@ pool = redis.ConnectionPool(host=appt_config.APPT_REDIS_HOST, port=appt_config.A
 
 lock_redis_client = redis.Redis(connection_pool=pool)
 
-database = 'nsyy_gyl'
-# database = 'appt'
+# database = 'nsyy_gyl'
+database = 'appt'
 
 # 可以预约的时间段
 room_dict = {}
@@ -33,6 +33,7 @@ def cache_capacity():
     db = DbUtil(global_config.DB_HOST, global_config.DB_USERNAME, global_config.DB_PASSWORD,
                 global_config.DB_DATABASE_GYL)
 
+    print('开始缓存房间容量: ', datetime.now())
     # 缓存门诊项目近七天的可预约情况
     projl = db.query_all(f'select * from {database}.appt_project')
     for proj in projl:
@@ -74,10 +75,14 @@ def cache_capacity():
         time_slot = str(record['time_slot'])
         room_dict[rid][datestr][period][time_slot] -= 1
     del db
+    print('房间容量缓存完成: ', datetime.now())
 
 
 cache_capacity()
 
+
+def query_mem_data():
+    return room_dict
 
 """
 调用第三方系统

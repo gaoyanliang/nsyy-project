@@ -498,3 +498,21 @@ def update_capacity():
     return jsonify({
         'code': 20000
     })
+
+
+@appt.route('/query_mem_data', methods=['POST'])
+def query_mem_data():
+    try:
+        data = ca_server.query_mem_data()
+    except Exception as e:
+        timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        print(f"[{timestamp}] Exception occurred: {traceback.print_exc()}")
+        return jsonify({
+            'code': 50000,
+            'res': e.__str__()
+        })
+
+    return jsonify({
+        'code': 20000,
+        'data': data
+    })
