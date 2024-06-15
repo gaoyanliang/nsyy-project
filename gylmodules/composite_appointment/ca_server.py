@@ -84,6 +84,7 @@ cache_capacity()
 def query_mem_data():
     return room_dict
 
+
 """
 调用第三方系统
 """
@@ -274,7 +275,7 @@ def auto_create_appt_by_auto_reg(patient_id: int):
     if not appt_recordl:
         return
 
-    record_dict = {d['doc_his_name']: d for d in appt_recordl}
+    record_dict = {d['doc_his_name']: d for d in appt_recordl if d['doc_his_name']}
     redis_client = redis.Redis(connection_pool=pool)
     # 查询当天所有自助挂号的记录（pay no）集合
     created = redis_client.smembers(APPT_DAILY_AUTO_REG_RECORD_KEY)
@@ -283,6 +284,7 @@ def auto_create_appt_by_auto_reg(patient_id: int):
     worktime = (datetime.now().weekday() + 1) % 8
     query_sql = f"select * from {database}.appt_scheduling where worktime = {worktime}"
     daily_sched = db.query_all(query_sql)
+    del db
 
     # 根据执行人和执行部门id查找项目 todo 自助挂号的项目如何做预约数量限制
     # 上午挂号的可以预约上午和下午，下午挂号的只能预约下午， 1=上午 2=下午
@@ -297,10 +299,13 @@ def auto_create_appt_by_auto_reg(patient_id: int):
         # 如果存在oa预约记录
         if doc_his_name in record_dict:
             if not record_dict.get(doc_his_name).get('pay_no') \
-                    and record_dict.get(doc_his_name).get('booked') < appt_config.APPT_STATE['booked']:
+                    and record_dict.get(doc_his_name).get('state') < appt_config.APPT_STATE['in_queue']:
+                db = DbUtil(global_config.DB_HOST, global_config.DB_USERNAME, global_config.DB_PASSWORD,
+                            global_config.DB_DATABASE_GYL)
                 update_sql = f'UPDATE {database}.appt_record SET pay_state = 3, pay_no = \'{pay_no}\' ' + \
                              ' WHERE id = {} '.format(record_dict.get(doc_his_name).get('id'))
                 db.execute(update_sql, need_commit=True)
+                del db
             continue
 
         # 这里的 doctor 是 his name
@@ -348,7 +353,6 @@ def auto_create_appt_by_auto_reg(patient_id: int):
             record['location_id'] = target_proj.get('location_id')
         create_appt(record)
         redis_client.sadd(APPT_DAILY_AUTO_REG_RECORD_KEY, pay_no)
-    del db
 
 
 """
@@ -532,9 +536,6 @@ def create_appt_by_doctor_advice(patient_id: str, doc_name: str, id_card_no, app
         return
 
     redis_client = redis.Redis(connection_pool=pool)
-    db = DbUtil(global_config.DB_HOST, global_config.DB_USERNAME, global_config.DB_PASSWORD,
-                global_config.DB_DATABASE_GYL)
-
     # 按执行科室分组
     advice_dict = {}
     for item in doctor_advice:
@@ -600,6 +601,8 @@ def create_appt_by_doctor_advice(patient_id: str, doc_name: str, id_card_no, app
                 'price': total_price
             }
 
+            db = DbUtil(global_config.DB_HOST, global_config.DB_USERNAME, global_config.DB_PASSWORD,
+                        global_config.DB_DATABASE_GYL)
             fileds = ','.join(json_data.keys())
             args = str(tuple(json_data.values()))
             insert_sql = f"INSERT INTO {database}.appt_doctor_advice ({fileds}) VALUES {args}"
@@ -607,6 +610,7 @@ def create_appt_by_doctor_advice(patient_id: str, doc_name: str, id_card_no, app
             if last_rowid == -1:
                 del db
                 raise Exception("医嘱记录入库失败! sql = " + insert_sql)
+            del db
 
     if other_advice:
         record = {
@@ -644,6 +648,8 @@ def create_appt_by_doctor_advice(patient_id: str, doc_name: str, id_card_no, app
                 'price': total_price
             }
 
+            db = DbUtil(global_config.DB_HOST, global_config.DB_USERNAME, global_config.DB_PASSWORD,
+                        global_config.DB_DATABASE_GYL)
             fileds = ','.join(json_data.keys())
             args = str(tuple(json_data.values()))
             insert_sql = f"INSERT INTO {database}.appt_doctor_advice ({fileds}) VALUES {args}"
@@ -651,7 +657,7 @@ def create_appt_by_doctor_advice(patient_id: str, doc_name: str, id_card_no, app
             if last_rowid == -1:
                 del db
                 raise Exception("医嘱记录入库失败! sql = " + insert_sql)
-    del db
+            del db
 
 
 """
@@ -671,8 +677,6 @@ def update_advice(json_data):
 
     level = json_data.get('level')
     redis_client = redis.Redis(connection_pool=pool)
-    db = DbUtil(global_config.DB_HOST, global_config.DB_USERNAME, global_config.DB_PASSWORD,
-                global_config.DB_DATABASE_GYL)
 
     # 按执行科室分组
     new_advicel = {}
@@ -693,11 +697,19 @@ def update_advice(json_data):
         else:
             proj = json.loads(proj)
             pid = int(proj.get('id'))
+
         # 判断是否需要更新
-        query_sql = f'select * from {database}.appt_record where book_date = \'{str(date.today())}\' and patient_id = {patient_id} and pid = {pid} '
+        db = DbUtil(global_config.DB_HOST, global_config.DB_USERNAME, global_config.DB_PASSWORD,
+                    global_config.DB_DATABASE_GYL)
+        query_sql = f'select * from {database}.appt_record ' \
+                    f'where book_date = \'{str(date.today())}\' and patient_id = {patient_id} and pid = {pid} '
         created = db.query_one(query_sql)
+        del db
+
         if created:
             # 更新医嘱
+            db = DbUtil(global_config.DB_HOST, global_config.DB_USERNAME, global_config.DB_PASSWORD,
+                        global_config.DB_DATABASE_GYL)
             appt_id = int(created.get('id'))
             data = db.query_all(f'select pay_id from {database}.appt_doctor_advice where appt_id = {appt_id}')
             pay_ids = [item['pay_id'] for item in data]
@@ -723,7 +735,9 @@ def update_advice(json_data):
                 insert_sql = f"INSERT INTO {database}.appt_doctor_advice ({fileds}) VALUES {args}"
                 last_rowid = db.execute(sql=insert_sql, need_commit=True)
                 if last_rowid == -1:
+                    del db
                     raise Exception("医嘱记录入库失败! sql = " + insert_sql)
+                del db
         else:
             # 新增医嘱
             if not proj:
@@ -768,12 +782,16 @@ def update_advice(json_data):
                     'price': total_price
                 }
 
+                db = DbUtil(global_config.DB_HOST, global_config.DB_USERNAME, global_config.DB_PASSWORD,
+                            global_config.DB_DATABASE_GYL)
                 fileds = ','.join(json_data.keys())
                 args = str(tuple(json_data.values()))
                 insert_sql = f"INSERT INTO {database}.appt_doctor_advice ({fileds}) VALUES {args}"
                 last_rowid = db.execute(sql=insert_sql, need_commit=True)
                 if last_rowid == -1:
+                    del db
                     raise Exception("医嘱记录入库失败! sql = " + insert_sql)
+                del db
 
     if other_advice:
         record = {
@@ -810,13 +828,16 @@ def update_advice(json_data):
                 'price': total_price
             }
 
+            db = DbUtil(global_config.DB_HOST, global_config.DB_USERNAME, global_config.DB_PASSWORD,
+                        global_config.DB_DATABASE_GYL)
             fileds = ','.join(json_data.keys())
             args = str(tuple(json_data.values()))
             insert_sql = f"INSERT INTO {database}.appt_doctor_advice ({fileds}) VALUES {args}"
             last_rowid = db.execute(sql=insert_sql, need_commit=True)
             if last_rowid == -1:
+                del db
                 raise Exception("医嘱记录入库失败! sql = " + insert_sql)
-    del db
+            del db
 
 
 """

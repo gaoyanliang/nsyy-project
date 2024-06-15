@@ -46,6 +46,14 @@ def call_third_systems_obtain_data(type: str, param: dict):
         elif type == 'cache_all_dept_info':
             from tools import his_dept
             data = his_dept(param)
+        elif type == 'orcl_db_read':
+            # 根据住院号/门诊号查询 病人id 主页id
+            from tools import orcl_db_read
+            data = orcl_db_read(param)
+        elif type == 'his_procedure':
+            # 危机值病历回写
+            from tools import his_procedure
+            data = his_procedure(param)
 
     if type == 'get_dept_info_by_emp_num':
         # 使用列表推导式提取 "缺省" 值为 1 的元素
@@ -837,6 +845,54 @@ def doctor_handle_cv(json_data):
         key = cv_id + '_' + str(cv_source)
         delete_cache(key)
 
+        # 病历回写
+        pat_no = record.get('patient_treat_id')
+        pat_type = int(record.get('patient_type'))
+        sql = ''
+        if pat_type in (1, 2):
+            # 门诊/急诊
+            sql = f'select 病人ID as pid, NO as hid from 病人挂号记录 where 门诊号 = \'{pat_no}\' order by 登记时间 desc'
+        elif pat_type == 3:
+            # 住院
+            sql = f'select 病人id as pid, 主页id as hid from 病案主页 where 住院号 = \'{pat_no}\' order by 主页id desc '
+        param = {
+            "type": "orcl_db_read",
+            "db_source": "ztorcl",
+            "randstr": "XPFDFZDF7193CIONS1PD7XCJ3AD4ORRC",
+            "sql": sql
+        }
+        data = call_third_systems_obtain_data('orcl_db_read', param)
+        if data:
+            body = ''
+            recv_time = record.get('time').strftime("%Y-%m-%d %H:%M:%S")
+            body = body + "于 " + recv_time + "接收到 " + str(record.get('alert_dept_name')) \
+                   + " 推送的危机值: [" + str(record.get('cv_name')) + "]"
+            body = body + " " + str(record.get('cv_result'))
+            if record.get('cv_unit'):
+                body = body + " " + record.get('cv_unit')
+
+            body = body + "医生 " + handler_name + " " + timer + "处理了该危机值"
+            if analysis:
+                body = body + " 原因分析: " + analysis
+            if method:
+                body = body + " 处理方法: " + method
+            pid = data[0].get('PID', 0)
+            hid = data[0].get('HID', 0)
+            param = {
+                "type": "his_procedure",
+                "procedure": "jk_p_Pat_List",
+                "病人id": pid,
+                "主页id": hid,
+                "内容": body,
+                "分类": "3",
+                "记录人": handler_name,
+                "审核时间": timer,
+                "医嘱名称": record.get('cv_name'),
+                "分类名": "危机值记录",
+                "标签说明": record.get('cv_name')
+            }
+            call_third_systems_obtain_data('his_procedure', param)
+
         # 护士接收之后，进行数据回传
         if int(cv_source) == 4:
             # 心电危机值特殊处理
@@ -846,7 +902,8 @@ def doctor_handle_cv(json_data):
                 "doc_name": handler_name,
                 "body": method
             })
-        else:
+        elif int(cv_source) == 2:
+            # LIS 危机值回传
             data_feedback(cv_id, int(cv_source), handler_name, timer, '', 3)
     del db
 
