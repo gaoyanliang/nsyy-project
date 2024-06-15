@@ -20,8 +20,8 @@ pool = redis.ConnectionPool(host=appt_config.APPT_REDIS_HOST, port=appt_config.A
 
 lock_redis_client = redis.Redis(connection_pool=pool)
 
-# database = 'nsyy_gyl'
-database = 'appt'
+database = 'nsyy_gyl'
+# database = 'appt'
 
 # 可以预约的时间段
 room_dict = {}
@@ -295,10 +295,12 @@ def auto_create_appt_by_auto_reg(patient_id: int):
 
         doc_his_name = item.get('执行人')
         # 如果存在oa预约记录
-        if doc_his_name in record_dict and not record_dict.get(doc_his_name).get('pay_no'):
-            update_sql = f'UPDATE {database}.appt_record SET pay_state = 3, pay_no = {pay_no}' + \
-                         ' WHERE id = {} '.format(record_dict.get(doc_his_name).get('id'))
-            db.execute(update_sql, need_commit=True)
+        if doc_his_name in record_dict:
+            if not record_dict.get(doc_his_name).get('pay_no') \
+                    and record_dict.get(doc_his_name).get('booked') < appt_config.APPT_STATE['booked']:
+                update_sql = f'UPDATE {database}.appt_record SET pay_state = 3, pay_no = \'{pay_no}\' ' + \
+                             ' WHERE id = {} '.format(record_dict.get(doc_his_name).get('id'))
+                db.execute(update_sql, need_commit=True)
             continue
 
         # 这里的 doctor 是 his name
@@ -471,6 +473,7 @@ def operate_appt(appt_id: int, type: int):
         # 报道 医嘱项目分诊前有用户在小程序上点击
         op_sql = ' state = {} '.format(appt_config.APPT_STATE['booked'])
     elif type == 5:
+        # 修改退款状态
         op_sql = ' pay_state = {} '.format(appt_config.appt_pay_state['oa_refunded'])
 
     update_sql = f'UPDATE {database}.appt_record SET {op_sql} WHERE id = {appt_id} '
@@ -602,6 +605,7 @@ def create_appt_by_doctor_advice(patient_id: str, doc_name: str, id_card_no, app
             insert_sql = f"INSERT INTO {database}.appt_doctor_advice ({fileds}) VALUES {args}"
             last_rowid = db.execute(sql=insert_sql, need_commit=True)
             if last_rowid == -1:
+                del db
                 raise Exception("医嘱记录入库失败! sql = " + insert_sql)
 
     if other_advice:
@@ -645,8 +649,8 @@ def create_appt_by_doctor_advice(patient_id: str, doc_name: str, id_card_no, app
             insert_sql = f"INSERT INTO {database}.appt_doctor_advice ({fileds}) VALUES {args}"
             last_rowid = db.execute(sql=insert_sql, need_commit=True)
             if last_rowid == -1:
+                del db
                 raise Exception("医嘱记录入库失败! sql = " + insert_sql)
-
     del db
 
 
@@ -812,7 +816,6 @@ def update_advice(json_data):
             last_rowid = db.execute(sql=insert_sql, need_commit=True)
             if last_rowid == -1:
                 raise Exception("医嘱记录入库失败! sql = " + insert_sql)
-
     del db
 
 
@@ -877,6 +880,7 @@ def sign_in(json_data, his_sign: bool):
                                                                             appt_config.APPT_STATE['in_queue'])
     update_sql = f'UPDATE {database}.appt_record SET {op_sql}{change_proj_sql} WHERE id = {appt_id} '
     db.execute(sql=update_sql, need_commit=True)
+    del db
 
     proj_id = json_data.get('pid')
     patient_name = json_data.get('patient_name')
@@ -893,8 +897,6 @@ def sign_in(json_data, his_sign: bool):
     # 签到之后给医生发送 socket
     socket_id = 'y' + str(json_data['rid'])
     push_patient('', socket_id)
-
-    del db
 
     # 如果更换房间，更新可预约数量
     if bdate and bslot:
@@ -973,7 +975,7 @@ def next_num(id, is_group):
 
         # 呼叫患者
         json_data = {
-            'socket_id': 'd' + str(id) if is_group != -1 else 'z' + str(id),
+            'socket_id': 'd' + str(is_group) if is_group != -1 else 'z' + str(id),
             'name': data_list[0].get('wait_list')[0].get('patient_name'),
             'proj_room': data_list[0].get('wait_list')[0].get('room')
         }
@@ -1107,8 +1109,8 @@ def query_wait_list(json_data):
                 f'where state in {wait_state} and book_date = \'{str(date.today())}\' {condition_sql} '
     recordl = db.query_all(query_sql)
     recordl = sorted(recordl, key=lambda x: (-x['level'], x['book_period'], x['sign_in_num']))
-
     del db
+
     from collections import defaultdict
     transformed_data = defaultdict(list)
     for item in recordl:
@@ -1310,7 +1312,6 @@ def update_sched(json_data):
                 format(str(date.today()), int(old_sched.get('rid')),
                        int(old_sched.get('ampm')), int(old_sched.get('did')))
             db.execute(update_sql, need_commit=True)
-
     del db
 
     socket_id = 'z' + str(rid)
@@ -1497,7 +1498,6 @@ def run_everyday():
             old_num = redis_client.hget(APPT_SIGN_IN_NUM_KEY, str(record['pid'])) or 0
             if int(old_num) < sign_in_num:
                 redis_client.hset(APPT_SIGN_IN_NUM_KEY, str(record['pid']), sign_in_num)
-
     del db
     # 缓存门诊项目近七天的可预约情况
     redis_client.delete(APPT_REMAINING_RESERVATION_QUANTITY_KEY)

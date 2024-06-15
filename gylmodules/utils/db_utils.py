@@ -32,8 +32,10 @@ class DbUtil:
 
     def __del__(self):
         """析构函数"""
-        self.__cursor.close()
-        self.__conn.close()
+        if self.__cursor is not None:
+            self.__cursor.close()
+        if self.__conn is not None:
+            self.__conn.close()
         # log.debug("close db!")
 
     def get_conn(self):
