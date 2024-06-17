@@ -1145,4 +1145,5 @@ def query_alert_dept_list():
                 global_config.DB_DATABASE_GYL)
     query_sql = 'select alert_dept_id, alert_dept_name from nsyy_gyl.cv_info GROUP BY alert_dept_id, alert_dept_name'
     dept_list = db.query_all(query_sql)
+    del db
     return dept_list
