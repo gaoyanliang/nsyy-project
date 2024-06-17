@@ -857,7 +857,7 @@ def doctor_handle_cv(json_data):
             sql = f'select 病人id as pid, 主页id as hid from 病案主页 where 住院号 = \'{pat_no}\' order by 主页id desc '
         param = {
             "type": "orcl_db_read",
-            "db_source": "ztorcl",
+            "db_source": "nshis",
             "randstr": "XPFDFZDF7193CIONS1PD7XCJ3AD4ORRC",
             "sql": sql
         }
