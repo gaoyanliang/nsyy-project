@@ -100,8 +100,8 @@ def regular_update_dept_info():
 
 
 def update_appt_capacity():
-    url = "http://127.0.0.1:6092/gyl/appt/update_capacity"
-    # url = "http://127.0.0.1:8080/gyl/appt/update_capacity"
+    # url = "http://127.0.0.1:6092/gyl/appt/update_capacity"
+    url = "http://127.0.0.1:8080/gyl/appt/update_capacity"
     response = requests.post(url)
     if response.status_code == 200:
         print("Successfully updated appointment capacity.")
@@ -152,8 +152,6 @@ def schedule_task():
     if global_config.schedule_task['appt_daily']:
         gylmodule_scheduler.add_job(run_everyday, trigger='date', run_date=datetime.now())
         gylmodule_scheduler.add_job(run_everyday, 'cron', hour=1, minute=10, id='appt_daily')
-        run_time = datetime.now() + timedelta(seconds=10)
-        gylmodule_scheduler.add_job(update_appt_capacity, trigger='date', run_date=run_time)
         gylmodule_scheduler.add_job(update_appt_capacity, 'cron', hour=1, minute=20, id='update_appt_capacity')
 
     six_hour = 6 * 60 * 60

@@ -81,7 +81,7 @@ def cache_capacity():
     print('房间容量缓存完成: ', datetime.now())
 
 
-# cache_capacity()
+cache_capacity()
 
 
 def query_mem_data():
@@ -303,6 +303,7 @@ def auto_create_appt_by_auto_reg(id_card_list, medical_card_list):
                     f'where id_card_no in ({id_list}) and book_date = \'{str(date.today())}\' ' \
                     f'and doc_his_name is not null'
         appt_recordl = db.query_all(query_sql)
+        del db
 
     record_dict = {(d['doc_his_name'], int(d['patient_id'])): d for d in appt_recordl if d['doc_his_name']}
     redis_client = redis.Redis(connection_pool=pool)
@@ -310,6 +311,8 @@ def auto_create_appt_by_auto_reg(id_card_list, medical_card_list):
     created = redis_client.smembers(APPT_DAILY_AUTO_REG_RECORD_KEY)
 
     # 查询当天排班信息
+    db = DbUtil(global_config.DB_HOST, global_config.DB_USERNAME, global_config.DB_PASSWORD,
+                global_config.DB_DATABASE_GYL)
     worktime = (datetime.now().weekday() + 1) % 8
     query_sql = f"select * from {database}.appt_scheduling where worktime = {worktime}"
     daily_sched = db.query_all(query_sql)
@@ -780,7 +783,7 @@ def update_advice(json_data):
                 if last_rowid == -1:
                     del db
                     raise Exception("医嘱记录入库失败! sql = " + insert_sql)
-                del db
+            del db
         else:
             # 新增医嘱
             if not proj:
@@ -920,7 +923,8 @@ def sign_in(json_data, his_sign: bool):
             if not is_ok:
                 raise Exception('所有医嘱项目均未付款，请及时付款', param)
 
-    # 签到前到 his 中取号, 小程序预约，现场预约需要取号。 自助挂号机挂号的预约不需要挂号.
+    # 签到前到 his 中取号, 小程序预约，现场预约需要取号。 自助挂号机挂号的预约不需要挂号.v
+    pay_sql = ''
     if appt_type in (1, 2) and his_sign:
         # 先查询是否有挂号记录
         id_card_no = record.get('id_card_no')
@@ -932,7 +936,6 @@ def sign_in(json_data, his_sign: bool):
                    f'where b.身份证号=\'{id_card_no}\' and TRUNC(a.登记时间) = TRUNC(SYSDATE) order by a.登记时间 desc'
         }
         reg_recordl = call_third_systems_obtain_data('int_api', 'orcl_db_read', param)
-        pay_sql = ''
         if reg_recordl:
             # 如果存在挂号记录，更新 pay_state pay_no
             pay_sql = ', pay_state = {} , pay_no = \'{}\' '.format(appt_config.appt_pay_state['oa_his_both_pay'],
@@ -1096,7 +1099,9 @@ def query_all_appt_project(type: int):
                     if today_str == date and not if_the_current_time_period_is_available(slot):
                         continue
                     for rid, rinfo in info.items():
-                        quantity = room_dict[rid][date][slot]
+                        if not room_dict[str(rid)] or not room_dict[str(rid)][date]:
+                            continue
+                        quantity = room_dict[str(rid)][date][str(slot)]
                         info[rid]['hourly_quantity'] = quantity
                         info[rid]['quantity'] = sum(quantity.values()) if quantity else 0
                         if rinfo.get('doc_id') and redis_client.hget(APPT_DOCTORS_KEY, str(rinfo.get('doc_id'))):
@@ -1160,7 +1165,8 @@ def query_wait_list(json_data):
 
     wait_id = int(json_data.get('wait_id'))
     type = int(json_data.get('type'))
-    wait_state = (appt_config.APPT_STATE['in_queue'], appt_config.APPT_STATE['processing'])
+    wait_state = (appt_config.APPT_STATE['in_queue'], appt_config.APPT_STATE['processing'],
+                  appt_config.APPT_STATE['over_num'])
 
     doctor = ''
     proj = ''
