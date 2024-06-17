@@ -73,12 +73,15 @@ def cache_capacity():
         rid = str(record.get('rid'))
         datestr = record['book_date']
         time_slot = str(record['time_slot'])
-        room_dict[rid][datestr][period][time_slot] -= 1
+        if room_dict[rid].get(datestr):
+            room_dict[rid][datestr][period][time_slot] -= 1
+        else:
+            print('rid= ', rid, " date= ", datestr, ' period= ', period, ' slot= ', time_slot, '停诊')
     del db
     print('房间容量缓存完成: ', datetime.now())
 
 
-cache_capacity()
+# cache_capacity()
 
 
 def query_mem_data():
@@ -95,6 +98,7 @@ def call_third_systems_obtain_data(url: str, type: str, param: dict):
     if global_config.run_in_local:
         try:
             # 发送 POST 请求，将字符串数据传递给 data 参数
+            # response = requests.post(f"http://192.168.3.12:6080/{url}", json=param)
             response = requests.post(f"http://192.168.124.53:6080/{url}", json=param)
             data = response.text
             data = json.loads(data)
@@ -122,6 +126,10 @@ def call_third_systems_obtain_data(url: str, type: str, param: dict):
             # 查询付款状态
             from tools import his_pay_info
             data = his_pay_info(param)
+        elif type == 'orcl_db_read':
+            # 根据 sql 查询数据
+            from tools import orcl_db_read
+            data = orcl_db_read(param)
 
     return data
 
@@ -261,21 +269,42 @@ def create_appt(json_data, last_date=None, last_slot=None):
 """
 
 
-def auto_create_appt_by_auto_reg(patient_id: int):
-    param = {"type": "his_visit_check", "patient_id": patient_id}
-    reg_recordl = call_third_systems_obtain_data('his_info', 'his_visit_check', param)
+def auto_create_appt_by_auto_reg(id_card_list, medical_card_list):
+    condition_sql = ''
+    if id_card_list and not medical_card_list:
+        id_list = ', '.join(f"'{item}'" for item in id_card_list)
+        condition_sql = condition_sql + f' b.身份证号 in ({id_list}) '
+    elif not id_card_list and medical_card_list:
+        medical_list = ', '.join(f"'{item}'" for item in medical_card_list)
+        condition_sql = condition_sql + f' b.就诊卡号 in ({medical_list}) '
+    elif id_card_list and medical_card_list:
+        id_list = ', '.join(f"'{item}'" for item in id_card_list)
+        medical_list = ', '.join(f"'{item}'" for item in medical_card_list)
+        condition_sql = condition_sql + f'( b.就诊卡号 in ({medical_list}) or b.身份证号 in ({id_list}) )'
+
+    param = {
+        "type": "orcl_db_read",
+        "db_source": "nshis",
+        "randstr": "XPFDFZDF7193CIONS1PD7XCJ3AD4ORRC",
+        "sql": f'select a.*, b.身份证号 from 病人挂号记录 a left join 病人信息 b on a.病人id=b.病人id '
+               f'where {condition_sql} and TRUNC(a.登记时间) = TRUNC(SYSDATE) order by a.登记时间 desc'
+    }
+    reg_recordl = call_third_systems_obtain_data('int_api', 'orcl_db_read', param)
     if not reg_recordl:
-        # patient_id 不存在自助挂号记录
+        # 不存在自助挂号记录
         return
 
-    db = DbUtil(global_config.DB_HOST, global_config.DB_USERNAME, global_config.DB_PASSWORD,
-                global_config.DB_DATABASE_GYL)
-    query_sql = f'select * from {database}.appt_record where patient_id = {patient_id} and book_date = \'{str(date.today())}\''
-    appt_recordl = db.query_all(query_sql)
-    if not appt_recordl:
-        return
+    appt_recordl = []
+    if id_card_list:
+        id_list = ', '.join(f"'{item}'" for item in id_card_list)
+        db = DbUtil(global_config.DB_HOST, global_config.DB_USERNAME, global_config.DB_PASSWORD,
+                    global_config.DB_DATABASE_GYL)
+        query_sql = f'select * from {database}.appt_record ' \
+                    f'where id_card_no in ({id_list}) and book_date = \'{str(date.today())}\' ' \
+                    f'and doc_his_name is not null'
+        appt_recordl = db.query_all(query_sql)
 
-    record_dict = {d['doc_his_name']: d for d in appt_recordl if d['doc_his_name']}
+    record_dict = {(d['doc_his_name'], int(d['patient_id'])): d for d in appt_recordl if d['doc_his_name']}
     redis_client = redis.Redis(connection_pool=pool)
     # 查询当天所有自助挂号的记录（pay no）集合
     created = redis_client.smembers(APPT_DAILY_AUTO_REG_RECORD_KEY)
@@ -295,17 +324,23 @@ def auto_create_appt_by_auto_reg(patient_id: int):
         if pay_no in created:
             continue
 
+        patient_id = item.get('病人ID')
         doc_his_name = item.get('执行人')
         # 如果存在oa预约记录
-        if doc_his_name in record_dict:
-            if not record_dict.get(doc_his_name).get('pay_no') \
-                    and record_dict.get(doc_his_name).get('state') < appt_config.APPT_STATE['in_queue']:
-                db = DbUtil(global_config.DB_HOST, global_config.DB_USERNAME, global_config.DB_PASSWORD,
-                            global_config.DB_DATABASE_GYL)
-                update_sql = f'UPDATE {database}.appt_record SET pay_state = 3, pay_no = \'{pay_no}\' ' + \
-                             ' WHERE id = {} '.format(record_dict.get(doc_his_name).get('id'))
-                db.execute(update_sql, need_commit=True)
-                del db
+        if (doc_his_name, int(patient_id)) in record_dict:
+            exist_record = record_dict.get((doc_his_name, int(patient_id)))
+            if int(exist_record.get('state')) < appt_config.APPT_STATE['in_queue'] and not exist_record.get('pay_no'):
+                # oa 未签到 his中存在挂号记录 支持oa 退款
+                condition_sql = ' pay_state = {} , pay_no = \'{}\' '.format(appt_config.appt_pay_state['oa_his_both_pay'], pay_no)
+            else:
+                condition_sql = f' pay_no = \'{pay_no}\' '
+            db = DbUtil(global_config.DB_HOST, global_config.DB_USERNAME, global_config.DB_PASSWORD,
+                        global_config.DB_DATABASE_GYL)
+            update_sql = f'UPDATE {database}.appt_record SET {condition_sql} ' + \
+                         ' WHERE id = {} '.format(exist_record.get('id'))
+            db.execute(update_sql, need_commit=True)
+            del db
+            redis_client.sadd(APPT_DAILY_AUTO_REG_RECORD_KEY, pay_no)
             continue
 
         # 这里的 doctor 是 his name
@@ -331,7 +366,8 @@ def auto_create_appt_by_auto_reg(patient_id: int):
         # 根据上面的信息，创建预约
         record = {
             'type': appt_config.APPT_TYPE['auto_appt'],
-            'patient_id': patient_id,
+            'patient_id': int(item.get('病人ID')),
+            'id_card_no': item.get('身份证号'),
             'patient_name': item.get('姓名'),
             'state': appt_config.APPT_STATE['booked'],
             'pid': target_proj.get('id'),
@@ -368,9 +404,10 @@ query_from = 4 小程序查询
 def query_appt_record(json_data):
     # 查询预约记录时，如果患者是在远途自助机或者诊室找医生帮忙取号的，自动创建预约
     # 根据 patient_id 查询自助挂号信息
-    patient_id = json_data.get('patient_id')
-    if patient_id:
-        auto_create_appt_by_auto_reg(int(patient_id))
+    id_card_list = json_data.get('id_card_list')
+    medical_card_list = json_data.get('medical_card_list')
+    if id_card_list or medical_card_list:
+        auto_create_appt_by_auto_reg(id_card_list, medical_card_list)
 
     query_from = json_data.get('query_from')
     is_completed = int(json_data.get('is_completed')) if json_data.get('is_completed') else 0
@@ -399,7 +436,12 @@ def query_appt_record(json_data):
     openid = json_data.get('openid')
     condition_sql += f' and openid = \'{openid}\' ' if openid else ''
     id_card_no = json_data.get('id_card_no')
-    condition_sql += f' and id_card_no LIKE \'%{id_card_no}%\' ' if id_card_no else ''
+    if id_card_no:
+        condition_sql += f' and id_card_no LIKE \'%{id_card_no}%\' ' if id_card_no else ''
+    else:
+        if id_card_list:
+            id_card_list = ', '.join(f"'{item}'" for item in id_card_list)
+            condition_sql += f' and id_card_no in ({id_card_list}) '
     name = json_data.get('name')
     condition_sql += f" and patient_name LIKE \'%{name}%\' " if name else ''
     pid = json_data.get('pid')
@@ -408,6 +450,7 @@ def query_appt_record(json_data):
     condition_sql += f' and doc_his_name LIKE \'%{doctor}%\' ' if doctor else ''
     start_time, end_time = json_data.get("start_time"), json_data.get("end_time")
     condition_sql += f' and (book_date BETWEEN \'{start_time}\' AND \'{end_time}\') ' if start_time and end_time else ''
+    patient_id = json_data.get('patient_id')
     condition_sql += f' and patient_id = \'{patient_id}\' ' if patient_id else ''
 
     db = DbUtil(global_config.DB_HOST, global_config.DB_USERNAME, global_config.DB_PASSWORD,
@@ -853,6 +896,12 @@ def sign_in(json_data, his_sign: bool):
     appt_type = int(json_data.get('type'))
     patient_id = int(json_data.get('patient_id'))
 
+    query_sql = f'select * from {database}.appt_record where id = {appt_id}'
+    record = db.query_one(query_sql)
+    if int(record.get('state')) > appt_config.APPT_STATE['booked']:
+        # 已经签到过，直接返回
+        return
+
     # 如果是医嘱预约，检查付款状态
     if appt_type == 4:
         # 根据预约id 查询医嘱记录
@@ -873,16 +922,32 @@ def sign_in(json_data, his_sign: bool):
 
     # 签到前到 his 中取号, 小程序预约，现场预约需要取号。 自助挂号机挂号的预约不需要挂号.
     if appt_type in (1, 2) and his_sign:
-        param = {"type": "his_visit_reg", "patient_id": patient_id, "AsRowid": 2116, "PayAmt": 0.01}
-        doctorinfo = redis_client.hget(APPT_DOCTORS_KEY, str(json_data.get('doc_id')))
-        if doctorinfo:
-            doctorinfo = json.loads(doctorinfo)
-            param = {"type": "his_visit_reg", "patient_id": patient_id,
-                     "AsRowid": int(doctorinfo.get('appointment_id')),
-                     "PayAmt": float(doctorinfo.get('fee'))}
-        his_socket_ret_code = call_third_systems_obtain_data('his_socket', 'his_visit_reg', param)
-        if his_socket_ret_code != '0':
-            raise Exception('在 his 中取号失败， 签到失败, ResultCode: ', his_socket_ret_code)
+        # 先查询是否有挂号记录
+        id_card_no = record.get('id_card_no')
+        param = {
+            "type": "orcl_db_read",
+            "db_source": "nshis",
+            "randstr": "XPFDFZDF7193CIONS1PD7XCJ3AD4ORRC",
+            "sql": f'select a.*, b.身份证号 from 病人挂号记录 a left join 病人信息 b on a.病人id=b.病人id '
+                   f'where b.身份证号=\'{id_card_no}\' and TRUNC(a.登记时间) = TRUNC(SYSDATE) order by a.登记时间 desc'
+        }
+        reg_recordl = call_third_systems_obtain_data('int_api', 'orcl_db_read', param)
+        pay_sql = ''
+        if reg_recordl:
+            # 如果存在挂号记录，更新 pay_state pay_no
+            pay_sql = ', pay_state = {} , pay_no = \'{}\' '.format(appt_config.appt_pay_state['oa_his_both_pay'],
+                                                                   reg_recordl[0].get('NO')) if int(record.get('pay_state')) != 3 else ''
+        else:
+            param = {"type": "his_visit_reg", "patient_id": patient_id, "AsRowid": 2116, "PayAmt": 0.01}
+            doctorinfo = redis_client.hget(APPT_DOCTORS_KEY, str(json_data.get('doc_id')))
+            if doctorinfo:
+                doctorinfo = json.loads(doctorinfo)
+                param = {"type": "his_visit_reg", "patient_id": patient_id,
+                         "AsRowid": int(doctorinfo.get('appointment_id')),
+                         "PayAmt": float(doctorinfo.get('fee'))}
+            his_socket_ret_code = call_third_systems_obtain_data('his_socket', 'his_visit_reg', param)
+            if his_socket_ret_code != '0':
+                raise Exception('在 his 中取号失败， 签到失败, ResultCode: ', his_socket_ret_code)
 
     # 判断是否需要更换项目
     change_proj_sql = ''
@@ -899,7 +964,7 @@ def sign_in(json_data, his_sign: bool):
     sign_in_time = str(datetime.now())[:19]
     op_sql = ' sign_in_time = \'{}\', sign_in_num = {}, state = {} '.format(sign_in_time, sign_in_num,
                                                                             appt_config.APPT_STATE['in_queue'])
-    update_sql = f'UPDATE {database}.appt_record SET {op_sql}{change_proj_sql} WHERE id = {appt_id} '
+    update_sql = f'UPDATE {database}.appt_record SET {op_sql}{change_proj_sql}{pay_sql} WHERE id = {appt_id} '
     db.execute(sql=update_sql, need_commit=True)
     del db
 
