@@ -100,8 +100,8 @@ def regular_update_dept_info():
 
 
 def update_appt_capacity():
-    # url = "http://127.0.0.1:6092/gyl/appt/update_capacity"
-    url = "http://127.0.0.1:8080/gyl/appt/update_capacity"
+    url = "http://127.0.0.1:6092/gyl/appt/update_capacity"
+    # url = "http://127.0.0.1:8080/gyl/appt/update_capacity"
     response = requests.post(url)
     if response.status_code == 200:
         print("Successfully updated appointment capacity.")

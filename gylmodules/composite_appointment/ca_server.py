@@ -68,6 +68,7 @@ def cache_capacity():
     query_sql = 'select * from {}.appt_record where book_date >= \'{}\' and state < {} and is_doc_change = 0' \
         .format(database, str(today), appt_config.APPT_STATE['canceled'])
     recordl = db.query_all(query_sql)
+    del db
     for record in recordl:
         period = str(record['book_period'])
         rid = str(record.get('rid'))
@@ -77,7 +78,6 @@ def cache_capacity():
             room_dict[rid][datestr][period][time_slot] -= 1
         else:
             print('rid= ', rid, " date= ", datestr, ' period= ', period, ' slot= ', time_slot, '停诊')
-    del db
     print('房间容量缓存完成: ', datetime.now())
 
 
@@ -902,6 +902,7 @@ def sign_in(json_data, his_sign: bool):
     query_sql = f'select * from {database}.appt_record where id = {appt_id}'
     record = db.query_one(query_sql)
     if int(record.get('state')) > appt_config.APPT_STATE['booked']:
+        del db
         # 已经签到过，直接返回
         return
 
