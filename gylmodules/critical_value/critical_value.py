@@ -2,7 +2,6 @@ import redis
 import json
 import threading
 import requests
-import requests
 from requests.adapters import HTTPAdapter
 from suds.client import Client
 
@@ -292,7 +291,7 @@ def get_running_cvs():
             where (idrs_3 alertdt > to_date('{start_t}', 'yyyy-mm-dd hh24:mi:ss')) and VALIDFLAG=1 and HISCHECKDT1 is NULL
             """
 
-    systeml = [0, 1, 2, 3, 4]
+    systeml = [0, 1, 2, 3, 4, 5]
 
     return running_ids, query_sql, systeml
 
@@ -856,6 +855,7 @@ def doctor_handle_cv(json_data):
                      'WHERE cv_id = %s and cv_source = %s '
         args = (cv_config.DOCTOR_HANDLE_STATE, analysis, method, timer, handler_name, handler_id, cv_id, cv_source)
         db.execute(update_sql, args, need_commit=True)
+        del db
 
         # 同步更新常量中的状态
         key = cv_id + '_' + str(cv_source)
@@ -909,6 +909,7 @@ def doctor_handle_cv(json_data):
             }
             call_third_systems_obtain_data('his_procedure', param)
 
+        data_feedback(cv_id, int(cv_source), handler_name, timer, '', 3)
         # 护士接收之后，进行数据回传
         if int(cv_source) == 4:
             # 心电危机值特殊处理
@@ -918,10 +919,6 @@ def doctor_handle_cv(json_data):
                 "doc_name": handler_name,
                 "body": method
             })
-        elif int(cv_source) == 2:
-            # LIS 危机值回传
-            data_feedback(cv_id, int(cv_source), handler_name, timer, '', 3)
-    del db
 
 
 """

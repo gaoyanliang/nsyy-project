@@ -20,8 +20,8 @@ pool = redis.ConnectionPool(host=appt_config.APPT_REDIS_HOST, port=appt_config.A
 
 lock_redis_client = redis.Redis(connection_pool=pool)
 
-database = 'nsyy_gyl'
-# database = 'appt'
+# database = 'nsyy_gyl'
+database = 'appt'
 
 # 可以预约的时间段
 room_dict = {}
@@ -356,6 +356,8 @@ def auto_create_appt_by_auto_reg(id_card_list, medical_card_list):
         target_room = ''
         book_period = ''
         for s in daily_sched:
+            if not s.get('did'):
+                continue
             if int(s.get('did')) == int(doctor.get('id')) and str(s.get('ampm')) in period:
                 target_proj = redis_client.hget(APPT_PROJECTS_KEY, str(s.get('pid')))
                 target_proj = json.loads(target_proj)
@@ -670,7 +672,7 @@ def create_appt_by_doctor_advice(patient_id: str, doc_name: str, id_card_no, app
             "pid": 79,
             "pname": "其他项目",
             'rid': 153,
-            'room': '其他',
+            'room': '当前诊室',
             "ptype": 2,
             "state": 0,
             "level": int(level),
@@ -851,7 +853,7 @@ def update_advice(json_data):
             "pname": "其他项目",
             "ptype": 2,
             'rid': 153,
-            'room': '其他',
+            'room': '当前诊室',
             "state": 0,
             "level": int(level),
         }
@@ -1101,7 +1103,8 @@ def query_all_appt_project(type: int):
                     if today_str == date and not if_the_current_time_period_is_available(slot):
                         continue
                     for rid, rinfo in info.items():
-                        if not room_dict[str(rid)] or not room_dict[str(rid)][date]:
+                        if not room_dict.get(str(rid)) or not room_dict[str(rid)].get(date) \
+                                or not room_dict[str(rid)][date].get(str(slot)):
                             continue
                         quantity = room_dict[str(rid)][date][str(slot)]
                         info[rid]['hourly_quantity'] = quantity
@@ -1425,6 +1428,8 @@ def update_sched(json_data):
         if proj:
             proj = json.loads(proj)
             cache_proj_7day_sched(proj)
+
+    cache_capacity()
 
 
 """

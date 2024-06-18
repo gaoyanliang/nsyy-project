@@ -34,6 +34,10 @@ if ('id1', 'name1') in record_dict:
     print('afdaf')
 
 
+data = {'危机值': '测试'}
+
+if '测试' in data.get('危机值'):
+    print('--------------------')
 
 
 
