@@ -929,12 +929,13 @@ def sign_in(json_data, his_sign: bool):
     if appt_type in (1, 2) and his_sign:
         # 先查询是否有挂号记录
         id_card_no = record.get('id_card_no')
+        appt_doctor = record.get('doc_his_name')
         param = {
             "type": "orcl_db_read",
             "db_source": "nshis",
             "randstr": "XPFDFZDF7193CIONS1PD7XCJ3AD4ORRC",
             "sql": f'select a.*, b.身份证号 from 病人挂号记录 a left join 病人信息 b on a.病人id=b.病人id '
-                   f'where b.身份证号=\'{id_card_no}\' and TRUNC(a.登记时间) = TRUNC(SYSDATE) order by a.登记时间 desc'
+                   f'where b.身份证号=\'{id_card_no}\' and a.执行人 = \'{appt_doctor}\' and TRUNC(a.登记时间) = TRUNC(SYSDATE) order by a.登记时间 desc'
         }
         reg_recordl = call_third_systems_obtain_data('int_api', 'orcl_db_read', param)
         if reg_recordl:
