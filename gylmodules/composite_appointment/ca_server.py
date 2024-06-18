@@ -20,8 +20,8 @@ pool = redis.ConnectionPool(host=appt_config.APPT_REDIS_HOST, port=appt_config.A
 
 lock_redis_client = redis.Redis(connection_pool=pool)
 
-# database = 'nsyy_gyl'
-database = 'appt'
+database = 'nsyy_gyl'
+# database = 'appt'
 
 # 可以预约的时间段
 room_dict = {}
@@ -1395,6 +1395,7 @@ def update_sched(json_data):
     condition_sql += ', did = {} '.format(int(json_data.get('did'))) if json_data.get('did') else ''
     condition_sql += ', pid = {} '.format(int(json_data.get('pid'))) if json_data.get('pid') else ''
     condition_sql += ', state = {} '.format(int(json_data.get('state'))) if json_data.get('state') else ''
+    condition_sql += ', change_reason = \'{}\' '.format(json_data.get('change_reason')) if json_data.get('change_reason') else ''
     update_sql = f'UPDATE {database}.appt_scheduling SET {condition_sql} ' \
                  f' WHERE id = {id}'
     db.execute(update_sql, need_commit=True)
