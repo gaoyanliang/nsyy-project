@@ -2,11 +2,14 @@ import redis
 import json
 import threading
 import requests
+import requests
+from requests.adapters import HTTPAdapter
 from suds.client import Client
 
 from datetime import datetime, timedelta
 
 from apscheduler.schedulers.background import BackgroundScheduler
+from urllib3 import Retry
 
 from gylmodules import global_config
 from gylmodules.critical_value import cv_config
@@ -650,12 +653,25 @@ def async_alert(type, id, msg):
         redis_client = redis.Redis(connection_pool=pool)
         sites = redis_client.smembers(key)
         if sites:
+            # 设置 requests 的连接池
+            retries = Retry(total=3, backoff_factor=0.3, status_forcelist=[500, 502, 503, 504, 20003])
+            adapter = HTTPAdapter(max_retries=retries, pool_connections=15, pool_maxsize=15)
+
             for ip in sites:
                 url = f'http://{ip}:8085/opera_wiki'
                 try:
-                    requests.post(url, json=payload)
-                except Exception as e:
+                    session = requests.Session()
+                    session.mount('http://', adapter)
+                    response = session.post(url, json=payload, timeout=(5, 10))  # 连接超时5秒，读取超时10秒
+                    response.raise_for_status()  # 如果响应状态码不是 200-400 之间，产生异常
+                except requests.exceptions.Timeout:
+                    # print("请求超时")
                     pass
+                except requests.exceptions.RequestException as e:
+                    # print(f"Failed to send alert to {ip}: {e}")
+                    pass
+                finally:
+                    session.close()  # 确保连接关闭
 
     thread_b = threading.Thread(target=alert, args=(type, id, msg))
     thread_b.start()
