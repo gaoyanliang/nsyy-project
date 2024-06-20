@@ -631,13 +631,18 @@ def query_process_cv_and_notice(dept_id, ward_id):
     del db
 
     if running:
-        patient_names = [item['patient_name'] for item in running]
-        patient_names = list(set(patient_names))
-        names = ','.join(patient_names)
+        timeout_record = []
+        for item in running:
+            msg = '[{} - {} - {}]'.format(item.get('patient_name', 'unknown'),
+                                          item.get('req_docno', 'unknown'), item.get('patient_bed_num', '0'))
+            timeout_record.append(msg)
+
+        msgs = list(set(timeout_record))
+        alertmsg = f'以下危机值未及时处理 <br> [患者 - 主治医生 - 床号] <br> ' + ' <br> '.join(msgs)
         if ward_id:
-            async_alert(1, ward_id, f" {names} 存在未处理完的危机值，请及时处理")
+            async_alert(1, ward_id, alertmsg)
         if dept_id:
-            async_alert(2, dept_id, f" {names} 存在未处理完的危机值，请及时处理")
+            async_alert(2, dept_id, alertmsg)
 
 
 """

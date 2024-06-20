@@ -44,6 +44,10 @@ def handle_timeout_cv():
     cur_time = datetime.now()
     redis_client = redis.Redis(connection_pool=pool)
     values = redis_client.hvals(cv_config.RUNNING_CVS_REDIS_KEY)
+
+    # 存储所有超时记录
+    ward_timeout_record = {}
+    dept_timeout_record = {}
     for value in values:
         value = json.loads(value)
         if value.get('state') not in (1, 2, 4, 5, 7):
@@ -52,10 +56,20 @@ def handle_timeout_cv():
         check_time = value[needd['check_time']]
         check_time = datetime.strptime(check_time, "%Y-%m-%d %H:%M:%S")
         if (cur_time-check_time).seconds > value.get(needd['timeout_filed'], 600):
+            msg = '[{} - {} - {}]'.format(value.get('patient_name', 'unknown'),
+                                          value.get('req_docno', 'unknown'), value.get('patient_bed_num', '0'))
             if needd['ward_id'] != '':
-                async_alert(1, value[needd['ward_id']], needd['timeout_msg'])
+                if str(needd['ward_id']) in ward_timeout_record:
+                    ward_timeout_record[str(needd['ward_id'])].append(msg)
+                else:
+                    ward_timeout_record[str(needd['ward_id'])] = [msg]
+                # async_alert(1, value[needd['ward_id']], needd['timeout_msg'])
             if needd['dept_id'] != '':
-                async_alert(2, value[needd['dept_id']], needd['timeout_msg'])
+                if str(needd['dept_id']) in dept_timeout_record:
+                    dept_timeout_record[str(needd['dept_id'])].append(msg)
+                else:
+                    dept_timeout_record[str(needd['dept_id'])] = [msg]
+                # async_alert(2, value[needd['dept_id']], needd['timeout_msg'])
 
             # 更新超时状态
             if value[needd['timeout_flag']] == 0:
@@ -81,6 +95,16 @@ def handle_timeout_cv():
                 value[needd['timeout_flag']] = 1
                 key = str(cv_id) + '_' + str(cv_source)
                 write_cache(key, value)
+
+    if ward_timeout_record:
+        for ward_id, msgs in ward_timeout_record.items():
+            alertmsg = f'超时危机值，请及时处理 <br> [患者 - 主治医生 - 床号] <br> ' + ' <br> '.join(msgs)
+            async_alert(1, ward_id, alertmsg)
+
+    if dept_timeout_record:
+        for dept_id, msgs in dept_timeout_record.items():
+            alertmsg = f'超时危机值，请及时处理 <br> [患者 - 主治医生 - 床号] <br> ' + ' <br> '.join(msgs)
+            async_alert(2, dept_id, alertmsg)
 
 
 def regular_update_dept_info():
@@ -150,9 +174,10 @@ def schedule_task():
     # ======================  综合预约定时任务  ======================
     # 项目启动时，执行一次，初始化数据。 之后每天凌晨执行
     if global_config.schedule_task['appt_daily']:
-        gylmodule_scheduler.add_job(run_everyday, trigger='date', run_date=datetime.now())
-        gylmodule_scheduler.add_job(run_everyday, 'cron', hour=1, minute=10, id='appt_daily')
-        gylmodule_scheduler.add_job(update_appt_capacity, 'cron', hour=1, minute=20, id='update_appt_capacity')
+        run_time = datetime.now() + timedelta(seconds=20)
+        gylmodule_scheduler.add_job(run_everyday, trigger='date', run_date=run_time)
+        gylmodule_scheduler.add_job(run_everyday, 'cron', hour=1, minute=20, id='appt_daily')
+        gylmodule_scheduler.add_job(update_appt_capacity, 'cron', hour=1, minute=10, id='update_appt_capacity')
 
     six_hour = 6 * 60 * 60
     # one_min = 60
