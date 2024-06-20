@@ -16,7 +16,6 @@ pool = redis.ConnectionPool(host=cv_config.CV_REDIS_HOST, port=cv_config.CV_REDI
                             db=cv_config.CV_REDIS_DB, decode_responses=True)
 gylmodule_scheduler = BackgroundScheduler(timezone="Asia/Shanghai")
 
-
 # check_time 检查字段
 # timeout_file 超时时间配置字段
 # timeout_msg 超时通知信息
@@ -55,9 +54,9 @@ def handle_timeout_cv():
         needd = timeout_d[value['state']]
         check_time = value[needd['check_time']]
         check_time = datetime.strptime(check_time, "%Y-%m-%d %H:%M:%S")
-        if (cur_time-check_time).seconds > value.get(needd['timeout_filed'], 600):
-            msg = '[{} - {} - {}]'.format(value.get('patient_name', 'unknown'),
-                                          value.get('req_docno', 'unknown'), value.get('patient_bed_num', '0'))
+        if (cur_time - check_time).seconds > value.get(needd['timeout_filed'], 600):
+            msg = '[{} - {} - {} - {}]'.format(value.get('patient_name', 'unknown'), value.get('req_docno', 'unknown'),
+                                               value.get('patient_treat_id', '0'), value.get('patient_bed_num', '0'))
             if needd['ward_id'] != '':
                 if str(needd['ward_id']) in ward_timeout_record:
                     ward_timeout_record[str(needd['ward_id'])].append(msg)
@@ -98,12 +97,12 @@ def handle_timeout_cv():
 
     if ward_timeout_record:
         for ward_id, msgs in ward_timeout_record.items():
-            alertmsg = f'超时危机值，请及时处理 <br> [患者 - 主治医生 - 床号] <br> ' + ' <br> '.join(msgs)
+            alertmsg = f'超时危机值，请及时处理 <br> [患者 - 主管医生 - 住院/门诊号 - 床号] <br> ' + ' <br> '.join(msgs)
             async_alert(1, ward_id, alertmsg)
 
     if dept_timeout_record:
         for dept_id, msgs in dept_timeout_record.items():
-            alertmsg = f'超时危机值，请及时处理 <br> [患者 - 主治医生 - 床号] <br> ' + ' <br> '.join(msgs)
+            alertmsg = f'超时危机值，请及时处理 <br> [患者 - 主管医生 - 住院/门诊号 - 床号] <br> ' + ' <br> '.join(msgs)
             async_alert(2, dept_id, alertmsg)
 
 
@@ -159,7 +158,8 @@ def schedule_task():
     # 定时判断危机值是否超时
     if global_config.schedule_task['cv_timeout']:
         print("危机值超时管理 定时任务启动 ", datetime.now())
-        gylmodule_scheduler.add_job(handle_timeout_cv, trigger='interval', seconds=60, max_instances=10, id='cv_timeout')
+        gylmodule_scheduler.add_job(handle_timeout_cv, trigger='interval', seconds=60, max_instances=10,
+                                    id='cv_timeout')
 
         print("缓存单次上报危机值信息 定时任务启动 ", datetime.now())
         gylmodule_scheduler.add_job(cache_single_cv, trigger='date', run_date=datetime.now())
@@ -169,7 +169,8 @@ def schedule_task():
     if global_config.schedule_task['cv_dept_update']:
         print("危机值部门信息更新 定时任务 ", datetime.now())
         one_hour = 60 * 60
-        gylmodule_scheduler.add_job(regular_update_dept_info, trigger='interval', seconds=one_hour, max_instances=10, id='cv_dept_update')
+        gylmodule_scheduler.add_job(regular_update_dept_info, trigger='interval', seconds=one_hour, max_instances=10,
+                                    id='cv_dept_update')
 
     # ======================  综合预约定时任务  ======================
     # 项目启动时，执行一次，初始化数据。 之后每天凌晨执行
@@ -186,4 +187,3 @@ def schedule_task():
 
     # ======================  Start ======================
     gylmodule_scheduler.start()
-

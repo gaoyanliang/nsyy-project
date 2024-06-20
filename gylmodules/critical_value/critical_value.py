@@ -639,12 +639,12 @@ def query_process_cv_and_notice(dept_id, ward_id):
     if running:
         timeout_record = []
         for item in running:
-            msg = '[{} - {} - {}]'.format(item.get('patient_name', 'unknown'),
-                                          item.get('req_docno', 'unknown'), item.get('patient_bed_num', '0'))
+            msg = '[{} - {} - {} - {}]'.format(item.get('patient_name', 'unknown'), item.get('req_docno', 'unknown'),
+                                               item.get('patient_treat_id', '0'), item.get('patient_bed_num', '0'))
             timeout_record.append(msg)
 
         msgs = list(set(timeout_record))
-        alertmsg = f'以下危机值未及时处理 <br> [患者 - 主治医生 - 床号] <br> ' + ' <br> '.join(msgs)
+        alertmsg = f'以下危机值未及时处理 <br> [患者 - 主管医生 - 住院/门诊号 - 床号] <br> ' + ' <br> '.join(msgs)
         if ward_id:
             async_alert(1, ward_id, alertmsg)
         if dept_id:
