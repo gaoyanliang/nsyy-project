@@ -314,13 +314,19 @@ def create_cv(cvd):
             cv_idd[cv_source] = []
         cv_idd[cv_source].append(cv_id)
     for cv_source, cv_ids in cv_idd.items():
-        invalid_crisis_value(cv_ids, cv_source)
+        try:
+            invalid_crisis_value(cv_ids, cv_source)
+        except Exception as e:
+            print("作废危机值异常：cv_ids = ", cv_ids, ' cv_source = ', cv_source, 'Exception = ', e)
 
     # 新增危机值
     for key in new_idl:
-        cv_source = key.split('_')[1]
-        cv_data = cvd[key]
-        create_cv_by_system(cv_data, int(cv_source))
+        try:
+            cv_source = key.split('_')[1]
+            cv_data = cvd[key]
+            create_cv_by_system(cv_data, int(cv_source))
+        except Exception as e:
+            print("新增危机值异常：cv_data = ", cv_data, ' key = ', key, 'Exception = ', e)
 
 
 """
