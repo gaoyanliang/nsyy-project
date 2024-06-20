@@ -799,7 +799,7 @@ def confirm_receipt_cv(json_data):
             write_cache(key, value)
 
         # 医生接收之后，进行数据回传
-        data_feedback(cv_id, int(cv_source), confirmer_name, timer, '', 2)
+        data_feedback(cv_id, int(cv_source), confirmer_name, timer, '已确认', 2)
     del db
 
 
@@ -920,7 +920,7 @@ def doctor_handle_cv(json_data):
             }
             call_third_systems_obtain_data('his_procedure', param)
 
-        data_feedback(cv_id, int(cv_source), handler_name, timer, '', 3)
+        data_feedback(cv_id, int(cv_source), handler_name, timer, method, 3)
         # 护士接收之后，进行数据回传
         if int(cv_source) == 4:
             # 心电危机值特殊处理
@@ -1033,13 +1033,15 @@ def data_feedback(cv_id, cv_source, confirmer, timer, confirm_info, type: int):
         datel = ["HISCHECKDT"]
     elif type == 2:
         # 医生确认
-        datal = [{"RESULTALERTID": cv_id, "HISCHECKMAN": confirmer, "HISCHECKDT": timer}]
-        updatel = ["HISCHECKMAN", "HISCHECKDT"]
+        datal = [{"RESULTALERTID": cv_id, "HISCHECKMAN": confirmer, "HISCHECKDT": timer,
+                  "HISCHECKINFO": confirm_info}]
+        updatel = ["HISCHECKMAN", "HISCHECKDT", "HISCHECKINFO"]
         datel = ["HISCHECKDT"]
     elif type == 3:
         # 医生处理
-        datal = [{"RESULTALERTID": cv_id, "HISCHECKMAN1": confirmer, "HISCHECKDT1": timer}]
-        updatel = ["HISCHECKMAN1", "HISCHECKDT1"]
+        datal = [{"RESULTALERTID": cv_id, "HISCHECKMAN1": confirmer, "HISCHECKDT1": timer,
+                  "HISCHECKINFO1": confirm_info}]
+        updatel = ["HISCHECKMAN1", "HISCHECKDT1", "HISCHECKINFO1"]
         datel = ["HISCHECKDT1"]
 
     if cv_source == 2:
