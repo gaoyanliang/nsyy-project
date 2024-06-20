@@ -21,7 +21,6 @@ pool = redis.ConnectionPool(host=appt_config.APPT_REDIS_HOST, port=appt_config.A
 lock_redis_client = redis.Redis(connection_pool=pool)
 
 database = 'nsyy_gyl'
-# database = 'appt'
 
 # 可以预约的时间段
 room_dict = {}
@@ -185,6 +184,8 @@ def check_appointment_quantity(book_info):
     period = str(book_info.get('period')) if book_info.get('period') else '3'
 
     current_slot = appt_config.appt_slot_dict[datetime.now().hour]
+    if book_date == str(datetime.today().strftime("%Y-%m-%d")):
+        current_slot = 1 if int(book_info.get('period')) == 1 else 9
     # 如果指定了日期，直接在指定日期查找可用时段
     if book_date:
         next_date, next_slot = find_next_available(book_date, current_slot, periodd[period], int(period))
@@ -327,6 +328,10 @@ def auto_create_appt_by_auto_reg(id_card_list, medical_card_list):
         if pay_no in created:
             continue
 
+        # 记录状态 1-正常的挂号或预约记录 ;2-退号记录；3-原始被退记录
+        if int(item.get('记录状态')) == 2 or int(item.get('记录状态')) == 3:
+            continue
+
         patient_id = item.get('病人ID')
         doc_his_name = item.get('执行人')
         # 如果存在oa预约记录
@@ -349,7 +354,9 @@ def auto_create_appt_by_auto_reg(id_card_list, medical_card_list):
         # 这里的 doctor 是 his name
         doctor = redis_client.hget(APPT_DOCTORS_BY_NAME_KEY, doc_his_name)
         if not doctor:
-            raise Exception('预约系统中不存在 {} 医生，请联系护士及时维护门诊医生信息'.format(item.get('执行人')))
+            print('Exception: ', '预约系统中不存在 {} 医生，请联系护士及时维护门诊医生信息'.format(item.get('执行人')), '医嘱信息: ', item)
+            continue
+            # raise Exception()
         doctor = json.loads(doctor)
         # 根据医生找到医生当天的坐诊项目
         target_proj = ''
@@ -366,7 +373,9 @@ def auto_create_appt_by_auto_reg(id_card_list, medical_card_list):
                 book_period = s.get('ampm')
                 break
         if not target_proj or not target_room:
-            raise Exception('未找到 {} 医生今天的坐诊信息'.format(item.get('执行人')))
+            print('Exception: ', '未找到 {} 医生今天的坐诊信息'.format(item.get('执行人')), '医嘱信息: ', item)
+            continue
+            # raise Exception('未找到 {} 医生今天的坐诊信息'.format(item.get('执行人')))
 
         # 根据上面的信息，创建预约
         record = {
@@ -409,12 +418,15 @@ query_from = 4 小程序查询
 def query_appt_record(json_data):
     # 查询预约记录时，如果患者是在远途自助机或者诊室找医生帮忙取号的，自动创建预约
     # 根据 patient_id 查询自助挂号信息
+    query_from = json_data.get('query_from')
     id_card_list = json_data.get('id_card_list')
     medical_card_list = json_data.get('medical_card_list')
     if id_card_list or medical_card_list:
         auto_create_appt_by_auto_reg(id_card_list, medical_card_list)
 
-    query_from = json_data.get('query_from')
+    if not id_card_list and not medical_card_list and query_from == 4:
+        return [], 0
+
     is_completed = int(json_data.get('is_completed')) if json_data.get('is_completed') else 0
     condition_sql = ''
     if int(query_from) == 1:
