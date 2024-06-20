@@ -509,6 +509,10 @@ def create_cv_by_system(json_data, cv_source):
         cvd['redo_flag'] = json_data.get('REDO_FLAG')
         cvd['alertrules'] = json_data.get('ALERTRULES')
 
+    if int(cv_source) == cv_config.CV_SOURCE_XUETANG_SYSTEM:
+        cvd['cv_flag'] = json_data.get('RESULT_FLAG')
+        cvd['cv_unit'] = json_data.get('RESULT_UNIT')
+
     # 超时时间配置
     redis_client = redis.Redis(connection_pool=pool)
     cvd['nurse_recv_timeout'] = redis_client.get(cv_config.TIMEOUT_REDIS_KEY['nurse_recv']) or 300
