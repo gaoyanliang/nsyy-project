@@ -541,9 +541,10 @@ def create_cv_by_system(json_data, cv_source):
         redis_client.hset(cv_config.SINGLE_CV_REDIS_KEY, json_data.get('RPT_ITEMNAME'), json.dumps(data, default=str))
 
     # 发送危机值 直接通知医生和护士
-    pat_name = cvd['patient_name']
-    async_alert(1, cvd['ward_id'], f'病人 [{pat_name}] 出现危机值, 请及时查看并处理')
-    async_alert(2, cvd['dept_id'], f'病人 [{pat_name}] 出现危机值, 请及时查看并处理')
+    msg = '[{} - {} - {} - {}]'.format(cvd.get('patient_name', 'unknown'), cvd.get('req_docno', 'unknown'),
+                                       cvd.get('patient_treat_id', '0'), cvd.get('patient_bed_num', '0'))
+    async_alert(1, cvd['ward_id'], f'发现新危机值, 请及时查看并处理 <br> [患者 - 主管医生 - 住院/门诊号 - 床号] <br> {msg}')
+    async_alert(2, cvd['dept_id'], f'发现新危机值, 请及时查看并处理 <br> [患者 - 主管医生 - 住院/门诊号 - 床号] <br> {msg}')
 
     # 将危机值放入 redis cache
     query_sql = 'select * from nsyy_gyl.cv_info where id = {} '.format(last_rowid)
@@ -732,9 +733,10 @@ def push(json_data):
             value['nurse_send_time'] = timer
             write_cache(key, value)
         # 弹框提醒医生
-        async_alert(2, dept_id, f"病人 {patient_name} 出现危机值, 请及时查看并处理")
+        msg = '[{} - {} - {} - {}]'.format(patient_name, value.get('req_docno', 'unknown'),
+                                           value.get('patient_treat_id', '0'), value.get('patient_bed_num', '0'))
+        async_alert(2, dept_id, f'发现新危机值, 请及时查看并处理 <br> [患者 - 主管医生 - 住院/门诊号 - 床号] <br> {msg}')
     del db
-
 
 
 """
