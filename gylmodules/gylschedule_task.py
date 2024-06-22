@@ -97,12 +97,12 @@ def handle_timeout_cv():
 
     if ward_timeout_record:
         for ward_id, msgs in ward_timeout_record.items():
-            alertmsg = f'超时危机值，请及时处理 <br> [患者 - 主管医生 - 住院/门诊号 - 床号] <br> ' + ' <br> '.join(msgs)
+            alertmsg = f'超时危机值，请及时处理 <br> [患者-主管医生-住院/门诊号-床号] <br> ' + ' <br> '.join(msgs)
             async_alert(1, ward_id, alertmsg)
 
     if dept_timeout_record:
         for dept_id, msgs in dept_timeout_record.items():
-            alertmsg = f'超时危机值，请及时处理 <br> [患者 - 主管医生 - 住院/门诊号 - 床号] <br> ' + ' <br> '.join(msgs)
+            alertmsg = f'超时危机值，请及时处理 <br> [患者-主管医生-住院/门诊号-床号] <br> ' + ' <br> '.join(msgs)
             async_alert(2, dept_id, alertmsg)
 
 

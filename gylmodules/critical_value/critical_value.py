@@ -90,6 +90,7 @@ def read_cache(key):
     value = redis_client.hget(cv_config.RUNNING_CVS_REDIS_KEY, key)
     if not value:
         print(f'key = {key} , value is nil')
+        return None
     return json.loads(value)
 
 
@@ -543,8 +544,8 @@ def create_cv_by_system(json_data, cv_source):
     # 发送危机值 直接通知医生和护士
     msg = '[{} - {} - {} - {}]'.format(cvd.get('patient_name', 'unknown'), cvd.get('req_docno', 'unknown'),
                                        cvd.get('patient_treat_id', '0'), cvd.get('patient_bed_num', '0'))
-    async_alert(1, cvd['ward_id'], f'发现新危机值, 请及时查看并处理 <br> [患者 - 主管医生 - 住院/门诊号 - 床号] <br> {msg}')
-    async_alert(2, cvd['dept_id'], f'发现新危机值, 请及时查看并处理 <br> [患者 - 主管医生 - 住院/门诊号 - 床号] <br> {msg}')
+    async_alert(1, cvd['ward_id'], f'发现新危机值, 请及时查看并处理 <br> [患者-主管医生-住院/门诊号-床号] <br> {msg}')
+    async_alert(2, cvd['dept_id'], f'发现新危机值, 请及时查看并处理 <br> [患者-主管医生-住院/门诊号-床号] <br> {msg}')
 
     # 将危机值放入 redis cache
     query_sql = 'select * from nsyy_gyl.cv_info where id = {} '.format(last_rowid)
@@ -649,7 +650,7 @@ def query_process_cv_and_notice(dept_id, ward_id):
             timeout_record.append(msg)
 
         msgs = list(set(timeout_record))
-        alertmsg = f'以下危机值未及时处理 <br> [患者 - 主管医生 - 住院/门诊号 - 床号] <br> ' + ' <br> '.join(msgs)
+        alertmsg = f'以下危机值未及时处理 <br> [患者-主管医生-住院/门诊号-床号] <br> ' + ' <br> '.join(msgs)
         if ward_id:
             async_alert(1, ward_id, alertmsg)
         if dept_id:
@@ -735,7 +736,7 @@ def push(json_data):
         # 弹框提醒医生
         msg = '[{} - {} - {} - {}]'.format(patient_name, value.get('req_docno', 'unknown'),
                                            value.get('patient_treat_id', '0'), value.get('patient_bed_num', '0'))
-        async_alert(2, dept_id, f'发现新危机值, 请及时查看并处理 <br> [患者 - 主管医生 - 住院/门诊号 - 床号] <br> {msg}')
+        async_alert(2, dept_id, f'发现新危机值, 请及时查看并处理 <br> [患者-主管医生-住院/门诊号-床号] <br> {msg}')
     del db
 
 
