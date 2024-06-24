@@ -7,7 +7,7 @@ from gylmodules import global_config
 from gylmodules.composite_appointment.ca_server import run_everyday
 from gylmodules.critical_value import cv_config
 from gylmodules.critical_value.critical_value import write_cache, \
-    call_third_systems_obtain_data, async_alert, cache_single_cv
+    call_third_systems_obtain_data, async_alert, cache_single_cv, invalid_history_cv
 from apscheduler.schedulers.background import BackgroundScheduler
 
 from gylmodules.utils.db_utils import DbUtil
@@ -57,18 +57,16 @@ def handle_timeout_cv():
         if (cur_time - check_time).seconds > value.get(needd['timeout_filed'], 600):
             msg = '[{} - {} - {} - {}]'.format(value.get('patient_name', 'unknown'), value.get('req_docno', 'unknown'),
                                                value.get('patient_treat_id', '0'), value.get('patient_bed_num', '0'))
-            if needd['ward_id'] != '':
-                if str(needd['ward_id']) in ward_timeout_record:
-                    ward_timeout_record[str(needd['ward_id'])].append(msg)
+            if value['ward_id']:
+                if str(value['ward_id']) in ward_timeout_record:
+                    ward_timeout_record[str(value['ward_id'])].append(msg)
                 else:
-                    ward_timeout_record[str(needd['ward_id'])] = [msg]
-                # async_alert(1, value[needd['ward_id']], needd['timeout_msg'])
-            if needd['dept_id'] != '':
-                if str(needd['dept_id']) in dept_timeout_record:
-                    dept_timeout_record[str(needd['dept_id'])].append(msg)
+                    ward_timeout_record[str(value['ward_id'])] = [msg]
+            if value['dept_id']:
+                if str(value['dept_id']) in dept_timeout_record:
+                    dept_timeout_record[str(value['dept_id'])].append(msg)
                 else:
-                    dept_timeout_record[str(needd['dept_id'])] = [msg]
-                # async_alert(2, value[needd['dept_id']], needd['timeout_msg'])
+                    dept_timeout_record[str(value['dept_id'])] = [msg]
 
             # 更新超时状态
             if value[needd['timeout_flag']] == 0:
@@ -98,12 +96,12 @@ def handle_timeout_cv():
     if ward_timeout_record:
         for ward_id, msgs in ward_timeout_record.items():
             alertmsg = f'超时危机值，请及时处理 <br> [患者-主管医生-住院/门诊号-床号] <br> ' + ' <br> '.join(msgs)
-            async_alert(1, ward_id, alertmsg)
+            async_alert(1, ward_id, alertmsg, is_async=True)
 
     if dept_timeout_record:
         for dept_id, msgs in dept_timeout_record.items():
             alertmsg = f'超时危机值，请及时处理 <br> [患者-主管医生-住院/门诊号-床号] <br> ' + ' <br> '.join(msgs)
-            async_alert(2, dept_id, alertmsg)
+            async_alert(2, dept_id, alertmsg, is_async=True)
 
 
 def regular_update_dept_info():
@@ -158,12 +156,15 @@ def schedule_task():
     # 定时判断危机值是否超时
     if global_config.schedule_task['cv_timeout']:
         print("危机值超时管理 定时任务启动 ", datetime.now())
-        gylmodule_scheduler.add_job(handle_timeout_cv, trigger='interval', seconds=60, max_instances=10,
+        gylmodule_scheduler.add_job(handle_timeout_cv, trigger='interval', seconds=100, max_instances=20,
                                     id='cv_timeout')
 
         print("缓存单次上报危机值信息 定时任务启动 ", datetime.now())
         gylmodule_scheduler.add_job(cache_single_cv, trigger='date', run_date=datetime.now())
         gylmodule_scheduler.add_job(cache_single_cv, 'cron', hour=2, minute=10, id='cache_single_cv')
+
+        print("作废超过一天未处理的危机值 定时任务启动 ", datetime.now())
+        gylmodule_scheduler.add_job(invalid_history_cv, 'cron', hour=2, minute=20, id='invalid_history_cv')
 
     # 定时更新所有部门信息
     if global_config.schedule_task['cv_dept_update']:

@@ -336,23 +336,22 @@ def create_cv(cvd):
 
 
 def invalid_crisis_value(cv_ids, cv_source):
-    db = DbUtil(global_config.DB_HOST, global_config.DB_USERNAME, global_config.DB_PASSWORD,
-                global_config.DB_DATABASE_GYL)
-
-    # 更新危机值状态未作废
-    cv_ids = [f"'{item}'" for item in cv_ids]
-    ids = ','.join(cv_ids)
-    new_state = cv_config.INVALID_STATE
-    states = (cv_config.INVALID_STATE, cv_config.DOCTOR_RECV_STATE, cv_config.DOCTOR_HANDLE_STATE)
-    update_sql = f'UPDATE nsyy_gyl.cv_info SET state = {new_state}' \
-                 f' WHERE cv_id in ({ids}) and cv_source = {cv_source} and state not in {states}'
-    db.execute(update_sql, need_commit=True)
-    del db
-
     # 从内存中移除
     for cv_id in cv_ids:
         key = cv_id + '_' + str(cv_source)
         delete_cache(key)
+
+    db = DbUtil(global_config.DB_HOST, global_config.DB_USERNAME, global_config.DB_PASSWORD,
+                global_config.DB_DATABASE_GYL)
+    # 更新危机值状态未作废
+    cv_ids = [f"'{item}'" for item in cv_ids]
+    ids = ','.join(cv_ids)
+    new_state = cv_config.INVALID_STATE
+    states = (cv_config.INVALID_STATE, cv_config.DOCTOR_HANDLE_STATE)
+    update_sql = f'UPDATE nsyy_gyl.cv_info SET state = {new_state}' \
+                 f' WHERE cv_id in ({ids}) and cv_source = {cv_source} and state not in {states}'
+    db.execute(update_sql, need_commit=True)
+    del db
 
 
 """
@@ -377,6 +376,51 @@ def invalid_remote_crisis_value(cv_id, cv_source):
         "keyl": ["RESULTALERTID"]
     }
     call_third_systems_obtain_data('data_feedback', param)
+
+
+"""
+作废 超过一天未处理的危机值
+"""
+
+
+def invalid_history_cv():
+    db = DbUtil(global_config.DB_HOST, global_config.DB_USERNAME, global_config.DB_PASSWORD,
+                global_config.DB_DATABASE_GYL)
+
+    states = (cv_config.INVALID_STATE, cv_config.DOCTOR_HANDLE_STATE)
+    query_sql = f'select cv_id, cv_source from nsyy_gyl.cv_info where alertdt < DATE_SUB(NOW(), INTERVAL 1 DAY) and state not in {states}'
+    history_cv = db.query_all(query_sql)
+    if not history_cv:
+        return
+
+    # 构建 CASE 语句
+    info = '[超过一天未处理-作废]'
+    case_statements = " ".join(
+        f"WHEN (cv_id = \'{record['cv_id']}\' AND cv_source = {record['cv_source']}) THEN '{info}' "
+        for record in history_cv
+    )
+    conditions = " OR ".join(
+        f"(cv_id = \'{record['cv_id']}\' AND cv_source = {record['cv_source']})"
+        for record in history_cv
+    )
+
+    # 最终的 SQL 查询
+    update_sql = f"""
+        UPDATE nsyy_gyl.cv_info
+        SET analysis = CASE
+            {case_statements}
+            ELSE \'{info}\' 
+        END 
+        WHERE {conditions}
+    """
+    db.execute(update_sql, need_commit=True)
+    del db
+
+    for record in history_cv:
+        try:
+            invalid_remote_crisis_value(record.get('cv_id'), record.get('cv_source'))
+        except Exception as e:
+            print('作废 cv_id: ', record.get('cv_id'), ' cv_source: ', record.get('cv_source'), '异常： ', e)
 
 
 """
@@ -601,6 +645,12 @@ def get_cv_list(json_data):
     if json_data.get('cv_id'):
         condation_sql += ' and cv_id = \'{}\' '.format(json_data.get('cv_id'))
 
+    if json_data.get('patient_name'):
+        condation_sql += ' and patient_name = \'{}\' '.format(json_data.get('patient_name'))
+
+    if json_data.get('patient_treat_id'):
+        condation_sql += ' and patient_treat_id = \'{}\' '.format(json_data.get('patient_treat_id'))
+
     query_sql = f'select * from nsyy_gyl.cv_info where {state_sql} {time_sql} {condation_sql} {alert_dept_id_sql}'
     cv_list = db.query_all(query_sql)
     del db
@@ -662,7 +712,7 @@ def query_process_cv_and_notice(dept_id, ward_id):
 """
 
 
-def async_alert(type, id, msg):
+def async_alert(type, id, msg, is_async=True):
     def alert(type, id, msg):
         key = cv_config.CV_SITES_REDIS_KEY[type] + str(id)
         payload = {'type': 'popup', 'wiki_info': msg}
@@ -678,7 +728,10 @@ def async_alert(type, id, msg):
                 try:
                     session = requests.Session()
                     session.mount('http://', adapter)
-                    response = session.post(url, json=payload, timeout=(5, 10))  # 连接超时5秒，读取超时10秒
+                    response = session.post(url, json={'type': 'stop'})  # 连接超时5秒，读取超时10秒
+                    response.raise_for_status()  # 如果响应状态码不是 200-400 之间，产生异常
+
+                    response = session.post(url, json=payload, timeout=(2, 2))  # 连接超时5秒，读取超时10秒
                     response.raise_for_status()  # 如果响应状态码不是 200-400 之间，产生异常
                 except requests.exceptions.Timeout:
                     # print("请求超时")
@@ -689,8 +742,11 @@ def async_alert(type, id, msg):
                 finally:
                     session.close()  # 确保连接关闭
 
-    thread_b = threading.Thread(target=alert, args=(type, id, msg))
-    thread_b.start()
+    if is_async:
+        thread_b = threading.Thread(target=alert, args=(type, id, msg))
+        thread_b.start()
+    else:
+        alert(type, id, msg)
 
 
 """
