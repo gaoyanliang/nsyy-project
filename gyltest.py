@@ -1,7 +1,8 @@
 import json
 import time
 from datetime import datetime, date
-import os, requests
+import os
+import requests
 import base64
 from itertools import groupby
 
@@ -21,25 +22,42 @@ from zeep.transports import Transport
 import logging
 import requests
 
-appt_recordl = [
-    {'id': 'id1', 'name': 'name1', 'age': 'age1'},
-    {'id': 'id2', 'name': 'name2', 'age': 'age2'},
-    {'id': 'id3', 'name': 'name3', 'age': None},
-    {'id': 'id4', 'name': 'name4', 'age': 'age4'}
+data = [
+    {'id': 34, 'appt_id': 273, 'pay_id': 'Y0589907', 'advice_desc': '静脉注射(或静脉采血); 真空采血管(特殊采血管）',
+     'dept_id': 144, 'dept_name': '医学检验科', 'price': 6.8000, 'state': 0},
+    {'id': 35, 'appt_id': 273, 'pay_id': 'Y0589911',
+     'advice_desc': '梅毒螺旋体特异抗体测定; 丙型肝炎抗体测定(Anti--HCV); 人免疫缺陷病毒抗体测定(Anti-HIV)指金标法、硒标法; 乙型肝炎表面抗原测定(HBsAg)',
+     'dept_id': 144, 'dept_name': '医学检验科', 'price': 65.3000, 'state': 0},
+    {'id': 36, 'appt_id': 274, 'pay_id': 'Y0589909', 'advice_desc': '还少胶囊', 'dept_id': 245, 'dept_name': '门诊药房',
+     'price': 40.3000, 'state': 0},
+    {'id': 37, 'appt_id': 275, 'pay_id': 'Y0589912', 'advice_desc': 'X线计算机体层(CT)扫描(16-40层)', 'dept_id': 68643,
+     'dept_name': '16排CT', 'price': 203.0000, 'state': 0},
+    {'id': 38, 'appt_id': 276, 'pay_id': 'Y0589906', 'advice_desc': '精液质量与功能分析', 'dept_id': 94683,
+     'dept_name': '生殖男科门诊', 'price': 85.5000, 'state': 0},
+    {'id': 39, 'appt_id': 276, 'pay_id': 'Y0589908', 'advice_desc': '阴茎超声血流图检查', 'dept_id': 94683,
+     'dept_name': '生殖男科门诊', 'price': 118.3200, 'state': 0}
 ]
 
-record_dict = {(d['id'], d['name']): d for d in appt_recordl if d.get('age')}
+# 用于存储拼接后的结果
+result = {}
 
-if ('id1', 'name1') in record_dict:
-    print('afdaf')
+# 遍历数据
+for record in data:
+    appt_id = record['appt_id']
+    advice_desc = record['advice_desc']
 
+    if appt_id in result:
+        result[appt_id]['advice_desc'] += '; ' + advice_desc
+    else:
+        result[appt_id] = record.copy()
+        result[appt_id]['advice_desc'] = advice_desc
 
-data = {'危机值': '测试'}
+# 转换结果为列表格式
+result_list = list(result.values())
 
-if '测试' in data.get('危机值'):
-    print('--------------------')
-
-
+# 输出结果
+for r in result_list:
+    print(r)
 
 #
 # # 示例 room_dict 数据结构

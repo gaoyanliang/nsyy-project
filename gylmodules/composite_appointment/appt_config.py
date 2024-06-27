@@ -5,7 +5,7 @@ APPT_REDIS_PORT = 6379
 APPT_REDIS_DB = 2
 
 # 预约类型 1=在线预约（小程序） 2=现场预约 3=自助挂号，手机查询时创建， 4=根据医嘱创建
-APPT_TYPE = {'online': 1, 'offline': 2, 'auto_appt': 3, 'advice_appt': 4}
+APPT_TYPE = {'online': 1, 'offline': 2, 'auto_appt': 3, 'advice_appt': 4, 'inpatient_advice': 5}
 
 # 预约紧急程度
 APPT_URGENCY_LEVEL = {'green': 1, 'yellow': 2, 'red': 3}
@@ -29,12 +29,13 @@ APPT_PERIOD_STR_INFO = {'8:00-8:30': 1, '8:30-9:00': 2, '9:00-9:30': 3, '9:30-10
 
 appt_slot_dict = {
     0: 1, 1: 1, 2: 1, 3: 1, 4: 1, 5: 1, 6: 1, 7: 1,  8: 1, 9: 3, 10: 5, 11: 7, 12: 9,
-    13: 9, 14: 9, 15: 11, 16: 13, 17: 15, 18: 1, 19: 1, 20: 1, 21: 1, 22: 1, 23: 1,
+    13: 9, 14: 9, 15: 11, 16: 13, 17: 15, 18: 9, 19: 9, 20: 9, 21: 9, 22: 9, 23: 9
 }
 
 # socket 推送地址
 socket_push_url = 'http://120.194.96.67:6066/inter_socket_msg'
 default_photo = 'L2hvbWUvY2MvYXR0L3B1YmxpYy9kb2MvZGVmYXVsdC5wbmc='
+default_sort_num = 9999
 
 # 近7天所有项目剩余可预约数量
 APPT_REMAINING_RESERVATION_QUANTITY_KEY = 'APPT_REMAINING_RESERVATION_QUANTITY'

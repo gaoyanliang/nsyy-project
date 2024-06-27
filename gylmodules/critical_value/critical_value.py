@@ -651,7 +651,7 @@ def get_cv_list(json_data):
     if json_data.get('patient_treat_id'):
         condation_sql += ' and patient_treat_id = \'{}\' '.format(json_data.get('patient_treat_id'))
 
-    query_sql = f'select * from nsyy_gyl.cv_info where {state_sql} {time_sql} {condation_sql} {alert_dept_id_sql}'
+    query_sql = f'select * from nsyy_gyl.cv_info where {state_sql} {time_sql} {condation_sql} {alert_dept_id_sql} order by alertdt desc'
     cv_list = db.query_all(query_sql)
     del db
 

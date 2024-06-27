@@ -30,7 +30,7 @@ def wx_appt():
         ca_server.online_appt(json_data)
     except Exception as e:
         timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-        print(f"[{timestamp}] Exception occurred: {traceback.print_exc()}", 'param: ', json_data)
+        print(f"[{timestamp}] Exception occurred: {e.__str__()}", 'param: ', json_data)
         return jsonify({
             'code': 50000,
             'res': e.__str__()
@@ -61,7 +61,7 @@ def offline_appt():
         ca_server.offline_appt(json_data)
     except Exception as e:
         timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-        print(f"[{timestamp}] Exception occurred: {traceback.print_exc()}", 'param: ', json_data)
+        print(f"[{timestamp}] Exception occurred: {e.__str__()}", 'param: ', json_data)
         return jsonify({
             'code': 50000,
             'res': e.__str__()
@@ -84,7 +84,7 @@ def query_appt():
         appts, total = ca_server.query_appt_record(json_data)
     except Exception as e:
         timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-        print(f"[{timestamp}] Exception occurred: {traceback.print_exc()}", "param: ", json_data)
+        print(f"[{timestamp}] Exception occurred: {e.__str__()}", "param: ", json_data)
         return jsonify({
             'code': 50000,
             'res': e.__str__()
@@ -110,7 +110,7 @@ def op_appt():
         ca_server.operate_appt(int(json_data.get('appt_id')), int(json_data.get('type')))
     except Exception as e:
         timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-        print(f"[{timestamp}] Exception occurred: {traceback.print_exc()}", " param: ", json_data)
+        print(f"[{timestamp}] Exception occurred: {e.__str__()}", " param: ", json_data)
         return jsonify({
             'code': 50000,
             'res': e.__str__()
@@ -129,10 +129,10 @@ def op_appt():
 def sign_in():
     try:
         json_data = json.loads(request.get_data().decode('utf-8'))
-        ca_server.sign_in(json_data, his_sign=True)
+        ca_server.sign_in(json_data, over_num=False)
     except Exception as e:
         timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-        print(f"[{timestamp}] Exception occurred: {traceback.print_exc()}", " param: ", json_data)
+        print(f"[{timestamp}] Exception occurred: {e.__str__()}", " param: ", json_data)
         return jsonify({
             'code': 50000,
             'res': e.__str__()
@@ -155,7 +155,7 @@ def get_all_project():
         projectl = ca_server.query_all_appt_project(int(json_data.get('type')))
     except Exception as e:
         timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-        print(f"[{timestamp}] Exception occurred: {traceback.print_exc()}")
+        print(f"[{timestamp}] Exception occurred: {e.__str__()}")
         return jsonify({
             'code': 50000,
             'res': e.__str__()
@@ -179,7 +179,7 @@ def query_room_list():
         room_list = ca_server.query_room_list(int(json_data.get('type')))
     except Exception as e:
         timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-        print(f"[{timestamp}] Exception occurred: {traceback.print_exc()}")
+        print(f"[{timestamp}] Exception occurred: {e.__str__()}")
         return jsonify({
             'code': 50000,
             'res': e.__str__()
@@ -203,7 +203,7 @@ def query_wait_list():
         wait_list, doctor, proj = ca_server.query_wait_list(json_data)
     except Exception as e:
         timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-        print(f"[{timestamp}] Exception occurred: {traceback.print_exc()}")
+        print(f"[{timestamp}] Exception occurred: {e.__str__()}")
         return jsonify({
             'code': 50000,
             'res': e.__str__()
@@ -231,7 +231,7 @@ def next_num():
         data_list = ca_server.next_num(int(json_data.get('id')), int(json_data.get('is_group')))
     except Exception as e:
         timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-        print(f"[{timestamp}] Exception occurred: {traceback.print_exc()}", " param: ", json_data)
+        print(f"[{timestamp}] Exception occurred: {e.__str__()}", " param: ", json_data)
         return jsonify({
             'code': 50000,
             'res': e.__str__()
@@ -255,7 +255,7 @@ def call_patient():
         ca_server.call(json_data)
     except Exception as e:
         timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-        print(f"[{timestamp}] Exception occurred: {traceback.print_exc()}")
+        print(f"[{timestamp}] Exception occurred: {e.__str__()}")
         return jsonify({
             'code': 50000,
             'res': e.__str__()
@@ -278,7 +278,7 @@ def query_advice_by_father_appt_id():
         advice_info = ca_server.query_advice_by_father_appt_id(json_data)
     except Exception as e:
         timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-        print(f"[{timestamp}] Exception occurred: {traceback.print_exc()}")
+        print(f"[{timestamp}] Exception occurred: {e.__str__()}")
         return jsonify({
             'code': 50000,
             'res': e.__str__()
@@ -302,7 +302,7 @@ def update_doctor_advice_pay_state():
         ca_server.update_doctor_advice_pay_state(json_data.get('idl'))
     except Exception as e:
         timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-        print(f"[{timestamp}] Exception occurred: {traceback.print_exc()}")
+        print(f"[{timestamp}] Exception occurred: {e.__str__()}")
         return jsonify({
             'code': 50000,
             'res': e.__str__()
@@ -325,7 +325,7 @@ def update_advice():
         ca_server.update_advice(json_data)
     except Exception as e:
         timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-        print(f"[{timestamp}] Exception occurred: {traceback.print_exc()}")
+        print(f"[{timestamp}] Exception occurred: {e.__str__()}")
         return jsonify({
             'code': 50000,
             'res': e.__str__()
@@ -348,7 +348,7 @@ def query_sched():
         data = ca_server.query_sched(int(json_data.get('rid')))
     except Exception as e:
         timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-        print(f"[{timestamp}] Exception occurred: {traceback.print_exc()}")
+        print(f"[{timestamp}] Exception occurred: {e.__str__()}")
         return jsonify({
             'code': 50000,
             'res': e.__str__()
@@ -372,7 +372,7 @@ def update_sched():
         ca_server.update_sched(json_data)
     except Exception as e:
         timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-        print(f"[{timestamp}] Exception occurred: {traceback.print_exc()}")
+        print(f"[{timestamp}] Exception occurred: {e.__str__()}")
         return jsonify({
             'code': 50000,
             'res': e.__str__()
@@ -389,7 +389,7 @@ def query_doc():
         data = ca_server.query_doc()
     except Exception as e:
         timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-        print(f"[{timestamp}] Exception occurred: {traceback.print_exc()}")
+        print(f"[{timestamp}] Exception occurred: {e.__str__()}")
         return jsonify({
             'code': 50000,
             'res': e.__str__()
@@ -408,7 +408,7 @@ def update_doc():
         ca_server.update_doc(json_data)
     except Exception as e:
         timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-        print(f"[{timestamp}] Exception occurred: {traceback.print_exc()}")
+        print(f"[{timestamp}] Exception occurred: {e.__str__()}")
         return jsonify({
             'code': 50000,
             'res': e.__str__()
@@ -425,7 +425,7 @@ def query_proj():
         data = ca_server.query_proj()
     except Exception as e:
         timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-        print(f"[{timestamp}] Exception occurred: {traceback.print_exc()}")
+        print(f"[{timestamp}] Exception occurred: {e.__str__()}")
         return jsonify({
             'code': 50000,
             'res': e.__str__()
@@ -435,47 +435,6 @@ def query_proj():
         'code': 20000,
         'data': data
     })
-
-
-# """
-# 医生换班签到
-# """
-#
-#
-# @appt.route('/doc_change', methods=['POST'])
-# def doc_change():
-#     try:
-#         json_data = json.loads(request.get_data().decode('utf-8'))
-#         appointment.doctor_shift_change(json_data)
-#     except Exception as e:
-#         timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-#         print(f"[{timestamp}] Exception occurred: {traceback.print_exc()}")
-#         return jsonify({
-#             'code': 50000,
-#             'res': e.__str__()
-#         })
-#
-#     return jsonify({
-#         'code': 20000
-#     })
-
-
-# @appt.route('/doc_list', methods=['POST'])
-# def doc_list():
-#     try:
-#         data = appointment.doc_list()
-#     except Exception as e:
-#         timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-#         print(f"[{timestamp}] Exception occurred: {traceback.print_exc()}")
-#         return jsonify({
-#             'code': 50000,
-#             'res': e.__str__()
-#         })
-#
-#     return jsonify({
-#         'code': 20000,
-#         'data': data
-#     })
 
 
 """
@@ -489,7 +448,7 @@ def update_capacity():
         ca_server.cache_capacity()
     except Exception as e:
         timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-        print(f"[{timestamp}] Exception occurred: {traceback.print_exc()}")
+        print(f"[{timestamp}] Exception occurred: {e.__str__()}")
         return jsonify({
             'code': 50000,
             'res': e.__str__()
@@ -506,7 +465,7 @@ def query_mem_data():
         data = ca_server.query_mem_data()
     except Exception as e:
         timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-        print(f"[{timestamp}] Exception occurred: {traceback.print_exc()}")
+        print(f"[{timestamp}] Exception occurred: {e.__str__()}")
         return jsonify({
             'code': 50000,
             'res': e.__str__()
@@ -516,3 +475,100 @@ def query_mem_data():
         'code': 20000,
         'data': data
     })
+
+
+@appt.route('/change_room', methods=['POST'])
+def change_room():
+    try:
+        json_data = json.loads(request.get_data().decode('utf-8'))
+        ca_server.change_room(json_data)
+    except Exception as e:
+        timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        print(f"[{timestamp}] Exception occurred: {e.__str__()}")
+        return jsonify({
+            'code': 50000,
+            'res': e.__str__()
+        })
+
+    return jsonify({
+        'code': 20000
+    })
+
+
+@appt.route('/update_sort', methods=['POST'])
+def update_sort():
+    try:
+        json_data = json.loads(request.get_data().decode('utf-8'))
+        ca_server.update_wait_list_sort(json_data)
+    except Exception as e:
+        timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        print(f"[{timestamp}] Exception occurred: {e.__str__()}")
+        return jsonify({
+            'code': 50000,
+            'res': e.__str__()
+        })
+
+    return jsonify({
+        'code': 20000
+    })
+
+
+@appt.route('/update_sort_info', methods=['POST'])
+def update_sort_info():
+    try:
+        json_data = json.loads(request.get_data().decode('utf-8'))
+        ca_server.update_sort_info(int(json_data.get('appt_id')), json_data.get('sort_info'))
+    except Exception as e:
+        timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        print(f"[{timestamp}] Exception occurred: {e.__str__()}")
+        return jsonify({
+            'code': 50000,
+            'res': e.__str__()
+        })
+
+    return jsonify({
+        'code': 20000
+    })
+
+
+"""
+住院患者创建医嘱
+"""
+
+
+@appt.route('/inpatient_advice', methods=['POST'])
+def inpatient_advice():
+    try:
+        json_data = json.loads(request.get_data().decode('utf-8'))
+        data = ca_server.inpatient_advice(json_data)
+    except Exception as e:
+        timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        print(f"[{timestamp}] Exception occurred: {e.__str__()}")
+        return jsonify({
+            'code': 50000,
+            'res': e.__str__()
+        })
+
+    return jsonify({
+        'code': 20000,
+        'data': data
+    })
+
+
+@appt.route('/inpatient_advice_create', methods=['POST'])
+def inpatient_advice_create():
+    try:
+        json_data = json.loads(request.get_data().decode('utf-8'))
+        ca_server.inpatient_advice_create(json_data)
+    except Exception as e:
+        timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        print(f"[{timestamp}] Exception occurred: {e.__str__()}")
+        return jsonify({
+            'code': 50000,
+            'res': e.__str__()
+        })
+
+    return jsonify({
+        'code': 20000
+    })
+
