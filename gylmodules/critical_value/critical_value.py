@@ -114,11 +114,15 @@ def cache_all_site_and_timeout():
     sites = db.query_all(query_sql)
     for site in sites:
         if site.get('site_dept_id'):
-            key = cv_config.CV_SITES_REDIS_KEY[2] + str(site.get('site_dept_id'))
-            redis_client.sadd(key, site.get('site_ip'))
+            dept_idl = site.get('site_dept_id').split(',')
+            for dept_id in dept_idl:
+                key = cv_config.CV_SITES_REDIS_KEY[2] + str(dept_id)
+                redis_client.sadd(key, site.get('site_ip'))
         if site.get('site_ward_id'):
-            key = cv_config.CV_SITES_REDIS_KEY[1] + str(site.get('site_ward_id'))
-            redis_client.sadd(key, site.get('site_ip'))
+            ward_idl = site.get('site_ward_id').split(',')
+            for ward_id in ward_idl:
+                key = cv_config.CV_SITES_REDIS_KEY[1] + str(ward_id)
+                redis_client.sadd(key, site.get('site_ip'))
 
     # 将超时时间配置加载至 redis 缓存
     query_sql = 'select * from nsyy_gyl.cv_timeout where type = \'cv\' '
@@ -591,6 +595,12 @@ def create_cv_by_system(json_data, cv_source):
     async_alert(1, cvd['ward_id'], f'发现新危机值, 请及时查看并处理 <br> [患者-主管医生-住院/门诊号-床号] <br> {msg}')
     async_alert(2, cvd['dept_id'], f'发现新危机值, 请及时查看并处理 <br> [患者-主管医生-住院/门诊号-床号] <br> {msg}')
 
+    # 通知医技科室
+    if cvd.get('alert_dept_id'):
+        msg = '患者 {} 的危急值，已通知 {} - {}'.format(cvd.get('patient_name', 'unknown'),
+                                                    cvd.get('dept_name', 'unknown'), cvd.get('ward_name', 'unknown'))
+        async_alert(2, cvd['alert_dept_id'], msg)
+
     # 将危机值放入 redis cache
     query_sql = 'select * from nsyy_gyl.cv_info where id = {} '.format(last_rowid)
     record = db.query_one(query_sql)
@@ -610,8 +620,19 @@ def get_cv_list(json_data):
     db = DbUtil(global_config.DB_HOST, global_config.DB_USERNAME, global_config.DB_PASSWORD,
                 global_config.DB_DATABASE_GYL)
 
+    dept_idl = []
+    ward_idl = []
     dept_id = json_data.get("dept_id")
+    if dept_id:
+        dept_idl = [dept_id]
     ward_id = json_data.get("ward_id")
+    if ward_id:
+        ward_idl = [ward_id]
+
+    if not dept_idl:
+        dept_idl = json_data.get("dept_idl") if json_data.get("dept_idl") else []
+    if not ward_idl:
+        ward_idl = json_data.get("ward_idl") if json_data.get("ward_idl") else []
 
     states = (cv_config.DOCTOR_HANDLE_STATE, cv_config.INVALID_STATE)
     state_sql = ' state not in {} '.format(states)
@@ -634,13 +655,17 @@ def get_cv_list(json_data):
         time_sql = f' and (time BETWEEN \'{start_time}\' AND \'{end_time}\') '
 
     condation_sql = ''
-    if dept_id and ward_id:
-        condation_sql = f'and (dept_id = {dept_id} or ward_id = {ward_id})'
+    if dept_idl and ward_idl:
+        dept_idl = ', '.join(map(str, dept_idl))
+        ward_idl = ', '.join(map(str, ward_idl))
+        condation_sql = f'and (dept_id in ({dept_idl}) or ward_id in ({ward_idl}) )'
     else:
-        if dept_id:
-            condation_sql = f' and dept_id = {dept_id} '
-        if ward_id:
-            condation_sql = f' and ward_id = {ward_id} '
+        if dept_idl:
+            dept_idl = ', '.join(map(str, dept_idl))
+            condation_sql = f' and dept_id in ({dept_idl}) '
+        if ward_idl:
+            ward_idl = ', '.join(map(str, ward_idl))
+            condation_sql = f' and ward_id in ({ward_idl}) '
 
     if json_data.get('cv_id'):
         condation_sql += ' and cv_id = \'{}\' '.format(json_data.get('cv_id'))
@@ -984,7 +1009,6 @@ def doctor_handle_cv(json_data):
             call_third_systems_obtain_data('his_procedure', param)
 
         data_feedback(cv_id, int(cv_source), handler_name, timer, method, 3)
-        # 护士接收之后，进行数据回传
         if int(cv_source) == 4:
             # 心电危机值特殊处理
             xindian_data_feedback({
@@ -993,6 +1017,11 @@ def doctor_handle_cv(json_data):
                 "doc_name": handler_name,
                 "body": method
             })
+
+        # 通知医技科室
+        if record.get('alert_dept_id'):
+            msg = '患者 {} 的危急值，医生 {} 已处理'.format(record.get('patient_name', 'unknown'), handler_name)
+            async_alert(2, record['alert_dept_id'], msg)
 
 
 """
@@ -1202,10 +1231,33 @@ def query_timeout():
 
 
 def site_maintenance(json_data):
-    sited = {'site_dept': json_data.get('site_dept'), 'site_dept_id': json_data.get('site_dept_id') or -1,
-             'site_ward': json_data.get('site_ward'), 'site_ward_id': json_data.get('site_ward_id') or -1,
-             'dept_phone': json_data.get('dept_phone'), 'ward_phone': json_data.get('ward_phone'),
+    sited = {'dept_phone': json_data.get('dept_phone'), 'ward_phone': json_data.get('ward_phone'),
              'doctor_phone': json_data.get('doctor_phone'), 'site_ip': json_data.get('site_ip')}
+
+    if json_data.get('site_dept_id') and json_data.get('site_dept'):
+        sited['site_dept_id'] = json_data.get('site_dept_id')
+        sited['site_dept'] = json_data.get('site_dept')
+    if json_data.get('site_ward_id') and json_data.get('site_ward'):
+        sited['site_ward_id'] = json_data.get('site_ward_id')
+        sited['site_ward'] = json_data.get('site_ward')
+
+    if json_data.get('deptl'):
+        dept_idl = [item.get('dept_id') for item in json_data.get('deptl')]
+        sited['site_dept_id'] = ','.join(map(str, dept_idl))
+        dept_namel = [item.get('dept_name') for item in json_data.get('deptl')]
+        sited['site_dept'] = ','.join(dept_namel)
+    if json_data.get('wardl'):
+        ward_idl = [item.get('ward_id') for item in json_data.get('wardl')]
+        sited['site_ward_id'] = ','.join(map(str, ward_idl))
+        ward_namel = [item.get('ward_name') for item in json_data.get('wardl')]
+        sited['site_ward'] = ','.join(ward_namel)
+
+    if 'site_dept_id' not in sited:
+        sited['site_dept_id'] = ''
+        sited['site_dept'] = ''
+    if 'site_ward_id' not in sited:
+        sited['site_ward_id'] = ''
+        sited['site_ward'] = ''
 
     db = DbUtil(global_config.DB_HOST, global_config.DB_USERNAME, global_config.DB_PASSWORD,
                 global_config.DB_DATABASE_GYL)
@@ -1221,12 +1273,19 @@ def site_maintenance(json_data):
     del db
 
     redis_client = redis.Redis(connection_pool=pool)
-    if sited['site_dept_id'] != -1:
-        key = cv_config.CV_SITES_REDIS_KEY[2] + str(sited['site_dept_id'])
-        redis_client.sadd(key, sited['site_ip'])
-    if sited['site_ward_id'] != -1:
-        key = cv_config.CV_SITES_REDIS_KEY[1] + str(sited['site_ward_id'])
-        redis_client.sadd(key, sited['site_ip'])
+    if sited.get('site_dept_id'):
+        deptl = sited.get('site_dept_id')
+        deptl = str(deptl).split(',')
+        for dept in deptl:
+            key = cv_config.CV_SITES_REDIS_KEY[2] + str(dept)
+            redis_client.sadd(key, sited['site_ip'])
+
+    if sited.get('site_ward_id'):
+        ward_idl = sited.get('site_ward_id')
+        ward_idl = str(ward_idl).split(',')
+        for ward in ward_idl:
+            key = cv_config.CV_SITES_REDIS_KEY[1] + str(ward)
+            redis_client.sadd(key, sited['site_ip'])
 
 
 def query_alert_dept_list():
