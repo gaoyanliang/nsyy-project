@@ -32,8 +32,6 @@ appt_slot_dict = {
     13: 9, 14: 9, 15: 11, 16: 13, 17: 15, 18: 9, 19: 9, 20: 9, 21: 9, 22: 9, 23: 9
 }
 
-# socket 推送地址
-socket_push_url = 'http://120.194.96.67:6066/inter_socket_msg'
 default_photo = 'L2hvbWUvY2MvYXR0L3B1YmxpYy9kb2MvZGVmYXVsdC5wbmc='
 default_sort_num = 9999
 

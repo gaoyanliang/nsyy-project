@@ -19,3 +19,5 @@ DB_DATABASE_GYL = 'nsyy_gyl'
 schedule_task = {'cv_timeout': 1, 'cv_dept_update': 1, 'appt_daily': 1}
 
 run_in_local = True
+
+socket_push_url = 'http://120.194.96.67:6066/inter_socket_msg'

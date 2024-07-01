@@ -11,7 +11,7 @@ from gylmodules.composite_appointment import appt_config
 from gylmodules.utils.db_utils import DbUtil
 from gylmodules.composite_appointment.appt_config import \
     APPT_SIGN_IN_NUM_KEY, APPT_PROJECTS_KEY, APPT_REMAINING_RESERVATION_QUANTITY_KEY, \
-    APPT_DOCTORS_KEY, APPT_EXECUTION_DEPT_INFO_KEY, socket_push_url, APPT_ROOMS_KEY, \
+    APPT_DOCTORS_KEY, APPT_EXECUTION_DEPT_INFO_KEY, APPT_ROOMS_KEY, \
     APPT_DAILY_AUTO_REG_RECORD_KEY, APPT_DOCTORS_BY_NAME_KEY, \
     APPT_ROOMS_BY_PROJ_KEY
 
@@ -500,7 +500,7 @@ def push_patient(patient_name: str, socket_id: str):
     socket_data = {"patient_name": patient_name, "type": 300}
     data = {'msg_list': [{'socket_data': socket_data, 'pers_id': socket_id, 'socketd': 'w_site'}]}
     headers = {'Content-Type': 'application/json'}
-    response = requests.post(socket_push_url, data=json.dumps(data), headers=headers)
+    response = requests.post(global_config.socket_push_url, data=json.dumps(data), headers=headers)
     print("Socket Push Status: ", response.status_code, "Response: ", response.text, "socket_data: ", socket_data,
           "socket_id: ", socket_id)
 
@@ -1165,7 +1165,7 @@ def call(json_data):
     socket_data = {"msg": '请患者 {} 到 {} 诊室就诊'.format(json_data.get('name'), room), "type": 200}
     data = {'msg_list': [{'socket_data': socket_data, 'pers_id': socket_id, 'socketd': 'w_site'}]}
     headers = {'Content-Type': 'application/json'}
-    response = requests.post(socket_push_url, data=json.dumps(data), headers=headers)
+    response = requests.post(global_config.socket_push_url, data=json.dumps(data), headers=headers)
     print("Socket Push Status: ", response.status_code, "Response: ", response.text, "socket_data: ", socket_data,
           'socket_id: ', socket_id)
 
