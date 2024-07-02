@@ -950,7 +950,7 @@ def query_process_cv_and_notice(dept_id, ward_id):
 
 def async_alert(type, id, msg, is_async=True):
     def alert(type, id, msg):
-        key = cv_config.CV_SITES_REDIS_KEY[type] + str(id)
+        key = cv_config.CV_SITES_REDIS_KEY[int(type)] + str(id)
         payload = {'type': 'popup', 'wiki_info': msg}
         redis_client = redis.Redis(connection_pool=pool)
         sites = redis_client.smembers(key)
@@ -967,7 +967,7 @@ def async_alert(type, id, msg, is_async=True):
                     response = session.post(url, json={'type': 'stop'})  # 连接超时5秒，读取超时10秒
                     response.raise_for_status()  # 如果响应状态码不是 200-400 之间，产生异常
 
-                    response = session.post(url, json=payload, timeout=(2, 2))  # 连接超时5秒，读取超时10秒
+                    response = session.post(url, json=payload, timeout=(3, 3))  # 连接超时5秒，读取超时10秒
                     response.raise_for_status()  # 如果响应状态码不是 200-400 之间，产生异常
                 except requests.exceptions.Timeout:
                     # print("请求超时")
@@ -1257,7 +1257,7 @@ def medical_record_writing_back(json_data):
             }
             call_third_systems_obtain_data('his_procedure', param)
     except Exception as e:
-        print('病历回写异常：param = ', param, " json_data = ", json_data, " 异常信息 = ", e)
+        print("病历回写异常 = ", e)
 
 
 """
