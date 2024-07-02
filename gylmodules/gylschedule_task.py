@@ -7,7 +7,7 @@ from gylmodules import global_config
 from gylmodules.composite_appointment.ca_server import run_everyday
 from gylmodules.critical_value import cv_config
 from gylmodules.critical_value.critical_value import write_cache, \
-    call_third_systems_obtain_data, async_alert, cache_single_cv, invalid_history_cv
+    call_third_systems_obtain_data, async_alert, cache_single_cv, invalid_history_cv, notiaction_alert_man
 from apscheduler.schedulers.background import BackgroundScheduler
 
 from gylmodules.utils.db_utils import DbUtil
@@ -67,6 +67,11 @@ def handle_timeout_cv():
                     dept_timeout_record[str(value['dept_id'])].append(msg)
                 else:
                     dept_timeout_record[str(value['dept_id'])] = [msg]
+
+            # socket   通知上报人
+            if value.get('alertman_pers_id'):
+                msg = '患者 {} 的危急值，超时未处理，请通知相关人员处理'.format(value.get('patient_name'))
+                notiaction_alert_man(msg, int(value['alertman_pers_id']))
 
             # 更新超时状态
             if value[needd['timeout_flag']] == 0:

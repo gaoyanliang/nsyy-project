@@ -6,6 +6,7 @@ from requests.adapters import HTTPAdapter
 from suds.client import Client
 
 from datetime import datetime, timedelta
+import time
 
 from apscheduler.schedulers.background import BackgroundScheduler
 from urllib3 import Retry
@@ -56,15 +57,20 @@ def call_third_systems_obtain_data(type: str, param: dict):
             # 危机值病历回写
             from tools import his_procedure
             data = his_procedure(param)
+        elif type == 'send_wx_msg':
+            # 向企业微信推送消息
+            from tools import send_wx_msg
+            data = send_wx_msg(param)
 
     if type == 'get_dept_info_by_emp_num':
         # 使用列表推导式提取 "缺省" 值为 1 的元素
         if data and len(data) > 0:
             result = [item for item in data if item.get("缺省") == 1]
-            return result[0].get('HIS_DEPT_ID'), result[0].get('DEPT_NAME'), result[0].get('PERS_NAME')
+            return result[0].get('HIS_DEPT_ID'), result[0].get('DEPT_NAME'), \
+                result[0].get('PERS_NAME'), result[0].get('oa_pers_id')
         else:
             print('根据员工号抓取部门信息失败 ', str(param))
-            return -1, 'unknow', 'unkonw',
+            return -1, 'unknow', 'unkonw', -1
 
     elif type == 'cache_all_dept_info':
         # 缓存所有科室信息
@@ -73,6 +79,8 @@ def call_third_systems_obtain_data(type: str, param: dict):
             for d in data:
                 redis_client.hset(cv_config.DEPT_INFO_REDIS_KEY, d.get('his_dept_id'), json.dumps(d, default=str))
                 redis_client.hset(cv_config.DEPT_INFO_REDIS_KEY, d.get('dept_code'), json.dumps(d, default=str))
+
+    return data
 
 
 """
@@ -114,12 +122,12 @@ def cache_all_site_and_timeout():
     sites = db.query_all(query_sql)
     for site in sites:
         if site.get('site_dept_id'):
-            dept_idl = site.get('site_dept_id').split(',')
+            dept_idl = str(site.get('site_dept_id')).split(',')
             for dept_id in dept_idl:
                 key = cv_config.CV_SITES_REDIS_KEY[2] + str(dept_id)
                 redis_client.sadd(key, site.get('site_ip'))
         if site.get('site_ward_id'):
-            ward_idl = site.get('site_ward_id').split(',')
+            ward_idl = str(site.get('site_ward_id')).split(',')
             for ward_id in ward_idl:
                 key = cv_config.CV_SITES_REDIS_KEY[1] + str(ward_id)
                 redis_client.sadd(key, site.get('site_ip'))
@@ -166,13 +174,16 @@ def pull_running_cv():
                 global_config.DB_DATABASE_GYL)
     # 加载所有处理中的危机值到内存
     states = (cv_config.INVALID_STATE, cv_config.DOCTOR_HANDLE_STATE)
-    query_sql = f'select * from nsyy_gyl.cv_info where state not in {states} '
+    query_sql = f'select * from nsyy_gyl.cv_info where state not in {states} or cv_source = {cv_config.CV_SOURCE_MANUAL} '
     cvs = db.query_all(query_sql)
     del db
 
     for cv in cvs:
         key = cv.get('cv_id') + '_' + str(cv.get('cv_source'))
         write_cache(key, cv)
+        if cv.get('cv_source') == cv_config.CV_SOURCE_MANUAL and str(cv.get('patient_treat_id')) != cv_config.cv_manual_default_treat_id:
+            # 手工上报的，单独存储
+            redis_client.hset(cv_config.MANUAL_CVS_REDIS_KEY, cv['patient_treat_id'], json.dumps(cv, default=str))
 
     # 子线程执行： 缓存所有站点信息 & 超时时间配置
     thread_b = threading.Thread(target=cache_all_site_and_timeout)
@@ -195,6 +206,9 @@ def get_running_cvs():
         d = item.split('_')
         cv_id = d[0]
         cv_source = d[1]
+        # 手工上报的不查询
+        if int(cv_source) == cv_config.CV_SOURCE_MANUAL:
+            continue
 
         if cv_source not in running_ids:
             running_ids[cv_source] = []
@@ -307,8 +321,10 @@ def create_cv(cvd):
     redis_client = redis.Redis(connection_pool=pool)
     running_cvs = redis_client.hkeys(cv_config.RUNNING_CVS_REDIS_KEY)
 
-    del_idl = list(set(running_cvs) - set(new_cvs))
-    new_idl = list(set(new_cvs) - set(running_cvs))
+    # 作废列表不能包含手工上报的
+    filtered_data = [item for item in running_cvs if not item.endswith(f'_{cv_config.CV_SOURCE_MANUAL}')]
+    del_idl = list(set(filtered_data) - set(new_cvs))
+    new_idl = list(set(new_cvs) - set(filtered_data))
 
     # 作废危机值
     cv_idd = {}
@@ -324,14 +340,50 @@ def create_cv(cvd):
         except Exception as e:
             print("作废危机值异常：cv_ids = ", cv_ids, ' cv_source = ', cv_source, 'Exception = ', e)
 
+    # 新增的危急值有可能是之前手工上报的危急值，需要更新信息，不需要再插入一条新纪录
     # 新增危机值
+    db = DbUtil(global_config.DB_HOST, global_config.DB_USERNAME, global_config.DB_PASSWORD,
+                global_config.DB_DATABASE_GYL)
     for key in new_idl:
         try:
             cv_source = key.split('_')[1]
             cv_data = cvd[key]
+
+            # 新增之前先匹配一下是否之前手工上报过
+            if redis_client.hexists(cv_config.MANUAL_CVS_REDIS_KEY, str(cv_data['PAT_NO'])):
+                manual_record = redis_client.hget(cv_config.MANUAL_CVS_REDIS_KEY, str(cv_data['PAT_NO']))
+                manual_record = json.loads(manual_record)
+                # 如果是同类型的危急值记录，默认匹配， 匹配完成之后移除手工上报记录
+                if int(manual_record['cv_type']) == int(cv_source):
+
+                    condation_sql = " , cv_name = '{}', cv_result = '{}' ".format(cv_data.get('RPT_ITEMNAME'), cv_data.get('RESULT_STR'))
+                    if int(cv_source) == cv_config.CV_SOURCE_INSPECTION_SYSTEM:
+                        condation_sql += " , cv_flag = '{}', cv_unit = '{}', cv_ref = '{}', alertrules = '{}', redo_flag = {} ".\
+                            format(cv_data.get('RESULT_FLAG'), cv_data.get('RESULT_UNIT'), cv_data.get('RESULT_REF'), cv_data.get('ALERTRULES'), cv_data.get('REDO_FLAG'))
+
+                    if int(cv_source) == cv_config.CV_SOURCE_XUETANG_SYSTEM:
+                        condation_sql += " , cv_flag = '{}', cv_unit = '{}'". \
+                            format(cv_data.get('RESULT_FLAG'), cv_data.get('RESULT_UNIT'))
+
+                    update_sql = "UPDATE nsyy_gyl.cv_info SET cv_id = '{}', cv_source = {}, patient_type = {}, " \
+                                 " patient_gender = '{}', patient_age = '{}', patient_bed_num = '{}' {} WHERE id = {}".format(
+                        cv_data['RESULTALERTID'], int(cv_source), cv_data['PAT_TYPECODE'], cv_data['PAT_SEX'],
+                        cv_data['PAT_AGESTR'], cv_data['REQ_BEDNO'], condation_sql, manual_record['id'])
+                    db.execute(update_sql, need_commit=True)
+
+                    query_sql = 'select * from nsyy_gyl.cv_info WHERE id = {}'.format(manual_record['id'])
+                    record = db.query_one(query_sql)
+
+                    # 更新完成之后移除手工上报记录
+                    redis_client.hdel(cv_config.MANUAL_CVS_REDIS_KEY, str(cv_data['PAT_NO']))
+                    redis_client.hdel(cv_config.RUNNING_CVS_REDIS_KEY, str(manual_record['cv_id']) + '_' + str(manual_record['cv_source']))
+                    if int(record.get('state')) < cv_config.DOCTOR_HANDLE_STATE:
+                        redis_client.hset(cv_config.RUNNING_CVS_REDIS_KEY, key, json.dumps(record, default=str))
+                    continue
             create_cv_by_system(cv_data, int(cv_source))
         except Exception as e:
             print("新增危机值异常：cv_data = ", cv_data, ' key = ', key, 'Exception = ', e)
+    del db
 
 
 """
@@ -475,11 +527,161 @@ def check_single_crisis_value(json_data, cv_source):
     pat_no = json_data.get('PAT_NO')
     if pat_no in all_patient:
         cv_id = json_data.get('RESULTALERTID')
-        print(f'最近患者 {pat_no} 已经出现过危机值 {itemname}, 当前危机值 cv_id = {cv_id} cv_source = {cv_source} 不再上报, 并作废远程危机值')
+        print(
+            f'最近患者 {pat_no} 已经出现过危机值 {itemname}, 当前危机值 cv_id = {cv_id} cv_source = {cv_source} 不再上报, 并作废远程危机值')
         invalid_remote_crisis_value(cv_id, cv_source)
         return True, False
 
     return False, True
+
+
+"""
+通过 socket 向危急值上报人员推送消息
+"""
+
+
+def notiaction_alert_man(msg: str, pers_id):
+    try:
+        if not int(pers_id):
+            return
+
+        data = {'msg_list': [{'socket_data': {
+            "type": 400,
+            "data": {
+                "title": "危急值上报反馈",
+                "context": msg
+            }},
+            'pers_id': int(pers_id)}]}
+        headers = {'Content-Type': 'application/json'}
+        response = requests.post(global_config.socket_push_url, data=json.dumps(data), headers=headers)
+        # print("Socket Push Status: ", response.status_code, "Response: ", response.text, "socket_data: ", data, "user_id: ", pers_id)
+
+        call_third_systems_obtain_data('send_wx_msg', {
+            "type": "send_wx_msg",
+            "key_d": {"type": 71, "process_id": 11527, "action": 4, "title": "危急值上报反馈", "content": msg},
+            "randstr": "XPFDFZDF7193CIONS1PD7XCJ3AD4ORRC",
+            "pers_id": pers_id,
+            "force_notice": 1
+        })
+    except Exception as e:
+        print("通知危急值上报人员时出现异常, pers_id = ", pers_id, " 异常 = ", e)
+
+
+"""
+手工上报危急值
+    # 必填字段
+    # type 危急值来源 2 3 4 5
+    # 上报人信息 alertman 员工号
+    # 主治医生 req_docno
+    # 科室和病区 dept_id dept_name ward_id ward_name
+    # 危急值内容 cv_name cv_result cv_unit cv_ref cv_flag
+"""
+
+
+def manual_report_cv(json_data):
+    redis_client = redis.Redis(connection_pool=pool)
+    db = DbUtil(global_config.DB_HOST, global_config.DB_USERNAME, global_config.DB_PASSWORD,
+                global_config.DB_DATABASE_GYL)
+    # 根据员工号查询部门信息
+    param = {
+        "type": "his_dept_pers",
+        "pers_no": json_data['alertman'],
+        "comp_id": 12,
+        "randstr": "XPFDFZDF7193CIONS1PD7XCJ3AD4ORRC"
+    }
+    json_data['alert_dept_id'], json_data['alert_dept_name'], \
+        json_data['alertman_name'], json_data['alertman_pers_id'] = \
+        call_third_systems_obtain_data('get_dept_info_by_emp_num', param)
+    if not json_data.get('alertman_pers_id'):
+        json_data['alertman_pers_id'] = 0
+
+    if json_data['alert_dept_id'] == -1:
+        raise Exception('员工号 [{}] 异常, 未找到相关人员'.format(json_data['alertman']))
+
+    patient_treat_id = json_data.get('patient_treat_id')
+    if patient_treat_id:
+        sql = f"""
+            SELECT 入院病床, 姓名, 年龄,
+               CASE 
+                   WHEN 性别 = '男' THEN 1 
+                   WHEN 性别 = '女' THEN 2 
+                   ELSE NULL 
+               END AS 性别, 
+               入院日期, 出院日期
+            FROM 病案主页 
+            WHERE 住院号 = '{patient_treat_id}' 
+            ORDER BY 入院日期 DESC
+        """
+        param = {
+            "type": "orcl_db_read",
+            "db_source": "nshis",
+            "randstr": "XPFDFZDF7193CIONS1PD7XCJ3AD4ORRC",
+            "sql": sql
+        }
+        data = call_third_systems_obtain_data('orcl_db_read', param)
+        if data and data[0]:
+            json_data['patient_type'] = cv_config.PATIENT_TYPE_HOSPITALIZATION if not json_data.get('patient_type') else json_data.get('patient_type')
+            json_data['patient_name'] = data[0].get('姓名')
+            json_data['patient_gender'] = data[0].get('性别')
+            json_data['patient_age'] = data[0].get('年龄')
+            json_data['patient_bed_num'] = data[0].get('入院病床')
+        else:
+            raise Exception("住院号异常，未查到病人信息")
+    else:
+        json_data['patient_treat_id'] = int(cv_config.cv_manual_default_treat_id)
+        json_data['patient_type'] = cv_config.PATIENT_TYPE_OTHER
+
+    json_data['cv_id'] = str(int(time.time() * 1000))
+    json_data['cv_source'] = cv_config.CV_SOURCE_MANUAL
+    json_data['alertdt'] = str(datetime.now())[:19]
+    json_data['time'] = str(datetime.now())[:19]
+    json_data['state'] = cv_config.CREATED_STATE
+
+    if not json_data.get('patient_name'):
+        json_data['patient_name'] = '未知'
+
+    # 超时时间配置
+    json_data['nurse_recv_timeout'] = redis_client.get(cv_config.TIMEOUT_REDIS_KEY['nurse_recv']) or 300
+    json_data['nurse_send_timeout'] = redis_client.get(cv_config.TIMEOUT_REDIS_KEY['nurse_send']) or 120
+    json_data['doctor_recv_timeout'] = redis_client.get(cv_config.TIMEOUT_REDIS_KEY['doctor_recv']) or 300
+    json_data['doctor_handle_timeout'] = redis_client.get(cv_config.TIMEOUT_REDIS_KEY['doctor_handle']) or 300
+    json_data['total_timeout'] = redis_client.get(cv_config.TIMEOUT_REDIS_KEY['total']) or 600
+
+    # 插入危机值
+    fileds = ','.join(json_data.keys())
+    args = str(tuple(json_data.values()))
+    insert_sql = f"INSERT INTO nsyy_gyl.cv_info ({fileds}) " \
+                 f"VALUES {args}"
+    last_rowid = db.execute(insert_sql, need_commit=True)
+    if last_rowid == -1:
+        raise Exception("系统危机值入库失败! " + str(args))
+
+    # 发送危机值 直接通知医生和护士
+    msg = '[{} - {} - {} - {}]'.format(json_data.get('patient_name', 'unknown'), json_data.get('req_docno', 'unknown'),
+                                       json_data.get('patient_treat_id', '0'), json_data.get('patient_bed_num', '0'))
+    if json_data.get('ward_id'):
+        async_alert(1, json_data['ward_id'], f'发现新危机值, 请及时查看并处理 <br> [患者-主管医生-住院/门诊号-床号] <br> {msg}')
+    if json_data.get('dept_id'):
+        async_alert(2, json_data['dept_id'], f'发现新危机值, 请及时查看并处理 <br> [患者-主管医生-住院/门诊号-床号] <br> {msg}')
+
+    # 通知医技科室
+    if json_data.get('alertman_pers_id'):
+        msg = '患者 {} 的危急值，已通知 {} - {}'.format(json_data.get('patient_name', 'unknown'),
+                                                       json_data.get('dept_name', ' '), json_data.get('ward_name', ' '))
+        notiaction_alert_man(msg, int(json_data.get('alertman_pers_id')))
+
+    # 将危机值放入 redis cache
+    query_sql = 'select * from nsyy_gyl.cv_info where id = {} '.format(last_rowid)
+    record = db.query_one(query_sql)
+    del db
+
+    # 这里一定把 type 加上，用于匹配
+    key = json_data['cv_id'] + f'_{cv_config.CV_SOURCE_MANUAL}'
+    write_cache(key, record)
+    # 手工上报的还需要 单独再存一份，用于匹配， todo 这里仅关注有住院号
+    if int(json_data['patient_treat_id']) != int(cv_config.cv_manual_default_treat_id):
+        redis_client.hset(cv_config.MANUAL_CVS_REDIS_KEY, str(json_data['patient_treat_id']),
+                          json.dumps(record, default=str))
 
 
 """
@@ -519,8 +721,11 @@ def create_cv_by_system(json_data, cv_source):
         "comp_id": 12,
         "randstr": "XPFDFZDF7193CIONS1PD7XCJ3AD4ORRC"
     }
-    cvd['alert_dept_id'], cvd['alert_dept_name'], cvd['alertman_name'] = \
+    cvd['alert_dept_id'], cvd['alert_dept_name'], cvd['alertman_name'], cvd['alertman_pers_id'] = \
         call_third_systems_obtain_data('get_dept_info_by_emp_num', param)
+
+    if not cvd.get('alertman_pers_id'):
+        cvd['alertman_pers_id'] = 0
 
     # 解析危机值病人信息
     cvd['patient_type'] = json_data.get('PAT_TYPECODE')
@@ -563,7 +768,6 @@ def create_cv_by_system(json_data, cv_source):
         cvd['cv_unit'] = json_data.get('RESULT_UNIT')
 
     # 超时时间配置
-    redis_client = redis.Redis(connection_pool=pool)
     cvd['nurse_recv_timeout'] = redis_client.get(cv_config.TIMEOUT_REDIS_KEY['nurse_recv']) or 300
     cvd['nurse_send_timeout'] = redis_client.get(cv_config.TIMEOUT_REDIS_KEY['nurse_send']) or 120
     cvd['doctor_recv_timeout'] = redis_client.get(cv_config.TIMEOUT_REDIS_KEY['doctor_recv']) or 300
@@ -596,10 +800,10 @@ def create_cv_by_system(json_data, cv_source):
     async_alert(2, cvd['dept_id'], f'发现新危机值, 请及时查看并处理 <br> [患者-主管医生-住院/门诊号-床号] <br> {msg}')
 
     # 通知医技科室
-    if cvd.get('alert_dept_id'):
+    if cvd.get('alertman_pers_id'):
         msg = '患者 {} 的危急值，已通知 {} - {}'.format(cvd.get('patient_name', 'unknown'),
-                                                    cvd.get('dept_name', 'unknown'), cvd.get('ward_name', 'unknown'))
-        async_alert(2, cvd['alert_dept_id'], msg)
+                                                       cvd.get('dept_name', 'unknown'), cvd.get('ward_name', 'unknown'))
+        notiaction_alert_man(msg, int(cvd.get('alertman_pers_id')))
 
     # 将危机值放入 redis cache
     query_sql = 'select * from nsyy_gyl.cv_info where id = {} '.format(last_rowid)
@@ -675,6 +879,13 @@ def get_cv_list(json_data):
 
     if json_data.get('patient_treat_id'):
         condation_sql += ' and patient_treat_id = \'{}\' '.format(json_data.get('patient_treat_id'))
+
+    alertman = json_data.get('alertman')
+    if alertman:
+        if str(alertman).isdigit():
+            condation_sql += ' and alertman = \'{}\' '.format(alertman)
+        else:
+            condation_sql += ' and alertman_name like \'%{}%\' '.format(alertman)
 
     query_sql = f'select * from nsyy_gyl.cv_info where {state_sql} {time_sql} {condation_sql} {alert_dept_id_sql} order by alertdt desc'
     cv_list = db.query_all(query_sql)
@@ -963,50 +1174,16 @@ def doctor_handle_cv(json_data):
         # 病历回写
         pat_no = record.get('patient_treat_id')
         pat_type = int(record.get('patient_type'))
-        sql = ''
-        if pat_type in (1, 2):
-            # 门诊/急诊
-            sql = f'select 病人ID as pid, NO as hid from 病人挂号记录 where 门诊号 = \'{pat_no}\' order by 登记时间 desc'
-        elif pat_type == 3:
-            # 住院
-            sql = f'select 病人id as pid, 主页id as hid from 病案主页 where 住院号 = \'{pat_no}\' order by 主页id desc '
         param = {
-            "type": "orcl_db_read",
-            "db_source": "nshis",
-            "randstr": "XPFDFZDF7193CIONS1PD7XCJ3AD4ORRC",
-            "sql": sql
+            "pat_no": pat_no,
+            "pat_type": pat_type,
+            "record": record,
+            "handler_name": handler_name,
+            "timer": timer,
+            "method": method,
+            "analysis": analysis
         }
-        data = call_third_systems_obtain_data('orcl_db_read', param)
-        if data:
-            body = ''
-            recv_time = record.get('time').strftime("%Y-%m-%d %H:%M:%S")
-            body = body + "于 " + recv_time + "接收到 " + str(record.get('alert_dept_name')) \
-                   + " 推送的危机值: [" + str(record.get('cv_name')) + "]"
-            body = body + " " + str(record.get('cv_result'))
-            if record.get('cv_unit'):
-                body = body + " " + record.get('cv_unit')
-
-            body = body + "医生 " + handler_name + " " + timer + "处理了该危机值"
-            if analysis:
-                body = body + " 原因分析: " + analysis
-            if method:
-                body = body + " 处理方法: " + method
-            pid = data[0].get('PID', 0)
-            hid = data[0].get('HID', 0)
-            param = {
-                "type": "his_procedure",
-                "procedure": "jk_p_Pat_List",
-                "病人id": pid,
-                "主页id": hid,
-                "内容": body,
-                "分类": "3",
-                "记录人": handler_name,
-                "审核时间": timer,
-                "医嘱名称": record.get('cv_name'),
-                "分类名": "危机值记录",
-                "标签说明": record.get('cv_name')
-            }
-            call_third_systems_obtain_data('his_procedure', param)
+        medical_record_writing_back(param)
 
         data_feedback(cv_id, int(cv_source), handler_name, timer, method, 3)
         if int(cv_source) == 4:
@@ -1019,9 +1196,68 @@ def doctor_handle_cv(json_data):
             })
 
         # 通知医技科室
-        if record.get('alert_dept_id'):
+        if record.get('alertman_pers_id'):
             msg = '患者 {} 的危急值，医生 {} 已处理'.format(record.get('patient_name', 'unknown'), handler_name)
-            async_alert(2, record['alert_dept_id'], msg)
+            notiaction_alert_man(msg, int(record.get('alertman_pers_id')))
+
+
+"""
+病历回写
+"""
+
+
+def medical_record_writing_back(json_data):
+    try:
+        sql = ''
+        pat_type = int(json_data.get('pat_type'))
+        pat_no = int(json_data.get('pat_no'))
+        if pat_type in (1, 2):
+            # 门诊/急诊
+            sql = f'select 病人ID as pid, NO as hid from 病人挂号记录 where 门诊号 = \'{pat_no}\' order by 登记时间 desc'
+        elif pat_type == 3:
+            # 住院
+            sql = f'select 病人id as pid, 主页id as hid from 病案主页 where 住院号 = \'{pat_no}\' order by 主页id desc '
+
+        param = {
+            "type": "orcl_db_read",
+            "db_source": "nshis",
+            "randstr": "XPFDFZDF7193CIONS1PD7XCJ3AD4ORRC",
+            "sql": sql
+        }
+        data = call_third_systems_obtain_data('orcl_db_read', param)
+        if data:
+            record = json_data.get('record')
+            body = ''
+            recv_time = record.get('time').strftime("%Y-%m-%d %H:%M:%S")
+            body = body + "于 " + recv_time + "接收到 " + str(record.get('alert_dept_name')) \
+                   + " 推送的危机值: [" + str(record.get('cv_name')) + "]"
+            body = body + " " + str(record.get('cv_result'))
+            if record.get('cv_unit'):
+                body = body + " " + record.get('cv_unit')
+
+            body = body + "医生 " + json_data.get('handler_name') + " " + json_data.get('timer') + "处理了该危机值"
+            if json_data.get('analysis'):
+                body = body + " 原因分析: " + json_data.get('analysis')
+            if json_data.get('method'):
+                body = body + " 处理方法: " + json_data.get('method')
+            pid = data[0].get('PID', 0)
+            hid = data[0].get('HID', 0)
+            param = {
+                "type": "his_procedure",
+                "procedure": "jk_p_Pat_List",
+                "病人id": pid,
+                "主页id": hid,
+                "内容": body,
+                "分类": "3",
+                "记录人": json_data.get('handler_name'),
+                "审核时间": json_data.get('timer'),
+                "医嘱名称": record.get('cv_name'),
+                "分类名": "危机值记录",
+                "标签说明": record.get('cv_name')
+            }
+            call_third_systems_obtain_data('his_procedure', param)
+    except Exception as e:
+        print('病历回写异常：param = ', param, " json_data = ", json_data, " 异常信息 = ", e)
 
 
 """

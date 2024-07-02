@@ -47,7 +47,7 @@ def system_create_cv1():
         critical_value.create_cv(cvd)
     except Exception as e:
         timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-        print(f"[{timestamp}] Exception occurred: {traceback.print_exc()}")
+        print(f"[{timestamp}] Exception occurred: {traceback.print_exc()}", e)
 
     return jsonify({
         'code': 20000
@@ -69,6 +69,29 @@ def system_create_cv():
             'data': '危机值上报失败，请稍后重试'
         })
 
+    return jsonify({
+        'code': 20000
+    })
+
+
+"""
+手工上报危急值
+"""
+
+
+@cv.route('/manual_report_cv', methods=['POST'])
+def manual_report_cv():
+    try:
+        json_data = json.loads(request.get_data().decode('utf-8'))
+        critical_value.manual_report_cv(json_data)
+    except Exception:
+        timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        msg = f"[{timestamp}] Exception occurred: {traceback.print_exc()}"
+        print(msg)
+        return jsonify({
+            'code': 50000,
+            'res': msg
+        })
     return jsonify({
         'code': 20000
     })
