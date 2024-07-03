@@ -3,6 +3,7 @@ import os
 import base64
 import requests
 import json
+import pandas as pd
 
 from gylmodules import global_config
 from gylmodules.utils.db_utils import DbUtil
@@ -19,10 +20,23 @@ file_list = ['/Users/gaoyanliang/Downloads/Untitled-1.xml',
 # db = DbUtil(global_config.DB_HOST, global_config.DB_USERNAME, global_config.DB_PASSWORD,
 #             global_config.DB_DATABASE_GYL)
 
+
+db = DbUtil('192.168.3.12', "gyl", "123456", 'nsyy_gyl')
+doctorl = db.query_all(f'select * from nsyy_gyl.appt_doctor')
+
+doctord = {}
+for item in doctorl:
+    doctord[item.get('name')] = item
+
+
+
 my_set = set()
 my_set1 = set()
 items = {}
-start_id = [1, 101, 201, 301, 401]
+start_id = [0, 100, 200, 300, 400, 500]
+index = 1
+
+ret = []
 for id in start_id:
 
     try:
@@ -52,28 +66,50 @@ for id in start_id:
             'doctor_type': item.find('SessionType').text.strip(),
             'price': price,
         }
-        # print(json_data)
-        set_data = tuple(json_data.items())
-        if set_data in my_set:
-            continue
-        my_set.add(set_data)
+        ret.append(json_data)
+        # print(index, '  ', json_data)
+        # index = index + 1
+        # set_data = tuple(json_data.items())
+        # if set_data in my_set:
+        #     continue
+        # my_set.add(set_data)
+        #
+        # copy_data = json_data.copy()
+        # copy_data.pop('price')
+        # copy_data.pop('doctor_type')
+        # copy_data.pop('appointment_id')
+        # copy_data = tuple(copy_data.items())
+        #
+        # if copy_data in my_set1:
+        #     val = items[copy_data]
+        #     if price > val.get('price'):
+        #         items[copy_data] = json_data
+        # else:
+        #     items[copy_data] = json_data
+        #     my_set1.add(copy_data)
 
-        copy_data = json_data.copy()
-        copy_data.pop('price')
-        copy_data.pop('doctor_type')
-        copy_data.pop('appointment_id')
-        copy_data = tuple(copy_data.items())
 
-        if copy_data in my_set1:
-            val = items[copy_data]
-            if price > val.get('price'):
-                items[copy_data] = json_data
-        else:
-            items[copy_data] = json_data
-            my_set1.add(copy_data)
+sorted_data = sorted(ret, key=lambda x: x["doctor_name"])
 
-for _, json_data in items.items():
-    print(json_data)
+
+last_data = []
+for index, value in enumerate(sorted_data):
+    if index > 0 and value.get('doctor_name') == sorted_data[index-1].get('doctor_name'):
+        last_data.append(sorted_data[index-1])
+        last_data.append(value)
+
+# 将数据转换为 DataFrame
+df = pd.DataFrame(last_data)
+# 将 DataFrame 写入 Excel 文件
+output_file = 'appointments.xlsx'
+df.to_excel(output_file, index=False)
+
+print(f"数据已写入 {output_file}")
+
+# for json_data in last_data:
+#     print(index, '  ', json_data)
+#
+#     index = index + 1
     # fileds = ','.join(json_data.keys())
     # args = str(tuple(json_data.values()))
     # insert_sql = f"INSERT INTO nsyy_gyl.appt_doctor_info ({fileds}) VALUES {args}"
