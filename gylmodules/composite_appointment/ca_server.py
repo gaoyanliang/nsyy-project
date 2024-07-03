@@ -653,7 +653,7 @@ def create_appt_by_doctor_advice(patient_id: str, doc_name: str, id_card_no, app
             combined_advice_desc = '; '.join(item['检查明细项'] for item in group_list)
             total_price = sum(item['实收金额'] for item in group_list)
             # 使用第一个元素的字典结构来创建合并后的记录
-            json_data = {
+            new_doc_advice = {
                 'appt_id': new_appt_id,
                 'pay_id': group_list[0].get('NO'),
                 'advice_desc': combined_advice_desc,
@@ -664,8 +664,8 @@ def create_appt_by_doctor_advice(patient_id: str, doc_name: str, id_card_no, app
 
             db = DbUtil(global_config.DB_HOST, global_config.DB_USERNAME, global_config.DB_PASSWORD,
                         global_config.DB_DATABASE_GYL)
-            fileds = ','.join(json_data.keys())
-            args = str(tuple(json_data.values()))
+            fileds = ','.join(new_doc_advice.keys())
+            args = str(tuple(new_doc_advice.values()))
             insert_sql = f"INSERT INTO {database}.appt_doctor_advice ({fileds}) VALUES {args}"
             last_rowid = db.execute(sql=insert_sql, need_commit=True)
             if last_rowid == -1:
@@ -674,7 +674,7 @@ def create_appt_by_doctor_advice(patient_id: str, doc_name: str, id_card_no, app
             del db
 
     if other_advice:
-        record = {
+        advice_record = {
             'father_id': int(appt_id),
             'id_card_no': id_card_no,
             "book_date": str(date.today()),
@@ -691,7 +691,7 @@ def create_appt_by_doctor_advice(patient_id: str, doc_name: str, id_card_no, app
             "level": int(level),
         }
         # 根据医嘱创建的预约，将执行科室的 id 存入 doctor_dept_id 中
-        new_appt_id, bdata, bslot = create_appt(record, last_date, last_slot)
+        new_appt_id, bdata, bslot = create_appt(advice_record, last_date, last_slot)
         # 按 pay_id 排序，后按 pay_id 分组
         other_advice.sort(key=lambda x: x['NO'])
         # 根据 pay_id 分组并计算每个分组的 price 总和
@@ -702,7 +702,7 @@ def create_appt_by_doctor_advice(patient_id: str, doc_name: str, id_card_no, app
             combined_advice_desc = '; '.join(item['检查明细项'] for item in group_list)
             total_price = sum(item['实收金额'] for item in group_list)
             # 使用第一个元素的字典结构来创建合并后的记录
-            json_data = {
+            new_doc_advice1 = {
                 'appt_id': new_appt_id,
                 'pay_id': group_list[0].get('NO'),
                 'advice_desc': combined_advice_desc,
@@ -710,8 +710,8 @@ def create_appt_by_doctor_advice(patient_id: str, doc_name: str, id_card_no, app
                 'dept_name': group_list[0].get('执行科室'),
                 'price': total_price
             }
-            fileds = ','.join(json_data.keys())
-            args = str(tuple(json_data.values()))
+            fileds = ','.join(new_doc_advice1.keys())
+            args = str(tuple(new_doc_advice1.values()))
             insert_sql = f"INSERT INTO {database}.appt_doctor_advice ({fileds}) VALUES {args}"
             last_rowid = db.execute(sql=insert_sql, need_commit=True)
             if last_rowid == -1:
@@ -780,7 +780,7 @@ def update_advice(json_data):
                 combined_advice_desc = '; '.join(item['检查明细项'] for item in group_list)
                 total_price = sum(item['实收金额'] for item in group_list)
                 # 使用第一个元素的字典结构来创建合并后的记录
-                json_data = {
+                new_json_data = {
                     'appt_id': appt_id,
                     'pay_id': group_list[0].get('NO'),
                     'advice_desc': combined_advice_desc,
@@ -789,8 +789,8 @@ def update_advice(json_data):
                     'price': total_price
                 }
 
-                fileds = ','.join(json_data.keys())
-                args = str(tuple(json_data.values()))
+                fileds = ','.join(new_json_data.keys())
+                args = str(tuple(new_json_data.values()))
                 insert_sql = f"INSERT INTO {database}.appt_doctor_advice ({fileds}) VALUES {args}"
                 last_rowid = db.execute(sql=insert_sql, need_commit=True)
                 if last_rowid == -1:
@@ -832,7 +832,7 @@ def update_advice(json_data):
                 combined_advice_desc = '; '.join(item['检查明细项'] for item in group_list)
                 total_price = sum(item['实收金额'] for item in group_list)
                 # 使用第一个元素的字典结构来创建合并后的记录
-                json_data = {
+                new_data = {
                     'appt_id': new_appt_id,
                     'pay_id': group_list[0].get('NO'),
                     'advice_desc': combined_advice_desc,
@@ -843,8 +843,8 @@ def update_advice(json_data):
 
                 db = DbUtil(global_config.DB_HOST, global_config.DB_USERNAME, global_config.DB_PASSWORD,
                             global_config.DB_DATABASE_GYL)
-                fileds = ','.join(json_data.keys())
-                args = str(tuple(json_data.values()))
+                fileds = ','.join(new_data.keys())
+                args = str(tuple(new_data.values()))
                 insert_sql = f"INSERT INTO {database}.appt_doctor_advice ({fileds}) VALUES {args}"
                 last_rowid = db.execute(sql=insert_sql, need_commit=True)
                 if last_rowid == -1:
@@ -878,7 +878,7 @@ def update_advice(json_data):
             combined_advice_desc = '; '.join(item['检查明细项'] for item in group_list)
             total_price = sum(item['实收金额'] for item in group_list)
             # 使用第一个元素的字典结构来创建合并后的记录
-            json_data = {
+            new_data1 = {
                 'appt_id': new_appt_id,
                 'pay_id': group_list[0].get('NO'),
                 'advice_desc': combined_advice_desc,
@@ -889,8 +889,8 @@ def update_advice(json_data):
 
             db = DbUtil(global_config.DB_HOST, global_config.DB_USERNAME, global_config.DB_PASSWORD,
                         global_config.DB_DATABASE_GYL)
-            fileds = ','.join(json_data.keys())
-            args = str(tuple(json_data.values()))
+            fileds = ','.join(new_data1.keys())
+            args = str(tuple(new_data1.values()))
             insert_sql = f"INSERT INTO {database}.appt_doctor_advice ({fileds}) VALUES {args}"
             last_rowid = db.execute(sql=insert_sql, need_commit=True)
             if last_rowid == -1:
@@ -979,7 +979,7 @@ def inpatient_advice_create(json_data):
             combined_advice_desc = '; '.join(item['检查明细项'] for item in group_list)
             total_price = sum(item['实收金额'] for item in group_list)
             # 使用第一个元素的字典结构来创建合并后的记录
-            json_data = {
+            new_data2 = {
                 'appt_id': new_appt_id,
                 'pay_id': group_list[0].get('NO'),
                 'advice_desc': combined_advice_desc,
@@ -987,8 +987,8 @@ def inpatient_advice_create(json_data):
                 'dept_name': group_list[0].get('执行科室'),
                 'price': total_price
             }
-            fileds = ','.join(json_data.keys())
-            args = str(tuple(json_data.values()))
+            fileds = ','.join(new_data2.keys())
+            args = str(tuple(new_data2.values()))
             insert_sql = f"INSERT INTO {database}.appt_doctor_advice ({fileds}) VALUES {args}"
             last_rowid = db.execute(sql=insert_sql, need_commit=True)
             if last_rowid == -1:
@@ -1233,7 +1233,15 @@ def query_all_appt_project(type: int):
                             continue
                         quantity = room_dict[str(rid)][date][str(slot)]
                         info[rid]['hourly_quantity'] = quantity
-                        info[rid]['quantity'] = sum(quantity.values()) if quantity else 0
+                        current_slot = appt_config.appt_slot_dict[datetime.now().hour]
+                        if quantity:
+                            total_quantity = 0
+                            for key, value in quantity.items():
+                                if int(key) >= int(current_slot):
+                                    total_quantity += int(value)
+                            info[rid]['quantity'] = total_quantity
+                        else:
+                            info[rid]['quantity'] = 0
                         if rinfo.get('doc_id') and redis_client.hget(APPT_DOCTORS_KEY, str(rinfo.get('doc_id'))):
                             info[rid]['doctor'] = json.loads(
                                 redis_client.hget(APPT_DOCTORS_KEY, str(rinfo.get('doc_id'))))
