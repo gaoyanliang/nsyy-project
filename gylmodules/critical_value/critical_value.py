@@ -2,18 +2,18 @@ import redis
 import json
 import threading
 import requests
-from requests.adapters import HTTPAdapter
 from suds.client import Client
 
 from datetime import datetime, timedelta
 import time
 
 from apscheduler.schedulers.background import BackgroundScheduler
-from urllib3 import Retry
 
 from gylmodules import global_config
 from gylmodules.critical_value import cv_config
 from gylmodules.utils.db_utils import DbUtil
+import asyncio
+import aiohttp
 
 pool = redis.ConnectionPool(host=cv_config.CV_REDIS_HOST, port=cv_config.CV_REDIS_PORT,
                             db=cv_config.CV_REDIS_DB, decode_responses=True)
@@ -338,10 +338,10 @@ def create_cv(cvd):
         try:
             invalid_crisis_value(cv_ids, cv_source)
         except Exception as e:
-            print("作废危机值异常：cv_ids = ", cv_ids, ' cv_source = ', cv_source, 'Exception = ', e)
+            print("作废危急值异常：cv_ids = ", cv_ids, ' cv_source = ', cv_source, 'Exception = ', e)
 
     # 新增的危急值有可能是之前手工上报的危急值，需要更新信息，不需要再插入一条新纪录
-    # 新增危机值
+    # 新增危急值
     db = DbUtil(global_config.DB_HOST, global_config.DB_USERNAME, global_config.DB_PASSWORD,
                 global_config.DB_DATABASE_GYL)
     for key in new_idl:
@@ -382,12 +382,12 @@ def create_cv(cvd):
                     continue
             create_cv_by_system(cv_data, int(cv_source))
         except Exception as e:
-            print("新增危机值异常：cv_data = ", cv_data, ' key = ', key, 'Exception = ', e)
+            print("新增危急值异常：cv_data = ", cv_data, ' key = ', key, 'Exception = ', e)
     del db
 
 
 """
-作废危机值
+作废危急值
 """
 
 
@@ -399,7 +399,7 @@ def invalid_crisis_value(cv_ids, cv_source):
 
     db = DbUtil(global_config.DB_HOST, global_config.DB_USERNAME, global_config.DB_PASSWORD,
                 global_config.DB_DATABASE_GYL)
-    # 更新危机值状态未作废
+    # 更新危急值状态未作废
     cv_ids = [f"'{item}'" for item in cv_ids]
     ids = ','.join(cv_ids)
     new_state = cv_config.INVALID_STATE
@@ -528,7 +528,7 @@ def check_single_crisis_value(json_data, cv_source):
     if pat_no in all_patient:
         cv_id = json_data.get('RESULTALERTID')
         print(
-            f'最近患者 {pat_no} 已经出现过危机值 {itemname}, 当前危机值 cv_id = {cv_id} cv_source = {cv_source} 不再上报, 并作废远程危机值')
+            f'最近患者 {pat_no} 已经出现过危急值 {itemname}, 当前危急值 cv_id = {cv_id} cv_source = {cv_source} 不再上报, 并作废远程危机值')
         invalid_remote_crisis_value(cv_id, cv_source)
         return True, False
 
@@ -654,15 +654,12 @@ def manual_report_cv(json_data):
                  f"VALUES {args}"
     last_rowid = db.execute(insert_sql, need_commit=True)
     if last_rowid == -1:
-        raise Exception("系统危机值入库失败! " + str(args))
+        raise Exception("系统危急值入库失败! " + str(args))
 
     # 发送危机值 直接通知医生和护士
     msg = '[{} - {} - {} - {}]'.format(json_data.get('patient_name', 'unknown'), json_data.get('req_docno', 'unknown'),
                                        json_data.get('patient_treat_id', '0'), json_data.get('patient_bed_num', '0'))
-    if json_data.get('ward_id'):
-        async_alert(1, json_data['ward_id'], f'发现新危机值, 请及时查看并处理 <br> [患者-主管医生-住院/门诊号-床号] <br> {msg}')
-    if json_data.get('dept_id'):
-        async_alert(2, json_data['dept_id'], f'发现新危机值, 请及时查看并处理 <br> [患者-主管医生-住院/门诊号-床号] <br> {msg}')
+    async_alert(json_data.get('dept_id'), json_data.get('ward_id'), f'发现新危急值, 请及时查看并处理 <br> [患者-主管医生-住院/门诊号-床号] <br> {msg}')
 
     # 通知医技科室
     if json_data.get('alertman_pers_id'):
@@ -781,7 +778,7 @@ def create_cv_by_system(json_data, cv_source):
                  f"VALUES {args}"
     last_rowid = db.execute(insert_sql, need_commit=True)
     if last_rowid == -1:
-        raise Exception("系统危机值入库失败! " + str(args))
+        raise Exception("系统危急值入库失败! " + str(args))
 
     # 如果时仅需要上报一次的危机值类型，缓存下载，防止多次上报
     if need_cache:
@@ -796,8 +793,7 @@ def create_cv_by_system(json_data, cv_source):
     # 发送危机值 直接通知医生和护士
     msg = '[{} - {} - {} - {}]'.format(cvd.get('patient_name', 'unknown'), cvd.get('req_docno', 'unknown'),
                                        cvd.get('patient_treat_id', '0'), cvd.get('patient_bed_num', '0'))
-    async_alert(1, cvd['ward_id'], f'发现新危机值, 请及时查看并处理 <br> [患者-主管医生-住院/门诊号-床号] <br> {msg}')
-    async_alert(2, cvd['dept_id'], f'发现新危机值, 请及时查看并处理 <br> [患者-主管医生-住院/门诊号-床号] <br> {msg}')
+    async_alert(cvd.get('dept_id'), cvd.get('ward_id'), f'发现新危急值, 请及时查看并处理 <br> [患者-主管医生-住院/门诊号-床号] <br> {msg}')
 
     # 通知医技科室
     if cvd.get('alertman_pers_id'):
@@ -936,11 +932,8 @@ def query_process_cv_and_notice(dept_id, ward_id):
             timeout_record.append(msg)
 
         msgs = list(set(timeout_record))
-        alertmsg = f'以下危机值未及时处理 <br> [患者-主管医生-住院/门诊号-床号] <br> ' + ' <br> '.join(msgs)
-        if ward_id:
-            async_alert(1, ward_id, alertmsg)
-        if dept_id:
-            async_alert(2, dept_id, alertmsg)
+        alertmsg = f'以下危急值未及时处理 <br> [患者-主管医生-住院/门诊号-床号] <br> ' + ' <br> '.join(msgs)
+        async_alert(dept_id, ward_id, alertmsg)
 
 
 """
@@ -948,41 +941,53 @@ def query_process_cv_and_notice(dept_id, ward_id):
 """
 
 
-def async_alert(type, id, msg, is_async=True):
-    def alert(type, id, msg):
-        key = cv_config.CV_SITES_REDIS_KEY[int(type)] + str(id)
-        payload = {'type': 'popup', 'wiki_info': msg}
-        redis_client = redis.Redis(connection_pool=pool)
-        sites = redis_client.smembers(key)
-        if sites:
-            # 设置 requests 的连接池
-            retries = Retry(total=3, backoff_factor=0.3, status_forcelist=[500, 502, 503, 504, 20003])
-            adapter = HTTPAdapter(max_retries=retries, pool_connections=15, pool_maxsize=15)
+async def send_request(session, url, payload):
+    try:
+        async with session.post(url, json=payload, timeout=3) as response:
+            response.raise_for_status()
+    except asyncio.TimeoutError:
+        # print(f"请求超时: {url} {payload.get('type') if payload.get('type') else ''} ", datetime.now())
+        pass
+    except aiohttp.ClientError as e:
+        # print(f"请求失败: {url} {payload.get('type') if payload.get('type') else ''} ", datetime.now(), e)
+        pass
 
-            for ip in sites:
+
+async def alert(dept_id, ward_id, msg):
+    payload = {'type': 'popup', 'wiki_info': msg}
+    redis_client = redis.Redis(connection_pool=pool)
+    dept_sites = set()
+    if dept_id is not None and dept_id != '' and int(dept_id):
+        dept_sites = redis_client.smembers(cv_config.CV_SITES_REDIS_KEY[2] + str(dept_id))
+    ward_sites = set()
+    if ward_id is not None and ward_id != '' and int(ward_id):
+        ward_sites = redis_client.smembers(cv_config.CV_SITES_REDIS_KEY[1] + str(ward_id))
+    merged_set = dept_sites.union(ward_sites)
+    if merged_set:
+        # print(' 查询到 ', len(merged_set), ' 个 ip 地址', merged_set, ' ', datetime.now())
+        async with aiohttp.ClientSession() as session:
+            stop_tasks = []
+            popup_tasks = []
+            for ip in merged_set:
                 url = f'http://{ip}:8085/opera_wiki'
-                try:
-                    session = requests.Session()
-                    session.mount('http://', adapter)
-                    response = session.post(url, json={'type': 'stop'})  # 连接超时5秒，读取超时10秒
-                    response.raise_for_status()  # 如果响应状态码不是 200-400 之间，产生异常
+                stop_tasks.append(send_request(session, url, {'type': 'stop'}))
+                popup_tasks.append(send_request(session, url, payload))
+            await asyncio.gather(*stop_tasks)
+            await asyncio.sleep(0.3)  # 间隔 300 毫秒
+            await asyncio.gather(*popup_tasks)
 
-                    response = session.post(url, json=payload, timeout=(3, 3))  # 连接超时5秒，读取超时10秒
-                    response.raise_for_status()  # 如果响应状态码不是 200-400 之间，产生异常
-                except requests.exceptions.Timeout:
-                    # print("请求超时")
-                    pass
-                except requests.exceptions.RequestException as e:
-                    # print(f"Failed to send alert to {ip}: {e}")
-                    pass
-                finally:
-                    session.close()  # 确保连接关闭
 
-    if is_async:
-        thread_b = threading.Thread(target=alert, args=(type, id, msg))
-        thread_b.start()
-    else:
-        alert(type, id, msg)
+def async_alert(dept_id, ward_id, msg):
+    loop = None
+    try:
+        loop = asyncio.new_event_loop()
+        asyncio.set_event_loop(loop)
+        loop.run_until_complete(alert(dept_id, ward_id, msg))
+    except Exception as e:
+        print(f"在执行 alert 时发生错误: {e}")
+    finally:
+        if loop:
+            loop.close()
 
 
 """
@@ -1028,7 +1033,7 @@ def push(json_data):
         # 弹框提醒医生
         msg = '[{} - {} - {} - {}]'.format(patient_name, value.get('req_docno', 'unknown'),
                                            value.get('patient_treat_id', '0'), value.get('patient_bed_num', '0'))
-        async_alert(2, dept_id, f'发现新危机值, 请及时查看并处理 <br> [患者-主管医生-住院/门诊号-床号] <br> {msg}')
+        async_alert(dept_id, None, f'发现新危机值, 请及时查看并处理 <br> [患者-主管医生-住院/门诊号-床号] <br> {msg}')
     del db
 
 

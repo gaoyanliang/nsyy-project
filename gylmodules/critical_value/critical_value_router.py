@@ -25,7 +25,7 @@ def running_cvs():
 
     return jsonify({
         'code': 20000,
-        'res': '查询运行中的危机值成功',
+        'res': '查询运行中的危急值成功',
         'data': {
             'running_ids': running_ids,
             'query_sql': query_sql,

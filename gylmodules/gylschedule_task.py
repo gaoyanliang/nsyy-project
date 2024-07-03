@@ -45,28 +45,23 @@ def handle_timeout_cv():
     values = redis_client.hvals(cv_config.RUNNING_CVS_REDIS_KEY)
 
     # 存储所有超时记录
-    ward_timeout_record = {}
-    dept_timeout_record = {}
+    timeout_record = {}
     for value in values:
         value = json.loads(value)
         if value.get('state') not in (1, 2, 4, 5, 7):
-            return
+            continue
         needd = timeout_d[value['state']]
         check_time = value[needd['check_time']]
         check_time = datetime.strptime(check_time, "%Y-%m-%d %H:%M:%S")
         if (cur_time - check_time).seconds > value.get(needd['timeout_filed'], 600):
             msg = '[{} - {} - {} - {}]'.format(value.get('patient_name', 'unknown'), value.get('req_docno', 'unknown'),
                                                value.get('patient_treat_id', '0'), value.get('patient_bed_num', '0'))
-            if value['ward_id']:
-                if str(value['ward_id']) in ward_timeout_record:
-                    ward_timeout_record[str(value['ward_id'])].append(msg)
-                else:
-                    ward_timeout_record[str(value['ward_id'])] = [msg]
-            if value['dept_id']:
-                if str(value['dept_id']) in dept_timeout_record:
-                    dept_timeout_record[str(value['dept_id'])].append(msg)
-                else:
-                    dept_timeout_record[str(value['dept_id'])] = [msg]
+
+            timeout_key = (value.get('dept_id'), value.get('ward_id'))
+            if timeout_key in timeout_record:
+                timeout_record[timeout_key].append(msg)
+            else:
+                timeout_record[timeout_key] = [msg]
 
             # socket   通知上报人
             if value.get('alertman_pers_id'):
@@ -97,16 +92,10 @@ def handle_timeout_cv():
                 value[needd['timeout_flag']] = 1
                 key = str(cv_id) + '_' + str(cv_source)
                 write_cache(key, value)
-
-    if ward_timeout_record:
-        for ward_id, msgs in ward_timeout_record.items():
-            alertmsg = f'超时危机值，请及时处理 <br> [患者-主管医生-住院/门诊号-床号] <br> ' + ' <br> '.join(msgs)
-            async_alert(1, ward_id, alertmsg, is_async=True)
-
-    if dept_timeout_record:
-        for dept_id, msgs in dept_timeout_record.items():
-            alertmsg = f'超时危机值，请及时处理 <br> [患者-主管医生-住院/门诊号-床号] <br> ' + ' <br> '.join(msgs)
-            async_alert(2, dept_id, alertmsg, is_async=True)
+    if timeout_record:
+        for ids, msgs in timeout_record.items():
+            alertmsg = f'超时危急值，请及时处理 <br> [患者-主管医生-住院/门诊号-床号] <br> ' + ' <br> '.join(msgs)
+            async_alert(ids[0], ids[1], alertmsg)
 
 
 def regular_update_dept_info():
