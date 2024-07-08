@@ -1043,9 +1043,15 @@ async def alert(dept_id, ward_id, msg):
 def async_alert(dept_id, ward_id, msg):
     def run():
         try:
-            loop = asyncio.new_event_loop()
-            asyncio.set_event_loop(loop)
-            loop.run_until_complete(alert(dept_id, ward_id, msg))
+            loop = asyncio.get_running_loop()
+        except RuntimeError:
+            loop = None
+
+        try:
+            if loop and loop.is_running():
+                asyncio.create_task(alert(dept_id, ward_id, msg))
+            else:
+                asyncio.run(alert(dept_id, ward_id, msg))
         except Exception as e:
             print(f"1在执行 alert 时发生错误: {e}")
         finally:
