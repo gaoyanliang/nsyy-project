@@ -97,6 +97,26 @@ def manual_report_cv():
     })
 
 
+@cv.route('/invalid_cv', methods=['POST'])
+def invalid_cv():
+    try:
+        json_data = json.loads(request.get_data().decode('utf-8'))
+        cv_id = json_data.get('cv_id')
+        cv_source = json_data.get('cv_source')
+        critical_value.invalid_crisis_value([str(cv_id)], int(cv_source), True)
+    except Exception:
+        timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        msg = f"[{timestamp}] Exception occurred: {traceback.print_exc()}"
+        print(msg)
+        return jsonify({
+            'code': 50000,
+            'res': msg
+        })
+    return jsonify({
+        'code': 20000
+    })
+
+
 """
 windows 客户端启动时， 查询所有待完成的危机值，并弹框提示
 """

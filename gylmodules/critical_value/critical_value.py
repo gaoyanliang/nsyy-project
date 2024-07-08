@@ -2,6 +2,7 @@ import redis
 import json
 import threading
 import requests
+from aiohttp import ClientTimeout
 from suds.client import Client
 
 from datetime import datetime, timedelta
@@ -14,6 +15,7 @@ from gylmodules.critical_value import cv_config
 from gylmodules.utils.db_utils import DbUtil
 import asyncio
 import aiohttp
+from ping3 import ping
 
 pool = redis.ConnectionPool(host=cv_config.CV_REDIS_HOST, port=cv_config.CV_REDIS_PORT,
                             db=cv_config.CV_REDIS_DB, decode_responses=True)
@@ -391,11 +393,13 @@ def create_cv(cvd):
 """
 
 
-def invalid_crisis_value(cv_ids, cv_source):
+def invalid_crisis_value(cv_ids, cv_source, invalid_remote: bool = False):
     # 从内存中移除
     for cv_id in cv_ids:
         key = cv_id + '_' + str(cv_source)
         delete_cache(key)
+        if invalid_remote:
+            invalid_remote_crisis_value(cv_id, cv_source)
 
     db = DbUtil(global_config.DB_HOST, global_config.DB_USERNAME, global_config.DB_PASSWORD,
                 global_config.DB_DATABASE_GYL)
@@ -416,22 +420,19 @@ def invalid_crisis_value(cv_ids, cv_source):
 
 
 def invalid_remote_crisis_value(cv_id, cv_source):
-    if int(cv_source) == 2:
-        table_name = "inter_lab_resultalert"
-    else:
-        table_name = "NS_EXT.PACS危急值上报表"
-    param = {
-        "type": "orcl_db_update",
-        "db_source": "ztorcl",
-        "randstr": "XPFDFZDF7193CIONS1PD7XCJ3AD4ORRC",
-        "table_name": table_name,
-        "datal": [{"RESULTALERTID": cv_id, "VALIDFLAG": "0"}],
-        "updatel": ["VALIDFLAG"],
-        "datel": [],
-        "intl": [],
-        "keyl": ["RESULTALERTID"]
-    }
-    call_third_systems_obtain_data('data_feedback', param)
+    try:
+        if int(cv_source) == 2:
+            table_name = "inter_lab_resultalert"
+        else:
+            table_name = "NS_EXT.PACS危急值上报表"
+        param = {
+            "type": "orcl_db_update", "db_source": "ztorcl", "randstr": "XPFDFZDF7193CIONS1PD7XCJ3AD4ORRC",
+            "table_name": table_name, "datal": [{"RESULTALERTID": cv_id, "VALIDFLAG": "0"}],
+            "updatel": ["VALIDFLAG"], "datel": [], "intl": [], "keyl": ["RESULTALERTID"]
+        }
+        call_third_systems_obtain_data('data_feedback', param)
+    except Exception as e:
+        print('作废远程危机值异常', e)
 
 
 """
@@ -659,7 +660,8 @@ def manual_report_cv(json_data):
     # 发送危机值 直接通知医生和护士
     msg = '[{} - {} - {} - {}]'.format(json_data.get('patient_name', 'unknown'), json_data.get('req_docno', 'unknown'),
                                        json_data.get('patient_treat_id', '0'), json_data.get('patient_bed_num', '0'))
-    async_alert(json_data.get('dept_id'), json_data.get('ward_id'), f'发现新危急值, 请及时查看并处理 <br> [患者-主管医生-住院/门诊号-床号] <br> {msg}')
+    async_alert(json_data.get('dept_id'), json_data.get('ward_id'),
+        f'发现新危急值, 请及时查看并处理 <br> [患者-主管医生-住院/门诊号-床号] <br> {msg}')
 
     # 通知医技科室
     if json_data.get('alertman_pers_id'):
@@ -793,7 +795,8 @@ def create_cv_by_system(json_data, cv_source):
     # 发送危机值 直接通知医生和护士
     msg = '[{} - {} - {} - {}]'.format(cvd.get('patient_name', 'unknown'), cvd.get('req_docno', 'unknown'),
                                        cvd.get('patient_treat_id', '0'), cvd.get('patient_bed_num', '0'))
-    async_alert(cvd.get('dept_id'), cvd.get('ward_id'), f'发现新危急值, 请及时查看并处理 <br> [患者-主管医生-住院/门诊号-床号] <br> {msg}')
+    async_alert(cvd.get('dept_id'), cvd.get('ward_id'),
+        f'发现新危急值, 请及时查看并处理 <br> [患者-主管医生-住院/门诊号-床号] <br> {msg}')
 
     # 通知医技科室
     if cvd.get('alertman_pers_id'):
@@ -941,20 +944,63 @@ def query_process_cv_and_notice(dept_id, ward_id):
 """
 
 
-async def send_request(session, url, payload):
+def write_alert_fail_log(fail_ips, fail_log):
     try:
-        async with session.post(url, json=payload, timeout=3) as response:
-            response.raise_for_status()
-    except asyncio.TimeoutError:
-        # print(f"请求超时: {url} {payload.get('type') if payload.get('type') else ''} ", datetime.now())
+        failed_log = []
+        for ip in fail_ips:
+            failed_log.append({
+                "ip": ip,
+                "time": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+                "log": fail_log
+            })
+        db = DbUtil(global_config.DB_HOST, global_config.DB_USERNAME, global_config.DB_PASSWORD, global_config.DB_DATABASE_GYL)
+        for log in failed_log:
+            keys = ','.join(log.keys())
+            values = tuple(log.values())
+            # 将键和值按指定格式拼接成字符串
+            key_string = ', '.join([f"{key} = {repr(value)}" for key, value in log.items()])
+            # 存在则更新 不存在则插入
+            insert_sql = f'INSERT INTO nsyy_gyl.alert_fail_log ({keys}) VALUE {str(values)} ON DUPLICATE KEY UPDATE {key_string} '
+            db.execute(insert_sql, need_commit=True)
+        del db
+    except Exception:
+        # print("写入失败日志异常", fail_ips, fail_log)
         pass
-    except aiohttp.ClientError as e:
-        # print(f"请求失败: {url} {payload.get('type') if payload.get('type') else ''} ", datetime.now(), e)
-        pass
+
+
+async def call_remote_auto_start_script(ip, url, payload):
+    try:
+        timeout = ClientTimeout(total=4)  # 设置总超时时间为10秒
+        async with aiohttp.ClientSession(timeout=timeout) as session:
+            url = str(url).replace('8085', '8091')
+            async with session.post(url, json=payload, timeout=3) as response:
+                response.raise_for_status()
+                # print(datetime.now(), '发送成功： ', ip, payload.get('type'))
+    except Exception as e:
+        # 处理其他未捕获的异常
+        # print(f"call_remote_auto_start_script 发生异常: {url} {e}")
+        try:
+            write_alert_fail_log([ip], "调用自动启动程序失败")
+        except Exception:
+            pass
+
+
+async def send_request(ip, url, payload):
+    try:
+        timeout = ClientTimeout(total=4)  # 设置总超时时间为10秒
+        async with aiohttp.ClientSession(timeout=timeout) as session:
+            async with session.post(url, json=payload, timeout=3) as response:
+                response.raise_for_status()
+                # print(datetime.now(), '发送成功： ', ip, payload.get('type'))
+    except Exception as e:
+        # 处理其他未捕获的异常
+        # print(f"send_request 发生异常: {url} {e}")
+        # 如果发送弹框失败，尝试调用自动启动程序
+        if payload.get('type') == 'popup':
+            await call_remote_auto_start_script(ip, url, payload)
 
 
 async def alert(dept_id, ward_id, msg):
-    payload = {'type': 'popup', 'wiki_info': msg}
     redis_client = redis.Redis(connection_pool=pool)
     dept_sites = set()
     if dept_id is not None and dept_id != '' and int(dept_id):
@@ -963,31 +1009,81 @@ async def alert(dept_id, ward_id, msg):
     if ward_id is not None and ward_id != '' and int(ward_id):
         ward_sites = redis_client.smembers(cv_config.CV_SITES_REDIS_KEY[1] + str(ward_id))
     merged_set = dept_sites.union(ward_sites)
+
     if merged_set:
-        # print(' 查询到 ', len(merged_set), ' 个 ip 地址', merged_set, ' ', datetime.now())
-        async with aiohttp.ClientSession() as session:
-            stop_tasks = []
-            popup_tasks = []
-            for ip in merged_set:
-                url = f'http://{ip}:8085/opera_wiki'
-                stop_tasks.append(send_request(session, url, {'type': 'stop'}))
-                popup_tasks.append(send_request(session, url, payload))
+        # print(datetime.now(), '查询到 ', merged_set)
+        stop_tasks = []
+        popup_tasks = []
+        ping_fail_ips = []
+        for ip in merged_set:
+            try:
+                response_time = ping(ip)
+                if response_time is None:
+                    # 记录 ping 失败的 ip 地址
+                    ping_fail_ips.append(ip)
+                    continue
+            except Exception:
+                ping_fail_ips.append(ip)
+                continue
+
+            url = f'http://{ip}:8085/opera_wiki'
+            stop_tasks.append(send_request(ip, url, {'type': 'stop'}))
+            popup_tasks.append(send_request(ip, url, {'type': 'popup', 'wiki_info': msg}))
+
+        # ping 失败的 ip 地址 直接记录下来
+        write_alert_fail_log(ping_fail_ips, "ping 失败")
+
+        if stop_tasks:
             await asyncio.gather(*stop_tasks)
-            await asyncio.sleep(0.3)  # 间隔 300 毫秒
+        await asyncio.sleep(0.3)  # 间隔 300 毫秒
+        if popup_tasks:
             await asyncio.gather(*popup_tasks)
 
 
 def async_alert(dept_id, ward_id, msg):
-    loop = None
+    def run():
+        try:
+            loop = asyncio.new_event_loop()
+            asyncio.set_event_loop(loop)
+            loop.run_until_complete(alert(dept_id, ward_id, msg))
+        except Exception as e:
+            print(f"1在执行 alert 时发生错误: {e}")
+        finally:
+            if loop:
+                loop.close()
+
+    thread = threading.Thread(target=run)
+    thread.start()
+
+
+def async_alert_task(dept_id, ward_id, msg):
     try:
-        loop = asyncio.new_event_loop()
-        asyncio.set_event_loop(loop)
-        loop.run_until_complete(alert(dept_id, ward_id, msg))
+        loop = asyncio.get_running_loop()
+    except RuntimeError:
+        loop = None
+
+    try:
+        if loop and loop.is_running():
+            asyncio.create_task(alert(dept_id, ward_id, msg))
+        else:
+            asyncio.run(alert(dept_id, ward_id, msg))
     except Exception as e:
-        print(f"在执行 alert 时发生错误: {e}")
-    finally:
-        if loop:
-            loop.close()
+        print(f"2在执行 alert 时发生错误: {e}")
+
+    # try:
+    #     asyncio.run(alert(dept_id, ward_id, msg))
+    # except Exception as e:
+    #     print(f"在执行 alert 时发生错误: {e}")
+
+    # try:
+    #     loop_task = asyncio.get_running_loop()
+    #     if loop_task and loop_task.is_running():
+    #         asyncio.create_task(alert(dept_id, ward_id, msg))
+    #     else:
+    #         asyncio.run(alert(dept_id, ward_id, msg))
+    # except Exception as e:
+    #     print(f"在执行 alert 时发生错误: {e}")
+
 
 
 """
@@ -1256,9 +1352,11 @@ def medical_record_writing_back(json_data):
                 "分类": "3",
                 "记录人": json_data.get('handler_name'),
                 "审核时间": json_data.get('timer'),
+                "医嘱ID": "",
                 "医嘱名称": record.get('cv_name'),
                 "分类名": "危机值记录",
-                "标签说明": record.get('cv_name')
+                "标签说明": record.get('cv_name'),
+                "randstr": "XPFDFZDF7193CIONS1PD7XCJ3AD4ORRC"
             }
             call_third_systems_obtain_data('his_procedure', param)
     except Exception as e:
