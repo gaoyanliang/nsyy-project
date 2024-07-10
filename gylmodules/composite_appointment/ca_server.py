@@ -186,8 +186,8 @@ def check_appointment_quantity(book_info):
     period = str(book_info.get('period')) if book_info.get('period') else '3'
 
     current_slot = appt_config.appt_slot_dict[datetime.now().hour]
-    if book_date != str(datetime.today().strftime("%Y-%m-%d")):
-        current_slot = 1 if int(book_info.get('period')) == 1 else 9
+    if book_date and book_date != str(datetime.today().strftime("%Y-%m-%d")):
+        current_slot = 9 if int(period) == 2 else 1
     # 如果指定了日期，直接在指定日期查找可用时段
     if book_date:
         next_date, next_slot = find_next_available(book_date, current_slot, periodd[period], int(period))
@@ -235,8 +235,8 @@ def create_appt(json_data, last_date=None, last_slot=None):
         book_info['last_date'] = last_date
         book_info['last_slot'] = last_slot
     else:
-        book_info['date'] = json_data['book_date']
-        book_info['period'] = json_data['book_period']
+        book_info['date'] = json_data['book_date'] if json_data.get('book_date') else str(datetime.today().strftime("%Y-%m-%d"))
+        book_info['period'] = json_data['book_period'] if json_data.get('book_period') else '3'
     bdate, bslot = check_appointment_quantity(book_info)
 
     json_data['book_date'] = bdate
@@ -322,7 +322,8 @@ def auto_create_appt_by_auto_reg(id_card_list, medical_card_list):
         appt_recordl = db.query_all(query_sql)
         del db
 
-    record_dict = {(d['doc_his_name'], int(d['patient_id'])): d for d in appt_recordl if d['doc_his_name']}
+    # 再加一个判断条件 doc_dept_id 主要用来解决一个医生多个挂号身份的情况（例如 张方 皮肤科/烧伤科）
+    record_dict = {(d['doc_his_name'], int(d['doc_dept_id']), int(d['patient_id'])): d for d in appt_recordl if d['doc_his_name']}
     redis_client = redis.Redis(connection_pool=pool)
     # 查询当天所有自助挂号的记录（pay no）集合
     created = redis_client.smembers(APPT_DAILY_AUTO_REG_RECORD_KEY)
@@ -350,8 +351,9 @@ def auto_create_appt_by_auto_reg(id_card_list, medical_card_list):
 
         patient_id = item.get('病人ID')
         doc_his_name = item.get('执行人')
+        doc_dept_id = item.get('执行部门ID')
         # 如果存在oa预约记录
-        if (doc_his_name, int(patient_id)) in record_dict:
+        if (doc_his_name, int(doc_dept_id), int(patient_id)) in record_dict:
             exist_record = record_dict.get((doc_his_name, int(patient_id)))
             if int(exist_record.get('state')) < appt_config.APPT_STATE['in_queue'] and not exist_record.get('pay_no'):
                 # oa 未签到 his中存在挂号记录 支持oa 退款
@@ -369,13 +371,25 @@ def auto_create_appt_by_auto_reg(id_card_list, medical_card_list):
             continue
 
         # 这里的 doctor 是 his name
-        doctor = redis_client.hget(APPT_DOCTORS_BY_NAME_KEY, doc_his_name)
-        if not doctor:
+        doctor_in_cache = redis_client.hget(APPT_DOCTORS_BY_NAME_KEY, doc_his_name)
+        if not doctor_in_cache:
             print('Exception: ', '预约系统中不存在 {} 医生，请联系护士及时维护门诊医生信息'.format(item.get('执行人')),
                   '医嘱信息: ', item)
             continue
             # raise Exception()
-        doctor = json.loads(doctor)
+        doctor_in_cache = json.loads(doctor_in_cache)
+        if type(doctor_in_cache) == dict:
+            doctor_in_cache = [doctor_in_cache]
+
+        doctor = doctor_in_cache[0]
+        doctord = {int(dd['id']): dd for dd in doctor_in_cache}
+        doc_ids = list(doctord.keys())
+        if len(doc_ids) > 1:
+            for doc_key, doc_value in doctord.items():
+                if int(doc_value.get('dept_id')) == int(item.get('执行部门ID')):
+                    doc_ids = [doc_value['id']]
+                    break
+
         # 根据医生找到医生当天的坐诊项目
         target_proj = ''
         target_room = ''
@@ -383,12 +397,13 @@ def auto_create_appt_by_auto_reg(id_card_list, medical_card_list):
         for s in daily_sched:
             if not s.get('did'):
                 continue
-            if int(s.get('did')) == int(doctor.get('id')) and str(s.get('ampm')) in period:
+            if int(s.get('did')) in doc_ids and str(s.get('ampm')) in period:
                 target_proj = redis_client.hget(APPT_PROJECTS_KEY, str(s.get('pid')))
                 target_proj = json.loads(target_proj)
                 target_room = redis_client.hget(APPT_ROOMS_KEY, str(s.get('rid')))
                 target_room = json.loads(target_room)
                 book_period = s.get('ampm')
+                doctor = doctord[int(s.get('did'))]
                 break
         if not target_proj or not target_room:
             print('Exception: ', '未找到 {} 医生今天的坐诊信息'.format(item.get('执行人')), '医嘱信息: ', item)
@@ -1492,7 +1507,17 @@ def update_doc(json_data):
     doc_info = db.query_one(f'select * from {database}.appt_doctor WHERE id = {id}')
     if doc_info:
         redis_client.hset(APPT_DOCTORS_KEY, str(id), json.dumps(doc_info, default=str))
-        redis_client.hset(APPT_DOCTORS_BY_NAME_KEY, doc_info.get('his_name'), json.dumps(doc_info, default=str))
+        doc_by_hisname = redis_client.hget(APPT_DOCTORS_BY_NAME_KEY, doc_info.get('his_name'))
+        doc_by_hisname = json.loads(doc_by_hisname)
+        if type(doc_by_hisname) == dict:
+            redis_client.hset(APPT_DOCTORS_BY_NAME_KEY, doc_info.get('his_name'), json.dumps(doc_info, default=str))
+        elif type(doc_by_hisname) == list:
+            doc_list = [doc_info]
+            for doc in doc_by_hisname:
+                if int(doc.get('id')) != int(id):
+                    doc_list.append(doc)
+            redis_client.hset(APPT_DOCTORS_BY_NAME_KEY, doc_info.get('his_name'), json.dumps(doc_list, default=str))
+
     del db
 
 
@@ -1743,10 +1768,22 @@ def load_data_into_cache():
 
     # 缓存医生信息
     redis_client.delete(APPT_DOCTORS_KEY)
+    redis_client.delete(APPT_DOCTORS_BY_NAME_KEY)
     doctorl = db.query_all(f'select * from {database}.appt_doctor')
     for item in doctorl:
         redis_client.hset(APPT_DOCTORS_KEY, str(item.get('id')), json.dumps(item, default=str))
-        redis_client.hset(APPT_DOCTORS_BY_NAME_KEY, str(item.get('his_name')), json.dumps(item, default=str))
+        if redis_client.hexists(APPT_DOCTORS_BY_NAME_KEY, str(item.get('his_name'))):
+            doc1 = redis_client.hget(APPT_DOCTORS_BY_NAME_KEY, str(item.get('his_name')))
+            doc1 = json.loads(doc1)
+            docs = []
+            if type(doc1) == dict:
+                docs.append(doc1)
+            elif type(doc1) == list:
+                docs = doc1
+            docs.append(item)
+            redis_client.hset(APPT_DOCTORS_BY_NAME_KEY, str(item.get('his_name')), json.dumps(docs, default=str))
+        else:
+            redis_client.hset(APPT_DOCTORS_BY_NAME_KEY, str(item.get('his_name')), json.dumps(item, default=str))
 
     # 缓存所有房间
     redis_client.delete(APPT_ROOMS_KEY)
