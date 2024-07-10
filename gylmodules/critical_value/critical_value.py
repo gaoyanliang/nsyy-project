@@ -752,7 +752,7 @@ def create_cv_by_system(json_data, cv_source):
 
     # 解析危机值内容信息
     cvd['cv_name'] = json_data.get('RPT_ITEMNAME')
-    cvd['cv_result'] = json_data.get('RESULT_STR')
+    cvd['cv_result'] = json_data.get('RESULT_STR') if json_data.get('RESULT_STR') else json_data.get('RPT_ITEMNAME')
     if int(cv_source) == cv_config.CV_SOURCE_INSPECTION_SYSTEM:
         cvd['cv_flag'] = json_data.get('RESULT_FLAG')
         cvd['cv_unit'] = json_data.get('RESULT_UNIT')
@@ -916,11 +916,11 @@ def query_process_cv_and_notice(dept_id, ward_id):
                 global_config.DB_DATABASE_GYL)
 
     if not dept_id:
-        condition_sql = f' and ward_id = {ward_id}'
+        condition_sql = f" and ward_id in ({','.join(map(str, ward_id))})" if type(ward_id) == list else f' and ward_id = {ward_id}'
     elif not ward_id:
-        condition_sql = f' and dept_id = {dept_id}'
+        condition_sql = f" and dept_id in ({','.join(map(str, dept_id))})" if type(dept_id) == list else f' and dept_id = {dept_id}'
     else:
-        condition_sql = f' and (dept_id = {dept_id} or ward_id = {ward_id})'
+        condition_sql = f" and (dept_id in ({','.join(map(str, dept_id))}) or ward_id in ({','.join(map(str, ward_id))}) )" if type(dept_id) == list else f' and (dept_id = {dept_id} or ward_id = {ward_id})'
 
     states = (cv_config.INVALID_STATE, cv_config.DOCTOR_HANDLE_STATE)
     query_sql = f'select * from nsyy_gyl.cv_info where state not in {states} {condition_sql} '
@@ -936,6 +936,10 @@ def query_process_cv_and_notice(dept_id, ward_id):
 
         msgs = list(set(timeout_record))
         alertmsg = f'以下危急值未及时处理 <br> [患者-主管医生-住院/门诊号-床号] <br> ' + ' <br> '.join(msgs)
+        if dept_id and type(dept_id) == list:
+            dept_id = dept_id[0]
+        if ward_id and type(ward_id) == list:
+            ward_id = ward_id[0]
         async_alert(dept_id, ward_id, alertmsg)
 
 
@@ -1041,25 +1045,18 @@ async def alert(dept_id, ward_id, msg):
 
 
 def async_alert(dept_id, ward_id, msg):
-    def run():
-        try:
-            loop = asyncio.get_running_loop()
-        except RuntimeError:
-            loop = None
+    try:
+        loop = asyncio.get_running_loop()
+    except RuntimeError:
+        loop = None
 
-        try:
-            if loop and loop.is_running():
-                asyncio.create_task(alert(dept_id, ward_id, msg))
-            else:
-                asyncio.run(alert(dept_id, ward_id, msg))
-        except Exception as e:
-            print(f"1在执行 alert 时发生错误: {e}")
-        finally:
-            if loop:
-                loop.close()
-
-    thread = threading.Thread(target=run)
-    thread.start()
+    try:
+        if loop and loop.is_running():
+            asyncio.create_task(alert(dept_id, ward_id, msg))
+        else:
+            asyncio.run(alert(dept_id, ward_id, msg))
+    except Exception as e:
+        print(f"1在执行 alert 时发生错误: {e}")
 
 
 def async_alert_task(dept_id, ward_id, msg):
