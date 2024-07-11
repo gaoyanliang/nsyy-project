@@ -354,7 +354,7 @@ def auto_create_appt_by_auto_reg(id_card_list, medical_card_list):
         doc_dept_id = item.get('执行部门ID')
         # 如果存在oa预约记录
         if (doc_his_name, int(doc_dept_id), int(patient_id)) in record_dict:
-            exist_record = record_dict.get((doc_his_name, int(patient_id)))
+            exist_record = record_dict.get((doc_his_name, int(doc_dept_id), int(patient_id)))
             if int(exist_record.get('state')) < appt_config.APPT_STATE['in_queue'] and not exist_record.get('pay_no'):
                 # oa 未签到 his中存在挂号记录 支持oa 退款
                 condition_sql = ' pay_state = {} , pay_no = \'{}\' '.format(
