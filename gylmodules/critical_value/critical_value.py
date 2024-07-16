@@ -1,3 +1,4 @@
+import pymssql
 import redis
 import json
 import threading
@@ -1073,21 +1074,6 @@ def async_alert_task(dept_id, ward_id, msg):
     except Exception as e:
         print(f"2在执行 alert 时发生错误: {e}")
 
-    # try:
-    #     asyncio.run(alert(dept_id, ward_id, msg))
-    # except Exception as e:
-    #     print(f"在执行 alert 时发生错误: {e}")
-
-    # try:
-    #     loop_task = asyncio.get_running_loop()
-    #     if loop_task and loop_task.is_running():
-    #         asyncio.create_task(alert(dept_id, ward_id, msg))
-    #     else:
-    #         asyncio.run(alert(dept_id, ward_id, msg))
-    # except Exception as e:
-    #     print(f"在执行 alert 时发生错误: {e}")
-
-
 
 """
 向医生推送危机值
@@ -1289,7 +1275,9 @@ def doctor_handle_cv(json_data):
         }
         medical_record_writing_back(param)
 
+        # 所有 cv source 类型都需要执行 data feedback，为了防止抓取到重复的危急值
         data_feedback(cv_id, int(cv_source), handler_name, timer, method, 3)
+        # 心电系统和 pacs 系统单独回写对应的系统
         if int(cv_source) == 4:
             # 心电危机值特殊处理
             xindian_data_feedback({
@@ -1297,6 +1285,14 @@ def doctor_handle_cv(json_data):
                 "doc_id": handler_id,
                 "doc_name": handler_name,
                 "body": method
+            })
+        elif int(cv_source) == 3:
+            # pacs 危机值特殊处理
+            pacs_data_feedback({
+                "cv_id": cv_id,
+                "doc_name": handler_name,
+                "body": method,
+                "handle_time": timer
             })
 
         # 通知医技科室
@@ -1497,24 +1493,68 @@ def data_feedback(cv_id, cv_source, confirmer, timer, confirm_info, type: int):
     call_third_systems_obtain_data('data_feedback', param)
 
 
-def xindian_data_feedback(json_data):
-    cv_id = json_data.get('cv_id')
-    doc_id = json_data.get('doc_id')
-    doc_name = json_data.get('doc_name')
-    body = json_data.get('body')
-    param = "<Root>" \
-            f"<repGuid>{cv_id}</repGuid>" \
-            f"<HandleDoctorCode>{doc_id}</HandleDoctorCode>" \
-            f"<HandleDoctorName>{doc_name}</HandleDoctorName>" \
-            f"<HandleDoctorNote>{body}</HandleDoctorNote>" \
-            "</Root>"
+"""
+心电系统数据回写
+"""
 
-    client = Client('http://192.168.3.43:8082?wsdl')
-    res = client.service.SendCriricalHandelInfo(param)
-    # 关闭客户端对象
-    client.options.cache.clear()  # 清除缓存
-    print('心电危机值处理后数据回调， res: ', res, ' param: ', param)
-    return res
+
+def xindian_data_feedback(json_data):
+    try:
+        cv_id = json_data.get('cv_id')
+        doc_id = json_data.get('doc_id')
+        doc_name = json_data.get('doc_name')
+        body = json_data.get('body')
+        param = "<Root>" \
+                f"<repGuid>{cv_id}</repGuid>" \
+                f"<HandleDoctorCode>{doc_id}</HandleDoctorCode>" \
+                f"<HandleDoctorName>{doc_name}</HandleDoctorName>" \
+                f"<HandleDoctorNote>{body}</HandleDoctorNote>" \
+                "</Root>"
+
+        client = Client('http://192.168.3.43:8082?wsdl')
+        res = client.service.SendCriricalHandelInfo(param)
+        # 关闭客户端对象
+        client.options.cache.clear()  # 清除缓存
+        return res
+    except Exception as e:
+        print("心电系统数据回写失败, cv_id = ", cv_id, " 异常： ", e)
+        return ''
+
+
+"""
+pacs 系统数据回写
+"""
+
+
+def pacs_data_feedback(json_data):
+    # 数据库连接信息
+    server = '192.168.3.53'
+    database = 'VisionCenter'
+    username = 'jiekou'
+    password = 'jiekou'
+
+    conn, cursor = None, None
+    try:
+        # 建立数据库连接
+        conn = pymssql.connect(server, username, password, database)
+        cursor = conn.cursor()
+
+        main_key = json_data.get('cv_id')  # BG号 报告号
+        doctor = json_data.get('doc_name')  # 处理医生
+        wjzjg = json_data.get('body')  # 处理结果
+        clsj = json_data.get('handle_time')  # 处理时间
+
+        # 调用存储过程
+        cursor.callproc('sp_wjz_jg', (main_key, doctor, wjzjg, clsj))
+        conn.commit()
+    except Exception as e:
+        print("PACS 数据回写失败, cv_id = ", main_key, " 异常： ", e)
+    finally:
+        # 关闭连接
+        if cursor:
+            cursor.close()
+        if conn:
+            conn.close()
 
 
 """
