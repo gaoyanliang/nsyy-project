@@ -609,7 +609,7 @@ def manual_report_cv(json_data):
                    WHEN 性别 = '女' THEN 2 
                    ELSE NULL 
                END AS 性别, 
-               入院日期, 出院日期
+               入院日期, 出院日期, 入院病区ID, 当前病区ID, 入院科室ID, 出院科室ID
             FROM 病案主页 
             WHERE 住院号 = '{patient_treat_id}' 
             ORDER BY 入院日期 DESC
@@ -627,6 +627,23 @@ def manual_report_cv(json_data):
             json_data['patient_gender'] = data[0].get('性别')
             json_data['patient_age'] = data[0].get('年龄')
             json_data['patient_bed_num'] = data[0].get('入院病床')
+            # 判断科室/病区和 最新的科室/病区是否一致
+            latest_dept = data[0].get('出院科室ID') if data[0].get('出院科室ID') else data[0].get('入院科室ID')
+            if latest_dept:
+                dept = int(json_data.get('dept_id', 0))
+                if latest_dept != dept:
+                    json_data['dept_id'] = latest_dept
+                    dept_info = redis_client.hget(cv_config.DEPT_INFO_REDIS_KEY, latest_dept)
+                    if dept_info:
+                        json_data['dept_name'] = json.loads(dept_info).get('dept_name')
+            latest_ward = data[0].get('当前病区ID') if data[0].get('当前病区ID') else data[0].get('入院病区ID')
+            if latest_ward:
+                ward = int(json_data.get('ward_id', 0))
+                if latest_ward != ward:
+                    json_data['ward_id'] = latest_ward
+                    ward_info = redis_client.hget(cv_config.DEPT_INFO_REDIS_KEY, latest_ward)
+                    if ward_info:
+                        json_data['ward_name'] = json.loads(ward_info).get('dept_name')
         else:
             raise Exception("住院号异常，未查到病人信息")
     else:
@@ -662,7 +679,7 @@ def manual_report_cv(json_data):
     msg = '[{} - {} - {} - {}]'.format(json_data.get('patient_name', 'unknown'), json_data.get('req_docno', 'unknown'),
                                        json_data.get('patient_treat_id', '0'), json_data.get('patient_bed_num', '0'))
     async_alert(json_data.get('dept_id'), json_data.get('ward_id'),
-        f'发现新危急值, 请及时查看并处理 <br> [患者-主管医生-住院/门诊号-床号] <br> {msg}')
+        f'发现新危急值, 请及时查看并处理 <br> [患者-主管医生-住院/门诊号-床号] <br> {msg} <br> <br> <br> 点击 [确认] 跳转至危急值页面')
 
     # 通知医技科室
     if json_data.get('alertman_pers_id'):
@@ -735,7 +752,8 @@ def create_cv_by_system(json_data, cv_source):
     cvd['patient_age'] = json_data.get('PAT_AGESTR')
     cvd['patient_bed_num'] = json_data.get('REQ_BEDNO')
     cvd['req_docno'] = json_data.get('REQ_DOCNO')
-    cvd['ward_id'] = json_data.get('REQ_WARDNO')
+    if json_data.get('REQ_WARDNO'):
+        cvd['ward_id'] = json_data.get('REQ_WARDNO')
 
     # 心电系统传的 dept_id 是 dept_code 而不是 his_dept_id， 为了保持逻辑一致性，这里特殊处理下
     if cvd['ward_id'] and redis_client.hexists(cv_config.DEPT_INFO_REDIS_KEY, cvd['ward_id']):
@@ -750,6 +768,34 @@ def create_cv_by_system(json_data, cv_source):
             dept_info = json.loads(dept_info)
             cvd['dept_name'] = dept_info.get('dept_name')
             cvd['dept_id'] = dept_info.get('his_dept_id')
+
+    if cvd['patient_treat_id']:
+        sql = f"SELECT * FROM 病案主页 WHERE 住院号 = '{cvd['patient_treat_id']}' ORDER BY 主页ID DESC"
+        param = {
+            "type": "orcl_db_read",
+            "db_source": "nshis",
+            "randstr": "XPFDFZDF7193CIONS1PD7XCJ3AD4ORRC",
+            "sql": sql
+        }
+        data = call_third_systems_obtain_data('orcl_db_read', param)
+        if data and data[0]:
+            # 判断科室/病区和 最新的科室/病区是否一致
+            latest_dept = data[0].get('出院科室ID') if data[0].get('出院科室ID') else data[0].get('入院科室ID')
+            if latest_dept:
+                dept = cvd.get('dept_id') if cvd.get('dept_id') else 0
+                if latest_dept != dept:
+                    cvd['dept_id'] = latest_dept
+                    dept_info = redis_client.hget(cv_config.DEPT_INFO_REDIS_KEY, latest_dept)
+                    if dept_info:
+                        cvd['dept_name'] = json.loads(dept_info).get('dept_name')
+            latest_ward = data[0].get('当前病区ID') if data[0].get('当前病区ID') else data[0].get('入院病区ID')
+            if latest_ward:
+                ward = cvd.get('ward_id') if cvd.get('ward_id') else 0
+                if latest_ward != ward:
+                    cvd['ward_id'] = latest_ward
+                    ward_info = redis_client.hget(cv_config.DEPT_INFO_REDIS_KEY, latest_ward)
+                    if ward_info:
+                        cvd['ward_name'] = json.loads(ward_info).get('dept_name')
 
     # 解析危机值内容信息
     cvd['cv_name'] = json_data.get('RPT_ITEMNAME')
@@ -797,7 +843,7 @@ def create_cv_by_system(json_data, cv_source):
     msg = '[{} - {} - {} - {}]'.format(cvd.get('patient_name', 'unknown'), cvd.get('req_docno', 'unknown'),
                                        cvd.get('patient_treat_id', '0'), cvd.get('patient_bed_num', '0'))
     async_alert(cvd.get('dept_id'), cvd.get('ward_id'),
-        f'发现新危急值, 请及时查看并处理 <br> [患者-主管医生-住院/门诊号-床号] <br> {msg}')
+        f'发现新危急值, 请及时查看并处理 <br> [患者-主管医生-住院/门诊号-床号] <br> {msg}  <br> <br> <br> 点击 [确认] 跳转至危急值页面')
 
     # 通知医技科室
     if cvd.get('alertman_pers_id'):
@@ -936,7 +982,7 @@ def query_process_cv_and_notice(dept_id, ward_id):
             timeout_record.append(msg)
 
         msgs = list(set(timeout_record))
-        alertmsg = f'以下危急值未及时处理 <br> [患者-主管医生-住院/门诊号-床号] <br> ' + ' <br> '.join(msgs)
+        alertmsg = f'以下危急值未及时处理 <br> [患者-主管医生-住院/门诊号-床号] <br> ' + ' <br> '.join(msgs) + ' <br> <br> <br> 点击 [确认] 跳转至危急值页面'
         if dept_id and type(dept_id) == list:
             dept_id = dept_id[0]
         if ward_id and type(ward_id) == list:
@@ -1019,24 +1065,17 @@ async def alert(dept_id, ward_id, msg):
         # print(datetime.now(), '查询到 ', merged_set)
         stop_tasks = []
         popup_tasks = []
-        ping_fail_ips = []
         for ip in merged_set:
             try:
+                # ping 不通直接跳过
                 response_time = ping(ip)
                 if response_time is None:
-                    # 记录 ping 失败的 ip 地址
-                    ping_fail_ips.append(ip)
                     continue
             except Exception:
-                ping_fail_ips.append(ip)
                 continue
-
             url = f'http://{ip}:8085/opera_wiki'
             stop_tasks.append(send_request(ip, url, {'type': 'stop'}))
             popup_tasks.append(send_request(ip, url, {'type': 'popup', 'wiki_info': msg}))
-
-        # ping 失败的 ip 地址 直接记录下来
-        write_alert_fail_log(ping_fail_ips, "ping 失败")
 
         if stop_tasks:
             await asyncio.gather(*stop_tasks)
@@ -1118,7 +1157,7 @@ def push(json_data):
         # 弹框提醒医生
         msg = '[{} - {} - {} - {}]'.format(patient_name, value.get('req_docno', 'unknown'),
                                            value.get('patient_treat_id', '0'), value.get('patient_bed_num', '0'))
-        async_alert(dept_id, None, f'发现新危机值, 请及时查看并处理 <br> [患者-主管医生-住院/门诊号-床号] <br> {msg}')
+        async_alert(dept_id, None, f"发现新危机值, 护理已确认，请医生及时查看并处理, <br> [患者-主管医生-住院/门诊号-床号] <br> {msg}  <br> <br> <br> 点击 [确认] 跳转至危急值页面" )
     del db
 
 

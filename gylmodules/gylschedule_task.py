@@ -100,7 +100,7 @@ def handle_timeout_cv():
     if timeout_record:
         for ids, msgs in timeout_record.items():
             try:
-                alertmsg = f'超时危急值，请及时处理 <br> [患者-主管医生-住院/门诊号-床号] <br> ' + ' <br> '.join(msgs)
+                alertmsg = f'超时危急值，请及时处理 <br> [患者-主管医生-住院/门诊号-床号] <br> ' + ' <br> '.join(msgs) + ' <br> <br> <br> 点击 [确认] 跳转至危急值页面'
                 async_alert_task(ids[0], ids[1], alertmsg)
             except Exception:
                 print(datetime.now(), "Error occurred while sending alerts.")
