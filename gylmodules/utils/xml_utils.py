@@ -8,25 +8,17 @@ import pandas as pd
 from gylmodules import global_config
 from gylmodules.utils.db_utils import DbUtil
 
-# # Open the XML file with the appropriate encoding
-# # with open('/Users/gaoyanliang/nsyy/综合预约/门诊医生挂号费用/101.xml', 'r', encoding='gb2312') as file:
-#
-file_list = ['/Users/gaoyanliang/Downloads/Untitled-1.xml',
-             '/Users/gaoyanliang/Downloads/Untitled-2.xml',
-             '/Users/gaoyanliang/Downloads/Untitled-3.xml',
-             '/Users/gaoyanliang/Downloads/Untitled-4.xml',
-             '/Users/gaoyanliang/Downloads/Untitled-5.xml']
 
 # db = DbUtil(global_config.DB_HOST, global_config.DB_USERNAME, global_config.DB_PASSWORD,
 #             global_config.DB_DATABASE_GYL)
 
-
-db = DbUtil('192.168.3.12', "gyl", "123456", 'nsyy_gyl')
-doctorl = db.query_all(f'select * from nsyy_gyl.appt_doctor')
-
-doctord = {}
-for item in doctorl:
-    doctord[item.get('name')] = item
+# # 查询数据库中存储的医生信息
+# db = DbUtil('192.168.3.12', "gyl", "123456", 'nsyy_gyl')
+# doctorl = db.query_all(f'select * from nsyy_gyl.appt_doctor')
+#
+# doctord = {}
+# for item in doctorl:
+#     doctord[item.get('his_name')] = item
 
 
 
@@ -36,9 +28,10 @@ items = {}
 start_id = [0, 100, 200, 300, 400, 500]
 index = 1
 
+# 查询 his 中所有门诊医生的信息，并按照名字排序
 ret = []
 for id in start_id:
-
+    data = None
     try:
         # 发送 POST 请求，将字符串数据传递给 data 参数
         response = requests.post(f"http://192.168.124.53:6080/his_socket", json={
@@ -53,6 +46,8 @@ for id in start_id:
 
     # with open(file_path, 'r', encoding='gb2312', errors='ignore') as file:
     #     xml_data = file.read()
+    if not data:
+        continue
     root = ET.fromstring(data)
 
     for item in root.findall('.//Item'):
@@ -67,49 +62,56 @@ for id in start_id:
             'price': price,
         }
         ret.append(json_data)
-        # print(index, '  ', json_data)
-        # index = index + 1
-        # set_data = tuple(json_data.items())
-        # if set_data in my_set:
-        #     continue
-        # my_set.add(set_data)
-        #
-        # copy_data = json_data.copy()
-        # copy_data.pop('price')
-        # copy_data.pop('doctor_type')
-        # copy_data.pop('appointment_id')
-        # copy_data = tuple(copy_data.items())
-        #
-        # if copy_data in my_set1:
-        #     val = items[copy_data]
-        #     if price > val.get('price'):
-        #         items[copy_data] = json_data
-        # else:
-        #     items[copy_data] = json_data
-        #     my_set1.add(copy_data)
-
 
 sorted_data = sorted(ret, key=lambda x: x["doctor_name"])
 
 
-last_data = []
-for index, value in enumerate(sorted_data):
-    if index > 0 and value.get('doctor_name') == sorted_data[index-1].get('doctor_name'):
-        last_data.append(sorted_data[index-1])
-        last_data.append(value)
+# last_data = []
+# for index, value in enumerate(sorted_data):
+#     if index > 0 and value.get('doctor_name') == sorted_data[index-1].get('doctor_name'):
+#         last_data.append(sorted_data[index-1])
+#         last_data.append(value)
+#
+# print()
 
 # 将数据转换为 DataFrame
-df = pd.DataFrame(last_data)
-# 将 DataFrame 写入 Excel 文件
-output_file = 'appointments.xlsx'
-df.to_excel(output_file, index=False)
+# df = pd.DataFrame(last_data)
+# # 将 DataFrame 写入 Excel 文件
+# output_file = 'appointments.xlsx'
+# df.to_excel(output_file, index=False)
 
-print(f"数据已写入 {output_file}")
+# print(f"数据已写入 {output_file}")
 
+# 多身份医生
+# index = 1
 # for json_data in last_data:
 #     print(index, '  ', json_data)
-#
 #     index = index + 1
+
+print('======================================')
+print('======================================')
+print('======================================')
+print('======================================')
+index = 1
+for json_data in sorted_data:
+    print(index, '  ', json_data)
+
+    # 对比医生挂号信息是否有变化
+    # doc = doctord.get(json_data.get('doctor_name'))
+    # if doc:
+    #     if int(doc.get('dept_id')) != int(json_data.get('dept_id')) or int(doc.get('appointment_id')) != int(json_data.get('appointment_id')):
+    #         print('医生信息有误 old ： ', doc)
+    #         print('医生信息有误 new： ', json_data)
+    #         print()
+    #         print()
+    # else:
+    #     print('不存在医生： ', json_data)
+    #     print()
+    #     print()
+
+
+
+    index = index + 1
     # fileds = ','.join(json_data.keys())
     # args = str(tuple(json_data.values()))
     # insert_sql = f"INSERT INTO nsyy_gyl.appt_doctor_info ({fileds}) VALUES {args}"
