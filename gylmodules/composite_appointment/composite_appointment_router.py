@@ -179,7 +179,7 @@ def query_room_list():
         room_list = ca_server.query_room_list(int(json_data.get('type')))
     except Exception as e:
         timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-        print(f"[{timestamp}] Exception occurred: {e.__str__()}")
+        print(f"[{timestamp}] Exception occurred: {e.__str__()}", " param: ", request.get_data().decode('utf-8'))
         return jsonify({
             'code': 50000,
             'res': e.__str__()
