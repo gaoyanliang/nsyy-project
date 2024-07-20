@@ -711,6 +711,10 @@ def create_cv_by_system(json_data, cv_source):
     db = DbUtil(global_config.DB_HOST, global_config.DB_USERNAME, global_config.DB_PASSWORD,
                 global_config.DB_DATABASE_GYL)
 
+    # 判断相同 cv_id cv_source 的危机值是否存在
+    if redis_client.hexists(cv_config.RUNNING_CVS_REDIS_KEY, json_data.get('RESULTALERTID') + '_' + str(cv_source)):
+        return
+
     cvd = {'dept_id': json_data.get('REQ_DEPTNO')}
     if cvd['dept_id'] and not cvd['dept_id'].isdigit():
         # print('当前危机值病人科室不是数字，跳过。 ' + str(json_data))
@@ -1374,13 +1378,20 @@ def medical_record_writing_back(json_data):
             if record.get('cv_unit'):
                 body = body + " " + record.get('cv_unit')
 
-            body = body + "医生 " + json_data.get('handler_name') + " " + json_data.get('timer') + "处理了该危机值"
+            if record.get('nurse_recv_name') and record.get('nurse_recv_time'):
+                body = body + "护士 " + record.get('nurse_recv_name') + " 于 " + record.get('nurse_recv_time') + "接收了危机值"
+
+            body = body + " 医生 " + json_data.get('handler_name') + " " + json_data.get('timer') + "处理了该危机值"
             if json_data.get('analysis'):
                 body = body + " 原因分析: " + json_data.get('analysis')
             if json_data.get('method'):
                 body = body + " 处理方法: " + json_data.get('method')
             pid = data[0].get('PID', 0)
             hid = data[0].get('HID', 0)
+
+            # 转换审核时间
+            dt = datetime.strptime(json_data.get('timer'), "%Y-%m-%d %H:%M:%S")
+            review_time = dt.strftime("%Y.%m.%d %H:%M:%S")
             param = {
                 "type": "his_procedure",
                 "procedure": "jk_p_Pat_List",
@@ -1389,7 +1400,7 @@ def medical_record_writing_back(json_data):
                 "内容": body,
                 "分类": "3",
                 "记录人": json_data.get('handler_name'),
-                "审核时间": json_data.get('timer'),
+                "审核时间": review_time,
                 "医嘱ID": "",
                 "医嘱名称": record.get('cv_name'),
                 "分类名": "危机值记录",
@@ -1397,6 +1408,8 @@ def medical_record_writing_back(json_data):
                 "randstr": "XPFDFZDF7193CIONS1PD7XCJ3AD4ORRC"
             }
             call_third_systems_obtain_data('his_procedure', param)
+        else:
+            print('未找到病人信息，无法回写病历数据', json_data)
     except Exception as e:
         print("病历回写异常 = ", e)
 
