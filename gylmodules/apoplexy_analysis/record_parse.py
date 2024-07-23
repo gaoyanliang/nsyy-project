@@ -330,11 +330,6 @@ if __name__ == '__main__':
 
     # write_to_excel(patient_info)
 
-    # import xml.etree.ElementTree as ET
-    # # 解析XML文件
-    # tree = ET.parse('/Users/gaoyanliang/nsyy/病历解析/入院记录/入院记录文档示例.xml')
-    # root = tree.getroot()
-    # print()
 
 
 
