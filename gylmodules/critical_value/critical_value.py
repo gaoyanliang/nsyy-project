@@ -512,6 +512,7 @@ def cache_single_cv():
     redis_client = redis.Redis(connection_pool=pool)
     redis_client.delete(cv_config.SINGLE_CV_REDIS_KEY)
     for key, value in data.items():
+        value = list(set(value))
         redis_client.hset(cv_config.SINGLE_CV_REDIS_KEY, key, json.dumps(value, default=str))
 
 
@@ -521,14 +522,20 @@ def check_single_crisis_value(json_data, cv_source):
     if itemname not in cv_config.SINGLE_CRISIS_VALUE_NAME_LIST:
         return False, False
 
+    db = DbUtil(global_config.DB_HOST, global_config.DB_USERNAME, global_config.DB_PASSWORD,
+                global_config.DB_DATABASE_GYL)
+    cv_id = json_data.get('RESULTALERTID')
+    query_sql = f"select * from nsyy_gyl.cv_info where cv_id = '{cv_id}' and cv_source = {cv_source} "
+    exist_record = db.query_all(query_sql)
+    del db
+
     redis_client = redis.Redis(connection_pool=pool)
     all_patient = json.loads(redis_client.hget(cv_config.SINGLE_CV_REDIS_KEY, itemname)) \
         if redis_client.hget(cv_config.SINGLE_CV_REDIS_KEY, itemname) else []
 
     # 该患者最近出现过相同危机值，不再上报，并作废远程危机值
     pat_no = json_data.get('PAT_NO')
-    if pat_no in all_patient:
-        cv_id = json_data.get('RESULTALERTID')
+    if pat_no in all_patient and not exist_record:
         print(
             f'最近患者 {pat_no} 已经出现过危急值 {itemname}, 当前危急值 cv_id = {cv_id} cv_source = {cv_source} 不再上报, 并作废远程危机值')
         invalid_remote_crisis_value(cv_id, cv_source)
@@ -708,8 +715,6 @@ def manual_report_cv(json_data):
 
 def create_cv_by_system(json_data, cv_source):
     redis_client = redis.Redis(connection_pool=pool)
-    db = DbUtil(global_config.DB_HOST, global_config.DB_USERNAME, global_config.DB_PASSWORD,
-                global_config.DB_DATABASE_GYL)
 
     # 判断相同 cv_id cv_source 的危机值是否存在
     if redis_client.hexists(cv_config.RUNNING_CVS_REDIS_KEY, json_data.get('RESULTALERTID') + '_' + str(cv_source)):
@@ -824,6 +829,8 @@ def create_cv_by_system(json_data, cv_source):
     cvd['doctor_handle_timeout'] = redis_client.get(cv_config.TIMEOUT_REDIS_KEY['doctor_handle']) or 300
     cvd['total_timeout'] = redis_client.get(cv_config.TIMEOUT_REDIS_KEY['total']) or 600
 
+    db = DbUtil(global_config.DB_HOST, global_config.DB_USERNAME, global_config.DB_PASSWORD,
+                global_config.DB_DATABASE_GYL)
     # 插入危机值
     fileds = ','.join(cvd.keys())
     args = str(tuple(cvd.values()))
@@ -833,7 +840,7 @@ def create_cv_by_system(json_data, cv_source):
     if last_rowid == -1:
         raise Exception("系统危急值入库失败! " + str(args))
 
-    # 如果时仅需要上报一次的危机值类型，缓存下载，防止多次上报
+    # 如果是仅需要上报一次的危机值类型，缓存下来，防止多次上报
     if need_cache:
         data = redis_client.hget(cv_config.SINGLE_CV_REDIS_KEY, json_data.get('RPT_ITEMNAME'))
         if not data:
@@ -1379,7 +1386,7 @@ def medical_record_writing_back(json_data):
                 body = body + " " + record.get('cv_unit')
 
             if record.get('nurse_recv_name') and record.get('nurse_recv_time'):
-                body = body + "护士 " + record.get('nurse_recv_name') + " 于 " + record.get('nurse_recv_time') + "接收了危机值"
+                body = body + "护士 " + record.get('nurse_recv_name') + " 于 " + record.get('nurse_recv_time').strftime("%Y-%m-%d %H:%M:%S") + "接收了危机值"
 
             body = body + " 医生 " + json_data.get('handler_name') + " " + json_data.get('timer') + "处理了该危机值"
             if json_data.get('analysis'):

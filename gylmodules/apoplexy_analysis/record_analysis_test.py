@@ -37,7 +37,6 @@ def parse_patient_document(xml_file):
         patient_info['病史叙述者'] = ''
 
     header = root.find('./document')
-
     # 特殊处理
     for utext in header.iter('utext'):
         if utext.text is None:
@@ -57,29 +56,15 @@ def parse_patient_document(xml_file):
         title = section.get('title')
         title = title.replace(' ', '')
 
-        # if title in ('主诉', '现病史', '既往史', '个人史', '婚育史', '家族史', '体格检查', '初步诊断', '专科情况', '辅助检查', '月经史'):
-        #     parse(section, patient_info)
-        # elif title in ('病人信息', '住院医师', '签名'):
-        #     continue
-        # else:
-        #     miss_list.append(title)
-
-        if title == '主诉':
-            parse(section, patient_info)
-            parse_chief_complaint(section, patient_info)
-        elif title == '现病史':
-            parse_hpi(section, patient_info)
-        elif title == '既往史':
+        if title in ('主诉', '现病史', '既往史'):
             parse_past_medical_history(section, patient_info)
-        elif title == '个人史':
-            parse_personal_history(section, patient_info)
-        elif title in ('婚育史', '外阴', '阴道', '宫颈', '宫体', '附件'):
+        elif title in ('个人史', '婚育史', '外阴', '阴道', '宫颈', '宫体', '附件', '月经史'):
             parse_marital_history(section, patient_info)
         elif title in ('家族史', '母孕史'):
             parse_family_history(section, patient_info)
         elif title == '体格检查':
             parse_physical_examination(section, patient_info)
-        elif title in ('初步诊断', '专科情况', '辅助检查', '月经史', '神色形态', '声音', '气味', '舌象', '脉象', '初步诊断', '步诊断',
+        elif title in ('初步诊断', '专科情况', '辅助检查', '神色形态', '声音', '气味', '舌象', '脉象', '初步诊断', '步诊断',
                        '中医诊断', '证型', '西医诊断', '专科检查', '职业史', '心理史', '康复评定', 'NIHSS评分', 'Hunt-Hess评分',
                        'Fugl-Meyer平衡功能测定', '改良巴氏指数评定', '脑卒中Brunnstrom分期'):
             # 神经外科入院记录_2024-03-01_12-35-07.xml   神经外科入院记录_2024-03-01_21-52-03.xml  {'步诊断'}
@@ -90,107 +75,6 @@ def parse_patient_document(xml_file):
             miss_list.append(title)
 
     return patient_info
-
-
-# 通用解析逻辑
-def parse(section, info_dict):
-    try:
-        if section.get('sid') not in section_info:
-            section_info[section.get('sid')] = section.attrib
-        title = section.get('title')
-        value = ''
-        for child in section:
-            if child.tag == 'break' or (child.tag == 'utext' and (str(child.text).replace(' ', '') == ':' or str(child.text).replace(' ', '') == '：')):
-                continue
-            if (child.tag == 'utext' or child.tag == 'element') and child.text and not child.text.__contains__('家属签字确认'):
-                value = value + child.text
-            if child.tag == 'e_enum' or child.tag == 'e_list':
-                if len(child) < 1 and (not child.find('enumvalues') or not child.find('enumvalues').tail):
-                    continue
-                enum_title = child.get('title')
-                # 使用正则表达式匹配并提取 </root>' 后面的汉字部分
-                pattern = re.compile(r"rangexml='[^']*'\s*(\S+)")
-                match = pattern.search(child.find('enumvalues').tail)
-                if match:
-                    extracted_text = match.group(1)
-                    value = value + enum_title + extracted_text
-                else:
-                    print(title, enum_title, "未能提取出汉字部分")
-            if child.tag == 'group':
-                for group in child.findall('group'):
-                    value = value + child.get('title') + ':'
-                    for item in group:
-                        if item.tag == 'utext' and item.text:
-                            value = value + item.text
-                        if item.tag == 'element':
-                            value = value + item.text if item.text else item.get('value')
-                        if item.tag == 'e_enum':
-                            if not item.find('enumvalues') or not item.find('enumvalues').tail:
-                                continue
-                            item_title = item.get('title')
-                            # 使用正则表达式匹配并提取 </root>' 后面的汉字部分
-                            pattern = re.compile(r"rangexml='[^']*'\s*(\S+)")
-                            match = pattern.search(item.find('enumvalues').tail)
-                            if match:
-                                extracted_text = match.group(1)
-                                value = value + item_title + extracted_text
-                            else:
-                                print(title, item_title, " 未能提取出汉字部分")
-        info_dict[title] = value
-    except Exception as e:
-        print(title, '解析异常', e)
-        info_dict[title] = '解析异常'
-
-
-# 解析主诉
-def parse_chief_complaint(section, info_dict):
-    try:
-        if section.get('sid') not in section_info:
-            section_info[section.get('sid')] = section.attrib
-        title = section.get('title')
-        value = ''
-        for child in section:
-            if child.tag == 'break' or (child.tag == 'utext' and (str(child.text).replace(' ', '') == ':' or str(child.text).replace(' ', '') == '：')):
-                continue
-            if child.tag == 'utext' and child.text:
-                value = value + child.text
-        info_dict[title] = value
-    except Exception as e:
-        print('主诉解析异常', e)
-        info_dict['主诉'] = '主诉解析异常'
-
-
-# 解析现病史
-def parse_hpi(section, info_dict):
-    try:
-        if section.get('sid') not in section_info:
-            section_info[section.get('sid')] = section.attrib
-        title = section.get('title')
-        value = ''
-        for child in section:
-            if child.tag == 'break' or (child.tag == 'utext' and (str(child.text).replace(' ', '') == ':' or str(child.text).replace(' ', '') == '：')):
-                continue
-            if (child.tag == 'utext' or child.tag == 'element') and child.text:
-                value = value + child.text
-            if child.tag == 'group':
-                for group in child.findall('group'):
-                    for item in group:
-                        if (item.tag == 'utext' or item.tag == 'element') and item.text:
-                            value = value + item.text
-                        elif item.tag == 'e_enum':
-                            item_title = item.get('title')
-                            # 使用正则表达式匹配并提取 </root>' 后面的汉字部分
-                            pattern = re.compile(r"rangexml='[^']*'\s*(\S+)")
-                            match = pattern.search(item.find('enumvalues').tail)
-                            if match:
-                                extracted_text = match.group(1)
-                                value = value + item_title + extracted_text
-                            else:
-                                print("现病史 ", item_title, " 未能提取出汉字部分")
-        info_dict[title] = value
-    except Exception as e:
-        print('现病史解析异常', e)
-        info_dict['现病史'] = '现病史解析异常'
 
 
 # 解析既往史
@@ -205,7 +89,7 @@ def parse_past_medical_history(section, info_dict):
                 continue
             if (child.tag == 'utext' or child.tag == 'element') and child.text:
                 value = value + child.text
-            if child.tag == 'e_enum' and child.attrib and child.attrib.get('title') == '健康状况':
+            if child.tag == 'e_enum' and child.attrib:
                 # 使用正则表达式匹配并提取 </root>' 后面的汉字部分
                 pattern = re.compile(r"rangexml='[^']*'\s*(\S+)")
                 match = pattern.search(child.find('enumvalues').tail)
@@ -213,7 +97,7 @@ def parse_past_medical_history(section, info_dict):
                     extracted_text = match.group(1)
                     value = value + child.attrib.get('title') + extracted_text
                 else:
-                    print("既往史 健康状况 未能提取出汉字部分")
+                    print("既往史 未能提取出汉字部分")
 
             if child.tag == 'group':
                 for group in child.findall('group'):
@@ -225,11 +109,14 @@ def parse_past_medical_history(section, info_dict):
                         if item.tag == 'element':
                             group_value = group_value + item.text if item.text else item.get('value')
                         if item.tag == 'e_enum':
-                            if not item.text:
-                                continue
+                            rangexml = ''
+                            if item.text and item.text.__contains__('rangexml'):
+                                rangexml = item.text
+                            elif item.find('enumvalues') and item.find('enumvalues').tail:
+                                rangexml = item.find('enumvalues').tail
                             # 使用正则表达式匹配并提取 </root>' 后面的汉字部分
                             pattern = re.compile(r"rangexml='[^']*'\s*(\S+)")
-                            match = pattern.search(item.text)
+                            match = pattern.search(rangexml)
                             if match:
                                 extracted_text = match.group(1)
                                 group_value = group_value + extracted_text
@@ -245,33 +132,6 @@ def parse_past_medical_history(section, info_dict):
         info_dict['既往史'] = '既往史解析异常'
 
 
-# 解析个人史
-def parse_personal_history(section, info_dict):
-    try:
-        if section.get('sid') not in section_info:
-            section_info[section.get('sid')] = section.attrib
-        title = section.get('title')
-        value = ''
-        for child in section:
-            if child.tag == 'break' or (child.tag == 'utext' and (str(child.text).replace(' ', '') == ':' or str(child.text).replace(' ', '') == '：')):
-                continue
-            if child.tag == 'utext' and child.text:
-                value = value + child.text
-            if child.tag == 'element' and child.text:
-                value = value + child.get('title') + ':' + child.text
-            if child.tag == 'group':
-                for group in child.findall('group'):
-                    value = value + group.get('title') + ':'
-                    for item in group:
-                        if (item.tag == 'utext' or item.tag == 'element') and item.text:
-                            value = value + item.text
-
-        info_dict[title] = value
-    except Exception as e:
-        print('个人史解析异常', e)
-        info_dict['个人史'] = '个人史解析异常'
-
-
 # 解析婚育史
 def parse_marital_history(section, info_dict):
     try:
@@ -282,15 +142,18 @@ def parse_marital_history(section, info_dict):
         for child in section:
             if child.tag == 'break' or (child.tag == 'utext' and (str(child.text).replace(' ', '') == ':' or str(child.text).replace(' ', '') == '：')):
                 continue
-            if child.tag == 'utext' and child.text:
+            if (child.tag == 'utext' or child.tag == 'element') and child.text:
                 value = value + child.text
-            if child.tag == 'element' and child.text:
-                value = value + child.get('title') + ':' + child.text
             if child.tag == 'group':
                 for group in child.findall('group'):
                     for item in group:
-                        if (item.tag == 'element' or item.tag == 'utext') and item.text:
+                        if item.tag == 'utext' and item.text:
                             value = value + item.text
+                        if item.tag == 'element':
+                            if item.get('value'):
+                                value = value + item.get('value') + item.get('unit', '')
+                            elif item.text:
+                                value = value + item.text
                         elif item.tag == 'e_enum':
                             item_title = item.get('title')
                             # 使用正则表达式匹配并提取 </root>' 后面的汉字部分
@@ -298,7 +161,7 @@ def parse_marital_history(section, info_dict):
                             match = pattern.search(item.find('enumvalues').tail)
                             if match:
                                 extracted_text = match.group(1)
-                                value = value + item_title + extracted_text
+                                value = value + extracted_text
                             else:
                                 print("婚育史 ", item_title, " 未能提取出汉字部分")
 
@@ -393,8 +256,15 @@ def parse_special_situation(section, info_dict):
         for child in section:
             if child.tag == 'break' or (child.tag == 'utext' and (str(child.text).replace(' ', '') == ':' or str(child.text).replace(' ', '') == '：')):
                 continue
-            if (child.tag == 'utext' or child.tag == 'element' or child.tag == 'e_enum') and child.text and not child.text.__contains__('家属签字确认'):
+            if (child.tag == 'utext' or child.tag == 'element') and child.text and not child.text.__contains__('家属签字确认'):
                 value = value + child.text + ' '
+            if child.tag == 'e_enum':
+                if child.find('enumeration') and child.find('enumeration').get('choicestyle', '0') != '0':
+                    choicestyle = child.find('enumeration').get('choicestyle')
+                    for item in child.find('enumeration').findall('item'):
+                        if item.get('val') == choicestyle and item.get('textstyleno') == '9' and item.text:
+                            value = value + item.text
+                            break
         info_dict[title] = value
     except Exception as e:
         print('专科情况/辅助检查解析异常', e)
@@ -407,7 +277,7 @@ def write_to_excel(data):
 
     # 假设你已有的Excel文件名为'existing_file.xlsx'
     # file_path = '/Users/gaoyanliang/nsyy/病历解析/入院记录/parse_data.xlsx'
-    file_path = 'existing_file.xlsx'
+    file_path = 'parsed_data.xlsx'
     # 将字典转换为DataFrame
     df = pd.DataFrame(data)
     # 尝试加载现有的Excel文件
@@ -439,7 +309,8 @@ def write_to_excel(data):
 
 # Press the green button in the gutter to run the script.
 if __name__ == '__main__':
-    patient_info = parse_patient_document("/Users/gaoyanliang/nsyy/病历解析/入院记录/bingli/眼科/眼科入院记录_2024-03-02_18-52-04.xml")
+    # patient_info = parse_patient_document("/Users/gaoyanliang/nsyy/病历解析/入院记录/bingli/泌尿外科/泌尿外科入院记录_2024-03-01_00-18-12.xml")
+    patient_info = parse_patient_document("/Users/gaoyanliang/nsyy/病历解析/入院记录/bingli/白内障/白内障入院记录_2024-03-01_14-47-37.xml")
     for key, value in patient_info.items():
         print(f"{key}:  {value}")
 
