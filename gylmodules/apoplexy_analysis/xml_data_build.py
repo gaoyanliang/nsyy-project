@@ -1,95 +1,123 @@
-import time
+import json
 from datetime import datetime
 from xml.dom.minidom import parseString
 
+import requests
+
+from gylmodules import global_config
 from gylmodules.apoplexy_analysis.xml_const import const as xml_const
 from gylmodules.apoplexy_analysis.xml_const import header as xml_header
 from gylmodules.apoplexy_analysis.xml_const import body as xml_body
 
+"""
+调用第三方系统获取数据
+"""
+
+
+def call_third_systems_obtain_data(type: str, param: dict):
+    data = []
+    if global_config.run_in_local:
+        try:
+            # 发送 POST 请求，将字符串数据传递给 data 参数
+            response = requests.post("http://192.168.3.12:6080/int_api", json=param)
+            data = response.text
+            data = json.loads(data)
+            data = data.get('data')
+        except Exception as e:
+            print('调用第三方系统方法失败：type = ' + type + ' param = ' + str(param) + "   " + e.__str__())
+    else:
+        if type == 'orcl_db_read':
+            # 根据住院号/门诊号查询 病人id 主页id
+            from tools import orcl_db_read
+            data = orcl_db_read(param)
+
+    return data
+
 
 # 组装 header 信息
-
+# todo 文档标识编码
 def assembling_header(admission_record: str, data: dict):
     # xml header
     admission_record = admission_record + xml_header.xml_header_file_info \
-        .replace('{文档标识编码}', 'nsyy001') \
-        .replace('{文档标题}', '入院记录') \
+        .replace('{文档标识编码}', data.get('file_no')) \
+        .replace('{文档标题}', data.get('file_title')) \
         .replace('{文档生成时间}', datetime.now().strftime('%Y%m%d%H%M%S'))
 
     # 文档记录对象（患者信息）
     admission_record = admission_record + xml_header.xml_header_record_target \
-        .replace('{住院号}', '123456') \
-        .replace('{患者所在小区}', '南石小区') \
-        .replace('{患者所在街道}', '南石街道') \
-        .replace('{患者所在乡镇}', '南石镇') \
-        .replace('{患者所在区}', '南石区') \
-        .replace('{患者所在市}', '南石市') \
-        .replace('{患者所在省}', '南石省') \
-        .replace('{患者身份证号}', '123456789012345678') \
-        .replace('{患者姓名}', '张三') \
-        .replace('{患者性别编码}', '1') \
-        .replace('{患者性别}', '男') \
-        .replace('{患者婚姻状况编码}', '1') \
-        .replace('{患者婚姻状况}', '未婚') \
-        .replace('{患者民族编码}', '1') \
-        .replace('{患者民族}', '汉族') \
-        .replace('{患者年龄}', '20') \
-        .replace('{患者职业编码}', '20') \
-        .replace('{患者职业}', '教师')
+        .replace('{pat_no}', data.get('pat_no', '/')) \
+        .replace('{addr_house_num}', data.get('pat_addr', '/')) \
+        .replace('{pat_id_card}', data.get('pat_id_card', '/')) \
+        .replace('{pat_name}', data.get('pat_name', '/')) \
+        .replace('{pat_sex_no}', '1') \
+        .replace('{pat_sex}', data.get('pat_sex', '/')) \
+        .replace('{pat_marriage_no}', '1') \
+        .replace('{pat_marriage}', data.get('pat_marriage', '/')) \
+        .replace('{pat_nation_no}', '1') \
+        .replace('{pat_nation}', data.get('pat_nation', '/')) \
+        .replace('{pat_age}', data.get('pat_age', '/')) \
+        .replace('{pat_occupation_no}', '20') \
+        .replace('{pat_occupation}', data.get('pat_occupation', '/'))
 
     # 文档创作者
     admission_record = admission_record + xml_header.xml_header_author \
         .replace('{文档创作时间}', datetime.now().strftime('%Y%m%d%H%M%S')) \
-        .replace('{文档创作者id}', '120') \
-        .replace('{文档创作者}', '南石医院')
+        .replace('{文档创作者id}', data.get('hospital_no')) \
+        .replace('{文档创作者}', data.get('hospital_name'))
 
     # 病史陈述者
     admission_record = admission_record + xml_header.xml_header_informant \
-        .replace('{病史陈述者身份证号码}', '') \
-        .replace('{陈述者与患者的关系代码}', '1') \
-        .replace('{陈述者与患者的关系}', '本人') \
-        .replace('{病史陈述者姓名}', '张三')
+        .replace('{presenter_id_card}', '/') \
+        .replace('{presenter_relation_no}', '/') \
+        .replace('{presenter_relation}', data.get('病史叙述者', '/')) \
+        .replace('{presenter_name}', '/')
 
     # 保管机构
     admission_record = admission_record + xml_header.xml_header_custodian \
-        .replace('{医疗卫生机构编号}', '120') \
-        .replace('{医疗卫生机构名称}', '南阳南石医院')
+        .replace('{医疗卫生机构编号}', data.get('hospital_no')) \
+        .replace('{医疗卫生机构名称}', data.get('hospital_name'))
 
     # 最终审核者签名
-    admission_record = admission_record + xml_header.xml_header_custodian \
-        .replace('{最终审核者id}', '120') \
-        .replace('{最终审核者}', '李主任')
+    admission_record = admission_record + xml_header.xml_header_legal_authenticator \
+        .replace('{主任医师id}', '/') \
+        .replace('{主任医师}', data.get('主任医师', '/'))
 
+    if '住院医师' in data:
+        doc_name = data.get('住院医师')
+    elif '主治医师' in data:
+        doc_name = data.get('主治医师')
+    else:
+        doc_name = '/'
     # 接诊医师签名/住院医师签名/主治医师签名
     admission_record = admission_record + xml_header.xml_header_authenticator \
-        .replace('{接诊医师id}', '120') \
+        .replace('{医师id}', '/') \
         .replace('{显示医师名字}', '接诊医师') \
-        .replace('{医师名字}', '李接诊')
+        .replace('{医师名字}', doc_name)
     admission_record = admission_record + xml_header.xml_header_authenticator \
-        .replace('{接诊医师id}', '120') \
+        .replace('{医师id}', '/') \
         .replace('{显示医师名字}', '住院医师') \
-        .replace('{医师名字}', '李住院')
+        .replace('{医师名字}', doc_name)
     admission_record = admission_record + xml_header.xml_header_authenticator \
-        .replace('{接诊医师id}', '120') \
+        .replace('{医师id}', '/') \
         .replace('{显示医师名字}', '主治医师') \
-        .replace('{医师名字}', '李主治')
+        .replace('{医师名字}', doc_name)
 
     # 关联文档
     admission_record = admission_record + xml_header.xml_header_related_document
 
     # 病床号、病房、病区、科室和医院的关联
     admission_record = admission_record + xml_header.xml_header_encompassing_encounter \
-        .replace('{入院时间}', datetime.now().strftime('%Y%m%d%H%M%S')) \
-        .replace('{病床编码}', '1') \
-        .replace('{病床}', '1床') \
-        .replace('{病房编码}', '514') \
-        .replace('{病房}', '514室') \
-        .replace('{科室编码}', '120') \
-        .replace('{科室}', '神经内科') \
-        .replace('{病区编码}', '120') \
-        .replace('{病区}', '神经内科一病区') \
-        .replace('{医院编码}', '120') \
-        .replace('{医院}', '南阳南石医院')
+        .replace('{入院时间}', data.get('pat_time')) \
+        .replace('{pat_bed_no}', data.get('pat_bed', '/') if data.get('pat_bed') else '/') \
+        .replace('{pat_bed}', data.get('pat_bed', '/') if data.get('pat_bed') else '/') \
+        .replace('{pat_room_no}', '/') \
+        .replace('{pat_room}', '/') \
+        .replace('{pat_dept_no}', data.get('pat_dept_no', '/')) \
+        .replace('{pat_dept}', data.get('pat_dept', '/')) \
+        .replace('{pat_ward_no}', '/') \
+        .replace('{pat_ward}', '/') \
+        .replace('{医院编码}', data.get('hospital_no')) \
+        .replace('{医院}', data.get('hospital_name'))
 
     return admission_record
 
@@ -97,7 +125,7 @@ def assembling_header(admission_record: str, data: dict):
 # 组装 body
 def assembling_body(admission_record: str, data: dict):
     # 主诉
-    admission_record = admission_record + xml_body.body_component\
+    admission_record = admission_record + xml_body.body_component \
         .replace('{code}', xml_body.body_section_code
                  .replace('{section_code}', '10154-3')
                  .replace('{section_name}', 'CHIEF COMPLAINT')) \
@@ -106,10 +134,13 @@ def assembling_body(admission_record: str, data: dict):
         .replace('{entry}', xml_body.body_section_entry
                  .replace('{entry_code}', 'DE04.01.119.00')
                  .replace('{entry_name}', '主诉')
-                 .replace('{entry_body}', xml_body.value_st.replace('{value}', '右眼无痛性视力渐降3年')))
+                 .replace('{entry_body}', xml_body.value_st.replace('{value}', data.get('主诉', '/'))))
 
+    present_illness = data.get('现病史')
+    if present_illness and type(present_illness) == dict:
+        present_illness = present_illness.get('value')
     # 现病史
-    admission_record = admission_record + xml_body.body_component\
+    admission_record = admission_record + xml_body.body_component \
         .replace('{code}', xml_body.body_section_code
                  .replace('{section_code}', '10164-2')
                  .replace('{section_name}', 'HISTORY OF PRESENT ILLNESS')) \
@@ -118,22 +149,40 @@ def assembling_body(admission_record: str, data: dict):
         .replace('{entry}', xml_body.body_section_entry
                  .replace('{entry_code}', 'DE02.10.071.00')
                  .replace('{entry_name}', '现病史')
-                 .replace('{entry_body}', xml_body.value_st.replace('{value}', "3年前，患者无明显诱因感右眼视物不清、视力下降，似眼前有雾遮挡，无眼红、眼痛等不适，未作治疗，今为求诊治前来我院。门诊以\"白内障\"入院。发病以来，精神状态正常饮食正常睡眠状况正常小便正常大便正常体力正常体重无变化。发现糖尿病13年，最高血糖16mmol/L，规律皮下注射胰岛素针  早24U  晚22U，具体不详，血糖控制情况不详。发现\"右眼角膜溃疡\"1年余,主要表现为右眼红、磨、流泪，在我院住院治疗，好转后出院，具体详见上次大病历。")))
+                 .replace('{entry_body}', xml_body.value_st.replace('{value}', present_illness)))
 
+    past_illness = data.get('既往史')
+    if '外伤史' in past_illness and type(past_illness) == dict:
+        his_illness = past_illness.get('外伤史')
+    elif '疾病史' in past_illness and type(past_illness) == dict:
+        his_illness = past_illness.get('疾病史')
+    elif '既往疾病史' in past_illness and type(past_illness) == dict:
+        his_illness = past_illness.get('既往疾病史')
+    else:
+        his_illness = '/'
+
+    if '药物及食物过敏史' in past_illness and type(past_illness) == dict:
+        allergy_his = past_illness.get('药物及食物过敏史')
+    elif '药品及食物过敏史' in past_illness and type(past_illness) == dict:
+        allergy_his = past_illness.get('药品及食物过敏史')
+    else:
+        allergy_his = '/'
+
+    value = past_illness.get('value') if past_illness and type(past_illness) == dict else past_illness
     # 既往史
-    admission_record = admission_record + xml_body.body_history_of_past_illness\
+    admission_record = admission_record + xml_body.body_history_of_past_illness \
         .replace('{code}', xml_body.body_section_code
                  .replace('{section_code}', '11348-0')
                  .replace('{section_name}', 'HISTORY OF PAST ILLNESS')) \
-        .replace('{text}', '<text />') \
+        .replace('{text}', '<text>' + value + '</text>') \
         .replace('{history_of_illness}', xml_body.body_section_entry_relation_ship
                  .replace('{code}', xml_body.body_section_code
                           .replace('{section_code}', 'DE05.10.031.00')
                           .replace('{section_name}', '—般健康状况标志'))
                  .replace('{value}', xml_body.value_bl.replace('{value}', 'false'))
                  .replace('{entry_ship_code}', 'DE02.10.026.00')
-                 .replace('{entry_ship_name}', '疾病史(含外伤)')
-                 .replace('{entry_ship_body}',  xml_body.value_st.replace('{value}', '否认糖尿病、肾病等慢性病史'))) \
+                 .replace('{entry_ship_name}', '疾病史含外伤')
+                 .replace('{entry_ship_body}', xml_body.value_st.replace('{value}', his_illness))) \
         .replace('{history_of_infectious_diseases}', xml_body.body_section_entry_relation_ship
                  .replace('{code}', xml_body.body_section_code
                           .replace('{section_code}', 'DE05.10.119.00')
@@ -141,22 +190,22 @@ def assembling_body(admission_record: str, data: dict):
                  .replace('{value}', xml_body.value_bl.replace('{value}', 'true'))
                  .replace('{entry_ship_code}', 'DE02.10.008.00')
                  .replace('{entry_ship_name}', '传染病史')
-                 .replace('{entry_ship_body}', xml_body.value_st.replace('{value}', '否认传染病史'))) \
+                 .replace('{entry_ship_body}', xml_body.value_st.replace('{value}', past_illness.get('传染病史', '/') if past_illness and type(past_illness) == dict else '/'))) \
         .replace('{marriage_and_childbearing_history}', xml_body.body_section_entry
                  .replace('{entry_code}', 'DEO2.10.098.00')
                  .replace('{entry_name}', '婚育史')
-                 .replace('{entry_body}', xml_body.value_st.replace('{value}', "23 岁结婚配偶健康状况良好。夫妻关系和睦。育1子1女。"))) \
+                 .replace('{entry_body}', xml_body.value_st.replace('{value}', past_illness.get('婚育史', '/') if past_illness and type(past_illness) == dict else '/'))) \
         .replace('{allergy_history}', xml_body.body_section_entry
                  .replace('{entry_code}', 'DEO2.10.022.00')
                  .replace('{entry_name}', '过敏史')
-                 .replace('{entry_body}', xml_body.value_st.replace('{value}', "否认药物及食物过敏史"))) \
+                 .replace('{entry_body}', xml_body.value_st.replace('{value}', allergy_his))) \
         .replace('{surgical_history}', xml_body.body_section_entry
                  .replace('{entry_code}', 'DEO2.10.022.00')
                  .replace('{entry_name}', '手术史')
-                 .replace('{entry_body}', xml_body.value_st.replace('{value}', "否认手术史")))
+                 .replace('{entry_body}', xml_body.value_st.replace('{value}', past_illness.get('手术史', '/') if past_illness and type(past_illness) == dict else '/')))
 
     # 预防接种史
-    admission_record = admission_record + xml_body.body_component\
+    admission_record = admission_record + xml_body.body_component \
         .replace('{code}', xml_body.body_section_code
                  .replace('{section_code}', '11369-6')
                  .replace('{section_name}', 'HISTORY OF IMMUNIZATIONS')) \
@@ -165,10 +214,10 @@ def assembling_body(admission_record: str, data: dict):
         .replace('{entry}', xml_body.body_section_entry
                  .replace('{entry_code}', 'DEO2.10.101.00')
                  .replace('{entry_name}', '预防接种史')
-                 .replace('{entry_body}', xml_body.value_st.replace('{value}', "预防接种史随社会进行")))
+                 .replace('{entry_body}', xml_body.value_st.replace('{value}', past_illness.get('预防接种史', '/') if past_illness and type(past_illness) == dict else '/')))
 
     # 输血史
-    admission_record = admission_record + xml_body.body_component\
+    admission_record = admission_record + xml_body.body_component \
         .replace('{code}', xml_body.body_section_code
                  .replace('{section_code}', '56836-0')
                  .replace('{section_name}', 'History of blood transfusion')) \
@@ -177,10 +226,15 @@ def assembling_body(admission_record: str, data: dict):
         .replace('{entry}', xml_body.body_section_entry
                  .replace('{entry_code}', 'DEO2.10.100.00')
                  .replace('{entry_name}', '输血史')
-                 .replace('{entry_body}', xml_body.value_st.replace('{value}', "否认输血史及献血史")))
+                 .replace('{entry_body}', xml_body.value_st.replace('{value}', past_illness.get('输血史', '/') if past_illness and type(past_illness) == dict else '/')))
 
+    social_his = data.get('个人史')
+    if social_his is None:
+        social_his = '/'
+    if social_his and type(social_his) == dict:
+        social_his = social_his.get('value')
     # 个人史
-    admission_record = admission_record + xml_body.body_component\
+    admission_record = admission_record + xml_body.body_component \
         .replace('{code}', xml_body.body_section_code
                  .replace('{section_code}', '29762-2')
                  .replace('{section_name}', 'Social history')) \
@@ -189,10 +243,15 @@ def assembling_body(admission_record: str, data: dict):
         .replace('{entry}', xml_body.body_section_entry
                  .replace('{entry_code}', 'DEO2.10.097.00')
                  .replace('{entry_name}', '个人史')
-                 .replace('{entry_body}', xml_body.value_st.replace('{value}', "生长于原籍；无外地长期居住史；无疫区疫水接触史；无毒物接触史无放射性工作史；无烟酒嗜好史；否认性病及冶游史。")))
+                 .replace('{entry_body}', xml_body.value_st.replace('{value}', social_his)))
 
     # 月经史
-    admission_record = admission_record + xml_body.body_component\
+    menstrual_his = data.get('月经史')
+    if menstrual_his is None:
+        menstrual_his = '/'
+    if menstrual_his and type(menstrual_his) == dict:
+        menstrual_his = menstrual_his.get('value')
+    admission_record = admission_record + xml_body.body_component \
         .replace('{code}', xml_body.body_section_code
                  .replace('{section_code}', '49033-4')
                  .replace('{section_name}', 'Menstrual History')) \
@@ -201,10 +260,15 @@ def assembling_body(admission_record: str, data: dict):
         .replace('{entry}', xml_body.body_section_entry
                  .replace('{entry_code}', 'DEO2.10.102.00')
                  .replace('{entry_name}', '月经史')
-                 .replace('{entry_body}', xml_body.value_st.replace('{value}', "绝经后无阴道不规则出血。。孕2次，产2次。")))
+                 .replace('{entry_body}', xml_body.value_st.replace('{value}', menstrual_his)))
 
+    family_his = data.get('家族史')
+    if family_his is None:
+        family_his = '/'
+    if family_his and type(family_his) == dict:
+        family_his = family_his.get('value')
     # 家族史
-    admission_record = admission_record + xml_body.body_component\
+    admission_record = admission_record + xml_body.body_component \
         .replace('{code}', xml_body.body_section_code
                  .replace('{section_code}', '10157-6')
                  .replace('{section_name}', 'HISTORY OF FAMILY MEMBER DISEASES')) \
@@ -213,61 +277,189 @@ def assembling_body(admission_record: str, data: dict):
         .replace('{entry}', xml_body.body_section_entry
                  .replace('{entry_code}', 'DEO2.10.103.00')
                  .replace('{entry_name}', '家族史')
-                 .replace('{entry_body}', xml_body.value_st.replace('{value}', "父母均年高已故，1哥1弟已故，死因不详，3弟体健，家族中无同类病人。无遗传倾向疾患。")))
+                 .replace('{entry_body}', xml_body.value_st.replace('{value}', family_his)))
 
-    # 生命体征
-    admission_record = admission_record + xml_body.body_vital_signs\
-        .replace('{code}', xml_body.body_section_code
-                 .replace('{section_code}', '8716-3')
-                 .replace('{section_name}', 'VITAL SIGNS')) \
-        .replace('{text}', '<text />') \
-        .replace('{body_temperature}', xml_body.body_section_entry
-                 .replace('{entry_code}', 'DEO4.10.186.00')
-                 .replace('{entry_name}', '体温°C')
-                 .replace('{entry_body}', xml_body.value_pq.replace('{value}', "36.5").replace('{unit}', '°C'))) \
-        .replace('{pulse_rate}', xml_body.body_section_entry
-                 .replace('{entry_code}', 'DEO4.10.118.00')
-                 .replace('{entry_name}', '脉率(次/min)')
-                 .replace('{entry_body}', xml_body.value_pq.replace('{value}', "70").replace('{unit}', '次/min'))) \
-        .replace('{respiratory_rate}', xml_body.body_section_entry
-                 .replace('{entry_code}', 'DEO4.10.082.00')
-                 .replace('{entry_name}', '呼吸频率(次/min)')
-                 .replace('{entry_body}', xml_body.value_pq.replace('{value}', "20").replace('{unit}', '次/min'))) \
-        .replace('{systolic}', "120") \
-        .replace('{diastolic}', "60") \
-        .replace('{height}', xml_body.body_section_entry
-                 .replace('{entry_code}', 'DEO4.10.167.00')
-                 .replace('{entry_name}', '身高（cm）')
-                 .replace('{entry_body}', xml_body.value_pq.replace('{value}', "170").replace('{unit}', 'cm'))) \
-        .replace('{weight}', xml_body.body_section_entry
-                 .replace('{entry_code}', 'DEO4.10.188.00')
-                 .replace('{entry_name}', '体重（kg）')
-                 .replace('{entry_body}', xml_body.value_pq.replace('{value}', "60").replace('{unit}', 'kg')))
+    vital_signs = data.get('体格检查')
+    if 'value' in vital_signs:
+        xueya = []
+        if '血压' in vital_signs:
+            # 使用 split 方法将字符串按斜杠分割
+            xueya = vital_signs.get('血压').split("/")
+        # 生命体征
+        admission_record = admission_record + xml_body.body_vital_signs \
+            .replace('{code}', xml_body.body_section_code
+                     .replace('{section_code}', '8716-3')
+                     .replace('{section_name}', 'VITAL SIGNS')) \
+            .replace('{text}', '<text />') \
+            .replace('{body_temperature}', xml_body.body_section_entry
+                     .replace('{entry_code}', 'DEO4.10.186.00')
+                     .replace('{entry_name}', '体温°C')
+                     .replace('{entry_body}',
+                              xml_body.value_pq.replace('{value}', vital_signs.get('体温', '/')).replace('{unit}',
+                                                                                                         '°C'))) \
+            .replace('{pulse_rate}', xml_body.body_section_entry
+                     .replace('{entry_code}', 'DEO4.10.118.00')
+                     .replace('{entry_name}', '脉率(次/min)')
+                     .replace('{entry_body}',
+                              xml_body.value_pq.replace('{value}', vital_signs.get('脉搏', '/')).replace('{unit}',
+                                                                                                         '次/min'))) \
+            .replace('{respiratory_rate}', xml_body.body_section_entry
+                     .replace('{entry_code}', 'DEO4.10.082.00')
+                     .replace('{entry_name}', '呼吸频率(次/min)')
+                     .replace('{entry_body}',
+                              xml_body.value_pq.replace('{value}', vital_signs.get('呼吸', '/')).replace('{unit}',
+                                                                                                         '次/min'))) \
+            .replace('{systolic}', xueya[0] if xueya else '/') \
+            .replace('{diastolic}', xueya[1] if xueya else '/') \
+            .replace('{height}', xml_body.body_section_entry
+                     .replace('{entry_code}', 'DEO4.10.167.00')
+                     .replace('{entry_name}', '身高（cm）')
+                     .replace('{entry_body}',
+                              xml_body.value_pq.replace('{value}', vital_signs.get('身高', '/')).replace('{unit}',
+                                                                                                         'cm'))) \
+            .replace('{weight}', xml_body.body_section_entry
+                     .replace('{entry_code}', 'DEO4.10.188.00')
+                     .replace('{entry_name}', '体重（kg）')
+                     .replace('{entry_body}',
+                              xml_body.value_pq.replace('{value}', vital_signs.get('体重', '/')).replace('{unit}',
+                                                                                                         'kg')))
 
-    # todo 体格检査章节
+        # 体格检査章节
+        admission_record = admission_record + xml_body.body_physical_examination \
+            .replace('{code}', xml_body.body_section_code
+                     .replace('{section_code}', '29545-1')
+                     .replace('{section_name}', 'PHYSICAL EXAMINATION')) \
+            .replace('{text}', '<text>' + vital_signs.get('value', '/') + '</text>') \
+            .replace('{一般状况检査}', xml_body.body_section_entry
+                     .replace('{entry_code}', 'DEO4.10.219.00')
+                     .replace('{entry_name}', '一般状况检査结果')
+                     .replace('{entry_body}', xml_body.value_st.replace('{value}', data.get('一般状况检查', '/')))) \
+            .replace('{皮肤和粘膜检査}', xml_body.body_section_entry
+                     .replace('{entry_code}', 'DEO4.10.126.00')
+                     .replace('{entry_name}', '皮肤和粘膜检査结果')
+                     .replace('{entry_body}', xml_body.value_st.replace('{value}', data.get('皮肤和粘膜检査', '/')))) \
+            .replace('{全身浅表淋巴结检查}', xml_body.body_section_entry
+                     .replace('{entry_code}', 'DEO4.10.114.00')
+                     .replace('{entry_name}', '全身浅表淋巴结检查结果')
+                     .replace('{entry_body}',
+                              xml_body.value_st.replace('{value}', data.get('全身浅表淋巴结检查', '/')))) \
+            .replace('{头部及其器官检查}', xml_body.body_section_entry
+                     .replace('{entry_code}', 'DEO4.10.261.00')
+                     .replace('{entry_name}', '头部及其器官检查结果')
+                     .replace('{entry_body}', xml_body.value_st.replace('{value}', data.get('头部检查', '/')))) \
+            .replace('{颈部检査}', xml_body.body_section_entry
+                     .replace('{entry_code}', 'DEO4.10.255.00')
+                     .replace('{entry_name}', '颈部检査结果')
+                     .replace('{entry_body}', xml_body.value_st.replace('{value}', data.get('颈部检查', '/')))) \
+            .replace('{胸部检査}', xml_body.body_section_entry
+                     .replace('{entry_code}', 'DEO4.10.263.00')
+                     .replace('{entry_name}', '胸部检査结果')
+                     .replace('{entry_body}', xml_body.value_st.replace('{value}', data.get('胸部检查', '/')))) \
+            .replace('{腹部检査}', xml_body.body_section_entry
+                     .replace('{entry_code}', 'DEO4.10.046.00')
+                     .replace('{entry_name}', '腹部检査结果')
+                     .replace('{entry_body}', xml_body.value_st.replace('{value}', data.get('腹部检查', '/')))) \
+            .replace('{肛门指诊检查}', xml_body.body_section_entry
+                     .replace('{entry_code}', 'DEO4.10.065.00')
+                     .replace('{entry_name}', '肛门指诊检查结果')
+                     .replace('{entry_body}', xml_body.value_st.replace('{value}', data.get('肛门指诊检查', '/')))) \
+            .replace('{外生殖器检査}', xml_body.body_section_entry
+                     .replace('{entry_code}', 'DEO4.10.195.00')
+                     .replace('{entry_name}', '外生殖器检査结果')
+                     .replace('{entry_body}', xml_body.value_st.replace('{value}', data.get('外生殖器检査', '/')))) \
+            .replace('{脊柱检査}', xml_body.body_section_entry
+                     .replace('{entry_code}', 'DEO4.10.093.00')
+                     .replace('{entry_name}', '脊柱检査结果')
+                     .replace('{entry_body}', xml_body.value_st.replace('{value}', data.get('脊柱检査', '/')))) \
+            .replace('{四肢检査}', xml_body.body_section_entry
+                     .replace('{entry_code}', 'DEO4.10.179.00')
+                     .replace('{entry_name}', '四肢检査结果')
+                     .replace('{entry_body}', xml_body.value_st.replace('{value}', data.get('四肢检査', '/')))) \
+            .replace('{脊柱检査}', xml_body.body_section_entry
+                     .replace('{entry_code}', 'DEO4.10.093.00')
+                     .replace('{entry_name}', '脊柱检査结果')
+                     .replace('{entry_body}', xml_body.value_st.replace('{value}', data.get('脊柱检査', '/')))) \
+            .replace('{神经系统检査}', xml_body.body_section_entry
+                     .replace('{entry_code}', 'DEO5.10.149.00')
+                     .replace('{entry_name}', '神经系统检査结果')
+                     .replace('{entry_body}', xml_body.value_st.replace('{value}', data.get('神经系统检査', '/')))) \
+            .replace('{专科情况}', xml_body.body_section_entry
+                     .replace('{entry_code}', 'DEO8.10.061.00')
+                     .replace('{entry_name}', '专科情况')
+                     .replace('{entry_body}', xml_body.value_st.replace('{value}', data.get('专科情况').get('value') if data.get('专科情况') and type(data.get('专科情况')) == dict else data.get('专科情况', '/'))))
 
     # 辅助检査章节
-    admission_record = admission_record + xml_body.body_component\
-        .replace('{text}', '<code displayName="辅助检查" /> <text />') \
+    admission_record = admission_record + xml_body.body_component \
+        .replace('{code}', '<code displayName="辅助检查" />') \
+        .replace('{text}', '<text />') \
         .replace('{entry_observation_name}', '辅助检查') \
         .replace('{entry}', xml_body.body_section_entry
                  .replace('{entry_code}', 'DEO4.30.009.00')
                  .replace('{entry_name}', '辅助检查')
-                 .replace('{entry_body}', xml_body.value_st.replace('{value}', "浅表组织器官B超：右眼玻璃体浑浊。(我院2024-02-20)眼科A超：眼轴：OD：(22.39)mm。(我院2024-02-20)角膜曲率：OD：( K1：45.59D，K2：45.87D)。(我院2024-02-20)人工晶体度数测量：OD：（+21.00D ）。(我院2024-02-20)角膜内皮计数：OD:2632/mm2。  (我院2024-02-20)角膜厚度：OD：505um.(我院2024-02-20)OCT检查：右眼视网膜结构可。(我院2024-02-20)")))
+                 .replace('{entry_body}', xml_body.value_st.replace('{value}', data.get('辅助检查', '/'))))
+    admission_record = admission_record + xml_body.body_main_health_problem \
+        .replace('{code}', xml_body.body_section_code
+                 .replace('{section_code}', '11450-4')
+                 .replace('{section_name}', 'PROBLEM LIST')) \
+        .replace('{text}', '<text />') \
+        .replace('{陈述内容可靠标志}', xml_body.body_section_entry
+                 .replace('{entry_code}', 'DEO5.10.143.00')
+                 .replace('{entry_name}', '陈述内容可靠标志')
+                 .replace('{entry_body}', xml_body.value_bl.replace('{value}', 'false'))) \
+        .replace('{西医初步诊断}', xml_body.body_health_entry_western
+                 .replace('{code1}', 'DE05.01.025.00')
+                 .replace('{display_name1}', '初步诊断-西医诊断名称')
+                 .replace('{time}', '/')
+                 .replace('{value1}', data.get('西医诊断', '/'))
+                 .replace('{code2}', 'DEO5.01.024.00')
+                 .replace('{display_name2}', '初步诊断-西医诊断编码')
+                 .replace('{code3}', '/')
+                 .replace('{display_name3}', data.get('西医诊断', '/'))
+                 .replace('{code4}', 'DEO5.01.080.00')
+                 .replace('{display_name4}', '入院诊断顺位')
+                 .replace('{value2}', '/')) \
+        .replace('{中医四诊}', xml_body.body_section_entry
+                 .replace('{entry_code}', 'DE02.10.028.00')
+                 .replace('{entry_name}', '中医四诊观察结果')
+                 .replace('{entry_body}', xml_body.value_st.replace('{value}', data.get('中医四诊')))) \
+        .replace('{中医初步诊断}', xml_body.body_health_entry_chinese
+                 .replace('{code1}', 'DE05.10.172.00')
+                 .replace('{display_name1}', '初步诊断-中医病名名称')
+                 .replace('{time}', '/')
+                 .replace('{value1}', data.get('中医诊断', '/'))
+                 .replace('{code2}', 'DEO5.10.130.00')
+                 .replace('{display_name2}', '初步诊断-中医病名代码')
+                 .replace('{code3}', '/')
+                 .replace('{display_name3}', data.get('中医诊断', '/'))
+                 .replace('{code4}', 'DEO5.10.172.00')
+                 .replace('{display_name4}', '初步诊断-中医证候名称')
+                 .replace('{value2}', data.get('证型', '/'))
+                 .replace('{code5}', 'DEO5.10.130.00')
+                 .replace('{display_name5}', '初步诊断-中医证候代码')
+                 .replace('{code6}', '/')
+                 .replace('{display_name6}', data.get('证型', '/'))
+                 .replace('{code7}', 'DEO5.01.080.00')
+                 .replace('{display_name7}', '入院诊断顺位')
+                 .replace('{value3}', '/')) \
+        .replace('{西医修正诊断}', '') \
+        .replace('{中医修正诊断}', '') \
+        .replace('{西医确定诊断}', '') \
+        .replace('{中医确定诊断}', '') \
+        .replace('{西医补充诊断}', '')
 
     # todo 主要健康问题章节
 
-    # 治疗计划章节
-    admission_record = admission_record + xml_body.body_component\
-        .replace('{code}', xml_body.body_section_code
-                 .replace('{section_code}', '18776-5')
-                 .replace('{section_name}', 'TREATMENT PLAN')) \
-        .replace('{text}', '<text />') \
-        .replace('{entry}', xml_body.body_section_entry
-                 .replace('{entry_code}', 'DEO6.00.300.00')
-                 .replace('{entry_name}', '治则治法')
-                 .replace('{entry_body}', xml_body.value_st.replace('{value}', "治则治法")))
-
+    if '治则治法' in data:
+        # 治疗计划章节
+        admission_record = admission_record + xml_body.body_component \
+            .replace('{code}', xml_body.body_section_code
+                     .replace('{section_code}', '18776-5')
+                     .replace('{section_name}', 'TREATMENT PLAN')) \
+            .replace('{text}', '<text />') \
+            .replace('{entry}', xml_body.body_section_entry
+                     .replace('{entry_code}', 'DEO6.00.300.00')
+                     .replace('{entry_name}', '治则治法')
+                     .replace('{entry_body}', xml_body.value_st.replace('{value}', "治则治法")))
 
     return admission_record
 
@@ -285,97 +477,71 @@ def prettify_xml(xml_string):
 
 
 # 组装入院记录
-def assembling_admission_record():
+def assembling_admission_record(data):
+    # 根据住院号，查询病人信息
+    param = {
+        "type": "orcl_db_read",
+        "db_source": "nshis",
+        "randstr": "XPFDFZDF7193CIONS1PD7XCJ3AD4ORRC",
+        "sql": f"SELECT * FROM 病人信息 WHERE 住院号 = '{data.get('pat_no')}' order by 主页ID desc "
+    }
+    pat_info = call_third_systems_obtain_data('orcl_db_read', param)
+    if pat_info and pat_info[0]:
+        data['pat_addr'] = pat_info[0].get('家庭地址', '/')
+        data['pat_id_card'] = str(pat_info[0].get('身份证号', '/'))
+        data['pat_name'] = pat_info[0].get('姓名', '/')
+        data['pat_sex'] = pat_info[0].get('性别', '/')
+        data['pat_marriage'] = pat_info[0].get('婚姻状况', '/')
+        data['pat_nation'] = pat_info[0].get('民族', '/')
+        data['pat_age'] = str(pat_info[0].get('年龄', '/'))
+        data['pat_occupation'] = pat_info[0].get('职业', '/')
+        data['pat_sex'] = pat_info[0].get('性别', '/')
+        data['pat_dept_no'] = str(pat_info[0].get('当前科室ID', '/'))
+        data['pat_time'] = pat_info[0].get('入院时间')
+    else:
+        print("没有查询到病人信息")
+        return
+
+    data['file_title'] = '入院记录'
+    data['file_no'] = 'nsyy001'
+    data['hospital_no'] = '0000'
+    data['hospital_name'] = '南阳南石医院'
     # xml 声明
     admission_record = xml_const.xml_statement
     # xml 开始
     admission_record = admission_record + xml_const.xml_start
 
     # 组装 header
-    admission_record = assembling_header(admission_record, {})
+    admission_record = assembling_header(admission_record, data)
 
     # xml body 开始
     admission_record = admission_record + xml_const.xml_body_start
-
     # 组装 body
-    admission_record = assembling_body(admission_record, {})
-
+    admission_record = assembling_body(admission_record, data)
     # xml body 结束
     admission_record = admission_record + xml_const.xml_body_end
+
     # xml 结束
     admission_record = admission_record + xml_const.xml_end
 
+    # print(admission_record)
+
     # 格式化 xml
     pretty_xml = prettify_xml(admission_record)
-    print(pretty_xml)
+    # print(pretty_xml)
+
+    return pretty_xml
 
 
-assembling_admission_record()
+def load_sid():
+    # JSON文件路径
+    file_path = 'all_sid.json'
+    # 打开文件并加载JSON数据
+    with open(file_path, 'r') as file:
+        data = json.load(file)
+    # 打印加载的数据
+    print(data)
 
 
-
-
-
-
-
-
-
-# ===================== test
-
-
-
-
-data = xml_body.body_vital_signs\
-        .replace('{code}', xml_body.body_section_code
-                 .replace('{section_code}', '8716-3')
-                 .replace('{section_name}', 'VITAL SIGNS')) \
-        .replace('{text}', '<text />') \
-        .replace('{body_temperature}', xml_body.body_section_entry
-                 .replace('{entry_code}', 'DEO4.10.186.00')
-                 .replace('{entry_name}', '体温°C')
-                 .replace('{entry_body}', xml_body.value_pq.replace('{value}', "36.5").replace('{unit}', '°C'))) \
-        .replace('{pulse_rate}', xml_body.body_section_entry
-                 .replace('{entry_code}', 'DEO4.10.118.00')
-                 .replace('{entry_name}', '脉率(次/min)')
-                 .replace('{entry_body}', xml_body.value_pq.replace('{value}', "70").replace('{unit}', '次/min'))) \
-        .replace('{respiratory_rate}', xml_body.body_section_entry
-                 .replace('{entry_code}', 'DEO4.10.082.00')
-                 .replace('{entry_name}', '呼吸频率(次/min)')
-                 .replace('{entry_body}', xml_body.value_pq.replace('{value}', "20").replace('{unit}', '次/min'))) \
-        .replace('{systolic}', "120") \
-        .replace('{diastolic}', "60") \
-        .replace('{height}', xml_body.body_section_entry
-                 .replace('{entry_code}', 'DEO4.10.167.00')
-                 .replace('{entry_name}', '身高（cm）')
-                 .replace('{entry_body}', xml_body.value_pq.replace('{value}', "170").replace('{unit}', 'cm'))) \
-        .replace('{weight}', xml_body.body_section_entry
-                 .replace('{entry_code}', 'DEO4.10.188.00')
-                 .replace('{entry_name}', '体重（kg）')
-                 .replace('{entry_body}', xml_body.value_pq.replace('{value}', "60").replace('{unit}', 'kg')))
-
-# print(data)
-#
-# pretty_xml = prettify_xml(data)
-# print(pretty_xml)
-
-
-# json_data = {
-#     "pat_no": '400657',
-#     "pat_type": 3,
-#     "record": {'time': datetime.now()},
-#     "handler_name": "handler_name",
-#     "timer": '2024-07-19 15:19:19',
-#     "method": "method",
-#     "analysis": "analysis"
-# }
-#
-# medical_record_writing_back(json_data)
-#
-
-
-
-
-
-
-
-
+if __name__ == '__main__':
+    assembling_admission_record({})

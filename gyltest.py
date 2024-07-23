@@ -1,194 +1,128 @@
 import json
+import time
 
 import requests
 from requests.adapters import HTTPAdapter
 from urllib3 import Retry
 
+from gylmodules import global_config
 from gylmodules.critical_value import cv_config
 import asyncio
 from datetime import datetime
+import xml.etree.ElementTree as ET
+import re
 import redis
-import aiohttp
-import threading
 
-from apscheduler.schedulers.background import BackgroundScheduler
+from gylmodules.utils.db_utils import DbUtil
 
-
-pool = redis.ConnectionPool(host=cv_config.CV_REDIS_HOST, port=cv_config.CV_REDIS_PORT,
-                            db=cv_config.CV_REDIS_DB, decode_responses=True)
-test_scheduler = BackgroundScheduler(timezone="Asia/Shanghai")
-
-redis_client = redis.Redis(connection_pool=pool)
-
-sites = redis_client.smembers('CV_SITES_DEPT_300')
-
-sites1 = redis_client.smembers('CV_SITES_WARD_1000962')
-
-# sites.add('192.168.124.24')
-
-merged_set = sites.union(sites1)
-
-
-print()
-
-
-
-
-
-
-times = 0
-
-# ids = (0, 1)
+# from gylmodules.critical_value.critical_value import medical_record_writing_back
 #
-# if ids[0]:
-#     print('---------')
-# if ids[1]:
-#     print('=========')
-
-ids = (1, 1)
-
-if ids[0] is None or int(ids[0]):
-    print('---------')
-if ids[1]:
-    print('=========')
-
-
-
-
-
+# json_data = {
+#     "pat_no": '400657',
+#     "pat_type": 3,
+#     "record": {'time': datetime.now()},
+#     "handler_name": "handler_name",
+#     "timer": '2024-07-19 15:19:19',
+#     "method": "method",
+#     "analysis": "analysis"
+# }
 #
-# def async_alert():
-#     def alertttt():
-#         payload = {'type': 'popup', 'wiki_info': "msg"}
-#         redis_client = redis.Redis(connection_pool=pool)
-#         sites = redis_client.smembers("CV_SITES_DEPT_94143")
-#         if sites:
-#             print(threading.current_thread(),  ' 查询到 ', len(sites), ' 个 ip 地址', sites, '   ', datetime.now())
-#             # 设置 requests 的连接池
-#             retries = Retry(total=3, backoff_factor=0.3, status_forcelist=[500, 502, 503, 504, 20003])
-#             adapter = HTTPAdapter(max_retries=retries, pool_connections=15, pool_maxsize=15)
+# medical_record_writing_back(json_data)
 #
-#             for ip in sites:
-#                 url = f'http://{ip}:8085/opera_wiki'
-#                 session = None
-#                 try:
-#                     session = requests.Session()
-#                     session.mount('http://', adapter)
-#                     response = session.post(url, json={'type': 'stop'})  # 连接超时5秒，读取超时10秒
-#                     response.raise_for_status()  # 如果响应状态码不是 200-400 之间，产生异常
+# print(datetime.now())
+
+
+
+
+# import re
 #
-#                     response = session.post(url, json=payload, timeout=(3, 3))  # 连接超时5秒，读取超时10秒
-#                     response.raise_for_status()  # 如果响应状态码不是 200-400 之间，产生异常
+# # address = "河南省镇平县彭营乡彭庄村彭庄11组168号"
+# address = "卧龙区石桥镇一村"
 #
-#                     print(threading.current_thread(), " 请求成功 url = ", url)
-#                 except requests.exceptions.Timeout:
-#                     print(threading.current_thread(), " 请求超时 url = ", url)
-#                     pass
-#                 except requests.exceptions.RequestException as e:
-#                     print(threading.current_thread(), " 请求失败 url = ", url, payload, '    ', datetime.now())
-#                     pass
-#                 finally:
-#                     if session:
-#                         session.close()  # 确保连接关闭
+# # 使用正则表达式解析地址
+# pattern = re.compile(r'^(?P<province>.+?省)(?P<county>.+?县)(?P<township>.+?乡)(?P<village>.+?村)(?P<group>.+组)(?P<house_number>\d+号)$')
+# match = pattern.match(address)
 #
-#     thread_b = threading.Thread(target=alertttt)
-#     thread_b.start()
+# if match:
+#     address_components = match.groupdict()
+#     province = address_components['province']
+#     county = address_components['county']
+#     township = address_components['township']
+#     village = address_components['village']
+#     group = address_components['group']
+#     house_number = address_components['house_number']
+#
+#     print(f"省: {province}")
+#     print(f"市: 不明确（可能需要进一步解析）")
+#     print(f"县: {county}")
+#     print(f"乡/街道: {township + village}")
+#     print(f"组: {group}")
+#     print(f"号: {house_number}")
+# else:
+#     print("地址格式不匹配")
+
+
+
+# pool = redis.ConnectionPool(host=cv_config.CV_REDIS_HOST, port=cv_config.CV_REDIS_PORT,
+#                             db=2, decode_responses=True)
+# redis_client = redis.Redis(connection_pool=pool)
+#
+# redis_client.hset("APPT_ROOMS", '170', json.dumps({
+#     "id": 162,
+#     "no": "心电图检查室",
+#     "group_id": -1
+# }))
+
+
+
+# # value = ['1', '2', '2', '3']
+# value = []
+# value = list(set(value))
+#
+# print(value)
+#
+# dt = datetime.strptime('2024-07-22 12:12:12', "%Y-%m-%d %H:%M:%S")
+# review_time = dt.strftime("%Y.%m.%d %H:%M:%S")
+#
+# print()
 #
 #
-# def test_task():
-#     global times
-#     times = times + 1
-#     print(threading.current_thread(), f"test_task {times}")
-#     for i in range(10):
-#         async_alert()
+# key = '头部'
 #
-#
-# def schedule_task():
-#     test_scheduler.add_job(test_task, trigger='interval', seconds=10, max_instances=20,
-#                                 id='cv_timeout')
-#     test_scheduler.start()
-#
-#     while True:
-#         pass
-#
-#
-# schedule_task()
+# if key.__contains__('头'):
+#     print('tousssssssssssssss')
 
 
 
+def clean_string(s):
+    """去除字符串中的空格和 <> 符号"""
+    return s.replace(" ", "").replace("<", "").replace(">", "")
 
+def clean_dict(d):
+    """递归地清理字典中的所有键和值"""
+    if isinstance(d, dict):
+        return {clean_string(k): clean_dict(v) for k, v in d.items()}
+    elif isinstance(d, list):
+        return [clean_dict(i) for i in d]
+    elif isinstance(d, str):
+        return clean_string(d)
+    else:
+        return d
 
+# 示例数据
+data = {
+    " cv_id ": " 123 ",
+    "cv_source": "<source>",
+    "nested": {
+        " key <nested>": " value <nested> ",
+        "list": [
+            " item <1> ",
+            " item 2 "
+        ]
+    }
+}
 
-
-
-
-
-
-#
-# async def send_request(session, url, payload):
-#     try:
-#         async with session.post(url, json=payload, timeout=2) as response:
-#             response.raise_for_status()
-#             print(threading.current_thread(), f"通知请求成功: {url} {payload} ", datetime.now())
-#     except asyncio.TimeoutError:
-#         print(threading.current_thread(), f"请求超时: {url} {payload} ", datetime.now())
-#     except aiohttp.ClientError as e:
-#         print(threading.current_thread(), f"请求失败: {url} {payload} ", datetime.now())
-#
-#
-# async def alertttt():
-#     payload = {'type': 'popup', 'wiki_info': "msg"}
-#     redis_client = redis.Redis(connection_pool=pool)
-#     sites = redis_client.smembers("CV_SITES_DEPT_94143")
-#     if sites:
-#         print(threading.current_thread(), ' 查询到 ', len(sites), ' 个 ip 地址', sites, ' ', datetime.now())
-#         async with aiohttp.ClientSession() as session:
-#             stop_tasks = []
-#             popup_tasks = []
-#             for ip in sites:
-#                 url = f'http://{ip}:8085/opera_wiki'
-#                 stop_tasks.append(send_request(session, url, {'type': 'stop'}))
-#                 popup_tasks.append(send_request(session, url, payload))
-#             await asyncio.gather(*stop_tasks)
-#             await asyncio.sleep(0.3)  # 间隔 100 毫秒
-#             await asyncio.gather(*popup_tasks)
-#
-#
-#
-# def async_alert():
-#     loop = asyncio.new_event_loop()
-#     asyncio.set_event_loop(loop)
-#     loop.run_until_complete(alertttt())
-#     loop.close()
-#
-# def test_task():
-#     global times
-#     times += 1
-#     print(f"test_task {times} ", datetime.now())
-#     async_alert()
-#
-#
-
-#
-#
-#
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
+# 清理数据
+cleaned_data = clean_dict(data)
+print(cleaned_data)
 

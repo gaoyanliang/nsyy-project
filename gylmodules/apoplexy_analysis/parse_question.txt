@@ -1,0 +1,122 @@
+
+
+# 0. 现住址 不标准 无法解析
+
+# 1 主诉中仅需要拼接所有 utext，为了统一可以过滤 : .
+
+# 2. 现病史
+#   element 现病史描述 'sid': '72F8E281585A453483B4DA83A49836B0'
+
+# "sid": "D26416F1052F4C139A35B95F8CAE2892",
+#                 "title": "现病史",
+#                         "sid": "1AF14EE873EE4467B271F52EC8BB087A",
+#                         "title": "神态"
+#                         "sid": "DDBC6B21CC9545F48D0424E1BFE0D9D4",
+#                         "title": "饮食情况"
+#                         "sid": "DDADBD77A9B943B898657017D50A220A",
+#                         "title": "睡眠状态"
+#                         "sid": "8D43DCD660624566B531CA84600423F0",
+#                         "title": "小便"
+#                         "sid": "E5E8D383E2B14715B15FF1AC9702612D",
+#                         "title": "大便"
+#                         "sid": "98B59983E5524847BB3D70A9077B7C64",
+#                         "title": "体力描述"
+#                         "sid": "5568650738C84CC79EA953B527661301",
+#                         "title": "体重"
+#
+
+# "sid": "D26416F1052F4C139A35B95F8CAE2892",
+#  "title": "现病史",
+#      "sid": "1AF14EE873EE4467B271F52EC8BB087A",
+#      "title": "神态"
+#      "sid": "DDBC6B21CC9545F48D0424E1BFE0D9D4",
+#      "title": "饮食情况"
+#      "sid": "DDADBD77A9B943B898657017D50A220A",
+#      "title": "睡眠状态"
+#      "sid": "8D43DCD660624566B531CA84600423F0",
+#      "title": "小便"
+#      "sid": "E5E8D383E2B14715B15FF1AC9702612D",
+#      "title": "大便"
+#      "sid": "98B59983E5524847BB3D70A9077B7C64",
+#      "title": "体力描述"
+#      "sid": "5568650738C84CC79EA953B527661301",
+#      "title": "体重"
+#
+
+# "sid": "F896856321E64CA9971579902F195B8D",
+# "title": "现病史1",
+#         "sid": "1AF14EE873EE4467B271F52EC8BB087A",
+#         "title": "神态"
+#         "sid": "B811CA05C3834949B1FAF36EDABC6DF0",
+#         "title": "饮食方式"
+#         "sid": "DDADBD77A9B943B898657017D50A220A",
+#         "title": "睡眠状态"
+#         "sid": "E52EE963A19C4A9EAB5AB6817D7747E0",
+#         "title": "大便功能"
+#         "sid": "5568650738C84CC79EA953B527661301",
+#         "title": "体重"
+
+
+
+
+
+# 1A49854542FC4788ADFD8BA0273F4E9A title = 几
+# 怀孕次数 sid="1A49854542FC4788ADFD8BA0273F4E9A" iid="9AC858E6D89747989168C532250E9741"
+# 生产次数 sid="1A49854542FC4788ADFD8BA0273F4E9A" iid="75B9CA7014364E06B2846FA5C8E11B34"
+# 女孩个数 sid="1A49854542FC4788ADFD8BA0273F4E9A" iid="2886B103EB3148BEBC86464F51310A18"
+#
+
+
+
+
+# 以下病历中 现病史中包含 现病史1（还有一些 现病史三/肿瘤科现病史 其中肿瘤科现病史处了肿瘤科部分病例有，乳腺外科16-39-03也有）
+
+# /Users/gaoyanliang/nsyy/病历解析/入院记录/bingli/心身医学科/心身医学科入院记录_2024-03-02_19-59-41.xml
+# /Users/gaoyanliang/nsyy/病历解析/入院记录/bingli/心身医学科/心身医学科入院记录_2024-03-02_21-29-05.xml
+# /Users/gaoyanliang/nsyy/病历解析/入院记录/bingli/心身医学科/心身医学科再入院记录_2024-03-01_15-20-58.xml
+# /Users/gaoyanliang/nsyy/病历解析/入院记录/bingli/心身医学科/心身医学科入院记录_2024-03-01_15-19-49.xml
+# /Users/gaoyanliang/nsyy/病历解析/入院记录/bingli/心身医学科/心身医学科入院记录_2024-03-02_20-16-04.xml
+# /Users/gaoyanliang/nsyy/病历解析/入院记录/bingli/普外科/普外科二区入院记录_2024-03-01_23-26-21.xml
+# /Users/gaoyanliang/nsyy/病历解析/入院记录/bingli/普外科/普外科二区入院记录_2024-03-01_23-28-50.xml
+# /Users/gaoyanliang/nsyy/病历解析/入院记录/bingli/普外科/普外科二区入院记录_2024-03-01_21-11-03.xml
+# /Users/gaoyanliang/nsyy/病历解析/入院记录/bingli/全科医学科/全科医学科入院记录_2024-03-01_16-41-52.xml
+# /Users/gaoyanliang/nsyy/病历解析/入院记录/bingli/全科医学科/全科医学科入院记录_2024-03-02_13-23-01.xml
+# /Users/gaoyanliang/nsyy/病历解析/入院记录/bingli/全科医学科/全科医学科入院记录_2024-03-02_15-24-20.xml
+# /Users/gaoyanliang/nsyy/病历解析/入院记录/bingli/全科医学科/全科医学科入院记录_2024-03-02_23-57-12.xml
+# /Users/gaoyanliang/nsyy/病历解析/入院记录/bingli/全科医学科/全科医学科入院记录_2024-03-02_08-29-47.xml
+# /Users/gaoyanliang/nsyy/病历解析/入院记录/bingli/全科医学科/全科医学科入院记录_2024-03-01_16-46-19.xml
+# /Users/gaoyanliang/nsyy/病历解析/入院记录/bingli/全科医学科/全科医学科再入院记录_2024-03-01_18-23-12.xml
+# /Users/gaoyanliang/nsyy/病历解析/入院记录/bingli/全科医学科/全科医学科入院记录_2024-03-02_13-20-07.xml
+# /Users/gaoyanliang/nsyy/病历解析/入院记录/bingli/全科医学科/全科医学科入院记录_2024-03-02_10-44-12.xml
+# /Users/gaoyanliang/nsyy/病历解析/入院记录/bingli/全科医学科/全科医学科入院记录_2024-03-02_20-01-36.xml
+# /Users/gaoyanliang/nsyy/病历解析/入院记录/bingli/全科医学科/全科医学科入院记录_2024-03-02_13-19-21.xml
+# /Users/gaoyanliang/nsyy/病历解析/入院记录/bingli/全科医学科/全科医学科入院记录_2024-03-02_13-24-02.xml
+# /Users/gaoyanliang/nsyy/病历解析/入院记录/bingli/全科医学科/全科医学科入院记录_2024-03-02_13-21-21.xml
+
+
+# 既往史：
+
+# "sid": "C7D39B4DF4A4012AE0430A011101012A",
+#                 "title": "药品及食物过敏史"
+#  "sid": "A6D306BCE8B34508B6AEAB1BAAD3CC7B",
+#                 "title": "药物及食物过敏史"
+
+
+# 个人史
+
+#  "sid": "78C02AC1AB5B40909E8E0F74FC8A3016",
+#                 "title": "胎次"
+# "sid": "D5E4FA3365464968927E67603681D0A0",
+#                 "title": "胎次1"
+# "sid": "7E96FA70D3D94E36BE6F0D6E122EAB03",
+#                 "title": "毒品接触史"
+#  "sid": "5EBE94D18C9243C08D18FD346EBBE8DB",
+#                 "title": "毒物接触描述"
+
+# 体格检查
+
+# "sid": "B393544988EF49B1B0CA277BE3D8804C",
+#                 "title": "叩诊音"
+
+
+

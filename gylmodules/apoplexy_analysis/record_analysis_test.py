@@ -3,7 +3,7 @@ import re
 import os
 
 """
-入院记录解析
+入院记录解析 (分段解析)
 """
 
 miss_list = []
