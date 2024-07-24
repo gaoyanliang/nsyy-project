@@ -55,6 +55,8 @@ TIMEOUT_REDIS_KEY = {'nurse_recv': 'CV_NURSE_RECV_TIMEOUT',
                      'doctor_handle': 'CV_DOCTOR_HANDLE_TIMEOUT',
                      'total': 'CV_TOTAL_TIMEOUT'}
 
+CV_TEMPLATE_REDIS_KEY = 'CV_TEMPLATE'
+
 # 部门信息
 DEPT_INFO_REDIS_KEY = 'CV_DEPT_INFO_REDIS_KEY'
 

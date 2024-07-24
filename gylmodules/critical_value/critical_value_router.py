@@ -477,3 +477,40 @@ def xindian_feedback():
         'data': res
     })
 
+
+@cv.route('/update_template', methods=['POST'])
+def update_template():
+    try:
+        critical_value.update_cv_template()
+    except Exception as e:
+        timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        print(f"[{timestamp}] Exception occurred: {traceback.print_exc()}")
+        return jsonify({
+            'code': 50000,
+            'res': e.__str__(),
+            'data': []
+        })
+
+    return jsonify({
+        'code': 20000
+    })
+
+
+@cv.route('/query_template', methods=['POST'])
+def query_template():
+    try:
+        json_data = json.loads(request.get_data().decode('utf-8'))
+        res = critical_value.query_cv_template(json_data.get('key'))
+    except Exception as e:
+        timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        print(f"[{timestamp}] Exception occurred: {traceback.print_exc()}")
+        return jsonify({
+            'code': 50000,
+            'res': e.__str__(),
+            'data': []
+        })
+
+    return jsonify({
+        'code': 20000,
+        'data': res
+    })

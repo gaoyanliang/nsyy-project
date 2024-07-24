@@ -179,7 +179,6 @@ def pull_running_cv():
     states = (cv_config.INVALID_STATE, cv_config.DOCTOR_HANDLE_STATE)
     query_sql = f'select * from nsyy_gyl.cv_info where state not in {states} or cv_source = {cv_config.CV_SOURCE_MANUAL} '
     cvs = db.query_all(query_sql)
-    del db
 
     for cv in cvs:
         key = cv.get('cv_id') + '_' + str(cv.get('cv_source'))
@@ -187,6 +186,16 @@ def pull_running_cv():
         if cv.get('cv_source') == cv_config.CV_SOURCE_MANUAL and str(cv.get('patient_treat_id')) != cv_config.cv_manual_default_treat_id:
             # 手工上报的，单独存储
             redis_client.hset(cv_config.MANUAL_CVS_REDIS_KEY, cv['patient_treat_id'], json.dumps(cv, default=str))
+
+    # 加载危机值模版
+    try:
+        query_sql = f'select * from nsyy_gyl.cv_template'
+        cv_template = db.query_all(query_sql)
+        del db
+        for t in cv_template:
+            redis_client.hset(cv_config.CV_TEMPLATE_REDIS_KEY, t['id'], json.dumps(t, default=str))
+    except Exception as e:
+        print('缓存危机值模版异常')
 
     # 子线程执行： 缓存所有站点信息 & 超时时间配置
     thread_b = threading.Thread(target=cache_all_site_and_timeout)
@@ -1736,3 +1745,36 @@ def query_alert_dept_list():
     dept_list = db.query_all(query_sql)
     del db
     return dept_list
+
+
+# 更新危机值模版
+def update_cv_template():
+    redis_client = redis.Redis(connection_pool=pool)
+    db = DbUtil(global_config.DB_HOST, global_config.DB_USERNAME, global_config.DB_PASSWORD,
+                global_config.DB_DATABASE_GYL)
+    # 加载危机值模版
+    query_sql = f'select * from nsyy_gyl.cv_template'
+    cv_template = db.query_all(query_sql)
+    del db
+    for t in cv_template:
+        redis_client.hset(cv_config.CV_TEMPLATE_REDIS_KEY, t['id'], json.dumps(t, default=str))
+
+
+# 查询危机值模版
+def query_cv_template(key):
+    redis_client = redis.Redis(connection_pool=pool)
+    data = redis_client.hgetall(cv_config.CV_TEMPLATE_REDIS_KEY)
+    all_template = []
+    for _, value in data.items():
+        all_template.append(json.loads(value))
+
+    if key is not None:
+        return [item for item in all_template if key in item.get("cv_name", "")
+                or key in item.get("cv_result", "")
+                or key in item.get("cv_result_abb", "")
+                or key in item.get("cv_result_pinyin_abb", "")
+                or key in item.get("cv_source", "")]
+
+    return all_template
+
+
