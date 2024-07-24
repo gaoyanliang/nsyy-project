@@ -1,12 +1,13 @@
-import json
 import xml.etree.ElementTree as ET
 import re
 import os
 
-from gylmodules.apoplexy_analysis.xml_data_build import assembling_admission_record
+from gylmodules.apoplexy_analysis.build_cda.cda_xml_data_build import assembling_cda_record
 
 """
-入院记录解析
+====================================================================================================
+============================================ 入院记录解析 ============================================
+====================================================================================================
 """
 
 section_info = {}
@@ -276,7 +277,7 @@ def merge_data(patient_info):
 
 def clean_string(s):
     """去除字符串中的空格和 <> 符号"""
-    return s.replace(" ", "").replace("<", "").replace(">", "")
+    return s.replace(" ", "").replace("<", "&lt;").replace(">", "&gt;")
 
 def clean_dict(d):
     """递归地清理字典中的所有键和值，并忽略 None 的键和值"""
@@ -313,7 +314,7 @@ if __name__ == '__main__':
                 try:
                     merge_data(patient_info)
                     patient_info = clean_dict(patient_info)
-                    assembling_admission_record(patient_info)
+                    assembling_cda_record(patient_info, 1)
                 except Exception as e:
                     print(file, '===> assembling_admission_record 解析异常')
 
@@ -325,7 +326,7 @@ if __name__ == '__main__':
     # patient_info = clean_dict(patient_info)
     # # formatted_json = json.dumps(patient_info, indent=4, ensure_ascii=False)
     # # print(formatted_json)
-    # assembling_admission_record(patient_info)
+    # assembling_cda_record(patient_info, 1)
 
 
     # write_to_excel(patient_info)

@@ -63,15 +63,11 @@ from gylmodules.utils.db_utils import DbUtil
 
 
 
-# pool = redis.ConnectionPool(host=cv_config.CV_REDIS_HOST, port=cv_config.CV_REDIS_PORT,
-#                             db=2, decode_responses=True)
-# redis_client = redis.Redis(connection_pool=pool)
-#
-# redis_client.hset("APPT_ROOMS", '170', json.dumps({
-#     "id": 162,
-#     "no": "心电图检查室",
-#     "group_id": -1
-# }))
+pool = redis.ConnectionPool(host=cv_config.CV_REDIS_HOST, port=cv_config.CV_REDIS_PORT,
+                            db=2, decode_responses=True)
+redis_client = redis.Redis(connection_pool=pool)
+
+redis_client.hset("APPT_PROJECTS", '10', json.dumps({"id": 10, "proj_type": 1, "proj_name": "肾内科/老年医学科门诊", "location_id": None, "dept_id": None, "dept_name": None, "is_group": 0, "nsnum": 24}))
 
 
 
@@ -93,36 +89,14 @@ from gylmodules.utils.db_utils import DbUtil
 #     print('tousssssssssssssss')
 
 
-
-def clean_string(s):
-    """去除字符串中的空格和 <> 符号"""
-    return s.replace(" ", "").replace("<", "").replace(">", "")
-
-def clean_dict(d):
-    """递归地清理字典中的所有键和值"""
-    if isinstance(d, dict):
-        return {clean_string(k): clean_dict(v) for k, v in d.items()}
-    elif isinstance(d, list):
-        return [clean_dict(i) for i in d]
-    elif isinstance(d, str):
-        return clean_string(d)
-    else:
-        return d
-
-# 示例数据
-data = {
-    " cv_id ": " 123 ",
-    "cv_source": "<source>",
-    "nested": {
-        " key <nested>": " value <nested> ",
-        "list": [
-            " item <1> ",
-            " item 2 "
-        ]
-    }
-}
-
-# 清理数据
-cleaned_data = clean_dict(data)
-print(cleaned_data)
-
+# db = DbUtil(global_config.DB_HOST, global_config.DB_USERNAME, global_config.DB_PASSWORD,
+#             global_config.DB_DATABASE_GYL)
+# # 构建 SQL 语句，更新字段中的 \r 字符
+# update_sql = f"""
+# UPDATE nsyy_gyl.cv_template
+# SET cv_result_pinyin_abb = REPLACE(cv_result_pinyin_abb, '\r', '')
+# WHERE cv_result_pinyin_abb LIKE '%\r%'
+# """
+#
+# db.execute(update_sql, need_commit=True)
+# del db

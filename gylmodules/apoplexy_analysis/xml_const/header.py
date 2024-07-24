@@ -7,11 +7,11 @@ xml_header_file_info = """
 <!-- ************************ Header ************************ -->
 <realmCode code="CN" />
 <typeld root="2.16.840.1.113883.1.3" extension="POCD_MT000040" />
-<templateId root="2.16.156.10011.2.1.1.54" />
+<templateId root="{文档模版编号}" />
 
 <!-- 文档流水号 -->
 <id root="2.16.156.10011.1.1" extension="{文档标识编码}" />
-<code code="C0034" codeSystem="2.16.156.10011.2.4" codeSystemName="卫生信息共享文档编码体系" />
+<code code="{文档类型}" codeSystem="2.16.156.10011.2.4" codeSystemName="卫生信息共享文档编码体系" />
 <title>{文档标题}</title>
 
 <!--文档机器生成时间 -->
@@ -24,9 +24,9 @@ xml_header_file_info = """
 """
 
 """
-# xml Header 患者信息
+# xml Header 患者信息 （入院记录）
 """
-xml_header_record_target = """
+xml_header_record_target1 = """
 <!-- 文档记录对象（患者） -->
 <recordTarget typeCode="RCT" contextControlCode="OP">
     <patientRole classCode="PAT">
@@ -60,6 +60,29 @@ xml_header_record_target = """
                     codeSystem="2.16.156.10011.2.3.3.13"
                     codeSystemName="从业状况(个人身体)代码表(GB/T2261.4)" />
             </occupation>
+        </patient>
+    </patientRole>
+</recordTarget>
+"""
+
+
+"""
+# xml Header 患者信息 （出院记录）
+"""
+xml_header_record_target2 = """
+<!-- 文档记录对象（患者） -->
+<recordTarget typeCode="RCT" contextControlCode="OP">
+    <patientRole classCode="PAT">
+        <!-- 住院号标识 具体的编号放入 extension -->
+        <id root="2.16.156.10011.1.12" extension="{pat_no}" />
+        <patient classCode="PSN" determinerCode="INSTANCE">
+            <!-- 患者身份证号 -->
+            <id root="2.16.156.10011.1.3" extension="{pat_id_card}" />
+            <name>{pat_name}</name>
+            <administrativeGenderCode code="{pat_sex_no}" displayName="{pat_sex}"
+                codeSystem="2.16.156.10011.2.3.3.4" codeSystemName="生理性别代码表(GB/T2261.1)" />
+            <!-- 年龄 -->
+            <age unit="岁" value="{pat_age}"></age>
         </patient>
     </patientRole>
 </recordTarget>
@@ -134,9 +157,9 @@ xml_header_legal_authenticator = """
 
 
 """
-# xml Header 医师签名
+# xml Header 医师签名（入院记录）
 """
-xml_header_authenticator = """
+xml_header_authenticator1 = """
 <!-- 接诊医师签名/住院医师签名/主治医师签名 -->
 <authenticator>
     <time />
@@ -150,6 +173,26 @@ xml_header_authenticator = """
     </assignedEntity>
 </authenticator>
 """
+
+
+"""
+# xml Header 医师签名（出院记录）
+"""
+xml_header_authenticator2 = """
+<!-- 接诊医师签名/住院医师签名/主治医师签名 -->
+<authenticator>
+    <time value="{签名时间}" />
+    <signatureCode />
+    <assignedEntity>
+        <id root="2.16.156.10011.1.4" extension="{医师id}" />
+        <code displayName="{显示医师名字}" />
+        <assignedPerson classCode="PSN" determinerCode="INSTANCE">
+            <name>{医师名字}</name>
+        </assignedPerson>
+    </assignedEntity>
+</authenticator>
+"""
+
 
 """
 # xml Header 关联文档信息
@@ -223,3 +266,25 @@ xml_header_encompassing_encounter = """
     </encompassingEncounter>
 </componentOf>
 """
+
+"""
+# xml Header 病床号、病房、病区、科室和医院的关联
+"""
+xml_header_encompassing_encounter2 = """
+<!-- 病床号、病房、病区、科室和医院的关联 -->
+<componentOf>
+    <encompassingEncounter>
+        <effectiveTime>
+            <!-- 入院日期时间  -->
+            <low value="{入院日期}"/>
+            <!-- 出院日期时间-->
+            <high value="{出院日期}"/>
+        </effectiveTime>
+    </encompassingEncounter>
+</componentOf>
+"""
+
+
+
+
+

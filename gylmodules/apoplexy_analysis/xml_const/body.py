@@ -5,11 +5,37 @@ body_section_code = """
             codeSystem="2.16.840.1.113883.6.1" codeSystemName="LOINC" />
 """
 
+body_observation_code1 = """
+<code code="{obs_code}" codeSystem="2.16.156.10011.2.2.1"
+                    codeSystemName="卫生信息数据元目录" displayName="{obs_display_name}" />
+"""
+
+body_observation_code2 = """
+<code code="{obs_code}" codeSystem="2.16.156.10011.2.2.1" codesystemName=" 卫生信息数据元目录" displayName="{obs_display_name}">
+    <qualifier>
+        <name displayName="{obs_name}">
+        </name>
+    </qualifier>
+</code>
+"""
+
+
 body_section_entry = """
 <entry>
     <observation classCode="OBS" moodCode="EVN">
         <code code="{entry_code}" codeSystem="2.16.156.10011.2.2.1"
             codeSystemName="卫生信息数据元目录" displayName="{entry_name}" />
+        {entry_body}
+    </observation>
+</entry>
+"""
+
+body_section_entry2 = """
+<entry>
+    <observation classCode="OBS" moodCode="EVN">
+        <code code="{entry_code}" codeSystem="2.16.156.10011.2.2.1"
+            codeSystemName="卫生信息数据元目录" displayName="{entry_name}" />
+        <effectiveTime value="{time}"/>
         {entry_body}
     </observation>
 </entry>
@@ -23,8 +49,7 @@ body_section_entry_relation_ship = """
         <!-- {entry_ship_name} -->
         <entryRelationship typeCode="COMP">
             <observation ulassCode="OBS" moodCode="EVN">
-                <code code="{entry_ship_code}" codeSystem="2.16.156.10011.2.2.1"
-                    codeSystemName="卫生信息数据元目录" displayName="{entry_ship_name}" />
+                {obs_code}
                 {entry_ship_body}
             </observation>
         </entryRelationship>
@@ -43,6 +68,16 @@ value_bl = """
 value_pq = """
 <value xsi:type="PQ" value="{value}" unit="{unit}" />
 """
+
+value_ts = """
+<value xsi:type="TS" value="{value}" />
+"""
+
+value_cd = """
+<value xsi:type="CD" code="{code}" codeSystem="2.16.156.10011.2.3.3.11.3" codeSystemName="ICD-10 诊断编码表"
+                                           displayName="{display_name}"/>
+"""
+
 
 # 主诉 / 现病史 / 预防接种史 / 输血史 / 个人史 / 月经史 / 家族史
 
@@ -264,7 +299,7 @@ body_health_entry_western = """
 </entry>
 """
 
-
+# 主要健康问题
 body_main_health_problem = """
 <!-- ************************ 主要健康问题章节 ************************ -->
 
@@ -303,5 +338,93 @@ body_main_health_problem = """
         
     </section>
 </component>
-
 """
+
+# 主要健康问题
+body_main_health_problem2 = """
+<!-- ************************ 主要健康问题章节 ************************ -->
+
+<!-- 陈述可靠性/症状名称/中医四诊 -->
+<component>
+    <section>
+        {code}
+        {text}
+
+        <!-- 陈述内容可靠标志 -->
+        {陈述内容可靠标志}
+
+        <!-- 症状名称 -->
+        {症状名称}
+
+        <!-- 中医"四诊"观察结果 -->
+        {中医四诊}
+        
+    </section>
+</component>
+"""
+
+# ================================= 出院记录 ============================
+
+body_discharge_entry = """
+<!-- {entry_observation_name}章节 -->
+<component>
+    <section>
+        {code}
+        {text}
+        <!-- {entry_observation_name}条目 -->
+        {entry1}
+        {entry2}
+        {entry3}
+        {entry4}
+        {entry5}
+        {entry6}
+        {entry7}
+    </section>
+</component>
+"""
+
+body_discharge_entry2 = """
+<!-- {entry_observation_name}章节 -->
+<component>
+    <section>
+        {code}
+        {text}
+        <!-- {entry_observation_name}条目 -->
+        {entry1}
+        <!--入/出院诊断-中医条目-->
+        <entry>
+            <observation classCode="OBS" moodCode="EVN">
+                <code code="DE05.10.172.00" codeSystem="2.16.156.10011.2.2.1" codeSystemName="卫生信息数据元目录" displayName="入/出院诊断-中医病名名称"/>
+                <value xsi:type="ST">{中医诊断}</value>
+                <entryRelationship typeCode=" COMP">
+                    <observation classCode="OBS" moodCode="EVN">
+                        <!--入/出院诊断-中医诊断编码-代码-->
+                        <code code="DE05.10.130.00" codeSystem="2.16.156.10011.2.2.1" codeSystemName="卫生信息数据元目录"
+                              displayName="入/出院诊断-中医病名代码"/>
+                        <value xsi:type="CD" code="{中医诊断编码}" displayName="{中医诊断}" codeSystem="2.16.156.10011.2.3.3.14"
+                               codeSystemName="中医病证分类与代码表(GB/T 15657)"/>
+                    </observation>
+                </entryRelationship>
+                <entryRelationship typeCode="COMP">
+                    <observation classCode="OBS" moodCode="EVN">
+                        <!--入/出院诊断-中医证候编码-名称-->
+                        <code code="DE05.10.172.00" codeSystem="2.16.156.10011.2.2.1" codeSystemName="卫生信息数据元目录"
+                              displayName="入/出院诊断-中医证候名称"/>
+                        <value xsi:type="ST">{中医证候}</value>
+                    </observation>
+                </entryRelationship>
+                <entryRelationship typeCode=" COMP">
+                    <observation classCode="OBS" moodCode="EVN">
+                        <!--入/出院诊断-中医证候编码-代码-->
+                        <code code="DE05.10.130.00" codeSystem="2.16.156.10011.2.2.1" codeSystemName="卫生信息数据元目录"
+                              displayName="入/出院诊断-中医证候代码"/>
+                        <value xsi:type="CD" code="{中医证候编码}" displayName="{中医证候}" codesystem="2.16.156.10011.2.3.3.14"
+                               codesystemName="中医病证分类与代码表（GB/T 15657）"/>
+                    </observation>
+                </entryRelationship>
+            </observation>
+        </entry>
+    </section>
+</component>
+"""
+

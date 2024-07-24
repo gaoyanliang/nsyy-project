@@ -1773,7 +1773,7 @@ def query_cv_template(key):
                 or key in item.get("cv_result", "")
                 or key in item.get("cv_result_abb", "")
                 or key in item.get("cv_result_pinyin_abb", "")
-                or key in item.get("cv_source", "")]
+                or key in str(item.get("cv_source", ""))]
 
     return all_template
 
