@@ -2,7 +2,7 @@ import xml.etree.ElementTree as ET
 import re
 import os
 
-from gylmodules.apoplexy_analysis.build_cda.cda_xml_data_build import assembling_cda_record
+from gylmodules.medical_record_analysis.build_cda.cda_xml_data_build import assembling_cda_record
 
 """
 ====================================================================================================

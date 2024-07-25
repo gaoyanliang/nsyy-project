@@ -1,5 +1,5 @@
-from gylmodules.apoplexy_analysis.xml_const import header as xml_header
-from gylmodules.apoplexy_analysis.xml_const import body as xml_body
+from gylmodules.medical_record_analysis.xml_const import header as xml_header
+from gylmodules.medical_record_analysis.xml_const import body as xml_body
 from datetime import datetime
 
 """
@@ -232,6 +232,6 @@ def assembling_body(admission_record: str, data: dict):
                  .replace('{entry_body}', xml_body.value_st.replace('{value}', data.get('出院情况', '/')))) \
         .replace('{entry7}', xml_body.body_section_entry
                  .replace('{entry_code}', 'DE06.00.287.00')
-                 .replace('{entry_name}', '诊疗过程描述')
+                 .replace('{entry_name}', '出院医嘱')
                  .replace('{entry_body}', xml_body.value_st.replace('{value}', yizhu_info)))
     return admission_record

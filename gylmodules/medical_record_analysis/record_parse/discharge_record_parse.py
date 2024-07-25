@@ -2,8 +2,8 @@ import xml.etree.ElementTree as ET
 import json
 import os
 
-from gylmodules.apoplexy_analysis.record_parse.admission_record_parse import parse_hpi, clean_dict
-from gylmodules.apoplexy_analysis.build_cda.cda_xml_data_build import assembling_cda_record
+from gylmodules.medical_record_analysis.record_parse.admission_record_parse import parse_hpi, clean_dict
+from gylmodules.medical_record_analysis.build_cda.cda_xml_data_build import assembling_cda_record
 
 """
 ====================================================================================================

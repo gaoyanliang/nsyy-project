@@ -1,5 +1,5 @@
-from gylmodules.apoplexy_analysis.xml_const import header as xml_header
-from gylmodules.apoplexy_analysis.xml_const import body as xml_body
+from gylmodules.medical_record_analysis.xml_const import header as xml_header
+from gylmodules.medical_record_analysis.xml_const import body as xml_body
 from datetime import datetime
 
 """

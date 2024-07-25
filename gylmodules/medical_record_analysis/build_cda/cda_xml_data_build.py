@@ -5,8 +5,8 @@ from xml.dom.minidom import parseString
 import requests
 
 from gylmodules import global_config
-from gylmodules.apoplexy_analysis.build_cda import admission_cda, discharge_cda, hours24_discharge_cda
-from gylmodules.apoplexy_analysis.xml_const import const as xml_const
+from gylmodules.medical_record_analysis.build_cda import admission_cda, discharge_cda, hours24_discharge_cda
+from gylmodules.medical_record_analysis.xml_const import const as xml_const
 
 
 """
