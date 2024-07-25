@@ -1329,10 +1329,10 @@ def query_wait_list(json_data):
                     f"where rid = {int(wait_id)} and worktime = {worktime} and ampm = {period} and state = 1"
         daily_sched = db.query_all(query_sql)
         for item in daily_sched:
-            if not item.get('did'):
-                continue
             if redis_client.hexists(APPT_PROJECTS_KEY, str(item.get('pid'))):
                 proj = json.loads(redis_client.hget(APPT_PROJECTS_KEY, str(item.get('pid'))))
+            if not item.get('did'):
+                continue
             if redis_client.hexists(APPT_DOCTORS_KEY, str(item.get('did'))):
                 doctor = json.loads(redis_client.hget(APPT_DOCTORS_KEY, str(item.get('did'))))
                 if not doctor.get('photo'):
