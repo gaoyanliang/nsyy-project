@@ -11,9 +11,6 @@ from gylmodules.medical_record_analysis.build_cda.cda_xml_data_build import asse
 ====================================================================================================
 """
 
-section_info = {}
-
-sign_set = set()
 
 def parse_patient_document(xml_file):
     tree = ET.parse(xml_file)

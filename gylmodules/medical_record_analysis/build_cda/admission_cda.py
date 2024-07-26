@@ -158,17 +158,19 @@ def assembling_body(admission_record: str, data: dict):
                  .replace('{code}', xml_body.body_section_code
                           .replace('{section_code}', 'DE05.10.031.00')
                           .replace('{section_name}', '—般健康状况标志'))
+                 .replace('{entry_ship_name}', '疾病史(含外伤)')
                  .replace('{value}', xml_body.value_bl.replace('{value}', 'false'))
                  .replace('{obs_code}', xml_body.body_observation_code1.replace('{obs_code}', 'DE02.10.026.00')
-                          .replace('obs_display_name', '疾病史含外伤'))
+                          .replace('{obs_display_name}', '疾病史含外伤'))
                  .replace('{entry_ship_body}', xml_body.value_st.replace('{value}', his_illness))) \
         .replace('{history_of_infectious_diseases}', xml_body.body_section_entry_relation_ship
                  .replace('{code}', xml_body.body_section_code
                           .replace('{section_code}', 'DE05.10.119.00')
                           .replace('{section_name}', '患者传染性标志'))
+                 .replace('{entry_ship_name}', '传染病史')
                  .replace('{value}', xml_body.value_bl.replace('{value}', 'true'))
                  .replace('{obs_code}', xml_body.body_observation_code1.replace('{obs_code}', 'DE02.10.008.00')
-                          .replace('obs_display_name', '传染病史'))
+                          .replace('{obs_display_name}', '传染病史'))
                  .replace('{entry_ship_body}', xml_body.value_st.replace('{value}', past_illness.get('传染病史', '/') if past_illness and type(past_illness) == dict else '/'))) \
         .replace('{marriage_and_childbearing_history}', xml_body.body_section_entry
                  .replace('{entry_code}', 'DEO2.10.098.00')

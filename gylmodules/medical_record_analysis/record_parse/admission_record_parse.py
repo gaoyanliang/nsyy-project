@@ -14,6 +14,46 @@ section_info = {}
 
 sign_set = set()
 
+
+def parse_patient_document_by_str(xml_str):
+    root = ET.fromstring(xml_str)
+    # root = tree.getroot()
+    patient_info = {}
+
+    # 提取姓名，性别，年龄等基本信息
+    patient_info['姓名'] = root.find(".//element[@title='姓名']").text
+    patient_info['pat_no'] = root.find(".//element[@sid='6A67D9D88F06411096CFD9690C452186']").text
+    patient_info['pat_bed'] = root.find(".//element[@sid='CEB7B32AE5C745BA8A800A93E9BBE5A5']").text
+    patient_info['pat_dept'] = root.find(".//element[@sid='E0AACD7387FC43C2BF15B375250DAD3F']").text
+    patient_info['入院时间'] = root.find(".//element[@title='入院日期']").text
+    # 病史叙述者 有可能为空
+    if root.find(".//e_enum[@title='病史陈述者']") is not None and root.find(".//e_enum[@title='病史陈述者']").find('enumvalues/element') is not None:
+        patient_info['病史叙述者'] = root.find(".//e_enum[@title='病史陈述者']").find('enumvalues/element').text
+    else:
+        patient_info['病史叙述者'] = ''
+
+    header = root.find('./document')
+
+    # 特殊处理
+    for utext in header.iter('utext'):
+        if utext.text is None:
+            continue
+        text = utext.text.replace(' ', '').replace(':', '').replace('：', '')
+        if text == '与患者关系':
+            utest_no = int(utext.get('no'))
+            value_no = str(utest_no + 1)
+            patient_info['与患者关系'] = root.find(".//utext[@no=" + "\'" + value_no + "\'" "]").text.strip(": ")
+        if text == '职业' and '职业' not in patient_info:
+            utest_no = int(utext.get('no'))
+            value_no = str(utest_no + 1)
+            patient_info['职业'] = root.find(".//utext[@no=" + "\'" + value_no + "\'" "]").text.strip(": ")
+
+    for section in header.iter('section'):
+        parse_hpi(section, patient_info,  patient_info['姓名'] + '入院记录')
+
+    return patient_info
+
+
 def parse_patient_document(xml_file):
     tree = ET.parse(xml_file)
     root = tree.getroot()
@@ -147,7 +187,8 @@ def parse_hpi(section, info_dict, file):
                 # 暂时不处理，没意义
                 continue
             else:
-                print('===> 未处理 ', title, tag)
+                if not (file.__contains__('病程记录') and tag == 'section'):
+                    print('===> 未处理 ', title, tag)
 
         if len(value_dict) < 2:
             info_dict[title] = value.strip()
@@ -300,33 +341,45 @@ def clean_dict(d):
         return d
 
 
+def parse_admission_record(data):
+    patient_info = parse_patient_document_by_str(data)
+    # 将 Python 对象转换为格式化的 JSON 字符串
+    # formatted_json = json.dumps(patient_info, indent=4, ensure_ascii=False)
+    # print(formatted_json)
+    merge_data(patient_info)
+    patient_info = clean_dict(patient_info)
+    cda_data = assembling_cda_record(patient_info, 1)
+    return cda_data
+
+
+
 # Press the green button in the gutter to run the script.
 if __name__ == '__main__':
-    # 遍历所有目录中xml 文件完成解析，并生成入院记录 cda 文档
-    directory = '/Users/gaoyanliang/nsyy/病历解析/入院记录/bingli'
-    for root, dirs, files in os.walk(directory):
-        for file in files:
-            if file.endswith(".xml"):
-                patient_info = parse_patient_document(os.path.join(root, file))
-                # 将 Python 对象转换为格式化的 JSON 字符串
-                # formatted_json = json.dumps(patient_info, indent=4, ensure_ascii=False)
-                # print(formatted_json)
-                try:
-                    merge_data(patient_info)
-                    patient_info = clean_dict(patient_info)
-                    assembling_cda_record(patient_info, 1)
-                except Exception as e:
-                    print(file, '===> assembling_admission_record 解析异常')
+    # # 遍历所有目录中xml 文件完成解析，并生成入院记录 cda 文档
+    # directory = '/Users/gaoyanliang/nsyy/病历解析/入院记录/bingli'
+    # for root, dirs, files in os.walk(directory):
+    #     for file in files:
+    #         if file.endswith(".xml"):
+    #             patient_info = parse_patient_document(os.path.join(root, file))
+    #             # 将 Python 对象转换为格式化的 JSON 字符串
+    #             # formatted_json = json.dumps(patient_info, indent=4, ensure_ascii=False)
+    #             # print(formatted_json)
+    #             try:
+    #                 merge_data(patient_info)
+    #                 patient_info = clean_dict(patient_info)
+    #                 assembling_cda_record(patient_info, 1)
+    #             except Exception as e:
+    #                 print(file, '===> assembling_admission_record 解析异常')
 
     # for s in sign_set:
     #     print(s)
 
-    # patient_info = parse_patient_document('/Users/gaoyanliang/nsyy/病历解析/入院记录/bingli/心内科/心内科三病区入院记录_2024-03-02_11-28-44.xml')
-    # merge_data(patient_info)
-    # patient_info = clean_dict(patient_info)
-    # # formatted_json = json.dumps(patient_info, indent=4, ensure_ascii=False)
-    # # print(formatted_json)
-    # assembling_cda_record(patient_info, 1)
+    patient_info = parse_patient_document('/Users/gaoyanliang/nsyy/病历解析/入院记录/bingli/心内科/心内科三病区入院记录_2024-03-02_11-28-44.xml')
+    merge_data(patient_info)
+    patient_info = clean_dict(patient_info)
+    # formatted_json = json.dumps(patient_info, indent=4, ensure_ascii=False)
+    # print(formatted_json)
+    assembling_cda_record(patient_info, 1)
 
 
     # write_to_excel(patient_info)
