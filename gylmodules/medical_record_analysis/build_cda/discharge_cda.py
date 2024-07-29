@@ -116,7 +116,8 @@ def assembling_body(admission_record: str, data: dict):
                  .replace('{entry_code}', 'DE05.01.024.00')
                  .replace('{entry_name}', '入院诊断编码')
                  .replace('{entry_body}',
-                          xml_body.value_cd.replace('{code}', '/').replace('{display_name}', data.get('入院诊断', '/')))) \
+                          xml_body.value_cd.replace('{code}', '/').replace('{display_name}',
+                                                                           data.get('入院诊断', '/')))) \
         .replace('{entry2}', xml_body.body_section_entry
                  .replace('{entry_code}', 'DE06.00.092.00')
                  .replace('{entry_name}', '入院日期时间')
@@ -124,14 +125,19 @@ def assembling_body(admission_record: str, data: dict):
         .replace('{entry3}', xml_body.body_section_entry
                  .replace('{entry_code}', 'DE04.50.128.00')
                  .replace('{entry_name}', '阳性辅助检査结果')
-                 .replace('{entry_body}', xml_body.value_cd.replace('{code}', '/').replace('{display_name}', data.get('阳性辅助检査', '/')))) \
+                 .replace('{entry_body}', xml_body.value_cd.replace('{code}', '/').replace('{display_name}',
+                                                                                           data.get('阳性辅助检査',
+                                                                                                    '/')))) \
         .replace('{entry4}', xml_body.body_section_entry
                  .replace('{entry_code}', 'DE06.00.300.00')
                  .replace('{entry_name}', '治则治法')
-                 .replace('{entry_body}', xml_body.value_cd.replace('{code}', '/').replace('{display_name}', data.get('治则治法', '/')))) \
+                 .replace('{entry_body}', xml_body.value_cd.replace('{code}', '/').replace('{display_name}',
+                                                                                           data.get('治则治法', '/')))) \
         .replace('{entry5}', '') \
         .replace('{entry6}', '') \
-        .replace('{entry7}', '')
+        .replace('{entry7}', '') \
+        .replace('{entry8}', '') \
+        .replace('{entry9}', '')
 
     # 住院过程
     admission_record = admission_record + xml_body.body_component \
@@ -164,7 +170,9 @@ def assembling_body(admission_record: str, data: dict):
         .replace('{entry4}', '') \
         .replace('{entry5}', '') \
         .replace('{entry6}', '') \
-        .replace('{entry7}', '')
+        .replace('{entry7}', '') \
+        .replace('{entry8}', '') \
+        .replace('{entry9}', '')
 
     if data.get('出院情况') and type(data.get('出院情况')) == dict:
         chu_info = data.get('出院情况').get('value')
@@ -190,7 +198,7 @@ def assembling_body(admission_record: str, data: dict):
         .replace('{entry1}', xml_body.body_section_entry
                  .replace('{entry_code}', 'DE06.00.193.00')
                  .replace('{entry_name}', '出院情况')
-                 .replace('{entry_body}', xml_body.value_st.replace('{value}',chu_info))) \
+                 .replace('{entry_body}', xml_body.value_st.replace('{value}', chu_info))) \
         .replace('{entry2}', xml_body.body_section_entry
                  .replace('{entry_code}', 'DE06.00.017.00')
                  .replace('{entry_name}', '出院日期时间')
@@ -233,5 +241,7 @@ def assembling_body(admission_record: str, data: dict):
         .replace('{entry7}', xml_body.body_section_entry
                  .replace('{entry_code}', 'DE06.00.287.00')
                  .replace('{entry_name}', '出院医嘱')
-                 .replace('{entry_body}', xml_body.value_st.replace('{value}', yizhu_info)))
+                 .replace('{entry_body}', xml_body.value_st.replace('{value}', yizhu_info))) \
+        .replace('{entry8}', '') \
+        .replace('{entry9}', '')
     return admission_record

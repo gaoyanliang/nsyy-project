@@ -56,8 +56,9 @@ def assembling_header(admission_record: str, data: dict):
 
     # 最终审核者签名
     admission_record = admission_record + xml_header.xml_header_legal_authenticator \
-        .replace('{主任医师id}', '/') \
-        .replace('{主任医师}', data.get('主任医师', '/'))
+        .replace('{医师id}', '/') \
+        .replace('{展示医师}', '主任医师') \
+        .replace('{医师}', data.get('主任医师', '/'))
 
     if '住院医师' in data:
         doc_name = data.get('住院医师')
@@ -171,11 +172,15 @@ def assembling_body(admission_record: str, data: dict):
                  .replace('{value}', xml_body.value_bl.replace('{value}', 'true'))
                  .replace('{obs_code}', xml_body.body_observation_code1.replace('{obs_code}', 'DE02.10.008.00')
                           .replace('{obs_display_name}', '传染病史'))
-                 .replace('{entry_ship_body}', xml_body.value_st.replace('{value}', past_illness.get('传染病史', '/') if past_illness and type(past_illness) == dict else '/'))) \
+                 .replace('{entry_ship_body}', xml_body.value_st.replace('{value}', past_illness.get('传染病史',
+                                                                                                     '/') if past_illness and type(
+        past_illness) == dict else '/'))) \
         .replace('{marriage_and_childbearing_history}', xml_body.body_section_entry
                  .replace('{entry_code}', 'DEO2.10.098.00')
                  .replace('{entry_name}', '婚育史')
-                 .replace('{entry_body}', xml_body.value_st.replace('{value}', past_illness.get('婚育史', '/') if past_illness and type(past_illness) == dict else '/'))) \
+                 .replace('{entry_body}', xml_body.value_st.replace('{value}', past_illness.get('婚育史',
+                                                                                                '/') if past_illness and type(
+        past_illness) == dict else '/'))) \
         .replace('{allergy_history}', xml_body.body_section_entry
                  .replace('{entry_code}', 'DEO2.10.022.00')
                  .replace('{entry_name}', '过敏史')
@@ -183,7 +188,9 @@ def assembling_body(admission_record: str, data: dict):
         .replace('{surgical_history}', xml_body.body_section_entry
                  .replace('{entry_code}', 'DEO2.10.022.00')
                  .replace('{entry_name}', '手术史')
-                 .replace('{entry_body}', xml_body.value_st.replace('{value}', past_illness.get('手术史', '/') if past_illness and type(past_illness) == dict else '/')))
+                 .replace('{entry_body}', xml_body.value_st.replace('{value}', past_illness.get('手术史',
+                                                                                                '/') if past_illness and type(
+        past_illness) == dict else '/')))
 
     # 预防接种史
     admission_record = admission_record + xml_body.body_component \
@@ -195,7 +202,9 @@ def assembling_body(admission_record: str, data: dict):
         .replace('{entry}', xml_body.body_section_entry
                  .replace('{entry_code}', 'DEO2.10.101.00')
                  .replace('{entry_name}', '预防接种史')
-                 .replace('{entry_body}', xml_body.value_st.replace('{value}', past_illness.get('预防接种史', '/') if past_illness and type(past_illness) == dict else '/')))
+                 .replace('{entry_body}', xml_body.value_st.replace('{value}', past_illness.get('预防接种史',
+                                                                                                '/') if past_illness and type(
+        past_illness) == dict else '/')))
 
     # 输血史
     admission_record = admission_record + xml_body.body_component \
@@ -207,7 +216,9 @@ def assembling_body(admission_record: str, data: dict):
         .replace('{entry}', xml_body.body_section_entry
                  .replace('{entry_code}', 'DEO2.10.100.00')
                  .replace('{entry_name}', '输血史')
-                 .replace('{entry_body}', xml_body.value_st.replace('{value}', past_illness.get('输血史', '/') if past_illness and type(past_illness) == dict else '/')))
+                 .replace('{entry_body}', xml_body.value_st.replace('{value}', past_illness.get('输血史',
+                                                                                                '/') if past_illness and type(
+        past_illness) == dict else '/')))
 
     social_his = data.get('个人史')
     if social_his is None:
@@ -367,7 +378,11 @@ def assembling_body(admission_record: str, data: dict):
             .replace('{专科情况}', xml_body.body_section_entry
                      .replace('{entry_code}', 'DEO8.10.061.00')
                      .replace('{entry_name}', '专科情况')
-                     .replace('{entry_body}', xml_body.value_st.replace('{value}', data.get('专科情况').get('value') if data.get('专科情况') and type(data.get('专科情况')) == dict else data.get('专科情况', '/'))))
+                     .replace('{entry_body}', xml_body.value_st.replace('{value}',
+                                                                        data.get('专科情况').get('value') if data.get(
+                                                                            '专科情况') and type(
+                                                                            data.get('专科情况')) == dict else data.get(
+                                                                            '专科情况', '/'))))
 
     # 辅助检査章节
     admission_record = admission_record + xml_body.body_component \

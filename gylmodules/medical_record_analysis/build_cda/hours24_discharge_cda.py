@@ -56,8 +56,9 @@ def assembling_header(admission_record: str, data: dict):
 
     # 最终审核者签名
     admission_record = admission_record + xml_header.xml_header_legal_authenticator \
-        .replace('{主任医师id}', '/') \
-        .replace('{主任医师}', data.get('主任医师', '/'))
+        .replace('{医师id}', '/') \
+        .replace('{展示医师}', '主任医师') \
+        .replace('{医师}', data.get('主任医师', '/'))
 
     if '住院医师' in data:
         doc_name = data.get('住院医师')
@@ -202,7 +203,9 @@ def assembling_body(admission_record: str, data: dict):
         .replace('{entry4}', '') \
         .replace('{entry5}', '') \
         .replace('{entry6}', '') \
-        .replace('{entry7}', '')
+        .replace('{entry7}', '') \
+        .replace('{entry8}', '') \
+        .replace('{entry9}', '')
 
     # 出院诊断
     admission_record = admission_record + xml_body.body_discharge_entry2 \

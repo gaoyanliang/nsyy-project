@@ -6,7 +6,7 @@ import requests
 
 from gylmodules import global_config
 from gylmodules.medical_record_analysis.build_cda import admission_cda, discharge_cda, hours24_discharge_cda, \
-    progress_note_cda
+    progress_note_cda, inpatient_homepage_cda
 from gylmodules.medical_record_analysis.xml_const import const as xml_const
 
 
@@ -54,7 +54,7 @@ def query_pat_info_by_pat_no(data):
     elif '住院号' in data:
         pat_no = data.get('住院号')
     else:
-        return
+        return data
 
     data['pat_no'] = pat_no
     param = {
@@ -95,6 +95,8 @@ def assembling_cda_record(data, type):
         data['file_title'] = '24小时入出院记录'
     elif type == 4:
         data['file_title'] = '首次病程记录'
+    elif type == 5:
+        data['file_title'] = '住院病案首页'
 
     data['file_no'] = 'nsyy001'
     data['hospital_no'] = '0000'
@@ -123,6 +125,10 @@ def assembling_cda_record(data, type):
         admission_record = progress_note_cda.assembling_header(admission_record, data)
         admission_record = admission_record + xml_const.xml_body_start
         admission_record = progress_note_cda.assembling_body(admission_record, data)
+    elif type == 5:
+        admission_record = inpatient_homepage_cda.assembling_header(admission_record, data)
+        admission_record = admission_record + xml_const.xml_body_start
+        admission_record = inpatient_homepage_cda.assembling_body(admission_record, data)
     else:
         print("不支持 type", type)
 
@@ -141,42 +147,6 @@ def assembling_cda_record(data, type):
     return pretty_xml
 
 
-# 组装出院记录
-def assembling_discharge_record(data):
-    data = query_pat_info_by_pat_no(data)
-    data['file_title'] = '出院记录'
-    data['file_no'] = 'nsyy001'
-    data['hospital_no'] = '0000'
-    data['hospital_name'] = '南阳南石医院'
-    # xml 声明
-    admission_record = xml_const.xml_statement
-    # xml 开始
-    admission_record = admission_record + xml_const.xml_start
-
-    # 组装 header
-    admission_record = discharge_cda.assembling_header(admission_record, data)
-
-    # xml body 开始
-    admission_record = admission_record + xml_const.xml_body_start
-    # 组装 body
-    admission_record = discharge_cda.assembling_body(admission_record, data)
-    # xml body 结束
-    admission_record = admission_record + xml_const.xml_body_end
-
-    # xml 结束
-    admission_record = admission_record + xml_const.xml_end
-
-    # print(admission_record)
-
-    # 格式化 xml
-    pretty_xml = prettify_xml(admission_record)
-    print(pretty_xml)
-
-    return pretty_xml
-
-
-
-
 # ========================== 以下内容测试使用 ==========================
 
 def load_sid():
@@ -189,5 +159,3 @@ def load_sid():
     print(data)
 
 
-if __name__ == '__main__':
-    assembling_admission_record({})

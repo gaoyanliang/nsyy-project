@@ -3,13 +3,48 @@ import json
 import os
 
 from gylmodules.medical_record_analysis.record_parse.admission_record_parse import parse_hpi, clean_dict
-from gylmodules.medical_record_analysis.build_cda.cda_xml_data_build import assembling_cda_record
+from gylmodules.medical_record_analysis.build_cda.build_cda import assembling_cda_record
 
 """
 ====================================================================================================
 ============================================ 出院记录解析 ============================================
 ====================================================================================================
 """
+
+
+def parse_patient_document_by_str(xml_str):
+    root = ET.fromstring(xml_str)
+    patient_info = {}
+
+    document = root.find('subdocuments').find('header').find('document')
+    if document is not None:
+        for element in document.iter('element'):
+            key = element.get('title').replace(' ', '') if element.get('title') is not None else ''
+            value = element.text
+            if key is not None and value is not None:
+                if element.get('sid') is not None and element.get('sid') == '6A67D9D88F06411096CFD9690C452186':
+                    patient_info['pat_no'] = value
+                elif element.get('sid') is not None and element.get('sid') == 'CEB7B32AE5C745BA8A800A93E9BBE5A5':
+                    patient_info['pat_bed'] = value
+                else:
+                    patient_info[key] = value
+
+
+    document = root.find('./document')
+    for element in document.iter('element'):
+        key = element.get('title').replace(' ', '') if element.get('title') is not None else ''
+        value = element.get('value') if element.get('value') else element.text
+        if key is not None and value is not None:
+            patient_info[key] = value
+
+    # 性别特殊处理
+    if not patient_info.get('pat_sex'):
+        patient_info['pat_sex'] = document.find(".//element[@sid='B8DEF0D495FA45BFBCDC7CD2045EDBCD']").get('title') if document.find(".//element[@sid='B8DEF0D495FA45BFBCDC7CD2045EDBCD']") is not None else ''
+
+    for section in document.iter('section'):
+        parse_hpi(section, patient_info,  patient_info['姓名'] + '出院记录')
+
+    return patient_info
 
 
 def parse_patient_document(xml_file):
@@ -46,6 +81,16 @@ def parse_patient_document(xml_file):
         parse_hpi(section, patient_info, xml_file)
 
     return patient_info
+
+
+def parse_discharge_record(data):
+    patient_info = parse_patient_document_by_str(data)
+    # 将 Python 对象转换为格式化的 JSON 字符串
+    # formatted_json = json.dumps(patient_info, indent=4, ensure_ascii=False)
+    # print(formatted_json)
+    patient_info = clean_dict(patient_info)
+    cda_data = assembling_cda_record(patient_info, 2)
+    return cda_data
 
 
 # Press the green button in the gutter to run the script.
