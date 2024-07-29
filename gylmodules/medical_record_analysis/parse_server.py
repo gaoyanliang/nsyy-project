@@ -1,5 +1,4 @@
 import json
-import time
 
 import requests
 
@@ -39,7 +38,7 @@ def query_record_and_parse(json_data):
     if not pat_no or not pat_page or not file_name:
         raise Exception('缺少必要参数', json_data)
 
-    if file_name.__contains__('入院记录') and data is not None:
+    if file_name.__contains__('住院病案首页') and data is not None:
         try:
             cda = parse_homepage_record(data)
         except Exception as e:

@@ -20,7 +20,7 @@ def call_third_systems_obtain_data(type: str, param: dict):
     if global_config.run_in_local:
         try:
             # 发送 POST 请求，将字符串数据传递给 data 参数
-            response = requests.post("http://192.168.3.12:6080/int_api", json=param)
+            response = requests.post("http://192.168.124.53:6080/int_api", json=param)
             data = response.text
             data = json.loads(data)
             data = data.get('data')
@@ -76,7 +76,10 @@ def query_pat_info_by_pat_no(data):
         data['pat_sex'] = pat_info[0].get('性别', '/')
         data['pat_dept_no'] = str(pat_info[0].get('当前科室ID', '/'))
         data['pat_ward_no'] = str(pat_info[0].get('当前病区ID', '/'))
-        data['pat_time'] = pat_info[0].get('入院时间')
+        if type(pat_info[0].get('入院时间')) == str:
+            data['pat_time'] = pat_info[0].get('入院时间')
+        else:
+            data['pat_time'] = pat_info[0].get('入院时间').strftime('%Y-%m-%d %H:%M:%S')
     else:
         print("没有查询到病人信息")
         return
@@ -138,7 +141,7 @@ def assembling_cda_record(data, type):
     # xml 结束
     admission_record = admission_record + xml_const.xml_end
 
-    print(admission_record)
+    # print(admission_record)
 
     # 格式化 xml
     pretty_xml = prettify_xml(admission_record)
