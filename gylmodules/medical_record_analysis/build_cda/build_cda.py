@@ -5,7 +5,8 @@ from xml.dom.minidom import parseString
 import requests
 
 from gylmodules import global_config
-from gylmodules.medical_record_analysis.build_cda import admission_cda, discharge_cda, hours24_discharge_cda
+from gylmodules.medical_record_analysis.build_cda import admission_cda, discharge_cda, hours24_discharge_cda, \
+    progress_note_cda
 from gylmodules.medical_record_analysis.xml_const import const as xml_const
 
 
@@ -92,6 +93,8 @@ def assembling_cda_record(data, type):
         data['file_title'] = '出院记录'
     elif type == 3:
         data['file_title'] = '24小时入出院记录'
+    elif type == 4:
+        data['file_title'] = '首次病程记录'
 
     data['file_no'] = 'nsyy001'
     data['hospital_no'] = '0000'
@@ -109,19 +112,17 @@ def assembling_cda_record(data, type):
         # 组装 body
         admission_record = admission_cda.assembling_body(admission_record, data)
     elif type == 2:
-        # 组装 header
         admission_record = discharge_cda.assembling_header(admission_record, data)
-        # xml body 开始
         admission_record = admission_record + xml_const.xml_body_start
-        # 组装 body
         admission_record = discharge_cda.assembling_body(admission_record, data)
     elif type == 3:
-        # 组装 header
         admission_record = hours24_discharge_cda.assembling_header(admission_record, data)
-        # xml body 开始
         admission_record = admission_record + xml_const.xml_body_start
-        # 组装 body
         admission_record = hours24_discharge_cda.assembling_body(admission_record, data)
+    elif type == 4:
+        admission_record = progress_note_cda.assembling_header(admission_record, data)
+        admission_record = admission_record + xml_const.xml_body_start
+        admission_record = progress_note_cda.assembling_body(admission_record, data)
     else:
         print("不支持 type", type)
 

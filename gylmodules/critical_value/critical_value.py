@@ -195,7 +195,8 @@ def pull_running_cv():
         for t in cv_template:
             redis_client.hset(cv_config.CV_TEMPLATE_REDIS_KEY, t['id'], json.dumps(t, default=str))
     except Exception as e:
-        print('缓存危机值模版异常')
+        del db
+        print('缓存危机值模版异常', e)
 
     # 子线程执行： 缓存所有站点信息 & 超时时间配置
     thread_b = threading.Thread(target=cache_all_site_and_timeout)
@@ -618,18 +619,33 @@ def manual_report_cv(json_data):
 
     patient_treat_id = json_data.get('patient_treat_id')
     if patient_treat_id:
-        sql = f"""
-            SELECT 入院病床, 姓名, 年龄,
-               CASE 
-                   WHEN 性别 = '男' THEN 1 
-                   WHEN 性别 = '女' THEN 2 
-                   ELSE NULL 
-               END AS 性别, 
-               入院日期, 出院日期, 入院病区ID, 当前病区ID, 入院科室ID, 出院科室ID
-            FROM 病案主页 
-            WHERE 住院号 = '{patient_treat_id}' 
-            ORDER BY 入院日期 DESC
-        """
+        if int(json_data['patient_type']) == 1:
+            # 门诊
+            sql = f"""
+                SELECT 姓名, 年龄,
+                   CASE 
+                       WHEN 性别 = '男' THEN 1 
+                       WHEN 性别 = '女' THEN 2 
+                       ELSE NULL 
+                   END AS 性别, 
+                   接收时间, 执行部门ID as 入院科室ID 
+                FROM 病人挂号记录 
+                WHERE 门诊号 = '{patient_treat_id}' 
+                ORDER BY 接收时间 DESC
+            """
+        else:
+            sql = f"""
+                SELECT 入院病床, 姓名, 年龄,
+                   CASE 
+                       WHEN 性别 = '男' THEN 1 
+                       WHEN 性别 = '女' THEN 2 
+                       ELSE NULL 
+                   END AS 性别, 
+                   入院日期, 出院日期, 入院病区ID, 当前病区ID, 入院科室ID, 出院科室ID
+                FROM 病案主页 
+                WHERE 住院号 = '{patient_treat_id}' 
+                ORDER BY 入院日期 DESC
+            """
         param = {
             "type": "orcl_db_read",
             "db_source": "nshis",
@@ -642,7 +658,7 @@ def manual_report_cv(json_data):
             json_data['patient_name'] = data[0].get('姓名')
             json_data['patient_gender'] = data[0].get('性别')
             json_data['patient_age'] = data[0].get('年龄')
-            json_data['patient_bed_num'] = data[0].get('入院病床')
+            json_data['patient_bed_num'] = data[0].get('入院病床', 0)
             # 判断科室/病区和 最新的科室/病区是否一致
             latest_dept = data[0].get('出院科室ID') if data[0].get('出院科室ID') else data[0].get('入院科室ID')
             if latest_dept:
@@ -661,7 +677,7 @@ def manual_report_cv(json_data):
                     if ward_info:
                         json_data['ward_name'] = json.loads(ward_info).get('dept_name')
         else:
-            raise Exception("住院号异常，未查到病人信息")
+            raise Exception("住院号/门诊号异常，未查到病人信息")
     else:
         json_data['patient_treat_id'] = int(cv_config.cv_manual_default_treat_id)
         json_data['patient_type'] = cv_config.PATIENT_TYPE_OTHER
@@ -683,13 +699,18 @@ def manual_report_cv(json_data):
     json_data['total_timeout'] = redis_client.get(cv_config.TIMEOUT_REDIS_KEY['total']) or 600
 
     # 插入危机值
-    fileds = ','.join(json_data.keys())
-    args = str(tuple(json_data.values()))
-    insert_sql = f"INSERT INTO nsyy_gyl.cv_info ({fileds}) " \
-                 f"VALUES {args}"
-    last_rowid = db.execute(insert_sql, need_commit=True)
-    if last_rowid == -1:
-        raise Exception("系统危急值入库失败! " + str(args))
+    try:
+        fileds = ','.join(json_data.keys())
+        args = str(tuple(json_data.values()))
+        insert_sql = f"INSERT INTO nsyy_gyl.cv_info ({fileds}) " \
+                     f"VALUES {args}"
+        last_rowid = db.execute(insert_sql, need_commit=True)
+        if last_rowid == -1:
+            del db
+            raise Exception("系统危急值入库失败! " + str(args))
+    except Exception as e:
+        del db
+        raise Exception("系统危急值入库失败! ", e)
 
     # 发送危机值 直接通知医生和护士
     msg = '[{} - {} - {} - {}]'.format(json_data.get('patient_name', 'unknown'), json_data.get('req_docno', 'unknown'),
@@ -840,14 +861,19 @@ def create_cv_by_system(json_data, cv_source):
 
     db = DbUtil(global_config.DB_HOST, global_config.DB_USERNAME, global_config.DB_PASSWORD,
                 global_config.DB_DATABASE_GYL)
-    # 插入危机值
-    fileds = ','.join(cvd.keys())
-    args = str(tuple(cvd.values()))
-    insert_sql = f"INSERT INTO nsyy_gyl.cv_info ({fileds}) " \
-                 f"VALUES {args}"
-    last_rowid = db.execute(insert_sql, need_commit=True)
-    if last_rowid == -1:
-        raise Exception("系统危急值入库失败! " + str(args))
+    try:
+        # 插入危机值
+        fileds = ','.join(cvd.keys())
+        args = str(tuple(cvd.values()))
+        insert_sql = f"INSERT INTO nsyy_gyl.cv_info ({fileds}) " \
+                     f"VALUES {args}"
+        last_rowid = db.execute(insert_sql, need_commit=True)
+        if last_rowid == -1:
+            del db
+            raise Exception("系统危急值入库失败! " + str(args))
+    except Exception as e:
+        del db
+        raise Exception("系统危急值入库失败! ", e)
 
     # 如果是仅需要上报一次的危机值类型，缓存下来，防止多次上报
     if need_cache:
@@ -1016,6 +1042,8 @@ def query_process_cv_and_notice(dept_id, ward_id):
 
 
 def write_alert_fail_log(fail_ips, fail_log):
+    db = DbUtil(global_config.DB_HOST, global_config.DB_USERNAME, global_config.DB_PASSWORD,
+                global_config.DB_DATABASE_GYL)
     try:
         failed_log = []
         for ip in fail_ips:
@@ -1024,7 +1052,6 @@ def write_alert_fail_log(fail_ips, fail_log):
                 "time": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
                 "log": fail_log
             })
-        db = DbUtil(global_config.DB_HOST, global_config.DB_USERNAME, global_config.DB_PASSWORD, global_config.DB_DATABASE_GYL)
         for log in failed_log:
             keys = ','.join(log.keys())
             values = tuple(log.values())
@@ -1035,6 +1062,7 @@ def write_alert_fail_log(fail_ips, fail_log):
             db.execute(insert_sql, need_commit=True)
         del db
     except Exception:
+        del db
         # print("写入失败日志异常", fail_ips, fail_log)
         pass
 
@@ -1358,7 +1386,8 @@ def doctor_handle_cv(json_data):
         if record.get('alertman_pers_id'):
             msg = '患者 {} 的危急值，医生 {} 已处理'.format(record.get('patient_name', 'unknown'), handler_name)
             notiaction_alert_man(msg, int(record.get('alertman_pers_id')))
-
+    else:
+        del db
 
 """
 病历回写
