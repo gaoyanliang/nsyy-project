@@ -1744,6 +1744,55 @@ def update_wait_num(rid, pid):
     del db
 
 
+# 更新或者插入项目
+def update_or_insert_project(json_data):
+    db = DbUtil(global_config.DB_HOST, global_config.DB_USERNAME, global_config.DB_PASSWORD,
+                global_config.DB_DATABASE_GYL)
+    try:
+        pid = json_data.get('pid')
+        if pid:
+            proj_name = json_data.get('proj_name')
+            if not proj_name:
+                raise Exception("项目名称不能为空")
+            # 如果存在pid，则更新
+            update_sql = f"UPDATE {database}.appt_project SET proj_name = '{proj_name}' where id = {pid} "
+            db.execute(update_sql, need_commit=True)
+        else:
+            proj_type = json_data.get('proj_type')
+            proj_name = json_data.get('proj_name')
+            nsnum = json_data.get('nsnum')
+            if not proj_name or not nsnum or not proj_type:
+                raise Exception("新增项目，项目名称或项目容量不能为空")
+            insert_sql = f"INSERT INTO {database}.appt_project (proj_type, proj_name, nsnum) VALUES ({proj_type}, '{proj_name}', {nsnum})"
+            pid = db.execute(insert_sql, need_commit=True)
+            if pid == -1:
+                del db
+                raise Exception("新增项目失败! ", json_data)
+    except Exception as e:
+        del db
+        raise Exception(f"项目更新/新增失败: {e}")
+
+    worktime = (datetime.now().weekday() + 1) % 8
+    schedl = db.query_all(
+        f'select rid from {database}.appt_scheduling where pid = {pid} and worktime = {worktime} and state = 1')
+
+    query_sql = f"select * from {database}.appt_project where id = {int(pid)} "
+    proj = db.query_one(query_sql)
+    del db
+    # 更新缓存
+    redis_client = redis.Redis(connection_pool=pool)
+    redis_client.hset(APPT_PROJECTS_KEY, str(proj['id']), json.dumps(proj, default=str))
+    # socket 通知诊室更新
+    socket_id = 'd' + str(pid)
+    push_patient('', socket_id)
+    rid_set = set()
+    for rid in schedl:
+        rid_set.add(rid.get('rid'))
+    for rid in rid_set:
+        socket_id = 'z' + str(rid)
+        push_patient('', socket_id)
+
+
 """
 加载预约数据到内存
 """
