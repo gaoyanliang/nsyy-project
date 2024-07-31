@@ -451,44 +451,44 @@ def invalid_remote_crisis_value(cv_id, cv_source):
 """
 
 
-def invalid_history_cv():
-    db = DbUtil(global_config.DB_HOST, global_config.DB_USERNAME, global_config.DB_PASSWORD,
-                global_config.DB_DATABASE_GYL)
-
-    states = (cv_config.INVALID_STATE, cv_config.DOCTOR_HANDLE_STATE)
-    query_sql = f'select cv_id, cv_source from nsyy_gyl.cv_info where alertdt < DATE_SUB(NOW(), INTERVAL 1 DAY) and state not in {states}'
-    history_cv = db.query_all(query_sql)
-    if not history_cv:
-        return
-
-    # 构建 CASE 语句
-    info = '[超过一天未处理-作废]'
-    case_statements = " ".join(
-        f"WHEN (cv_id = \'{record['cv_id']}\' AND cv_source = {record['cv_source']}) THEN '{info}' "
-        for record in history_cv
-    )
-    conditions = " OR ".join(
-        f"(cv_id = \'{record['cv_id']}\' AND cv_source = {record['cv_source']})"
-        for record in history_cv
-    )
-
-    # 最终的 SQL 查询
-    update_sql = f"""
-        UPDATE nsyy_gyl.cv_info
-        SET analysis = CASE
-            {case_statements}
-            ELSE \'{info}\' 
-        END 
-        WHERE {conditions}
-    """
-    db.execute(update_sql, need_commit=True)
-    del db
-
-    for record in history_cv:
-        try:
-            invalid_remote_crisis_value(record.get('cv_id'), record.get('cv_source'))
-        except Exception as e:
-            print('作废 cv_id: ', record.get('cv_id'), ' cv_source: ', record.get('cv_source'), '异常： ', e)
+# def invalid_history_cv():
+#     db = DbUtil(global_config.DB_HOST, global_config.DB_USERNAME, global_config.DB_PASSWORD,
+#                 global_config.DB_DATABASE_GYL)
+#
+#     states = (cv_config.INVALID_STATE, cv_config.DOCTOR_HANDLE_STATE)
+#     query_sql = f'select cv_id, cv_source from nsyy_gyl.cv_info where alertdt < DATE_SUB(NOW(), INTERVAL 1 DAY) and state not in {states}'
+#     history_cv = db.query_all(query_sql)
+#     if not history_cv:
+#         return
+#
+#     # 构建 CASE 语句
+#     info = '[超过一天未处理-作废]'
+#     case_statements = " ".join(
+#         f"WHEN (cv_id = \'{record['cv_id']}\' AND cv_source = {record['cv_source']}) THEN '{info}' "
+#         for record in history_cv
+#     )
+#     conditions = " OR ".join(
+#         f"(cv_id = \'{record['cv_id']}\' AND cv_source = {record['cv_source']})"
+#         for record in history_cv
+#     )
+#
+#     # 最终的 SQL 查询
+#     update_sql = f"""
+#         UPDATE nsyy_gyl.cv_info
+#         SET analysis = CASE
+#             {case_statements}
+#             ELSE \'{info}\'
+#         END
+#         WHERE {conditions}
+#     """
+#     db.execute(update_sql, need_commit=True)
+#     del db
+#
+#     for record in history_cv:
+#         try:
+#             invalid_remote_crisis_value(record.get('cv_id'), record.get('cv_source'))
+#         except Exception as e:
+#             print('作废 cv_id: ', record.get('cv_id'), ' cv_source: ', record.get('cv_source'), '异常： ', e)
 
 
 """
@@ -599,8 +599,6 @@ def notiaction_alert_man(msg: str, pers_id):
 
 def manual_report_cv(json_data):
     redis_client = redis.Redis(connection_pool=pool)
-    db = DbUtil(global_config.DB_HOST, global_config.DB_USERNAME, global_config.DB_PASSWORD,
-                global_config.DB_DATABASE_GYL)
     # 根据员工号查询部门信息
     param = {
         "type": "his_dept_pers",
@@ -677,8 +675,9 @@ def manual_report_cv(json_data):
                     if ward_info:
                         json_data['ward_name'] = json.loads(ward_info).get('dept_name')
         else:
-            raise Exception("住院号/门诊号异常，未查到病人信息")
+            raise Exception(patient_treat_id, "住院号/门诊号异常，未查到病人信息")
     else:
+        print(patient_treat_id, '未查找到病人信息, 使用默认数据 120')
         json_data['patient_treat_id'] = int(cv_config.cv_manual_default_treat_id)
         json_data['patient_type'] = cv_config.PATIENT_TYPE_OTHER
 
@@ -698,19 +697,16 @@ def manual_report_cv(json_data):
     json_data['doctor_handle_timeout'] = redis_client.get(cv_config.TIMEOUT_REDIS_KEY['doctor_handle']) or 300
     json_data['total_timeout'] = redis_client.get(cv_config.TIMEOUT_REDIS_KEY['total']) or 600
 
+    db = DbUtil(global_config.DB_HOST, global_config.DB_USERNAME, global_config.DB_PASSWORD,
+                global_config.DB_DATABASE_GYL)
     # 插入危机值
-    try:
-        fileds = ','.join(json_data.keys())
-        args = str(tuple(json_data.values()))
-        insert_sql = f"INSERT INTO nsyy_gyl.cv_info ({fileds}) " \
-                     f"VALUES {args}"
-        last_rowid = db.execute(insert_sql, need_commit=True)
-        if last_rowid == -1:
-            del db
-            raise Exception("系统危急值入库失败! " + str(args))
-    except Exception as e:
+    fileds = ','.join(json_data.keys())
+    args = str(tuple(json_data.values()))
+    insert_sql = f"INSERT INTO nsyy_gyl.cv_info ({fileds}) VALUES {args}"
+    last_rowid = db.execute(insert_sql, need_commit=True)
+    if last_rowid == -1:
         del db
-        raise Exception("系统危急值入库失败! ", e)
+        raise Exception("系统危急值入库失败! " + str(args))
 
     # 发送危机值 直接通知医生和护士
     msg = '[{} - {} - {} - {}]'.format(json_data.get('patient_name', 'unknown'), json_data.get('req_docno', 'unknown'),
@@ -861,19 +857,14 @@ def create_cv_by_system(json_data, cv_source):
 
     db = DbUtil(global_config.DB_HOST, global_config.DB_USERNAME, global_config.DB_PASSWORD,
                 global_config.DB_DATABASE_GYL)
-    try:
-        # 插入危机值
-        fileds = ','.join(cvd.keys())
-        args = str(tuple(cvd.values()))
-        insert_sql = f"INSERT INTO nsyy_gyl.cv_info ({fileds}) " \
-                     f"VALUES {args}"
-        last_rowid = db.execute(insert_sql, need_commit=True)
-        if last_rowid == -1:
-            del db
-            raise Exception("系统危急值入库失败! " + str(args))
-    except Exception as e:
+    # 插入危机值
+    fileds = ','.join(cvd.keys())
+    args = str(tuple(cvd.values()))
+    insert_sql = f"INSERT INTO nsyy_gyl.cv_info ({fileds}) VALUES {args}"
+    last_rowid = db.execute(insert_sql, need_commit=True)
+    if last_rowid == -1:
         del db
-        raise Exception("系统危急值入库失败! ", e)
+        raise Exception("系统危急值入库失败! " + str(args))
 
     # 如果是仅需要上报一次的危机值类型，缓存下来，防止多次上报
     if need_cache:

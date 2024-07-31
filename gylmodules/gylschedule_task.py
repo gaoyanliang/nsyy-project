@@ -1,5 +1,4 @@
 import json
-from concurrent.futures import ThreadPoolExecutor
 from datetime import datetime, timedelta
 import redis
 import requests
@@ -10,7 +9,7 @@ from gylmodules import global_config
 from gylmodules.composite_appointment.ca_server import run_everyday
 from gylmodules.critical_value import cv_config
 from gylmodules.critical_value.critical_value import write_cache, \
-    call_third_systems_obtain_data, cache_single_cv, invalid_history_cv, notiaction_alert_man, \
+    call_third_systems_obtain_data, cache_single_cv, notiaction_alert_man, \
     async_alert_task
 from apscheduler.schedulers.background import BackgroundScheduler
 
@@ -104,15 +103,6 @@ def handle_timeout_cv():
                 async_alert_task(ids[0], ids[1], alertmsg)
             except Exception:
                 print(datetime.now(), "Error occurred while sending alerts.")
-        # with ThreadPoolExecutor(max_workers=20) as executor:
-        #     for ids, msgs in timeout_record.items():
-        #         async_alert_task(ids[0], ids[1], alertmsg)
-        #         try:
-        #             alertmsg = f'超时危急值，请及时处理 <br> [患者-主管医生-住院/门诊号-床号] <br> ' + ' <br> '.join(msgs)
-        #             async_alert_task(ids[0], ids[1], alertmsg)
-        #             # executor.submit(async_alert_task, ids[0], ids[1], alertmsg)
-        #         except Exception:
-        #             print(datetime.now(), "Error occurred while sending alerts.")
 
 
 def regular_update_dept_info():
@@ -201,8 +191,8 @@ def schedule_task():
         gylmodule_scheduler.add_job(cache_single_cv, trigger='date', run_date=datetime.now())
         gylmodule_scheduler.add_job(cache_single_cv, 'cron', hour=2, minute=10, id='cache_single_cv')
 
-        print("作废超过一天未处理的危机值 定时任务启动 ", datetime.now())
-        gylmodule_scheduler.add_job(invalid_history_cv, 'cron', hour=2, minute=20, id='invalid_history_cv')
+        # print("作废超过一天未处理的危机值 定时任务启动 ", datetime.now())
+        # gylmodule_scheduler.add_job(invalid_history_cv, 'cron', hour=2, minute=20, id='invalid_history_cv')
 
         print("重新判断失败 ip 是否可用 ", datetime.now())
         gylmodule_scheduler.add_job(re_alert_fail_ip_log, trigger='date', run_date=datetime.now())
