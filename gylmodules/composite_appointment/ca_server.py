@@ -101,7 +101,10 @@ def call_third_systems_obtain_data(url: str, type: str, param: dict):
             response = requests.post(f"http://192.168.124.53:6080/{url}", json=param)
             data = response.text
             data = json.loads(data)
-            if type != 'his_visit_reg':
+            if type == 'his_visit_reg':
+                print('his 取号返回: ', data)
+                data = data.get('ResultCode')
+            else:
                 data = data.get('data')
         except Exception as e:
             print('调用第三方系统方法失败：type = ' + type + ' param = ' + str(param) + "   " + e.__str__())
@@ -110,7 +113,8 @@ def call_third_systems_obtain_data(url: str, type: str, param: dict):
             # 门诊挂号 当天
             from tools import his_visit_reg
             data = his_visit_reg(param)
-            # data = data.get('ResultCode')
+            print('his 取号返回: ', data)
+            data = data.get('ResultCode')
         elif type == 'his_visit_check':
             # 查询当天患者挂号信息
             from tools import his_visit_check
@@ -1089,10 +1093,9 @@ def sign_in(json_data, over_num: bool):
                 param = {"type": "his_visit_reg", "patient_id": patient_id,
                          "AsRowid": int(doctorinfo.get('appointment_id')),
                          "PayAmt": float(doctorinfo.get('fee'))}
-            sign_data = call_third_systems_obtain_data('his_socket', 'his_visit_reg', param)
-            his_socket_ret_code = sign_data.get('ResultCode')
+            his_socket_ret_code = call_third_systems_obtain_data('his_socket', 'his_visit_reg', param)
             if his_socket_ret_code != '0':
-                raise Exception('在 his 中取号失败， 签到失败, Result: ', sign_data)
+                raise Exception('在 his 中取号失败， 签到失败, ResultCode: ', his_socket_ret_code)
 
     # 判断是否需要更换项目
     change_proj_sql = ''
