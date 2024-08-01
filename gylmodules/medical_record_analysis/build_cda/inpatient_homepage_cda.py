@@ -16,7 +16,7 @@ def assembling_header(admission_record: str, data: dict):
     admission_record = admission_record + xml_header.xml_header_file_info \
         .replace('{文档模版编号}', "2.16.156.10011.2.1.1.52") \
         .replace('{文档类型}', "C0032") \
-        .replace('{文档标识编码}', data.get('file_no')) \
+        .replace('{文档标识编码}', data.get('文档ID')) \
         .replace('{文档标题}', data.get('file_title')) \
         .replace('{文档生成时间}', datetime.now().strftime('%Y%m%d%H%M%S'))
 
@@ -56,7 +56,7 @@ def assembling_header(admission_record: str, data: dict):
     # 文档创作者
     admission_record = admission_record + xml_header.xml_header_author1 \
         .replace('{文档创作者id}', data.get('hospital_no')) \
-        .replace('{文档创作者}', data.get('hospital_name'))
+        .replace('{文档创作者}', data.get('文档作者'))
 
     # 保管机构
     admission_record = admission_record + xml_header.xml_header_custodian \

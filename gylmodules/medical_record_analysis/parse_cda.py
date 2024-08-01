@@ -363,109 +363,6 @@ def parse_cda_xml_document(root):
                         com_dict[a_name] = a_value
 
             parse_data[component_name.get(key, '/')] = com_dict
-    # if component:
-    #     components = component.findall('hl7:structuredBody/hl7:component', namespaces)
-    #     for item in components:
-    #         code = item.find('hl7:section/hl7:code', namespaces)
-    #         # 主诉
-    #         if code.get('code') in ('10154-3', '10164-2', '11369-6', '56836-0', '29762-2', '49033-4', '10157-6') or name == '辅助检查':
-    #             name = item.find('hl7:section/hl7:entry/hl7:observation/hl7:code', namespaces).get('displayName')
-    #             parse_data[name + 'text'] = item.find('hl7:section/hl7:text', namespaces).text if item.find('hl7:section/hl7:text', namespaces).text else '/'
-    #             value = item.find('hl7:section/hl7:entry/hl7:observation/hl7:value', namespaces)
-    #             if value is not None:
-    #                 if value.get('{http://www.w3.org/2001/XMLSchema-instance}type') == 'ST':
-    #                     parse_data[name + 'value'] = value.text
-    #                 elif value.get('{http://www.w3.org/2001/XMLSchema-instance}type') == 'BL':
-    #                     parse_data[name + 'value'] = value.get('value')
-    #                 elif value.get('{http://www.w3.org/2001/XMLSchema-instance}type') == 'PQ':
-    #                     parse_data[name + 'value'] = value.get('value') + ' ' + value.get('unit')
-    #                 elif value.get('{http://www.w3.org/2001/XMLSchema-instance}type') == 'INT':
-    #                     parse_data[name + 'value'] = value.get('value')
-    #                 else:
-    #                     print('===> 未知 value 类型')
-    #         elif code.get('code') in ('8716-3', '29545-1', '11348-0', '11450-4'):
-    #             if code.get('code') == '8716-3':
-    #                 # 生命体征
-    #                 parse_data['生命体征text'] = item.find('hl7:section/hl7:text', namespaces).text if item.find(
-    #                     'hl7:section/hl7:text', namespaces).text else '/'
-    #             elif code.get('code') == '29545-1':
-    #                 # 体格检查
-    #                 parse_data['体格检查text'] = item.find('hl7:section/hl7:text', namespaces).text if item.find(
-    #                     'hl7:section/hl7:text', namespaces).text else '/'
-    #             elif code.get('code') == '11348-0':
-    #                 # 既往史
-    #                 parse_data['既往史text'] = item.find('hl7:section/hl7:text', namespaces).text if item.find(
-    #                     'hl7:section/hl7:text', namespaces).text else '/'
-    #             elif code.get('code') == '11450-4':
-    #                 # 主要健康问题
-    #                 parse_data['主要健康问题text'] = item.find('hl7:section/hl7:text', namespaces).text if item.find(
-    #                     'hl7:section/hl7:text', namespaces).text else '/'
-    #
-    #             entrys = item.findall('hl7:section/hl7:entry', namespaces)
-    #             for entry in entrys:
-    #                 observation = entry.find('hl7:observation', namespaces)
-    #                 if observation is not None:
-    #                     code = observation.find('hl7:code', namespaces).get('code')
-    #                     if code == 'DE05.01.025.00':
-    #                         parse_data['西医诊断时间'] = observation.find('hl7:effectiveTime', namespaces).get('value')
-    #                     elif code == 'DE05.10.172.00':
-    #                         parse_data['中医诊断时间'] = observation.find('hl7:effectiveTime', namespaces).get('value')
-    #
-    #                     entry_key = observation.find('hl7:code', namespaces).get('displayName')
-    #                     entry_value = observation.find('hl7:value', namespaces)
-    #                     if entry_value is not None and entry_key is not None:
-    #                         if entry_value.get('{http://www.w3.org/2001/XMLSchema-instance}type') == 'ST':
-    #                             parse_data[entry_key] = entry_value.text
-    #                         elif entry_value.get('{http://www.w3.org/2001/XMLSchema-instance}type') == 'BL':
-    #                             parse_data[entry_key] = entry_value.get('value')
-    #                         elif entry_value.get('{http://www.w3.org/2001/XMLSchema-instance}type') == 'PQ':
-    #                             parse_data[entry_key] = entry_value.get('value') + ' ' + entry_value.get('unit')
-    #                         elif entry_value.get('{http://www.w3.org/2001/XMLSchema-instance}type') == 'INT':
-    #                             parse_data[entry_key] = entry_value.get('value')
-    #                         elif entry_value.get('{http://www.w3.org/2001/XMLSchema-instance}type') == 'CD':
-    #                             parse_data[entry_key] = entry_value.get('code')
-    #                         else:
-    #                             print('===> 未知 value 类型')
-    #
-    #                     ships = observation.findall('hl7:entryRelationship', namespaces)
-    #                     if ships is not None:
-    #                         for ship in ships:
-    #                             ship_key = ship.find('hl7:observation/hl7:code', namespaces).get('displayName')
-    #                             ship_value = ship.find('hl7:observation/hl7:value', namespaces)
-    #                             if ship_value is not None and ship_key is not None:
-    #                                 if ship_value.get('{http://www.w3.org/2001/XMLSchema-instance}type') == 'ST':
-    #                                     parse_data[ship_key] = ship_value.text
-    #                                 elif ship_value.get('{http://www.w3.org/2001/XMLSchema-instance}type') == 'BL':
-    #                                     parse_data[ship_key] = ship_value.get('value')
-    #                                 elif ship_value.get('{http://www.w3.org/2001/XMLSchema-instance}type') == 'PQ':
-    #                                     parse_data[ship_key] = ship_value.get('value') + ' ' + ship_value.get('unit')
-    #                                 elif ship_value.get('{http://www.w3.org/2001/XMLSchema-instance}type') == 'INT':
-    #                                     parse_data[ship_key] = ship_value.get('value')
-    #                                 elif ship_value.get('{http://www.w3.org/2001/XMLSchema-instance}type') == 'CD':
-    #                                     parse_data[ship_key] = ship_value.get('code')
-    #                                 else:
-    #                                     print('===> 未知 value 类型')
-    #                 else:
-    #                     organizer = entry.find('hl7:organizer', namespaces)
-    #                     if organizer is not None:
-    #                         components = organizer.findall('hl7:component', namespaces)
-    #                         for component in components:
-    #                             component_key = component.find('hl7:observation/hl7:code', namespaces).get('displayName')
-    #                             component_value = component.find('hl7:observation/hl7:value', namespaces)
-    #                             if component_value is not None and component_key is not None:
-    #                                 if component_value.get('{http://www.w3.org/2001/XMLSchema-instance}type') == 'ST':
-    #                                     parse_data[component_key] = component_value.text
-    #                                 elif component_value.get('{http://www.w3.org/2001/XMLSchema-instance}type') == 'BL':
-    #                                     parse_data[component_key] = component_value.get('value')
-    #                                 elif component_value.get('{http://www.w3.org/2001/XMLSchema-instance}type') == 'PQ':
-    #                                     parse_data[component_key] = component_value.get('value') + ' ' + component_value.get('unit')
-    #                                 elif component_value.get('{http://www.w3.org/2001/XMLSchema-instance}type') == 'INT':
-    #                                     parse_data[component_key] = component_value.get('value')
-    #                                 elif component_value.get('{http://www.w3.org/2001/XMLSchema-instance}type') == 'CD':
-    #                                     parse_data[component_key] = component_value.get('code')
-    #                                 else:
-    #                                     print('===> 未知 value 类型')
-
     return parse_data
 
 
@@ -514,6 +411,7 @@ component_name = {
     '8648-8': '住院过程',
     '48768-6': '费用章节',
     '行政管理': '行政管理',
+    '46241-6': '入院诊断',
 
 }
 

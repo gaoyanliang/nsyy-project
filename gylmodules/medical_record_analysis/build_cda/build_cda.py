@@ -28,7 +28,6 @@ def call_third_systems_obtain_data(type: str, param: dict):
             print('调用第三方系统方法失败：type = ' + type + ' param = ' + str(param) + "   " + e.__str__())
     else:
         if type == 'orcl_db_read':
-            # 根据住院号/门诊号查询 病人id 主页id
             from tools import orcl_db_read
             data = orcl_db_read(param)
 
@@ -97,11 +96,36 @@ def assembling_cda_record(data, type):
     elif type == 3:
         data['file_title'] = '24小时入出院记录'
     elif type == 4:
-        data['file_title'] = '首次病程记录'
-    elif type == 5:
         data['file_title'] = '住院病案首页'
+    elif type == 5:
+        data['file_title'] = '首次病程记录'
+    elif type == 6:
+        data['file_title'] = '日常病程记录'
+    elif type == 7:
+        data['file_title'] = '上级医师查房记录'
+    elif type == 8:
+        data['file_title'] = '疑难病例讨论记录'
+    elif type == 9:
+        data['file_title'] = '交接班记录'
+    elif type == 10:
+        data['file_title'] = '转科记录'
+    elif type == 11:
+        data['file_title'] = '阶段小结'
+    elif type == 12:
+        data['file_title'] = '抢救记录'
+    elif type == 13:
+        data['file_title'] = '会诊记录'
+    elif type == 14:
+        data['file_title'] = '术前小结'
+    elif type == 15:
+        data['file_title'] = '术前讨论'
+    elif type == 16:
+        data['file_title'] = '术后首次病程记录'
+    elif type == 17:
+        data['file_title'] = '死亡记录'
+    elif type == 18:
+        data['file_title'] = '死亡病例讨论记录'
 
-    data['file_no'] = 'nsyy001'
     data['hospital_no'] = '0000'
     data['hospital_name'] = '南阳南石医院'
     # xml 声明
@@ -110,6 +134,7 @@ def assembling_cda_record(data, type):
     admission_record = admission_record + xml_const.xml_start
 
     if type == 1:
+        # 入院记录
         # 组装 header
         admission_record = admission_cda.assembling_header(admission_record, data)
         # xml body 开始
@@ -117,18 +142,62 @@ def assembling_cda_record(data, type):
         # 组装 body
         admission_record = admission_cda.assembling_body(admission_record, data)
     elif type == 2:
+        # 出院记录
         admission_record = discharge_cda.assembling_header(admission_record, data)
         admission_record = admission_record + xml_const.xml_body_start
         admission_record = discharge_cda.assembling_body(admission_record, data)
     elif type == 3:
+        # 24小时入出院记录
         admission_record = hours24_discharge_cda.assembling_header(admission_record, data)
         admission_record = admission_record + xml_const.xml_body_start
         admission_record = hours24_discharge_cda.assembling_body(admission_record, data)
     elif type == 4:
+        # 住院病案首页
+        admission_record = inpatient_homepage_cda.assembling_header(admission_record, data)
+        admission_record = admission_record + xml_const.xml_body_start
+        admission_record = inpatient_homepage_cda.assembling_body(admission_record, data)
+    elif type == 5:
+        # 首次病程记录
         admission_record = progress_note_cda.assembling_header(admission_record, data)
         admission_record = admission_record + xml_const.xml_body_start
         admission_record = progress_note_cda.assembling_body(admission_record, data)
-    elif type == 5:
+    elif type == 6:
+        # 日常病程记录
+        admission_record = inpatient_homepage_cda.assembling_header(admission_record, data)
+        admission_record = admission_record + xml_const.xml_body_start
+        admission_record = inpatient_homepage_cda.assembling_body(admission_record, data)
+    elif type == 7:
+        # 上级医师查房记录
+        admission_record = inpatient_homepage_cda.assembling_header(admission_record, data)
+        admission_record = admission_record + xml_const.xml_body_start
+        admission_record = inpatient_homepage_cda.assembling_body(admission_record, data)
+    elif type == 8:
+        # 疑难病例讨论记录
+        admission_record = inpatient_homepage_cda.assembling_header(admission_record, data)
+        admission_record = admission_record + xml_const.xml_body_start
+        admission_record = inpatient_homepage_cda.assembling_body(admission_record, data)
+    elif type == 9:
+        # 交接班记录
+        admission_record = inpatient_homepage_cda.assembling_header(admission_record, data)
+        admission_record = admission_record + xml_const.xml_body_start
+        admission_record = inpatient_homepage_cda.assembling_body(admission_record, data)
+    elif type == 10:
+        # 转科记录
+        admission_record = inpatient_homepage_cda.assembling_header(admission_record, data)
+        admission_record = admission_record + xml_const.xml_body_start
+        admission_record = inpatient_homepage_cda.assembling_body(admission_record, data)
+    elif type == 11:
+        # 阶段小结
+        admission_record = inpatient_homepage_cda.assembling_header(admission_record, data)
+        admission_record = admission_record + xml_const.xml_body_start
+        admission_record = inpatient_homepage_cda.assembling_body(admission_record, data)
+    elif type == 12:
+        # 抢救记录
+        admission_record = inpatient_homepage_cda.assembling_header(admission_record, data)
+        admission_record = admission_record + xml_const.xml_body_start
+        admission_record = inpatient_homepage_cda.assembling_body(admission_record, data)
+    elif type == 13:
+        # 会诊记录
         admission_record = inpatient_homepage_cda.assembling_header(admission_record, data)
         admission_record = admission_record + xml_const.xml_body_start
         admission_record = inpatient_homepage_cda.assembling_body(admission_record, data)
@@ -137,7 +206,6 @@ def assembling_cda_record(data, type):
 
     # xml body 结束
     admission_record = admission_record + xml_const.xml_body_end
-
     # xml 结束
     admission_record = admission_record + xml_const.xml_end
 
@@ -148,17 +216,4 @@ def assembling_cda_record(data, type):
     # print(pretty_xml)
 
     return pretty_xml
-
-
-# ========================== 以下内容测试使用 ==========================
-
-def load_sid():
-    # JSON文件路径
-    file_path = '../all_sid.json'
-    # 打开文件并加载JSON数据
-    with open(file_path, 'r') as file:
-        data = json.load(file)
-    # 打印加载的数据
-    print(data)
-
 

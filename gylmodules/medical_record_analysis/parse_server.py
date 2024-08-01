@@ -68,6 +68,7 @@ def query_record_and_parse(json_data):
                                    a.title       文档类型,
                                    t.creat_time  记录时间,
                                    t.creator     文档作者,
+                                   RAWTOHEX(t.id) 文档ID,
                                    -- t.contenttext.getclobval() contenttext, 
                                    t.content.getclobval() content
                               From Bz_Doc_Log t
@@ -99,7 +100,7 @@ def query_record_and_parse(json_data):
                         '文档名称').__contains__("24小时"):
                     cda = parse_discharge_record(record.get('CONTENT'))
                 elif record.get('文档名称') and record.get('文档名称').__contains__("病程记录"):
-                    cda = parse_progress_note_record(record.get('CONTENT'))
+                    cda = parse_progress_note_record(record)
                 else:
                     raise Exception('无法处理 ', file_name, " 文件类型")
                 break

@@ -90,89 +90,89 @@ from gylmodules.utils.db_utils import DbUtil
 #     print('tousssssssssssssss')
 
 
-db = DbUtil(global_config.DB_HOST, global_config.DB_USERNAME, global_config.DB_PASSWORD,
-            global_config.DB_DATABASE_GYL)
+# db = DbUtil(global_config.DB_HOST, global_config.DB_USERNAME, global_config.DB_PASSWORD,
+#             global_config.DB_DATABASE_GYL)
+#
+# insert_sql = """
+# INSERT INTO nsyy_gyl.cv_info (patient_treat_id,req_docno,alertman,cv_flag,patient_type,cv_type,cv_name,cv_result,cv_unit,cv_ref,
+# patient_gender,patient_name,patient_age,dept_id,dept_name,alert_dept_id,alert_dept_name,alertman_name,alertman_pers_id,cv_id,cv_source,alertdt,time,state,nurse_recv_timeout,nurse_send_timeout,doctor_recv_timeout,doctor_handle_timeout,total_timeout)
+# VALUES (120, '谭宗章', '0248', '', 5, 2, '*血小板', '18 10^9/L', '', '125-350',
+#  '1', '孙绍连', '59岁', 140, '呼吸科门诊', 140, '呼吸科门诊', '谭宗章', '9910', '1721984666261', 10, '2024-07-26 17:04:26', '2024-07-26 17:04:26', 1, '420', '60', '300', '120', '600')
+#
+# """
+# try:
+#     ret = db.execute(insert_sql, need_commit=True)
+#     print(ret)
+# except Exception as e:
+#     print(' ------------- ')
+#     print(e)
+# del db
 
 
 
-query_sql = """
-select patient_name 患者姓名, 
- patient_treat_id  住院号, 
- cv_id 项目编码, 
- cv_name  危机值名称,
- cv_result 危机值内容,
- doctor_recv_time  医师接收时间,
- handle_doctor_name  处理医师,
- method  处理记录
- from nsyy_gyl.cv_info where time > '2024-04-01 00:00:00' and time < '2024-06-30 23:59:59' and cv_source
-"""
-record = db.query_all(query_sql, need_commit=True)
-del db
+
+def call_third_systems_obtain_data(type: str, param: dict):
+    data = []
+    if global_config.run_in_local:
+        try:
+            # 发送 POST 请求，将字符串数据传递给 data 参数
+            response = requests.post("http://192.168.3.12:6080/int_api", json=param)
+            data = response.text
+            data = json.loads(data)
+            data = data.get('data')
+        except Exception as e:
+            print('调用第三方系统方法失败：type = ' + type + ' param = ' + str(param) + "   " + e.__str__())
+    else:
+        if type == 'orcl_db_read':
+            # 根据住院号/门诊号查询 病人id 主页id
+            from tools import orcl_db_read
+            data = orcl_db_read(param)
+
+    return data
 
 
+param = {
+    "type": "orcl_db_read",
+    "db_source": "nsbingli",
+    "randstr": "XPFDFZDF7193CIONS1PD7XCJ3AD4ORRC",
+    "clob": ['CONTENT'],
+    # "sql": "select 1 t from dual"
+    # "sql": "select title from Bz_Doc_Log where ROWNUM < 10"
+    "sql": """
+select *
+  from (select *
+          from (Select b.病人id,
+                       b.主页id,
+                       t.title       文档名称,
+                       a.title       文档类型,
+                       t.creat_time  创建时间,
+                       t.creator     文档作者,
+                       RAWTOHEX(t.id) 文档ID
+                       -- t.contenttext.getclobval() contenttext,
+                       -- t.content.getclobval() content
+                  From Bz_Doc_Log t
+                  left join Bz_Act_Log a
+                    on a.Id = t.Actlog_Id
+                  left join 病人变动记录@HISINTERFACE b
+                    on a.extend_tag = 'BD_' || to_char(b.id))
+         order by 创建时间)
+ where 病人ID = 564646 and 主页ID = 15
+    """
+}
 
-#
-# def call_third_systems_obtain_data(type: str, param: dict):
-#     data = []
-#     if global_config.run_in_local:
-#         try:
-#             # 发送 POST 请求，将字符串数据传递给 data 参数
-#             response = requests.post("http://192.168.124.53:6080/int_api", json=param)
-#             data = response.text
-#             data = json.loads(data)
-#             data = data.get('data')
-#         except Exception as e:
-#             print('调用第三方系统方法失败：type = ' + type + ' param = ' + str(param) + "   " + e.__str__())
-#     else:
-#         if type == 'orcl_db_read':
-#             # 根据住院号/门诊号查询 病人id 主页id
-#             from tools import orcl_db_read
-#             data = orcl_db_read(param)
-#
-#     return data
-#
-#
-# param = {
-#     "type": "orcl_db_read",
-#     "db_source": "nsbingli",
-#     "randstr": "XPFDFZDF7193CIONS1PD7XCJ3AD4ORRC",
-#     "clob": ['CONTENT', 'CONTENTTEXT'],
-#     # "sql": "select 1 t from dual"
-#     # "sql": "select title from Bz_Doc_Log where ROWNUM < 10"
-#     "sql": """
-# select *
-#   from (select *
-#           from (Select b.病人id,
-#                        b.主页id,
-#                        t.title       as 文档名称,
-#                        -- a.title       文档类型,
-#                        t.creat_time  记录时间
-#                        -- t.creator     文档作者,
-#                        -- t.contenttext.getclobval() contenttext,
-#                        -- t.content.getclobval() content
-#                   From Bz_Doc_Log t
-#                   left join Bz_Act_Log a
-#                     on a.Id = t.Actlog_Id
-#                   left join 病人变动记录@HISINTERFACE b
-#                     on a.extend_tag = 'BD_' || to_char(b.id))
-#          order by 记录时间)
-#  where 文档名称 like '%入院记录%' and ROWNUM < 50
-#     """
-# }
-#
-# # where
-# # 病人ID = 564646
-# # and 主页ID = 12
-# # and 文档名称
-# # like
-# # '%记录%'
-# records = call_third_systems_obtain_data('orcl_db_read', param)
-#
+# where
+# 病人ID = 564646
+# and 主页ID = 12
+# and 文档名称
+# like
+# '%记录%'
+records = call_third_systems_obtain_data('orcl_db_read', param)
+
 # for rec in records:
 #     print(rec)
-#
-# # print(records)
-#
+
+print(records)
+
 
 
 

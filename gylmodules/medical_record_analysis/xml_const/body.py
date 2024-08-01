@@ -50,6 +50,40 @@ body_section_entry3 = """
 </entry>
 """
 
+body_section_entry4 = """
+<entry>
+<!-- 手术记录 -->
+<procedure classCode="PROC" moodCode="EVN">
+    <code code="1" codeSystem="2.16.156.10011.2.3.3.12"
+        codeSystemName="手术(操作)代码表(ICD-9-CM)" />
+    <statusCode />
+
+    <!-- 手术操作目标部位名称 -->
+    <targetSiteCode code = "{手术部位}" codesystem = "2.16.156.10011.2.3.1.266" codeSystemName ="操作部位代码表"></targetSiteCode>
+
+    {entry_ship1}
+    {entry_ship2}
+    {entry_ship3}
+    {entry_ship4}
+</procedure>
+</entry>
+"""
+
+body_section_entry5 = """
+<entry>
+    <observation classCode="OBS" moodCode="EVN">
+        <code code="DE04.30.020.00" codeSystem="2.16.156.10011.2.3.3.11" codeSystemName=" 卫生信息数据元目录" displayName="检查/检验项目名称"/>
+        {value}
+        {entry_ship1}
+        {entry_ship2}
+        {entry_ship3}        
+    </observation>
+</entry>
+"""
+
+
+
+
 body_section_entry_relation_ship = """
 <entry>
     <observation classCode="OBS" moodCode="EVN">
@@ -65,6 +99,17 @@ body_section_entry_relation_ship = """
     </observation>
 </entry>
 """
+
+body_section_entry_relation_ship1 = """
+<entryRelationship typeCode=" COMP">
+    <observation classCode="OBS" moodCode="EVN">
+        <code code="{code}" codeSystem="2.16.156.10011.2.2.1"
+            codeSystemName="卫生信息数据元目录" displayName="{display_name}" />
+        {value}
+    </observation>
+</entryRelationship>
+"""
+
 
 value_st = """
 <value xsi:type="ST">{value}</value>

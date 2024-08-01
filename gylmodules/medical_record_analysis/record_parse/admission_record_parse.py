@@ -158,9 +158,11 @@ def parse_hpi(section, info_dict, file):
                 signplaceholder = child.get('signplaceholder')
                 if signplaceholder:
                     signplaceholder = signplaceholder.replace('[', '').replace('签名]', '')
+                    if not signplaceholder:
+                        signplaceholder = '签名'
                 displayinfo = child.get('displayinfo')
                 if displayinfo:
-                    info_dict[signplaceholder] = displayinfo
+                    info_dict[signplaceholder] = {'signplaceholder': signplaceholder, 'displayinfo': displayinfo, 'signtime': child.get('signtime', '/')}
                     sign_set.add((child.get('signplaceholder'), child.get('iid')))
             elif tag in ('tab', 'image', 'patisign', 'table'):
                 # 暂时不处理，没意义

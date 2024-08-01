@@ -20,7 +20,7 @@ def parse_homepage_record(data):
     # 将 Python 对象转换为格式化的 JSON 字符串
     # formatted_json = json.dumps(patient_info, indent=4, ensure_ascii=False)
     # print(formatted_json)
-    cda_data = assembling_cda_record(data, 5)
+    cda_data = assembling_cda_record(data, 4)
     return cda_data
 
 

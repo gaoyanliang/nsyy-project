@@ -211,6 +211,62 @@ xml_header_record_target4 = """
 </recordTarget>
 """
 
+
+xml_header_record_target5 = """
+    <!-- 文档记录对象（患者）-->
+    <recordTarget typeCode="RCT" contextControlCode="OP">
+    <patientRole classCode="PAT">
+        <!-- 住院号标识 具体的编号放入 extension -->
+        <id root="2.16.156.10011.1.12" extension="{pat_no}" />
+        <patient classCode="PSN" determinerCode="INSTANCE">
+            <!-- 患者身份证号 -->
+            <id root="2.16.156.10011.1.3" extension="{pat_id_card}" />
+            <name>{pat_name}</name>
+            <administrativeGenderCode code="{pat_sex_no}" displayName="{pat_sex}"
+                codeSystem="2.16.156.10011.2.3.3.4" codeSystemName="生理性别代码表(GB/T2261.1)" />
+            <!--1 数据集里是年龄（年）、年龄（月） -->
+            <birthTime value="{pat_birth_time}"/>
+            <!-- 年龄 -->
+            <age unit="岁" value="{pat_age}"></age>
+            <!--DE06.00.218.00讨论日期时间 DE06.00.274.00讨论地点-->
+            <providerOrganization classCode="ORG" determinerCode="INSTANCE">
+                <asOrganizationPartOf classCode="PART">
+                    <!--讨论时间-->
+                    <effectiveTime value="{讨论时间}"></effectiveTime>
+                    <wholeOrganization>
+                        <addr>{讨论地点}</addr>
+                    </wholeOrganization>
+                </asOrganizationPartOf>
+            </providerOrganization>
+        </patientRole>
+    </recordTarget>
+"""
+
+
+xml_header_record_target6 = """
+<!-- 文档记录对象（患者） -->
+<recordTarget typeCode="RCT" contextControlCode="OP">
+    <patientRole classCode="PAT">
+        <!-- 住院号标识 具体的编号放入 extension -->
+        <id root="2.16.156.10011.1.12" extension="{pat_no}" />
+        <!-- 电子申请单编号标识 -->
+        <id root="2.16.156.10011.1.24" extension="{电子申请单编号}"/>
+        <patient classCode="PSN" determinerCode="INSTANCE">
+            <!-- 患者身份证号 -->
+            <id root="2.16.156.10011.1.3" extension="{pat_id_card}" />
+            <name>{pat_name}</name>
+            <administrativeGenderCode code="{pat_sex_no}" displayName="{pat_sex}"
+                codeSystem="2.16.156.10011.2.3.3.4" codeSystemName="生理性别代码表(GB/T2261.1)" />
+            <!--1 数据集里是年龄（年）、年龄（月） -->
+            <birthTime value="{pat_birth_time}"/>
+            <!-- 年龄 -->
+            <age unit="岁" value="{pat_age}"></age>
+        </patient>
+    </patientRole>
+</recordTarget>
+"""
+
+
 """
 # xml Header 创作者信息
 """
@@ -344,6 +400,74 @@ xml_header_authenticator3 = """
         <assignedPerson classCode="PSN" determinerCode="INSTANCE">
             <name>{医师名字}</name>
         </assignedPerson>
+    </assignedEntity>
+</authenticator>
+"""
+
+
+"""
+# xml Header 医师签名（日常病程记录）
+"""
+xml_header_authenticator4 = """
+<authenticator>
+    <time value="{签名时间}"/>
+    <signatureCode/>
+    <assignedEntity>
+        <id root="2.16.156.10011.1.4" extension="{医师id}"/>
+        <code displayName="医师签名"></code>
+        <assignedPerson classCode="PSN" determinerCode="INSTANCE">
+            <name>{医师名字}</name>
+            <protessionalTecmnicalPosition>
+                <professionaltechnicalpositionCode code="{职称编码}" codeSystem="2.16.156.10011.2.3.1.209" codeSystemName="专业技术职务类别代码表"
+                                                   displayName="{医师职称}"></professionaltechnicalpositionCode>
+            </protessionalTecmnicalPosition>
+        </assignedPerson>
+    </assignedEntity>
+</authenticator>
+"""
+
+"""
+# xml Header  会诊医师相关
+"""
+xml_header_authenticator5 = """
+<authenticator>
+    <time xsi:type="TS" value="{签名时间}"/>
+    <signatureCode/>
+    <assignedEntity>
+        <id root="2.16.156.10011.1.4" extension="{医师id}"/>
+        <code displayName="会诊医师"/>
+        <assignedPerson classCode="PSN" determinerCode=" INSTANCE">
+            <name>{医师名字}</name>
+        </assignedPerson>
+        <representedOrqanization>
+            <name>{会诊医师所在医疗机构名称}</name>
+        </representedOrqanization>
+    </assignedEntity>
+</authenticator>
+"""
+
+
+xml_header_authenticator6 = """
+<authenticator>
+    <time/>
+    <signatureCode/>
+    <assignedEntity>
+        <id/>
+        <code displayName="{display_name}"/>
+        <representedOrganization>
+            <asOrganizationPartOf>
+                <wholeOrganization>
+                    <id root="2.16.156.10011.1.26" extension="{申请会诊科室}"/>
+                    <name>{申请会诊科室}</name>
+                    <asOrganizationPartOf>
+                        <wholeOrganization>
+                            <id root="2.16.156.10011.1.5" extension="{会诊申请医疗机构名称}"/>
+                            <name>{会诊申请医疗机构名称}</name>
+                        </wholeOrganization>
+                    </asOrganizationPartOf>
+                </wholeOrganization>
+            </asOrganizationPartOf>
+        </representedOrganization>
     </assignedEntity>
 </authenticator>
 """
@@ -516,3 +640,52 @@ xml_header_participant = """
 """
 
 
+"""
+参加人员讨论名单
+"""
+xml_header_associated_person = """
+    <!--参加人员讨论名单-->
+    <parentDocument typeCode="{type_code}">
+        <associatedEntity classCode="{class_code}">
+            <associatedPerson>
+                {name1}
+                {name2}
+                {name3}
+            </associatedPerson>
+        </associatedEntity>
+"""
+
+
+"""
+讨论日期和地点
+"""
+xml_header_associated_time = """
+    <!--讨论的日期时间-->
+    <componentOf>
+        <encompassingEncounter>
+            <code displayName="讨论日期时间"></code>
+            <effectiveTime xsi:type="IVL_TS" value="{讨论时间}"/>
+            <location>
+                <healthCareFacility>
+                    <serviceProviderOrganization classCode="ORG" determinerCode="INSTANCE">
+                        <addr>{讨论地点}</addr>
+                    </serviceProviderOrganization>
+                </healthCareFacility>
+            </location>
+        </encompassingEncounter>
+    </componentOf>
+"""
+
+"""
+小结日期时间
+"""
+
+xml_header_stage_time = """
+    <!-- 小结日期时间 -->
+    <documentationOf>
+        <serviceEvent>
+            <code/>
+            <effectiveTime value = "{小结日期}" />
+        </serviceEvent>
+    </documentationOf>
+"""
