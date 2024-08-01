@@ -675,9 +675,9 @@ def manual_report_cv(json_data):
                     if ward_info:
                         json_data['ward_name'] = json.loads(ward_info).get('dept_name')
         else:
-            raise Exception(patient_treat_id, "住院号/门诊号异常，未查到病人信息")
+            raise Exception(patient_treat_id, "住院号/门诊号异常，未查到病人信息, param: ", json_data)
     else:
-        print(patient_treat_id, '未查找到病人信息, 使用默认数据 120')
+        print(patient_treat_id, '未填写病人住院号/门诊号, 使用默认数据 120, param: ', json_data)
         json_data['patient_treat_id'] = int(cv_config.cv_manual_default_treat_id)
         json_data['patient_type'] = cv_config.PATIENT_TYPE_OTHER
 
