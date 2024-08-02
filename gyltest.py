@@ -110,71 +110,84 @@ from gylmodules.utils.db_utils import DbUtil
 
 
 
-
-def call_third_systems_obtain_data(type: str, param: dict):
-    data = []
-    if global_config.run_in_local:
-        try:
-            # 发送 POST 请求，将字符串数据传递给 data 参数
-            response = requests.post("http://192.168.3.12:6080/int_api", json=param)
-            data = response.text
-            data = json.loads(data)
-            data = data.get('data')
-        except Exception as e:
-            print('调用第三方系统方法失败：type = ' + type + ' param = ' + str(param) + "   " + e.__str__())
-    else:
-        if type == 'orcl_db_read':
-            # 根据住院号/门诊号查询 病人id 主页id
-            from tools import orcl_db_read
-            data = orcl_db_read(param)
-
-    return data
-
-
-param = {
-    "type": "orcl_db_read",
-    "db_source": "nsbingli",
-    "randstr": "XPFDFZDF7193CIONS1PD7XCJ3AD4ORRC",
-    "clob": ['CONTENT'],
-    # "sql": "select 1 t from dual"
-    # "sql": "select title from Bz_Doc_Log where ROWNUM < 10"
-    "sql": """
-select *
-  from (select *
-          from (Select b.病人id,
-                       b.主页id,
-                       t.title       文档名称,
-                       a.title       文档类型,
-                       t.creat_time  创建时间,
-                       t.creator     文档作者,
-                       RAWTOHEX(t.id) 文档ID
-                       -- t.contenttext.getclobval() contenttext,
-                       -- t.content.getclobval() content
-                  From Bz_Doc_Log t
-                  left join Bz_Act_Log a
-                    on a.Id = t.Actlog_Id
-                  left join 病人变动记录@HISINTERFACE b
-                    on a.extend_tag = 'BD_' || to_char(b.id))
-         order by 创建时间)
- where 病人ID = 564646 and 主页ID = 15
-    """
-}
-
-# where
-# 病人ID = 564646
-# and 主页ID = 12
-# and 文档名称
-# like
-# '%记录%'
-records = call_third_systems_obtain_data('orcl_db_read', param)
-
-# for rec in records:
-#     print(rec)
-
-print(records)
-
-
+#
+# def call_third_systems_obtain_data(type: str, param: dict):
+#     data = []
+#     if global_config.run_in_local:
+#         try:
+#             # 发送 POST 请求，将字符串数据传递给 data 参数
+#             response = requests.post("http://192.168.3.12:6080/int_api", json=param)
+#             data = response.text
+#             data = json.loads(data)
+#             data = data.get('data')
+#         except Exception as e:
+#             print('调用第三方系统方法失败：type = ' + type + ' param = ' + str(param) + "   " + e.__str__())
+#     else:
+#         if type == 'orcl_db_read':
+#             # 根据住院号/门诊号查询 病人id 主页id
+#             from tools import orcl_db_read
+#             data = orcl_db_read(param)
+#
+#     return data
+#
+#
+# param = {
+#     "type": "orcl_db_read",
+#     "db_source": "nsbingli",
+#     "randstr": "XPFDFZDF7193CIONS1PD7XCJ3AD4ORRC",
+#     "clob": ['CONTENT'],
+#     # "sql": "select 1 t from dual"
+#     # "sql": "select title from Bz_Doc_Log where ROWNUM < 10"
+#     "sql": """
+# select *
+#   from (select *
+#           from (Select b.病人id,
+#                        b.主页id,
+#                        t.title       文档名称,
+#                        a.title       文档类型,
+#                        t.creat_time  创建时间,
+#                        t.creator     文档作者,
+#                        RAWTOHEX(t.id) 文档ID
+#                        -- t.contenttext.getclobval() contenttext,
+#                        -- t.content.getclobval() content
+#                   From Bz_Doc_Log t
+#                   left join Bz_Act_Log a
+#                     on a.Id = t.Actlog_Id
+#                   left join 病人变动记录@HISINTERFACE b
+#                     on a.extend_tag = 'BD_' || to_char(b.id))
+#          order by 创建时间)
+#  where 病人ID = 564646 and 主页ID = 15
+#     """
+# }
+#
+# # where
+# # 病人ID = 564646
+# # and 主页ID = 12
+# # and 文档名称
+# # like
+# # '%记录%'
+# records = call_third_systems_obtain_data('orcl_db_read', param)
+#
+# # for rec in records:
+# #     print(rec)
+#
+# print(records)
 
 
+# Example text
+text = "入院，已住院4。"
+
+# Regular expression pattern to match departments
+# pattern = r"于[\u4e00-\u9fa5\d\s年月日]+由([\u4e00-\u9fa5]+)转入([\u4e00-\u9fa5]+)"
+pattern = r"由([\u4e00-\u9fa5]+)转入([\u4e00-\u9fa5]+)"
+
+# Find all matches
+matches = re.findall(pattern, text)
+
+if len(matches) == 2:
+    print(matches[0])
+    print(matches[1])
+
+print(matches)
 
 

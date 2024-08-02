@@ -645,7 +645,7 @@ xml_header_participant = """
 """
 xml_header_associated_person = """
     <!--参加人员讨论名单-->
-    <parentDocument typeCode="{type_code}">
+    <participant typeCode="{type_code}">
         <associatedEntity classCode="{class_code}">
             <associatedPerson>
                 {name1}
@@ -653,6 +653,21 @@ xml_header_associated_person = """
                 {name3}
             </associatedPerson>
         </associatedEntity>
+    </participant>
+"""
+
+xml_header_participant2 = """
+    <participant typeCode="NOT">
+        <!--联系人@classCode:Co,固定值,表示角色是联系人-->
+        <associatedEntity classCode="ECON">
+            <!--联系人电话-->
+            <telecom value="{联系人电话}"/>
+            <associatedPerson>
+                <!--姓名-->
+                <name>{联系人姓名}</name>
+            </associatedPerson>
+        </associatedEntity>
+    </participant>
 """
 
 

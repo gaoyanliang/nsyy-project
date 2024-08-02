@@ -22,12 +22,19 @@ def get_birthday_from_id(id_number):
 # todo 文档标识编码
 def assembling_header(admission_record: str, data: dict):
     # xml header
+    sign_doc = data.get('签名')
+    if not sign_doc:
+        sign_doc = {}
+        ct = datetime.now().strftime('%Y%m%d%H%M%S')
+    else:
+        ct = sign_doc.get('signtime', '/')
+    # xml header
     admission_record = admission_record + xml_header.xml_header_file_info \
         .replace('{文档模版编号}', "2.16.156.10011.2.1.1.58") \
         .replace('{文档类型}', "C0038") \
         .replace('{文档标识编码}', data.get('文档ID', '/')) \
         .replace('{文档标题}', data.get('file_title')) \
-        .replace('{文档生成时间}', data.get('文档创建时间', '/'))
+        .replace('{文档生成时间}', ct)
 
     # 文档记录对象（患者信息）
     admission_record = admission_record + xml_header.xml_header_record_target3 \
@@ -50,7 +57,6 @@ def assembling_header(admission_record: str, data: dict):
         .replace('{医疗卫生机构编号}', data.get('hospital_no')) \
         .replace('{医疗卫生机构名称}', data.get('hospital_name'))
 
-    sign_doc = data.get('签名医师', '/')
     admission_record = admission_record + xml_header.xml_header_authenticator4 \
         .replace('{签名时间}', sign_doc.get('signtime', '/') if sign_doc else '/') \
         .replace('{医师id}', '/') \
@@ -80,6 +86,12 @@ def assembling_header(admission_record: str, data: dict):
 
 # 组装 body 信息
 def assembling_body(admission_record: str, data: dict):
+    daily_record = data.get('日常病程记录')
+    if daily_record and type(daily_record) == dict:
+        daily_record = daily_record.get('value')
+    if not daily_record:
+        daily_record = '/'
+
     # 日常病程记录
     admission_record = admission_record + xml_body.body_component \
         .replace('{code}', xml_body.body_section_code
@@ -90,9 +102,9 @@ def assembling_body(admission_record: str, data: dict):
         .replace('{entry}', xml_body.body_section_entry
                  .replace('{entry_code}', 'DE06.00.309.00')
                  .replace('{entry_name}', '住院病程')
-                 .replace('{entry_body}', xml_body.value_st.replace('{value}', data.get('日常病程记录', '/'))))
+                 .replace('{entry_body}', xml_body.value_st.replace('{value}', daily_record)))
 
-    # 日常病程记录
+    # 诊断章节
     admission_record = admission_record + xml_body.body_component \
         .replace('{code}', xml_body.body_section_code
                  .replace('{section_code}', '29548-5')

@@ -22,12 +22,17 @@ def get_birthday_from_id(id_number):
 # todo 文档标识编码
 def assembling_header(admission_record: str, data: dict):
     # xml header
+    rescue = data.get('抢救记录', '/')
+    if rescue and type(rescue) == dict:
+        ct = rescue.get('日期时间', '/')
+    else:
+        ct = datetime.now().strftime('%Y%m%d%H%M%S')
     admission_record = admission_record + xml_header.xml_header_file_info \
         .replace('{文档模版编号}', "2.16.156.10011.2.1.1.64") \
         .replace('{文档类型}', "C0044") \
         .replace('{文档标识编码}', data.get('文档ID', '/')) \
         .replace('{文档标题}', data.get('file_title')) \
-        .replace('{文档生成时间}', data.get('文档创建时间', '/'))
+        .replace('{文档生成时间}', ct)
 
     # 文档记录对象（患者信息）
     admission_record = admission_record + xml_header.xml_header_record_target3 \
@@ -51,25 +56,25 @@ def assembling_header(admission_record: str, data: dict):
         .replace('{医疗卫生机构名称}', data.get('hospital_name'))
 
     if '住院医师' in data:
-        doc_name = data.get('住院医师')
+        doc = data.get('住院医师')
     elif '主治医师' in data:
-        doc_name = data.get('主治医师')
+        doc = data.get('主治医师')
     elif '经治医师' in data:
-        doc_name = data.get('经治医师')
+        doc = data.get('经治医师')
     else:
-        doc_name = '/'
+        doc = {}
     # 接诊医师签名/住院医师签名/主治医师签名
     admission_record = admission_record + xml_header.xml_header_authenticator4 \
-        .replace('{签名时间}', '/') \
+        .replace('{签名时间}', doc.get('signtime', '/')) \
         .replace('{医师id}', '/') \
-        .replace('{医师名字}', doc_name) \
+        .replace('{医师名字}', doc.get('displayinfo', '/')) \
         .replace('{职称编码}', '/') \
-        .replace('{医师职称}', data.get('医师职称', '/'))
+        .replace('{医师职称}', doc.get('职称', '/')) \
 
     admission_record = admission_record + xml_header.xml_header_associated_person \
         .replace('{type_code}', 'CON') \
         .replace('{class_code}', 'ECON') \
-        .replace('{name1}', '/') \
+        .replace('{name1}', data.get('参与抢救人员', '/')) \
         .replace('{name2}', '/') \
         .replace('{name3}', '/')
 
@@ -144,7 +149,7 @@ def assembling_body(admission_record: str, data: dict):
         .replace('{text}', '<text />') \
         .replace('{entry_observation_name}', '手术操作') \
         .replace('{entry1}', xml_body.body_section_entry4
-                 .replace('{手术部位}', '手术部位', '/')
+                 .replace('{手术部位}', data.get('手术部位', '/'))
                  .replace('{entry_ship1}', xml_body.body_section_entry_relation_ship1
                           .replace('{code}', 'DE06.00.094.00')
                           .replace('{display_name}', '手术(操作)名称')
@@ -195,9 +200,9 @@ def assembling_body(admission_record: str, data: dict):
                  .replace('{entry_ship2}', xml_body.body_section_entry_relation_ship1
                           .replace('{code}', 'DE04.30.015.00')
                           .replace('{display_name}', '检查/检验结果定量结果')
-                          .replace('{value}', xml_body.value_pq.replace('{value}', data.get('定量结果', '/')).replace('unit', 'mmHg')))
+                          .replace('{value}', xml_body.value_pq.replace('{value}', data.get('定量结果', '/')).replace('{unit}', 'mmHg')))
                  .replace('{entry_ship3}', xml_body.body_section_entry_relation_ship1
                           .replace('{code}', 'DE06.00.251.00')
                           .replace('{display_name}', '检查/检验结果代码')
-                          .replace('{value}', xml_body.value_cd.replace('{code}', data.get('检查/检验结果代码', '/')))))
+                          .replace('{value}', xml_body.value_cd.replace('{code}', data.get('检查/检验结果代码', '/')).replace('{display_name}', data.get('检查/检验结果', '/')))))
     return admission_record

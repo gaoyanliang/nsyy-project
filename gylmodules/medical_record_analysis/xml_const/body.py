@@ -132,6 +132,12 @@ value_cd = """
                                            displayName="{display_name}"/>
 """
 
+value_cd2 = """
+<value xsi:type="CD" code="{code}" codeSystem="2.16.156.10011.2.3.3.12" codeSystemName="ICD-9-CM-3"/>
+"""
+
+
+
 
 # 主诉 / 现病史 / 预防接种史 / 输血史 / 个人史 / 月经史 / 家族史
 

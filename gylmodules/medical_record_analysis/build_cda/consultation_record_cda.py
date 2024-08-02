@@ -22,12 +22,17 @@ def get_birthday_from_id(id_number):
 # todo 文档标识编码
 def assembling_header(admission_record: str, data: dict):
     # xml header
+    re = data.get('会诊记录')
+    if re and type(re) == dict:
+        ct = re.get('日期时间', '/')
+    else:
+        ct = datetime.now().strftime('%Y%m%d%H%M%S')
     admission_record = admission_record + xml_header.xml_header_file_info \
         .replace('{文档模版编号}', "2.16.156.10011.2.1.1.65") \
         .replace('{文档类型}', "C0045") \
         .replace('{文档标识编码}', data.get('文档ID', '/')) \
         .replace('{文档标题}', data.get('file_title')) \
-        .replace('{文档生成时间}', data.get('文档创建时间', '/'))
+        .replace('{文档生成时间}', ct)
 
     # 文档记录对象（患者信息）
     admission_record = admission_record + xml_header.xml_header_record_target6 \
@@ -51,10 +56,20 @@ def assembling_header(admission_record: str, data: dict):
         .replace('{医疗卫生机构编号}', data.get('hospital_no')) \
         .replace('{医疗卫生机构名称}', data.get('hospital_name'))
 
+    if '住院医师' in data:
+        sign_doc = data.get('住院医师')
+    elif '主治医师' in data:
+        sign_doc = data.get('主治医师')
+    elif '经治医师' in data:
+        sign_doc = data.get('经治医师')
+    elif '签名' in data:
+        sign_doc = data.get('签名')
+    else:
+        sign_doc = {}
     admission_record = admission_record + xml_header.xml_header_authenticator3 \
         .replace('{医师id}', '/') \
         .replace('{显示医师名字}', '会诊申请医师') \
-        .replace('{医师名字}', data.get('会诊申请医师', '/'))
+        .replace('{医师名字}', sign_doc.get('displayinfo', '/'))
 
     admission_record = admission_record + xml_header.xml_header_authenticator5 \
         .replace('{签名时间}', '/') \
@@ -94,7 +109,9 @@ def assembling_header(admission_record: str, data: dict):
 
 # 组装 body 信息
 def assembling_body(admission_record: str, data: dict):
-
+    re = data.get('会诊记录')
+    if re and type(re) == dict:
+        re = re.get('value', '/')
     # 健康评估章节
     admission_record = admission_record + xml_body.body_component \
         .replace('{code}', xml_body.body_section_code
@@ -105,7 +122,7 @@ def assembling_body(admission_record: str, data: dict):
         .replace('{entry}', xml_body.body_section_entry
                  .replace('{entry_code}', 'DE06.00.182.00')
                  .replace('{entry_name}', '病历摘要')
-                 .replace('{entry_body}', xml_body.value_st.replace('{value}', data.get('病历摘要', '/'))))
+                 .replace('{entry_body}', xml_body.value_st.replace('{value}', re)))
 
     # 诊断章节
     admission_record = admission_record + xml_body.body_discharge_entry \

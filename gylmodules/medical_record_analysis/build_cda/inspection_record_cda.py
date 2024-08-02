@@ -22,12 +22,17 @@ def get_birthday_from_id(id_number):
 # todo 文档标识编码
 def assembling_header(admission_record: str, data: dict):
     # xml header
+    re = data.get('查房记录')
+    if re and type(re) == dict:
+        ct = re.get('日期时间', '/')
+    else:
+        ct = datetime.now().strftime('%Y%m%d%H%M%S')
     admission_record = admission_record + xml_header.xml_header_file_info \
         .replace('{文档模版编号}', "2.16.156.10011.2.1.1.59") \
         .replace('{文档类型}', "C0039") \
         .replace('{文档标识编码}', data.get('文档ID', '/')) \
         .replace('{文档标题}', data.get('file_title')) \
-        .replace('{文档生成时间}', data.get('文档创建时间', '/'))
+        .replace('{文档生成时间}', ct)
 
     # 文档记录对象（患者信息）
     admission_record = admission_record + xml_header.xml_header_record_target3 \
@@ -51,30 +56,33 @@ def assembling_header(admission_record: str, data: dict):
         .replace('{医疗卫生机构名称}', data.get('hospital_name'))
 
     # 最终审核者签名
+    legal_doc = data.get('主任医师')
+    if not legal_doc:
+        legal_doc = {}
     admission_record = admission_record + xml_header.xml_header_legal_authenticator \
         .replace('{医师id}', '/') \
         .replace('{展示医师}', '上级医师') \
-        .replace('{医师}', data.get('主任医师', '/'))
+        .replace('{医师}', legal_doc.get('displayinfo', '/'))
 
     if '住院医师' in data:
-        doc_name = data.get('住院医师')
+        sign_doc = data.get('住院医师')
     elif '主治医师' in data:
-        doc_name = data.get('主治医师')
+        sign_doc = data.get('主治医师')
     elif '经治医师' in data:
-        doc_name = data.get('经治医师')
+        sign_doc = data.get('经治医师')
     else:
-        doc_name = '/'
+        sign_doc = {}
     # 接诊医师签名/住院医师签名/主治医师签名
     admission_record = admission_record + xml_header.xml_header_authenticator2 \
-        .replace('{签名时间}', data.get('签名时间', '/')) \
+        .replace('{签名时间}', sign_doc.get('signtime', '/')) \
         .replace('{医师id}', '/') \
-        .replace('{医师名字}', doc_name) \
+        .replace('{医师名字}', sign_doc.get('displayinfo', '/')) \
         .replace('{显示医师名字}', '记录人签名')
 
     admission_record = admission_record + xml_header.xml_header_authenticator2 \
-        .replace('{签名时间}', data.get('签名时间', '/')) \
+        .replace('{签名时间}', sign_doc.get('signtime', '/')) \
         .replace('{医师id}', '/') \
-        .replace('{医师名字}', doc_name) \
+        .replace('{医师名字}', sign_doc.get('displayinfo', '/')) \
         .replace('{显示医师名字}', '主治医师签名')
 
     # 关联文档
@@ -99,6 +107,11 @@ def assembling_header(admission_record: str, data: dict):
 
 # 组装 body 信息
 def assembling_body(admission_record: str, data: dict):
+    re = data.get('查房记录')
+    if re and type(re) == dict:
+        re = re.get('value', '/')
+    if not re:
+        re = '/'
     # 查房记录
     admission_record = admission_record + xml_body.body_component \
         .replace('{code}', xml_body.body_section_code
@@ -109,7 +122,7 @@ def assembling_body(admission_record: str, data: dict):
         .replace('{entry}', xml_body.body_section_entry
                  .replace('{entry_code}', 'DE06.00.181.00')
                  .replace('{entry_name}', '查房记录')
-                 .replace('{entry_body}', xml_body.value_st.replace('{value}', data.get('查房记录', '/'))))
+                 .replace('{entry_body}', xml_body.value_st.replace('{value}', re)))
 
     # 诊断章节
     admission_record = admission_record + xml_body.body_component \

@@ -22,12 +22,17 @@ def get_birthday_from_id(id_number):
 # todo 文档标识编码
 def assembling_header(admission_record: str, data: dict):
     # xml header
+    re = data.get('首次病程记录')
+    if re:
+        ct = re.get('日期时间', '/')
+    else:
+        ct = datetime.now().strftime('%Y%m%d%H%M%S')
     admission_record = admission_record + xml_header.xml_header_file_info \
         .replace('{文档模版编号}', "2.16.156.10011.2.1.1.57") \
         .replace('{文档类型}', "C0037") \
-        .replace('{文档标识编码}', data.get('文档ID')) \
-        .replace('{文档标题}', data.get('file_title')) \
-        .replace('{文档生成时间}', datetime.now().strftime('%Y%m%d%H%M%S'))
+        .replace('{文档标识编码}', data.get('文档ID', '/')) \
+        .replace('{文档标题}', data.get('file_title', '/')) \
+        .replace('{文档生成时间}', ct)
 
     # 文档记录对象（患者信息）
     admission_record = admission_record + xml_header.xml_header_record_target3 \
@@ -47,14 +52,17 @@ def assembling_header(admission_record: str, data: dict):
 
     # 保管机构
     admission_record = admission_record + xml_header.xml_header_custodian \
-        .replace('{医疗卫生机构编号}', data.get('hospital_no')) \
-        .replace('{医疗卫生机构名称}', data.get('hospital_name'))
+        .replace('{医疗卫生机构编号}', data.get('hospital_no', '/')) \
+        .replace('{医疗卫生机构名称}', data.get('hospital_name', '/'))
 
     # 最终审核者签名
+    legal_doc = data.get('主任医师')
+    if not legal_doc:
+        legal_doc = {}
     admission_record = admission_record + xml_header.xml_header_legal_authenticator \
         .replace('{医师id}', '/') \
         .replace('{展示医师}', '上级医师') \
-        .replace('{医师}', data.get('主任医师', '/'))
+        .replace('{医师}', legal_doc.get('displayinfo', '/'))
 
     if '住院医师' in data:
         doc_name = data.get('住院医师')
@@ -63,12 +71,12 @@ def assembling_header(admission_record: str, data: dict):
     elif '经治医师' in data:
         doc_name = data.get('经治医师')
     else:
-        doc_name = '/'
+        doc_name = {}
     # 接诊医师签名/住院医师签名/主治医师签名
     admission_record = admission_record + xml_header.xml_header_authenticator1 \
         .replace('{医师id}', '/') \
         .replace('{显示医师名字}', '住院医师') \
-        .replace('{医师名字}', doc_name)
+        .replace('{医师名字}', doc_name.get('displayinfo', '/'))
 
     # 关联文档
     admission_record = admission_record + xml_header.xml_header_related_document
@@ -84,8 +92,8 @@ def assembling_header(admission_record: str, data: dict):
         .replace('{pat_dept}', data.get('pat_dept', '/')) \
         .replace('{pat_ward_no}', '/') \
         .replace('{pat_ward}', '/') \
-        .replace('{医院编码}', data.get('hospital_no')) \
-        .replace('{医院}', data.get('hospital_name'))
+        .replace('{医院编码}', data.get('hospital_no', '/')) \
+        .replace('{医院}', data.get('hospital_name', '/'))
 
     return admission_record
 

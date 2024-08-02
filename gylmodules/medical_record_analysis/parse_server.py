@@ -111,7 +111,12 @@ def query_record_and_parse(json_data):
         # 解析cda ，获取结构
         try:
             if cda:
-                structure = parse_cda.parse_cda_xml_document_by_str(cda)
+                if type(cda) == list:
+                    structure = []
+                    for c in cda:
+                        structure.append(parse_cda.parse_cda_xml_document_by_str(c))
+                else:
+                    structure = parse_cda.parse_cda_xml_document_by_str(cda)
         except Exception as e:
             structure = 'cda 结构解析失败，请联系信息科人工处理'
             print('cda 结构解析失败，请联系信息科人工处理', e)

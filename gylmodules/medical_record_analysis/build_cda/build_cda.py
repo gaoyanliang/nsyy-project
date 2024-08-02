@@ -6,7 +6,9 @@ import requests
 
 from gylmodules import global_config
 from gylmodules.medical_record_analysis.build_cda import admission_cda, discharge_cda, hours24_discharge_cda, \
-    progress_note_cda, inpatient_homepage_cda
+    progress_note_cda, inpatient_homepage_cda, daily_medical_record_cda, inspection_record_cda, \
+    difficult_cases_record_cda, handover_record_cda, transfer_record_cda, stage_summary_cda, rescue_record_cda, \
+    consultation_record_cda, preoperative_summary_cda
 from gylmodules.medical_record_analysis.xml_const import const as xml_const
 
 
@@ -20,7 +22,7 @@ def call_third_systems_obtain_data(type: str, param: dict):
     if global_config.run_in_local:
         try:
             # 发送 POST 请求，将字符串数据传递给 data 参数
-            response = requests.post("http://192.168.124.53:6080/int_api", json=param)
+            response = requests.post("http://192.168.3.12:6080/int_api", json=param)
             data = response.text
             data = json.loads(data)
             data = data.get('data')
@@ -163,44 +165,49 @@ def assembling_cda_record(data, type):
         admission_record = progress_note_cda.assembling_body(admission_record, data)
     elif type == 6:
         # 日常病程记录
-        admission_record = inpatient_homepage_cda.assembling_header(admission_record, data)
+        admission_record = daily_medical_record_cda.assembling_header(admission_record, data)
         admission_record = admission_record + xml_const.xml_body_start
-        admission_record = inpatient_homepage_cda.assembling_body(admission_record, data)
+        admission_record = daily_medical_record_cda.assembling_body(admission_record, data)
     elif type == 7:
         # 上级医师查房记录
-        admission_record = inpatient_homepage_cda.assembling_header(admission_record, data)
+        admission_record = inspection_record_cda.assembling_header(admission_record, data)
         admission_record = admission_record + xml_const.xml_body_start
-        admission_record = inpatient_homepage_cda.assembling_body(admission_record, data)
+        admission_record = inspection_record_cda.assembling_body(admission_record, data)
     elif type == 8:
         # 疑难病例讨论记录
-        admission_record = inpatient_homepage_cda.assembling_header(admission_record, data)
+        admission_record = difficult_cases_record_cda.assembling_header(admission_record, data)
         admission_record = admission_record + xml_const.xml_body_start
-        admission_record = inpatient_homepage_cda.assembling_body(admission_record, data)
+        admission_record = difficult_cases_record_cda.assembling_body(admission_record, data)
     elif type == 9:
         # 交接班记录
-        admission_record = inpatient_homepage_cda.assembling_header(admission_record, data)
+        admission_record = handover_record_cda.assembling_header(admission_record, data)
         admission_record = admission_record + xml_const.xml_body_start
-        admission_record = inpatient_homepage_cda.assembling_body(admission_record, data)
+        admission_record = handover_record_cda.assembling_body(admission_record, data)
     elif type == 10:
         # 转科记录
-        admission_record = inpatient_homepage_cda.assembling_header(admission_record, data)
+        admission_record = transfer_record_cda.assembling_header(admission_record, data)
         admission_record = admission_record + xml_const.xml_body_start
-        admission_record = inpatient_homepage_cda.assembling_body(admission_record, data)
+        admission_record = transfer_record_cda.assembling_body(admission_record, data)
     elif type == 11:
         # 阶段小结
-        admission_record = inpatient_homepage_cda.assembling_header(admission_record, data)
+        admission_record = stage_summary_cda.assembling_header(admission_record, data)
         admission_record = admission_record + xml_const.xml_body_start
-        admission_record = inpatient_homepage_cda.assembling_body(admission_record, data)
+        admission_record = stage_summary_cda.assembling_body(admission_record, data)
     elif type == 12:
         # 抢救记录
-        admission_record = inpatient_homepage_cda.assembling_header(admission_record, data)
+        admission_record = rescue_record_cda.assembling_header(admission_record, data)
         admission_record = admission_record + xml_const.xml_body_start
-        admission_record = inpatient_homepage_cda.assembling_body(admission_record, data)
+        admission_record = rescue_record_cda.assembling_body(admission_record, data)
     elif type == 13:
         # 会诊记录
-        admission_record = inpatient_homepage_cda.assembling_header(admission_record, data)
+        admission_record = consultation_record_cda.assembling_header(admission_record, data)
         admission_record = admission_record + xml_const.xml_body_start
-        admission_record = inpatient_homepage_cda.assembling_body(admission_record, data)
+        admission_record = consultation_record_cda.assembling_body(admission_record, data)
+    elif type == 14:
+        # 会诊记录
+        admission_record = preoperative_summary_cda.assembling_header(admission_record, data)
+        admission_record = admission_record + xml_const.xml_body_start
+        admission_record = preoperative_summary_cda.assembling_body(admission_record, data)
     else:
         print("不支持 type", type)
 

@@ -83,70 +83,93 @@ def parse_patient_document(xml_file):
     return patient_info
 
 
-def parse_progress_note_record(data):
-    patient_info = parse_patient_document_by_str(data.get('CONTENT'))
-    patient_info = clean_dict(patient_info)
+def parse_progress_note_record(file, data, test: bool = False):
+    if test:
+        patient_info = data
+    else:
+        patient_info = parse_patient_document_by_str(data.get('CONTENT'))
+        patient_info = clean_dict(patient_info)
 
-    patient_info['文档作者'] = data.get('文档作者')
-    patient_info['文档ID'] = data.get('文档ID')
-    patient_info['文档创建时间'] = data.get('记录时间')
+        patient_info['文档作者'] = data.get('文档作者')
+        patient_info['文档ID'] = data.get('文档ID')
+        patient_info['文档创建时间'] = data.get('记录时间')
 
     # 将 Python 对象转换为格式化的 JSON 字符串
     # formatted_json = json.dumps(patient_info, indent=4, ensure_ascii=False)
     # print(formatted_json)
 
     cda_list = []
+    # 转科目的
+    purpose_of_transfer = '/'
+    # 转出签字
+    sign_of_transfer = {}
     subd = patient_info.get('sub_doc')
     for sub in subd:
         cda_data = ''
-        if sub.get('antetypeid') == '6584489821AF412B965461E5A1832793':
-            # 首次病程记录
-            patient_info.update(sub)
-            cda_data = assembling_cda_record(patient_info, 5)
-        elif sub.get('antetypeid') == 'EC86BA05EFFE43B3BCB93417CCDBF504':
-            # 日常病程记录, 签名和日常病程记录内容
-            patient_info['日常病程记录'] = sub.get('日常病程记录') if sub.get('日常病程记录') else sub.get('日常病程记录.')
-            sign = [v for k, v in sub.items() if '签名' in k]
-            if sign:
-                patient_info['医师签名'] = sign[0]
-            cda_data = assembling_cda_record(patient_info, 6)
-
-
-
-        elif sub.get('antetypeid') == '960FFBFF811949E9BB42E41C781F37E1':
-            # 上级医师查房记录
-            patient_info.update(sub)
-            cda_data = assembling_cda_record(patient_info, 7)
-        elif sub.get('antetypeid') == '42E65F045E4E4D37A79A957877443CAD':
-            # 交班记录
-            patient_info.update(sub)
-            cda_data = assembling_cda_record(patient_info, 9)
-        elif sub.get('antetypeid') == 'EC86BA05EFFE43B3BCB93417CCDBF504':
-            # 转科记录
-            #     'FDBE6AE727B747568CC87E94604CBE45': '转出记录', todo 需要合并在一起
-            #     'BAFB050135AA4C119B0E24446EB3C723': '转入记录',
-            patient_info.update(sub)
-            cda_data = assembling_cda_record(patient_info, 10)
-        elif sub.get('antetypeid') == '0FBB8AC2C758451CB9350BBBA010F147':
-            # 阶段小结
-            patient_info.update(sub)
-            cda_data = assembling_cda_record(patient_info, 11)
-        elif sub.get('antetypeid') == '0CF4B6CB786D44D88DBF9ED3BD3234D3':
-            # 抢救记录
-            patient_info.update(sub)
-            cda_data = assembling_cda_record(patient_info, 12)
-        elif sub.get('antetypeid') == '9370D17BBD43440AAD7F43278DEBEC6C':
-            # 会诊记录
-            patient_info.update(sub)
-            cda_data = assembling_cda_record(patient_info, 13)
-        elif sub.get('antetypeid') == '0182956BBCDE4D1FB8BAE50B2CD38588':
-            # 术前小结
-            patient_info.update(sub)
-            cda_data = assembling_cda_record(patient_info, 14)
-        elif sub.get('antetypeid') == '4B86BE6477AC414CBB8ED525E2D6A847':
-            # 术后上级查房记录
-            patient_info.update(sub)
-            cda_data = assembling_cda_record(patient_info, 16)
+        shallow_copy = patient_info.copy()
+        try:
+            if sub.get('antetypeid') in ('6584489821AF412B965461E5A1832793',
+                                         '0EFE9798AA6E416CBD70291FB88829B4',
+                                         '38C4730AD1EF42BAAA953AF74A1BBEDA',
+                                         '943B7ECD19694804A8128B1F6DF67071'):
+                # 首次病程记录, 术后首次病程记录
+                shallow_copy.update(sub)
+                cda_data = assembling_cda_record(shallow_copy, 5)
+            elif sub.get('antetypeid') in ('EC86BA05EFFE43B3BCB93417CCDBF504',
+                                           '103ED3475F5443FEAA1D77EA842D6C9A'):
+                # 日常病程记录, 签名和日常病程记录内容
+                shallow_copy['日常病程记录'] = sub.get('日常病程记录') if sub.get('日常病程记录') else sub.get('日常病程记录.')
+                sign = [v for k, v in sub.items() if '签名' in k]
+                if sign:
+                    shallow_copy['医师签名'] = sign[0]
+                cda_data = assembling_cda_record(shallow_copy, 6)
+            elif sub.get('antetypeid') in ('960FFBFF811949E9BB42E41C781F37E1',
+                                           '4B86BE6477AC414CBB8ED525E2D6A847'):
+                # 上级医师查房记录
+                shallow_copy['查房记录'] = sub.get('上级医师查房记录', '/')
+                shallow_copy['主任医师'] = sub.get('主任医师', {})
+                shallow_copy['经治医师'] = sub.get('经治医师', {})
+                cda_data = assembling_cda_record(shallow_copy, 7)
+            elif sub.get('antetypeid') == '42E65F045E4E4D37A79A957877443CAD':
+                # 交班记录
+                shallow_copy.update(sub)
+                cda_data = assembling_cda_record(shallow_copy, 9)
+            elif sub.get('antetypeid') == 'FDBE6AE727B747568CC87E94604CBE45':
+                # 转出科室-转入科室，一般是一一对应的，但是有些文件中 仅有转入记录，没有转出记录
+                # 从转出记录中获取 转科目的
+                purpose_of_transfer = sub.get('转科目的', '/')
+                if '住院医师' in sub:
+                    sign_of_transfer = sub.get('住院医师')
+                elif '主治医师' in sub:
+                    sign_of_transfer = sub.get('主治医师')
+                elif '经治医师' in sub:
+                    sign_of_transfer = sub.get('经治医师')
+                else:
+                    sign_of_transfer = {}
+            elif sub.get('antetypeid') == 'BAFB050135AA4C119B0E24446EB3C723':
+                # 遇到转入记录，构造转科记录
+                shallow_copy.update(sub)
+                shallow_copy['转科目的'] = purpose_of_transfer
+                shallow_copy['转出医师签名'] = sign_of_transfer
+                cda_data = assembling_cda_record(shallow_copy, 10)
+            elif sub.get('antetypeid') == '0FBB8AC2C758451CB9350BBBA010F147':
+                # 阶段小结
+                shallow_copy.update(sub)
+                cda_data = assembling_cda_record(shallow_copy, 11)
+            elif sub.get('antetypeid') == '0CF4B6CB786D44D88DBF9ED3BD3234D3':
+                # 抢救记录
+                shallow_copy.update(sub)
+                cda_data = assembling_cda_record(shallow_copy, 12)
+            elif sub.get('antetypeid') == '9370D17BBD43440AAD7F43278DEBEC6C':
+                # 会诊记录
+                shallow_copy.update(sub)
+                cda_data = assembling_cda_record(shallow_copy, 13)
+            elif sub.get('antetypeid') == '0182956BBCDE4D1FB8BAE50B2CD38588':
+                # 术前小结
+                shallow_copy.update(sub)
+                cda_data = assembling_cda_record(shallow_copy, 14)
+        except Exception as e:
+            print(file, sub.get('antetypeid'), sub.get('title'), '解析异常', e)
 
         if cda_data:
             cda_list.append(cda_data)
@@ -162,21 +185,22 @@ subdoc_name_dict = {
     'EC86BA05EFFE43B3BCB93417CCDBF504': '日常病程记录',
     '960FFBFF811949E9BB42E41C781F37E1': '上级医师查房记录',
     '42E65F045E4E4D37A79A957877443CAD': '交班记录',
-    'FDBE6AE727B747568CC87E94604CBE45': '转出记录',
-    'BAFB050135AA4C119B0E24446EB3C723': '转入记录',
     '0FBB8AC2C758451CB9350BBBA010F147': '阶段小结',
     '0CF4B6CB786D44D88DBF9ED3BD3234D3': '抢救记录',
     '9370D17BBD43440AAD7F43278DEBEC6C': '会诊记录',
+    'FDBE6AE727B747568CC87E94604CBE45': '转出记录',
+    'BAFB050135AA4C119B0E24446EB3C723': '转入记录',
     '0182956BBCDE4D1FB8BAE50B2CD38588': '术前小结',
-    '4B86BE6477AC414CBB8ED525E2D6A847': '术后上级查房记录',
-
-    '103ED3475F5443FEAA1D77EA842D6C9A': '出院当日病程记录',
-    '870E9708C9C8421FBA23C093F397068D': '危急值报告处理记录',
     '0EFE9798AA6E416CBD70291FB88829B4': '术后首次病程记录',
-    '7F5F990B46CF4F07B0419E297604D02F': '有创操作记录',
-    'D7CF4ED4C58645D3AD874949C3119D6C': '输血记录',
+    '4B86BE6477AC414CBB8ED525E2D6A847': '术后上级查房记录',
+    '103ED3475F5443FEAA1D77EA842D6C9A': '出院当日病程记录',
     '38C4730AD1EF42BAAA953AF74A1BBEDA': '中医科首次病程记录',
-    '943B7ECD19694804A8128B1F6DF67071': '新生儿首次病程记录'
+    '943B7ECD19694804A8128B1F6DF67071': '新生儿首次病程记录',
+    
+    '870E9708C9C8421FBA23C093F397068D': '危急值报告处理记录',
+    '7F5F990B46CF4F07B0419E297604D02F': '有创操作记录',
+    'D7CF4ED4C58645D3AD874949C3119D6C': '输血记录'
+
 }
 
 
@@ -196,55 +220,48 @@ def parse_test(xml_file):
         antetypeid = element.get('antetypeid')
         if key:
             subdoc_info[antetypeid] = key
+            if antetypeid == 'BAFB050135AA4C119B0E24446EB3C723':
+                print(xml_file)
 
 
 # Press the green button in the gutter to run the script.
 if __name__ == '__main__':
     # 遍历所有目录中xml 文件完成解析，并生成入院记录 cda 文档
-    # index = 0
-    # directory = '/Users/gaoyanliang/nsyy/病历解析/病程记录/bingli/'
-    # for root, dirs, files in os.walk(directory):
-    #     for file in files:
-    #         if file.endswith(".xml"):
-    #             # parse_test(os.path.join(root, file))
-    #             index = index + 1
-    #             patient_info = parse_patient_document(os.path.join(root, file))
-    #             patient_info = clean_dict(patient_info)
-    #             subd = patient_info.get('sub_doc')
-    #             for doc in subd:
-    #                 if doc.get('antetypeid') == '6584489821AF412B965461E5A1832793':
-    #                     patient_info.update(doc)
-    #                     break
-    #
-    #             # 将 Python 对象转换为格式化的 JSON 字符串
-    #             # formatted_json = json.dumps(patient_info, indent=4, ensure_ascii=False)
-    #             # print(formatted_json)
-    #             try:
-    #                 assembling_cda_record(patient_info, 4)
-    #             except Exception as e:
-    #                 print('===> 解析异常', file)
-    # print(index)
+    index = 0
+    directory = '/Users/gaoyanliang/nsyy/病历解析/病程记录/bingli/'
+    for root, dirs, files in os.walk(directory):
+        for file in files:
+            if file.endswith(".xml"):
+                # parse_test(os.path.join(root, file))
+                index = index + 1
+                patient_info = parse_patient_document(os.path.join(root, file))
+                patient_info = clean_dict(patient_info)
+
+                # parse_test(os.path.join(root, file))
+
+                # 将 Python 对象转换为格式化的 JSON 字符串
+                # formatted_json = json.dumps(patient_info, indent=4, ensure_ascii=False)
+                # print(formatted_json)
+                try:
+                    parse_progress_note_record(file, patient_info, True)
+                except Exception as e:
+                    print('=========> 解析异常', file)
+    print(index)
     # print(subdoc_info)
 
-    patient_info = parse_patient_document('/Users/gaoyanliang/nsyy/病历解析/病程记录/bingli/病程记录_2024-03-05_00-39-07.xml')
-    patient_info = clean_dict(patient_info)
-
-    # is_find = False
-    # subd = patient_info.get('sub_doc')
-    # for doc in subd:
-    #     if doc.get('antetypeid') == '6584489821AF412B965461E5A1832793':
-    #         patient_info.update(doc)
-    #         is_find = True
-    #         break
+    # patient_info = parse_patient_document('/Users/gaoyanliang/nsyy/病历解析/病程记录/0304/病程记录_2024-03-04_11-13-47.xml')
+    # patient_info = clean_dict(patient_info)
+    # formatted_json = json.dumps(patient_info, indent=4, ensure_ascii=False)
+    # print(formatted_json)
     #
-    # if not is_find:
-    #     raise Exception('当前病历未找到首次病程记录')
+    # try:
+    #     cda_list = parse_progress_note_record('file', patient_info, True)
+    #     print('------------------------------')
+    #     # for cda in cda_list:
+    #     #     print(cda)
+    # except Exception as e:
+    #     print('===> 解析异常', e)
 
-    formatted_json = json.dumps(patient_info, indent=4, ensure_ascii=False)
-    print(formatted_json)
-
-    print('------------------------------')
-    # assembling_cda_record(patient_info, 4)
 
 
 
