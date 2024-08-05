@@ -390,13 +390,45 @@ def create_cv(cvd):
                     # 更新完成之后移除手工上报记录
                     redis_client.hdel(cv_config.MANUAL_CVS_REDIS_KEY, str(cv_data['PAT_NO']))
                     redis_client.hdel(cv_config.RUNNING_CVS_REDIS_KEY, str(manual_record['cv_id']) + '_' + str(manual_record['cv_source']))
-                    if int(record.get('state')) < cv_config.DOCTOR_HANDLE_STATE:
+                    if cv_config.DOCTOR_HANDLE_STATE > int(record.get('state')) > cv_config.INVALID_STATE:
                         redis_client.hset(cv_config.RUNNING_CVS_REDIS_KEY, key, json.dumps(record, default=str))
+
+                    # 合并危急值时，如果危急值已经处理，回写数据
+                    manual_cv_feedback(record)
+
                     continue
             create_cv_by_system(cv_data, int(cv_source))
         except Exception as e:
             print("新增危急值异常：cv_data = ", cv_data, ' key = ', key, 'Exception = ', e)
     del db
+
+
+def manual_cv_feedback(record):
+    try:
+        if int(record.get('state')) == cv_config.DOCTOR_HANDLE_STATE:
+            # 如果危机值已经处理，回写数据（有可能手工上报时没有正确填写住院号，导致数据回写失败，如果不再次回写，会一直抓取该条危急值）
+            # 病历回写
+            pat_no = record.get('patient_treat_id')
+            pat_type = int(record.get('patient_type'))
+            handle_doc = record.get('handle_doctor_name')
+            handle_time = record.get('handle_time').strftime("%Y-%m-%d %H:%M:%S")
+            method = record.get('method') if record.get('method') else '/'
+            param = {
+                "pat_no": pat_no,
+                "pat_type": pat_type,
+                "record": record,
+                "handler_name": handle_doc,
+                "timer": handle_time,
+                "method": method,
+                "analysis": record.get('analysis') if record.get('analysis') else '/'
+            }
+            # 1. 回写病历
+            medical_record_writing_back(param)
+
+            # 2. 回写数据
+            data_feedback(record.get('cv_id'), int(record.get('cv_source')), handle_doc, handle_time, method, 3)
+    except Exception as e:
+        print("合并危急值时，回写数据异常：record = ", record, 'Exception = ', e)
 
 
 """

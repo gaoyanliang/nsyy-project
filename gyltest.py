@@ -90,9 +90,17 @@ from gylmodules.utils.db_utils import DbUtil
 #     print('tousssssssssssssss')
 
 
-# db = DbUtil(global_config.DB_HOST, global_config.DB_USERNAME, global_config.DB_PASSWORD,
-#             global_config.DB_DATABASE_GYL)
-#
+db = DbUtil(global_config.DB_HOST, global_config.DB_USERNAME, global_config.DB_PASSWORD,
+            global_config.DB_DATABASE_GYL)
+
+query_sql = """
+SELECT * FROM nsyy_gyl.cv_info where id = 3375
+"""
+
+record = db.query_one(query_sql)
+
+print()
+
 # insert_sql = """
 # INSERT INTO nsyy_gyl.cv_info (patient_treat_id,req_docno,alertman,cv_flag,patient_type,cv_type,cv_name,cv_result,cv_unit,cv_ref,
 # patient_gender,patient_name,patient_age,dept_id,dept_name,alert_dept_id,alert_dept_name,alertman_name,alertman_pers_id,cv_id,cv_source,alertdt,time,state,nurse_recv_timeout,nurse_send_timeout,doctor_recv_timeout,doctor_handle_timeout,total_timeout)
