@@ -21,3 +21,6 @@ schedule_task = {'cv_timeout': 1, 'cv_dept_update': 1, 'appt_daily': 1}
 run_in_local = True
 
 socket_push_url = 'http://120.194.96.67:6066/inter_socket_msg'
+# # 服务器使用内网地址
+# socket_push_url = 'http://192.168.3.65:6066/inter_socket_msg'
+
