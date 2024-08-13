@@ -514,12 +514,15 @@ def query_appt_record(json_data):
 
 
 def push_patient(patient_name: str, socket_id: str):
-    socket_data = {"patient_name": patient_name, "type": 300}
-    data = {'msg_list': [{'socket_data': socket_data, 'pers_id': socket_id, 'socketd': 'w_site'}]}
-    headers = {'Content-Type': 'application/json'}
-    response = requests.post(global_config.socket_push_url, data=json.dumps(data), headers=headers)
-    print("Socket Push Status: ", response.status_code, "Response: ", response.text, "socket_data: ", socket_data,
-          "socket_id: ", socket_id)
+    try:
+        socket_data = {"patient_name": patient_name, "type": 300}
+        data = {'msg_list': [{'socket_data': socket_data, 'pers_id': socket_id, 'socketd': 'w_site'}]}
+        headers = {'Content-Type': 'application/json'}
+        response = requests.post(global_config.socket_push_url, data=json.dumps(data), headers=headers)
+        print("Socket Push Status: ", response.status_code, "Response: ", response.text, "socket_data: ", socket_data,
+              "socket_id: ", socket_id)
+    except Exception as e:
+        print("Socket Push Error: ", e)
 
 
 """
@@ -1177,14 +1180,17 @@ def if_the_current_time_period_is_available(period):
 
 
 def call(json_data):
-    socket_id = json_data.get('socket_id')
-    room = ' '.join(list(json_data.get('proj_room')))
-    socket_data = {"msg": '请患者 {} 到 {} 诊室就诊'.format(json_data.get('name'), room), "type": 200}
-    data = {'msg_list': [{'socket_data': socket_data, 'pers_id': socket_id, 'socketd': 'w_site'}]}
-    headers = {'Content-Type': 'application/json'}
-    response = requests.post(global_config.socket_push_url, data=json.dumps(data), headers=headers)
-    print("Socket Push Status: ", response.status_code, "Response: ", response.text, "socket_data: ", socket_data,
-          'socket_id: ', socket_id)
+    try:
+        socket_id = json_data.get('socket_id')
+        room = ' '.join(list(json_data.get('proj_room')))
+        socket_data = {"msg": '请患者 {} 到 {} 诊室就诊'.format(json_data.get('name'), room), "type": 200}
+        data = {'msg_list': [{'socket_data': socket_data, 'pers_id': socket_id, 'socketd': 'w_site'}]}
+        headers = {'Content-Type': 'application/json'}
+        response = requests.post(global_config.socket_push_url, data=json.dumps(data), headers=headers)
+        print("Socket Push Status: ", response.status_code, "Response: ", response.text, "socket_data: ", socket_data,
+              'socket_id: ', socket_id)
+    except Exception as e:
+        print('Call Exception: ', e)
 
 
 """
