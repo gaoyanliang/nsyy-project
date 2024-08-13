@@ -4,7 +4,7 @@ import traceback
 from datetime import datetime
 from flask import Blueprint, jsonify, request
 
-from gylmodules.critical_value import critical_value
+from gylmodules.critical_value import critical_value, cv_manage
 
 cv = Blueprint('critical value', __name__, url_prefix='/cv')
 
@@ -504,6 +504,31 @@ def query_template():
     except Exception as e:
         timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
         print(f"[{timestamp}] query_template Exception occurred: {e.__str__()}, param: ", json_data)
+        return jsonify({
+            'code': 50000,
+            'res': e.__str__(),
+            'data': []
+        })
+
+    return jsonify({
+        'code': 20000,
+        'data': res
+    })
+
+
+"""
+校验危急值数量
+"""
+
+
+@cv.route('/check_cv_count', methods=['POST'])
+def check_cv_count():
+    try:
+        json_data = json.loads(request.get_data().decode('utf-8'))
+        res = cv_manage.check_crisis_value_count(json_data)
+    except Exception as e:
+        timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        print(f"[{timestamp}] check_cv_count Exception occurred: {e.__str__()}, param: ", json_data)
         return jsonify({
             'code': 50000,
             'res': e.__str__(),

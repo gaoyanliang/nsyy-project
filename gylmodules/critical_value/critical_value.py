@@ -420,7 +420,7 @@ def manual_cv_feedback(record):
                 "handler_name": handle_doc,
                 "timer": handle_time,
                 "method": method,
-                "analysis": record.get('analysis') if record.get('analysis') else '/'
+                "analysis": record.get('analysis') if record.get('analysis') else ''
             }
             # 1. 回写病历
             medical_record_writing_back(param)
@@ -476,114 +476,6 @@ def invalid_remote_crisis_value(cv_id, cv_source):
         call_third_systems_obtain_data('data_feedback', param)
     except Exception as e:
         print('作废远程危机值异常', e)
-
-
-"""
-作废 超过一天未处理的危机值
-"""
-
-
-# def invalid_history_cv():
-#     db = DbUtil(global_config.DB_HOST, global_config.DB_USERNAME, global_config.DB_PASSWORD,
-#                 global_config.DB_DATABASE_GYL)
-#
-#     states = (cv_config.INVALID_STATE, cv_config.DOCTOR_HANDLE_STATE)
-#     query_sql = f'select cv_id, cv_source from nsyy_gyl.cv_info where alertdt < DATE_SUB(NOW(), INTERVAL 1 DAY) and state not in {states}'
-#     history_cv = db.query_all(query_sql)
-#     if not history_cv:
-#         return
-#
-#     # 构建 CASE 语句
-#     info = '[超过一天未处理-作废]'
-#     case_statements = " ".join(
-#         f"WHEN (cv_id = \'{record['cv_id']}\' AND cv_source = {record['cv_source']}) THEN '{info}' "
-#         for record in history_cv
-#     )
-#     conditions = " OR ".join(
-#         f"(cv_id = \'{record['cv_id']}\' AND cv_source = {record['cv_source']})"
-#         for record in history_cv
-#     )
-#
-#     # 最终的 SQL 查询
-#     update_sql = f"""
-#         UPDATE nsyy_gyl.cv_info
-#         SET analysis = CASE
-#             {case_statements}
-#             ELSE \'{info}\'
-#         END
-#         WHERE {conditions}
-#     """
-#     db.execute(update_sql, need_commit=True)
-#     del db
-#
-#     for record in history_cv:
-#         try:
-#             invalid_remote_crisis_value(record.get('cv_id'), record.get('cv_source'))
-#         except Exception as e:
-#             print('作废 cv_id: ', record.get('cv_id'), ' cv_source: ', record.get('cv_source'), '异常： ', e)
-
-
-"""
-缓存最近一段时间，所有仅需要上报一次的危机值
- key=检查项目名称 value=【patient_id】
-"""
-
-
-def cache_single_cv():
-    db = DbUtil(global_config.DB_HOST, global_config.DB_USERNAME, global_config.DB_PASSWORD,
-                global_config.DB_DATABASE_GYL)
-
-    day_before_yesterday = datetime.now() - timedelta(days=2)
-    # 设置时间为午夜（0时0分0秒）
-    day_before_yesterday_midnight = day_before_yesterday.replace(hour=0, minute=0, second=0, microsecond=0)
-    formatted_date = day_before_yesterday_midnight.strftime("%Y-%m-%d %H:%M:%S")
-
-    query_sql = f'select * from nsyy_gyl.cv_info where alertdt > \'{formatted_date}\' '
-    cvs = db.query_all(query_sql)
-    del db
-
-    # 按照 cv_name 分组
-    data = {}
-    for cv in cvs:
-        cvname = cv.get('cv_name')
-        if cvname not in cv_config.SINGLE_CRISIS_VALUE_NAME_LIST:
-            continue
-        if cvname not in data:
-            data[cvname] = []
-        data[cvname].append(cv.get('patient_treat_id'))
-    redis_client = redis.Redis(connection_pool=pool)
-    redis_client.delete(cv_config.SINGLE_CV_REDIS_KEY)
-    for key, value in data.items():
-        value = list(set(value))
-        redis_client.hset(cv_config.SINGLE_CV_REDIS_KEY, key, json.dumps(value, default=str))
-
-
-def check_single_crisis_value(json_data, cv_source):
-    # 检查当前危机值是否仅需要上报一次
-    itemname = json_data.get('RPT_ITEMNAME')
-    if itemname not in cv_config.SINGLE_CRISIS_VALUE_NAME_LIST:
-        return False, False
-
-    db = DbUtil(global_config.DB_HOST, global_config.DB_USERNAME, global_config.DB_PASSWORD,
-                global_config.DB_DATABASE_GYL)
-    cv_id = json_data.get('RESULTALERTID')
-    query_sql = f"select * from nsyy_gyl.cv_info where cv_id = '{cv_id}' and cv_source = {cv_source} "
-    exist_record = db.query_all(query_sql)
-    del db
-
-    redis_client = redis.Redis(connection_pool=pool)
-    all_patient = json.loads(redis_client.hget(cv_config.SINGLE_CV_REDIS_KEY, itemname)) \
-        if redis_client.hget(cv_config.SINGLE_CV_REDIS_KEY, itemname) else []
-
-    # 该患者最近出现过相同危机值，不再上报，并作废远程危机值
-    pat_no = json_data.get('PAT_NO')
-    if pat_no in all_patient and not exist_record:
-        print(
-            f'最近患者 {pat_no} 已经出现过危急值 {itemname}, 当前危急值 cv_id = {cv_id} cv_source = {cv_source} 不再上报, 并作废远程危机值')
-        invalid_remote_crisis_value(cv_id, cv_source)
-        return True, False
-
-    return False, True
 
 
 """
@@ -783,14 +675,6 @@ def create_cv_by_system(json_data, cv_source):
         # print('当前危机值病人科室不是数字，跳过。 ' + str(json_data))
         return
 
-    # 检查是否是仅需要上报一次的危机值类型，如果是检查最近有没有上报过同类型的危机值
-    try:
-        return_now, need_cache = check_single_crisis_value(json_data, cv_source)
-        if return_now:
-            return
-    except Exception as e:
-        print('error: check_single_crisis_value exception = ', e.__str__())
-
     # 解析危机值上报信息
     cvd['cv_id'] = json_data.get('RESULTALERTID')
     cvd['cv_source'] = cv_source
@@ -887,6 +771,11 @@ def create_cv_by_system(json_data, cv_source):
     cvd['doctor_handle_timeout'] = redis_client.get(cv_config.TIMEOUT_REDIS_KEY['doctor_handle']) or 300
     cvd['total_timeout'] = redis_client.get(cv_config.TIMEOUT_REDIS_KEY['total']) or 600
 
+    if json_data.get('INSTRNA'):
+        cvd['instrna'] = json_data.get('INSTRNA')
+        if json_data.get('REPORTID') and (cvd['instrna'].__contains__('血气仪') or cvd['instrna'].__contains__('荧光仪')):
+            cvd['report_id'] = json_data.get('REPORTID')
+
     db = DbUtil(global_config.DB_HOST, global_config.DB_USERNAME, global_config.DB_PASSWORD,
                 global_config.DB_DATABASE_GYL)
     # 插入危机值
@@ -897,16 +786,6 @@ def create_cv_by_system(json_data, cv_source):
     if last_rowid == -1:
         del db
         raise Exception("系统危急值入库失败! " + str(args))
-
-    # 如果是仅需要上报一次的危机值类型，缓存下来，防止多次上报
-    if need_cache:
-        data = redis_client.hget(cv_config.SINGLE_CV_REDIS_KEY, json_data.get('RPT_ITEMNAME'))
-        if not data:
-            data = []
-        else:
-            data = json.loads(data)
-        data.append(json_data.get('PAT_NO'))
-        redis_client.hset(cv_config.SINGLE_CV_REDIS_KEY, json_data.get('RPT_ITEMNAME'), json.dumps(data, default=str))
 
     # 发送危机值 直接通知医生和护士
     msg = '[{} - {} - {} - {}]'.format(cvd.get('patient_name', 'unknown'), cvd.get('req_docno', 'unknown'),
@@ -1332,85 +1211,67 @@ def nursing_records(json_data):
 
 
 def doctor_handle_cv(json_data):
-    cv_id = json_data.get("cv_id")
     cv_source = json_data.get("cv_source")
     handler_id = json_data.get("handler_id")
     handler_name = json_data.get("handler_name")
-    analysis = json_data.get("analysis")
-    method = json_data.get("method")
-    create_time = json_data.get('create_time')
+    cvs = json_data.get('cvs')
 
     db = DbUtil(global_config.DB_HOST, global_config.DB_USERNAME, global_config.DB_PASSWORD,
                 global_config.DB_DATABASE_GYL)
+    # 从缓存中获取总流程的超时时间，如果不存在，默认 10 分钟
+    redis_client = redis.Redis(connection_pool=pool)
+    timeout = redis_client.get(cv_config.TIMEOUT_REDIS_KEY['total'])
+    if not timeout:
+        timeout = 10 * 60
+    cur_time = datetime.now()
+    timer = cur_time.strftime("%Y-%m-%d %H:%M:%S")
 
-    query_sql = f'select * from nsyy_gyl.cv_info where cv_id = \'{cv_id}\' and cv_source = {cv_source}'
-    record = db.query_one(query_sql)
-    if int(record.get('state')) < cv_config.DOCTOR_HANDLE_STATE:
-        # 从缓存中获取总流程的超时时间，如果不存在，默认 10 分钟
-        redis_client = redis.Redis(connection_pool=pool)
-        timeout = redis_client.get(cv_config.TIMEOUT_REDIS_KEY['total'])
-        if not timeout:
-            timeout = 10 * 60
+    for cv in cvs:
+        cv_id = cv.get("cv_id")
+        method = cv.get('method')
+        create_time = cv.get('create_time')
+        query_sql = f'select * from nsyy_gyl.cv_info where cv_id = \'{cv_id}\' and cv_source = {cv_source}'
+        record = db.query_one(query_sql)
+        if int(record.get('state')) < cv_config.DOCTOR_HANDLE_STATE:
+            create_time = datetime.strptime(create_time, "%a, %d %b %Y %H:%M:%S GMT")
+            update_total_timeout_sql = ''
+            if (cur_time - create_time).seconds > int(timeout):
+                update_total_timeout_sql = 'is_timeout = 1 , '
+            # 更新危机值状态为 【医生处理】
+            update_sql = f'UPDATE nsyy_gyl.cv_info SET {update_total_timeout_sql} state = %s, ' \
+                         f' method = %s, handle_time = %s, handle_doctor_name = %s, handle_doctor_id = %s ' \
+                         'WHERE cv_id = %s and cv_source = %s '
+            args = (cv_config.DOCTOR_HANDLE_STATE, method, timer, handler_name, handler_id, cv_id, cv_source)
+            db.execute(update_sql, args, need_commit=True)
+            # 从缓存中移除
+            key = cv_id + '_' + str(cv_source)
+            delete_cache(key)
 
-        cur_time = datetime.now()
-        create_time = datetime.strptime(create_time, "%a, %d %b %Y %H:%M:%S GMT")
-        update_total_timeout_sql = ''
-        if (cur_time - create_time).seconds > int(timeout):
-            update_total_timeout_sql = 'is_timeout = 1 , '
+            try:
+                # 病历回写
+                pat_no = record.get('patient_treat_id')
+                pat_type = int(record.get('patient_type'))
+                medical_record_writing_back({
+                    "pat_no": pat_no, "pat_type": pat_type, "record": record,
+                    "handler_name": handler_name, "timer": timer, "method": method, "analysis": ''
+                })
+                # 所有 cv source 类型都需要执行 data feedback，为了防止抓取到重复的危急值
+                data_feedback(cv_id, int(cv_source), handler_name, timer, method, 3)
+                # 心电系统和 pacs 系统单独回写对应的系统
+                if int(cv_source) == 4:
+                    # 心电危机值特殊处理
+                    xindian_data_feedback({"cv_id": cv_id, "doc_id": handler_id, "doc_name": handler_name, "body": method})
+                elif int(cv_source) == 3:
+                    # pacs 危机值特殊处理
+                    pacs_data_feedback({"cv_id": cv_id, "doc_name": handler_name, "body": method, "handle_time": timer})
+                # 通知医技科室
+                if record.get('alertman_pers_id'):
+                    msg = '患者 {} 的危急值，医生 {} 已处理'.format(record.get('patient_name', 'unknown'), handler_name)
+                    notiaction_alert_man(msg, int(record.get('alertman_pers_id')))
+            except Exception as e:
+                print(f'数据回写失败，错误信息：{e}')
+    del db
 
-        timer = cur_time.strftime("%Y-%m-%d %H:%M:%S")
-        # 更新危机值状态为 【医生处理】
-        update_sql = f'UPDATE nsyy_gyl.cv_info SET {update_total_timeout_sql} state = %s, analysis = %s, method = %s, ' \
-                     'handle_time = %s, handle_doctor_name = %s, handle_doctor_id = %s ' \
-                     'WHERE cv_id = %s and cv_source = %s '
-        args = (cv_config.DOCTOR_HANDLE_STATE, analysis, method, timer, handler_name, handler_id, cv_id, cv_source)
-        db.execute(update_sql, args, need_commit=True)
-        del db
-
-        # 同步更新常量中的状态
-        key = cv_id + '_' + str(cv_source)
-        delete_cache(key)
-
-        # 病历回写
-        pat_no = record.get('patient_treat_id')
-        pat_type = int(record.get('patient_type'))
-        param = {
-            "pat_no": pat_no,
-            "pat_type": pat_type,
-            "record": record,
-            "handler_name": handler_name,
-            "timer": timer,
-            "method": method,
-            "analysis": analysis
-        }
-        medical_record_writing_back(param)
-
-        # 所有 cv source 类型都需要执行 data feedback，为了防止抓取到重复的危急值
-        data_feedback(cv_id, int(cv_source), handler_name, timer, method, 3)
-        # 心电系统和 pacs 系统单独回写对应的系统
-        if int(cv_source) == 4:
-            # 心电危机值特殊处理
-            xindian_data_feedback({
-                "cv_id": cv_id,
-                "doc_id": handler_id,
-                "doc_name": handler_name,
-                "body": method
-            })
-        elif int(cv_source) == 3:
-            # pacs 危机值特殊处理
-            pacs_data_feedback({
-                "cv_id": cv_id,
-                "doc_name": handler_name,
-                "body": method,
-                "handle_time": timer
-            })
-
-        # 通知医技科室
-        if record.get('alertman_pers_id'):
-            msg = '患者 {} 的危急值，医生 {} 已处理'.format(record.get('patient_name', 'unknown'), handler_name)
-            notiaction_alert_man(msg, int(record.get('alertman_pers_id')))
-    else:
-        del db
 
 """
 病历回写
@@ -1542,6 +1403,7 @@ def medical_record_template(json_data):
 
     query_sql = 'select * from nsyy_gyl.cv_info where cv_id = \'{}\' '.format(cv_id)
     cv = db.query_one(query_sql)
+    del db
 
     templete = []
     templete.append('危机值报告处理记录')
@@ -1550,18 +1412,15 @@ def medical_record_template(json_data):
         templete.append("于 " + time + "接收到 " + str(cv.get('alert_dept_name')) +
                         " 推送的危机值, 检查项目: " + str(cv.get('cv_name')) +
                         " 危机值: " + str(cv.get('cv_result')) + " " + str(cv.get('cv_unit')))
-        string = "原因分析： "
         if cv.get('analysis'):
+            string = "原因分析： "
             string = string + cv.get("analysis")
-        templete.append(string)
-        string = "处理办法： "
+            templete.append(string)
         if cv.get('method'):
+            string = "处理办法： "
             string = string + cv.get("method")
-        templete.append(string)
+            templete.append(string)
         templete.append("医师签名：")
-
-    del db
-
     return templete
 
 

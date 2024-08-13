@@ -2,14 +2,13 @@ import json
 from datetime import datetime, timedelta
 import redis
 import requests
-from apscheduler.triggers.interval import IntervalTrigger
 from ping3 import ping
 
 from gylmodules import global_config
 from gylmodules.composite_appointment.ca_server import run_everyday
 from gylmodules.critical_value import cv_config
 from gylmodules.critical_value.critical_value import write_cache, \
-    call_third_systems_obtain_data, cache_single_cv, notiaction_alert_man, \
+    call_third_systems_obtain_data, notiaction_alert_man, \
     async_alert_task
 from apscheduler.schedulers.background import BackgroundScheduler
 
@@ -137,6 +136,7 @@ def update_appt_capacity():
 
 
 def task_state():
+    print()
     print('========   gyl schedule task state   ========')
     print('cur time = ', datetime.now())
     print('schedule is_running = ', gylmodule_scheduler.running)
@@ -150,6 +150,7 @@ def task_state():
         }
         print(job_info)
     print('======== gyl schedule task state end ========')
+    print()
 
 
 def re_alert_fail_ip_log():
@@ -178,44 +179,35 @@ def re_alert_fail_ip_log():
     del db
 
 
-
 def schedule_task():
     # ====================== 危机值系统定时任务 ======================
+    print("=============== 开始注册定时任务 =====================")
     # 定时判断危机值是否超时
     if global_config.schedule_task['cv_timeout']:
-        print("危机值超时管理 定时任务启动 ", datetime.now())
+        print("1. 危机值超时管理 ", datetime.now())
         gylmodule_scheduler.add_job(handle_timeout_cv, trigger='interval', seconds=100, max_instances=20,
                                     id='cv_timeout')
-
-        print("缓存单次上报危机值信息 定时任务启动 ", datetime.now())
-        gylmodule_scheduler.add_job(cache_single_cv, trigger='date', run_date=datetime.now())
-        gylmodule_scheduler.add_job(cache_single_cv, 'cron', hour=2, minute=10, id='cache_single_cv')
-
-        # print("作废超过一天未处理的危机值 定时任务启动 ", datetime.now())
-        # gylmodule_scheduler.add_job(invalid_history_cv, 'cron', hour=2, minute=20, id='invalid_history_cv')
-
-        print("重新判断失败 ip 是否可用 ", datetime.now())
-        gylmodule_scheduler.add_job(re_alert_fail_ip_log, trigger='date', run_date=datetime.now())
-        # 添加定时任务，每隔 12 小时执行一次
-        gylmodule_scheduler.add_job(re_alert_fail_ip_log, trigger=IntervalTrigger(hours=12))
+        print("2. ip 地址是否可用校验", datetime.now())
+        gylmodule_scheduler.add_job(re_alert_fail_ip_log, 'cron', hour=2, minute=20, id='re_alert_fail_ip_log')
 
     # 定时更新所有部门信息
     if global_config.schedule_task['cv_dept_update']:
-        print("危机值部门信息更新 定时任务 ", datetime.now())
+        print("3. 危机值部门信息更新 ", datetime.now())
         one_hour = 60 * 60
         gylmodule_scheduler.add_job(regular_update_dept_info, trigger='interval', seconds=one_hour, max_instances=10,
                                     id='cv_dept_update')
 
     # ======================  综合预约定时任务  ======================
     # 项目启动时，执行一次，初始化数据。 之后每天凌晨执行
+    print("4. 综合预约数据初始化 ", datetime.now())
     if global_config.schedule_task['appt_daily']:
         run_time = datetime.now() + timedelta(seconds=20)
         gylmodule_scheduler.add_job(run_everyday, trigger='date', run_date=run_time)
         gylmodule_scheduler.add_job(run_everyday, 'cron', hour=1, minute=20, id='appt_daily')
         gylmodule_scheduler.add_job(update_appt_capacity, 'cron', hour=1, minute=10, id='update_appt_capacity')
 
+    print("5. 定时任务状态 ", datetime.now())
     six_hour = 6 * 60 * 60
-    # one_min = 60
     gylmodule_scheduler.add_job(task_state, trigger='interval', seconds=six_hour, max_instances=10,
                                 id='sched_state')
 

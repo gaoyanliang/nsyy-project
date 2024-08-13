@@ -26,7 +26,6 @@ cv_manual_default_treat_id = "120"
 
 
 # cv state 危机值状态
-
 INVALID_STATE = 0  # 作废
 CREATED_STATE = 1   # 新建
 NOTIFICATION_NURSE_STATE = 2  # 已通知护理
@@ -37,16 +36,6 @@ DOCTOR_RECV_TIMEOUT_STATE = 6  # 医生接收超时
 DOCTOR_RECV_STATE = 7  # 医生已接收
 DOCTOR_HANDLE_TIMEOUT_STATE = 8  # 医生处理超时
 DOCTOR_HANDLE_STATE = 9  # 医生已处理
-
-
-# cv timed task
-WAIT_NURSE_RECV = 1
-WAIT_NURSE_RECV_REDIS_KEY = 'CV_WAIT_NURSE_RECV'
-WAIT_DOCTOR_RECV = 2
-WAIT_DOCTOR_RECV_REDIS_KEY = 'CV_WAIT_DOCTOR_RECV'
-WAIT_DOCTOR_HANDLE = 3
-WAIT_DOCTOR_HANDLE_REDIS_KEY = 'CV_WAIT_DOCTOR_HANDLE'
-
 
 # 超时时间 redis key
 TIMEOUT_REDIS_KEY = {'nurse_recv': 'CV_NURSE_RECV_TIMEOUT',
@@ -68,18 +57,3 @@ MANUAL_CVS_REDIS_KEY = 'CV_MANUAL_CVS'
 
 # 站点类型
 CV_SITES_REDIS_KEY = {1: 'CV_SITES_WARD_', 2: 'CV_SITES_DEPT_'}
-
-# 单次危机值针对只需要上报一次的危机值
-#（缓存最近一段时间出现过该危机值的病患） key=检查项目名称 value=【patient_id】
-SINGLE_CV_REDIS_KEY = 'SINGLE_CVS'
-
-# 所有单次上报危机值的检查项目名称集合
-SINGLE_CRISIS_VALUE_NAME_LIST = [
-    '*尿素（速率法）',
-    '*肌酐（酶法）',
-    '肌酸激酶同工酶',
-    '肌酸激酶同工酶（速率法）',
-    '肌钙蛋白I(免疫荧光法)',
-    '高敏肌钙蛋白I',
-    '淀粉酶（速率法）'
-]
