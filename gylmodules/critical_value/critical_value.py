@@ -1351,6 +1351,7 @@ def medical_record_writing_back(json_data):
 def report_form(json_data):
     start_time = json_data.get("start_time")
     end_time = json_data.get("end_time")
+    patient_type = json_data.get("patient_type")
 
     db = DbUtil(global_config.DB_HOST, global_config.DB_USERNAME, global_config.DB_PASSWORD,
                 global_config.DB_DATABASE_GYL)
@@ -1358,6 +1359,10 @@ def report_form(json_data):
     time_condition = ''
     if start_time and end_time:
         time_condition = f' WHERE time BETWEEN \'{start_time}\' AND \'{end_time}\' '
+
+    ptype = ''
+    if patient_type:
+        ptype = f' AND patient_type = {int(patient_type)} '
 
     query_sql = f'SELECT ' \
                 f'max(dept_id) AS id, ' \
@@ -1369,7 +1374,7 @@ def report_form(json_data):
                 f'SUM(CASE WHEN (is_doctor_recv_timeout = 1 OR is_doctor_handle_timeout = 1) and state != 0 THEN 1 ELSE 0 END) AS handled_timeout_count, ' \
                 f'ROUND((SUM(CASE WHEN (state = 9 or state = 0) THEN 1 ELSE 0 END) / COUNT(*)) * 100, 2) AS handling_rate, ' \
                 f'ROUND((SUM(CASE WHEN ((is_doctor_recv_timeout = 1 OR is_doctor_handle_timeout = 1) and state != 0) THEN 1 ELSE 0 END) / COUNT(*)) * 100, 2) AS handling_timeout_rate ' \
-                f'FROM nsyy_gyl.cv_info {time_condition} GROUP BY dept_name ' \
+                f'FROM nsyy_gyl.cv_info {time_condition} {ptype} GROUP BY dept_name ' \
                 f'UNION ALL ' \
                 f'SELECT ' \
                 f'max(ward_id) AS id, ' \
@@ -1381,7 +1386,7 @@ def report_form(json_data):
                 f'SUM(CASE WHEN (is_nurse_recv_timeout = 1 OR is_nurse_send_timeout = 1 OR is_timeout = 1) AND state != 0 THEN 1 ELSE 0 END) AS handled_timeout_count, ' \
                 f'ROUND((SUM(CASE WHEN nurse_recv_time IS NOT NULL OR (nurse_recv_time IS NULL AND handle_time IS NOT NULL) THEN 1 ELSE 0 END) / COUNT(*)) * 100, 2) AS handling_rate, ' \
                 f'ROUND((SUM(CASE WHEN (is_nurse_recv_timeout = 1 OR is_nurse_send_timeout = 1 OR is_timeout = 1) AND state != 0 THEN 1 ELSE 0 END ) / COUNT(*)) * 100, 2) AS handling_timeout_rate ' \
-                f'FROM nsyy_gyl.cv_info {time_condition} GROUP BY ward_name '
+                f'FROM nsyy_gyl.cv_info {time_condition} {ptype} GROUP BY ward_name '
 
     report = db.query_all(query_sql)
     del db
