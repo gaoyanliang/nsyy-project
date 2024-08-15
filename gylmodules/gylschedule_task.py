@@ -162,7 +162,7 @@ def re_alert_fail_ip_log():
             url = f"http://{ip['ip']}:8085/echo"
             try:
                 # 先尝试 ping, ping 不通，直接跳过
-                response_time = ping(ip)
+                response_time = ping(ip['ip'])
                 if response_time is None:
                     continue
             except Exception:
@@ -175,7 +175,7 @@ def re_alert_fail_ip_log():
                 if response.status_code == 200:
                     db.execute(f"delete from nsyy_gyl.alert_fail_log where id = {ip['id']} ", need_commit=True)
             except Exception as e:
-                print(datetime.now(), f" {url} 调用失败，危急值程序依旧未正常运行")
+                print(datetime.now(), f" {url} 调用失败，危急值程序依旧未正常运行", e)
     del db
 
 
