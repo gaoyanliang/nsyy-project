@@ -44,8 +44,6 @@ TIMEOUT_REDIS_KEY = {'nurse_recv': 'CV_NURSE_RECV_TIMEOUT',
                      'doctor_handle': 'CV_DOCTOR_HANDLE_TIMEOUT',
                      'total': 'CV_TOTAL_TIMEOUT'}
 
-CV_TEMPLATE_REDIS_KEY = 'CV_TEMPLATE'
-
 # 部门信息
 DEPT_INFO_REDIS_KEY = 'CV_DEPT_INFO_REDIS_KEY'
 
@@ -57,3 +55,9 @@ MANUAL_CVS_REDIS_KEY = 'CV_MANUAL_CVS'
 
 # 站点类型
 CV_SITES_REDIS_KEY = {1: 'CV_SITES_WARD_', 2: 'CV_SITES_DEPT_'}
+
+# 危急值模版
+CV_TEMPLATE_REDIS_KEY = 'CV_TEMPLATE'
+
+# ip站点 自动启动危急值程序失败
+ALERT_FAIL_IPS_REDIS_KEY = 'CV_ALERT_FAIL_IPS'

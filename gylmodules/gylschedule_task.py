@@ -154,12 +154,15 @@ def task_state():
 
 
 def re_alert_fail_ip_log():
+    redis_client = redis.Redis(connection_pool=pool)
     db = DbUtil(global_config.DB_HOST, global_config.DB_USERNAME, global_config.DB_PASSWORD,
                 global_config.DB_DATABASE_GYL)
+
+    redis_client.delete(cv_config.ALERT_FAIL_IPS_REDIS_KEY)
     all_fail_ip = db.query_all(f'select * from nsyy_gyl.alert_fail_log')
     if all_fail_ip:
         for ip in all_fail_ip:
-            url = f"http://{ip['ip']}:8085/echo"
+            redis_client.sadd(cv_config.ALERT_FAIL_IPS_REDIS_KEY, ip['ip'])
             try:
                 # 先尝试 ping, ping 不通，直接跳过
                 response_time = ping(ip['ip'])
@@ -167,12 +170,11 @@ def re_alert_fail_ip_log():
                     continue
             except Exception:
                 continue
-
             try:
-                # 发送 GET 请求
+                url = f"http://{ip['ip']}:8085/echo"
                 response = requests.get(url, timeout=3)
-                # 检查响应状态码
                 if response.status_code == 200:
+                    redis_client.srem(cv_config.ALERT_FAIL_IPS_REDIS_KEY, ip['ip'])
                     db.execute(f"delete from nsyy_gyl.alert_fail_log where id = {ip['id']} ", need_commit=True)
             except Exception as e:
                 print(datetime.now(), f" {url} 调用失败，危急值程序依旧未正常运行", e)

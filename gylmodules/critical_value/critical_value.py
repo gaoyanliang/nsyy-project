@@ -158,20 +158,17 @@ def cache_all_site_and_timeout():
 def pull_running_cv():
     # 清空危机值相关的缓存, 重新加载数据
     redis_client = redis.Redis(connection_pool=pool)
-    # 删除上一天的所有预约
     keys = redis_client.keys('CV_*')
     for key in keys:
         redis_client.delete(key)
 
-    # 缓存所有部门信息
-    # dept_type 1 临床科室 2 护理单元 0 全部
-    param = {
+    # 缓存所有部门信息 dept_type 1 临床科室 2 护理单元 0 全部
+    call_third_systems_obtain_data('cache_all_dept_info', {
         "type": "his_dept",
         "dept_type": 0,
         "comp_id": 12,
         "randstr": "XPFDFZDF7193CIONS1PD7XCJ3AD4ORRC"
-    }
-    call_third_systems_obtain_data('cache_all_dept_info', param)
+    })
 
     db = DbUtil(global_config.DB_HOST, global_config.DB_USERNAME, global_config.DB_PASSWORD,
                 global_config.DB_DATABASE_GYL)
@@ -179,7 +176,6 @@ def pull_running_cv():
     states = (cv_config.INVALID_STATE, cv_config.DOCTOR_HANDLE_STATE)
     query_sql = f'select * from nsyy_gyl.cv_info where state not in {states} or cv_source = {cv_config.CV_SOURCE_MANUAL} '
     cvs = db.query_all(query_sql)
-
     for cv in cvs:
         key = cv.get('cv_id') + '_' + str(cv.get('cv_source'))
         write_cache(key, cv)
@@ -189,11 +185,14 @@ def pull_running_cv():
 
     # 加载危机值模版
     try:
-        query_sql = f'select * from nsyy_gyl.cv_template'
-        cv_template = db.query_all(query_sql)
-        del db
+        cv_template = db.query_all(f'select * from nsyy_gyl.cv_template')
         for t in cv_template:
             redis_client.hset(cv_config.CV_TEMPLATE_REDIS_KEY, t['id'], json.dumps(t, default=str))
+
+        alert_fail_logs = db.query_all(f'select * from nsyy_gyl.alert_fail_log')
+        for log in alert_fail_logs:
+            redis_client.sadd(cv_config.ALERT_FAIL_IPS_REDIS_KEY, log.get('ip'))
+        del db
     except Exception as e:
         del db
         print('缓存危机值模版异常', e)
@@ -947,11 +946,14 @@ def query_process_cv_and_notice(dept_id, ward_id):
 
 
 def write_alert_fail_log(fail_ips, fail_log):
+    redis_client = redis.Redis(connection_pool=pool)
     db = DbUtil(global_config.DB_HOST, global_config.DB_USERNAME, global_config.DB_PASSWORD,
                 global_config.DB_DATABASE_GYL)
     try:
         failed_log = []
         for ip in fail_ips:
+            if redis_client.sismember(cv_config.ALERT_FAIL_IPS_REDIS_KEY, ip):
+                continue
             failed_log.append({
                 "ip": ip,
                 "time": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
@@ -960,11 +962,10 @@ def write_alert_fail_log(fail_ips, fail_log):
         for log in failed_log:
             keys = ','.join(log.keys())
             values = tuple(log.values())
-            # 将键和值按指定格式拼接成字符串
-            key_string = ', '.join([f"{key} = {repr(value)}" for key, value in log.items()])
             # 存在则更新 不存在则插入
-            insert_sql = f'INSERT INTO nsyy_gyl.alert_fail_log ({keys}) VALUE {str(values)} ON DUPLICATE KEY UPDATE {key_string} '
+            insert_sql = f'INSERT INTO nsyy_gyl.alert_fail_log ({keys}) VALUE {str(values)} '
             db.execute(insert_sql, need_commit=True)
+            redis_client.sadd(cv_config.ALERT_FAIL_IPS_REDIS_KEY, ip)
         del db
     except Exception:
         del db
