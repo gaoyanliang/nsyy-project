@@ -71,6 +71,9 @@ def check_crisis_value_count(json_data):
                 flag = misscv.get('VALIDFLAG') if misscv.get('VALIDFLAG') else 0
                 if int(flag) == 0:
                     continue
+                # 过滤社区门诊
+                if misscv['REQ_DEPTNO'] and misscv['REQ_DEPTNO'].isdigit() and int(misscv['REQ_DEPTNO']) == 462:
+                    continue
                 miss_list.append(misscv)
     return miss_list
 
