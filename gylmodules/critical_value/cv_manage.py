@@ -26,7 +26,7 @@ def check_crisis_value_count(json_data):
         "type": "orcl_db_read",
         "db_source": "ztorcl",
         "randstr": "XPFDFZDF7193CIONS1PD7XCJ3AD4ORRC",
-        "sql": f"SELECT *, 2 cv_source FROM inter_lab_resultalert WHERE {ora_dt_condation}"
+        "sql": f"SELECT inter_lab_resultalert.*, 2 AS \"cv_source\"  FROM inter_lab_resultalert WHERE {ora_dt_condation}"
     }
     lis_cv = call_third_systems_obtain_data('orcl_db_read', param)
     if not lis_cv:
