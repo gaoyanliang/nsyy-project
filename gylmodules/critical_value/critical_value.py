@@ -673,8 +673,8 @@ def create_cv_by_system(json_data, cv_source):
     if cvd['dept_id'] and not cvd['dept_id'].isdigit():
         # print('当前危机值病人科室不是数字，跳过。 ' + str(json_data))
         return
-    # 如果是社区门诊，跳过(不是总院的科室，不处理)
-    if cvd['dept_id'] and cvd['dept_id'].isdigit() and int(cvd['dept_id']) == 462:
+    # 如果是社区门诊/康复中医院，跳过(不是总院的科室，不处理)
+    if cvd['dept_id'] and cvd['dept_id'].isdigit() and (int(cvd['dept_id']) == 462 or int(cvd['dept_id']) == 1000760):
         return
 
     # 解析危机值上报信息
