@@ -20,7 +20,7 @@ def check_crisis_value_count(json_data):
     if json_data.get("end_dt"):
         end_dt = json_data.get("end_dt")
         ora_dt_condation = f" ALERTDT BETWEEN to_date('{start_dt}', 'yyyy-mm-dd hh24:mi:ss') " \
-                       f"AND to_date('{end_dt}', 'yyyy-mm-dd hh24:mi:ss')"
+                           f"AND to_date('{end_dt}', 'yyyy-mm-dd hh24:mi:ss')"
         mysql_dt_condation = f" time BETWEEN '{start_dt}' AND '{end_dt}' "
     param = {
         "type": "orcl_db_read",
@@ -73,15 +73,11 @@ def check_crisis_value_count(json_data):
                     continue
                 # 过滤社区门诊/康复中医院
                 if misscv['REQ_DEPTNO'] and misscv['REQ_DEPTNO'].isdigit() and \
-                        (int(misscv['REQ_DEPTNO']) == 462 or int(misscv['REQ_DEPTNO']) == 1000760):
+                        (int(misscv['REQ_DEPTNO']) == 462 or int(misscv['REQ_DEPTNO']) == 1000760 or
+                         str(misscv['REQ_DEPTNO']) == '0812' or str(misscv['REQ_DEPTNO']) == '08012'):
                     continue
                 miss_list.append(misscv)
     return miss_list
-
-
-
-
-
 
 # data = check_crisis_value_count({
 #     "start_dt": "2024-03-01 11:11:11",
@@ -90,11 +86,3 @@ def check_crisis_value_count(json_data):
 #
 # for d in data:
 #     print(d)
-
-
-
-
-
-
-
-
