@@ -3,13 +3,13 @@ from datetime import datetime, timedelta
 import redis
 import requests
 from ping3 import ping
+import asyncio
 
 from gylmodules import global_config
 from gylmodules.composite_appointment.ca_server import run_everyday
 from gylmodules.critical_value import cv_config
 from gylmodules.critical_value.critical_value import write_cache, \
-    call_third_systems_obtain_data, notiaction_alert_man, \
-    async_alert_task
+    call_third_systems_obtain_data, notiaction_alert_man, alert
 from apscheduler.schedulers.background import BackgroundScheduler
 
 from gylmodules.utils.db_utils import DbUtil
@@ -98,10 +98,11 @@ def handle_timeout_cv():
     if timeout_record:
         for ids, msgs in timeout_record.items():
             try:
-                alertmsg = f'超时危急值，请及时处理 <br> [患者-主管医生-住院/门诊号-床号] <br> ' + ' <br> '.join(msgs) + ' <br> <br> <br> 点击 [确认] 跳转至危急值页面'
-                async_alert_task(ids[0], ids[1], alertmsg)
-            except Exception:
-                print(datetime.now(), "Error occurred while sending alerts.")
+                asyncio.run(alert(ids[0], ids[1],
+                                  f'超时危急值，请及时处理 <br> [患者-主管医生-住院/门诊号-床号] <br> ' + ' <br> '.join(msgs)
+                                  + ' <br> <br> <br> 点击 [确认] 跳转至危急值页面'))
+            except Exception as e:
+                print(datetime.now(), "超时危急值通知异常: ", e)
 
 
 def regular_update_dept_info():
@@ -187,7 +188,7 @@ def schedule_task():
     # 定时判断危机值是否超时
     if global_config.schedule_task['cv_timeout']:
         print("1. 危机值超时管理 ", datetime.now())
-        gylmodule_scheduler.add_job(handle_timeout_cv, trigger='interval', seconds=100, max_instances=20,
+        gylmodule_scheduler.add_job(handle_timeout_cv, trigger='interval', seconds=10, max_instances=20,
                                     id='cv_timeout')
         print("2. ip 地址是否可用校验", datetime.now())
         gylmodule_scheduler.add_job(re_alert_fail_ip_log, 'cron', hour=2, minute=20, id='re_alert_fail_ip_log')

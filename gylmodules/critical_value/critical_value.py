@@ -5,6 +5,7 @@ import threading
 import requests
 from aiohttp import ClientTimeout
 from suds.client import Client
+from contextlib import suppress
 
 from datetime import datetime, timedelta
 import time
@@ -39,7 +40,7 @@ def call_third_systems_obtain_data(type: str, param: dict):
             data = json.loads(data)
             data = data.get('data')
         except Exception as e:
-            print('调用第三方系统方法失败：type = ' + type + ' param = ' + str(param) + "   " + e.__str__())
+            print(datetime.now(), '调用第三方系统方法失败：type = ' + type + ' param = ' + str(param) + "   " + e.__str__())
     else:
         if type == 'data_feedback':
             # 数据回传
@@ -72,7 +73,7 @@ def call_third_systems_obtain_data(type: str, param: dict):
             return result[0].get('HIS_DEPT_ID'), result[0].get('DEPT_NAME'), \
                 result[0].get('PERS_NAME'), result[0].get('oa_pers_id')
         else:
-            print('根据员工号抓取部门信息失败 ', str(param))
+            print(datetime.now(), '根据员工号抓取部门信息失败 ', str(param))
             return -1, 'unknow', 'unkonw', -1
 
     elif type == 'cache_all_dept_info':
@@ -100,7 +101,7 @@ def read_cache(key):
     redis_client = redis.Redis(connection_pool=pool)
     value = redis_client.hget(cv_config.RUNNING_CVS_REDIS_KEY, key)
     if not value:
-        print(f'key = {key} , value is nil')
+        print(datetime.now(), f'key = {key} , value is nil')
         return None
     return json.loads(value)
 
@@ -179,7 +180,8 @@ def pull_running_cv():
     for cv in cvs:
         key = cv.get('cv_id') + '_' + str(cv.get('cv_source'))
         write_cache(key, cv)
-        if cv.get('cv_source') == cv_config.CV_SOURCE_MANUAL and str(cv.get('patient_treat_id')) != cv_config.cv_manual_default_treat_id:
+        if cv.get('cv_source') == cv_config.CV_SOURCE_MANUAL and str(
+                cv.get('patient_treat_id')) != cv_config.cv_manual_default_treat_id:
             # 手工上报的，单独存储
             redis_client.hset(cv_config.MANUAL_CVS_REDIS_KEY, cv['patient_treat_id'], json.dumps(cv, default=str))
 
@@ -195,7 +197,7 @@ def pull_running_cv():
         del db
     except Exception as e:
         del db
-        print('缓存危机值模版异常', e)
+        print(datetime.now(), '缓存危机值模版异常', e)
 
     # 子线程执行： 缓存所有站点信息 & 超时时间配置
     thread_b = threading.Thread(target=cache_all_site_and_timeout)
@@ -350,7 +352,7 @@ def create_cv(cvd):
         try:
             invalid_crisis_value(cv_ids, cv_source)
         except Exception as e:
-            print("作废危急值异常：cv_ids = ", cv_ids, ' cv_source = ', cv_source, 'Exception = ', e)
+            print(datetime.now(), "作废危急值异常：cv_ids = ", cv_ids, ' cv_source = ', cv_source, 'Exception = ', e)
 
     # 新增的危急值有可能是之前手工上报的危急值，需要更新信息，不需要再插入一条新纪录
     # 新增危急值
@@ -367,11 +369,12 @@ def create_cv(cvd):
                 manual_record = json.loads(manual_record)
                 # 如果是同类型的危急值记录，默认匹配， 匹配完成之后移除手工上报记录
                 if int(manual_record['cv_type']) == int(cv_source):
-
-                    condation_sql = " , cv_name = '{}', cv_result = '{}' ".format(cv_data.get('RPT_ITEMNAME'), cv_data.get('RESULT_STR'))
+                    condation_sql = " , cv_name = '{}', cv_result = '{}' ".format(cv_data.get('RPT_ITEMNAME'),
+                                                                                  cv_data.get('RESULT_STR'))
                     if int(cv_source) == cv_config.CV_SOURCE_INSPECTION_SYSTEM:
-                        condation_sql += " , cv_flag = '{}', cv_unit = '{}', cv_ref = '{}', alertrules = '{}', redo_flag = {} ".\
-                            format(cv_data.get('RESULT_FLAG'), cv_data.get('RESULT_UNIT'), cv_data.get('RESULT_REF'), cv_data.get('ALERTRULES'), cv_data.get('REDO_FLAG'))
+                        condation_sql += " , cv_flag = '{}', cv_unit = '{}', cv_ref = '{}', alertrules = '{}', redo_flag = {} ". \
+                            format(cv_data.get('RESULT_FLAG'), cv_data.get('RESULT_UNIT'), cv_data.get('RESULT_REF'),
+                                   cv_data.get('ALERTRULES'), cv_data.get('REDO_FLAG'))
 
                     if int(cv_source) == cv_config.CV_SOURCE_XUETANG_SYSTEM:
                         condation_sql += " , cv_flag = '{}', cv_unit = '{}'". \
@@ -388,7 +391,8 @@ def create_cv(cvd):
 
                     # 更新完成之后移除手工上报记录
                     redis_client.hdel(cv_config.MANUAL_CVS_REDIS_KEY, str(cv_data['PAT_NO']))
-                    redis_client.hdel(cv_config.RUNNING_CVS_REDIS_KEY, str(manual_record['cv_id']) + '_' + str(manual_record['cv_source']))
+                    redis_client.hdel(cv_config.RUNNING_CVS_REDIS_KEY,
+                                      str(manual_record['cv_id']) + '_' + str(manual_record['cv_source']))
                     if cv_config.DOCTOR_HANDLE_STATE > int(record.get('state')) > cv_config.INVALID_STATE:
                         redis_client.hset(cv_config.RUNNING_CVS_REDIS_KEY, key, json.dumps(record, default=str))
 
@@ -398,7 +402,7 @@ def create_cv(cvd):
                     continue
             create_cv_by_system(cv_data, int(cv_source))
         except Exception as e:
-            print("新增危急值异常：cv_data = ", cv_data, ' key = ', key, 'Exception = ', e)
+            print(datetime.now(), "新增危急值异常：cv_data = ", cv_data, ' key = ', key, 'Exception = ', e)
     del db
 
 
@@ -427,7 +431,7 @@ def manual_cv_feedback(record):
             # 2. 回写数据
             data_feedback(record.get('cv_id'), int(record.get('cv_source')), handle_doc, handle_time, method, 3)
     except Exception as e:
-        print("合并危急值时，回写数据异常：record = ", record, 'Exception = ', e)
+        print(datetime.now(), "合并危急值时，回写数据异常：record = ", record, 'Exception = ', e)
 
 
 """
@@ -474,7 +478,7 @@ def invalid_remote_crisis_value(cv_id, cv_source):
         }
         call_third_systems_obtain_data('data_feedback', param)
     except Exception as e:
-        print('作废远程危机值异常', e)
+        print(datetime.now(), '作废远程危机值异常', e)
 
 
 """
@@ -506,7 +510,7 @@ def notiaction_alert_man(msg: str, pers_id):
             "force_notice": 1
         })
     except Exception as e:
-        print("通知危急值上报人员时出现异常, pers_id = ", pers_id, " 异常 = ", e)
+        print(datetime.now(), "通知危急值上报人员时出现异常, pers_id = ", pers_id, " 异常 = ", e)
 
 
 """
@@ -575,7 +579,8 @@ def manual_report_cv(json_data):
         }
         data = call_third_systems_obtain_data('orcl_db_read', param)
         if data and data[0]:
-            json_data['patient_type'] = cv_config.PATIENT_TYPE_HOSPITALIZATION if not json_data.get('patient_type') else json_data.get('patient_type')
+            json_data['patient_type'] = cv_config.PATIENT_TYPE_HOSPITALIZATION if not json_data.get(
+                'patient_type') else json_data.get('patient_type')
             json_data['patient_name'] = data[0].get('姓名')
             json_data['patient_gender'] = data[0].get('性别')
             json_data['patient_age'] = data[0].get('年龄')
@@ -600,7 +605,7 @@ def manual_report_cv(json_data):
         else:
             raise Exception(patient_treat_id, "住院号/门诊号异常，未查到病人信息, param: ", json_data)
     else:
-        print(patient_treat_id, '未填写病人住院号/门诊号, 使用默认数据 120, param: ', json_data)
+        print(datetime.now(), patient_treat_id, '未填写病人住院号/门诊号, 使用默认数据 120, param: ', json_data)
         json_data['patient_treat_id'] = int(cv_config.cv_manual_default_treat_id)
         json_data['patient_type'] = cv_config.PATIENT_TYPE_OTHER
 
@@ -614,10 +619,10 @@ def manual_report_cv(json_data):
         json_data['patient_name'] = '未知'
 
     # 超时时间配置
-    json_data['nurse_recv_timeout'] = redis_client.get(cv_config.TIMEOUT_REDIS_KEY['nurse_recv']) or 300
-    json_data['nurse_send_timeout'] = redis_client.get(cv_config.TIMEOUT_REDIS_KEY['nurse_send']) or 120
-    json_data['doctor_recv_timeout'] = redis_client.get(cv_config.TIMEOUT_REDIS_KEY['doctor_recv']) or 300
-    json_data['doctor_handle_timeout'] = redis_client.get(cv_config.TIMEOUT_REDIS_KEY['doctor_handle']) or 300
+    json_data['nurse_recv_timeout'] = redis_client.get(cv_config.TIMEOUT_REDIS_KEY['nurse_recv']) or 120
+    json_data['nurse_send_timeout'] = redis_client.get(cv_config.TIMEOUT_REDIS_KEY['nurse_send']) or 60
+    json_data['doctor_recv_timeout'] = redis_client.get(cv_config.TIMEOUT_REDIS_KEY['doctor_recv']) or 120
+    json_data['doctor_handle_timeout'] = redis_client.get(cv_config.TIMEOUT_REDIS_KEY['doctor_handle']) or 120
     json_data['total_timeout'] = redis_client.get(cv_config.TIMEOUT_REDIS_KEY['total']) or 600
 
     db = DbUtil(global_config.DB_HOST, global_config.DB_USERNAME, global_config.DB_PASSWORD,
@@ -634,8 +639,8 @@ def manual_report_cv(json_data):
     # 发送危机值 直接通知医生和护士
     msg = '[{} - {} - {} - {}]'.format(json_data.get('patient_name', 'unknown'), json_data.get('req_docno', 'unknown'),
                                        json_data.get('patient_treat_id', '0'), json_data.get('patient_bed_num', '0'))
-    async_alert(json_data.get('dept_id'), json_data.get('ward_id'),
-        f'发现新危急值, 请及时查看并处理 <br> [患者-主管医生-住院/门诊号-床号] <br> {msg} <br> <br> <br> 点击 [确认] 跳转至危急值页面')
+    main_alert(json_data.get('dept_id'), json_data.get('ward_id'),
+                      f'发现新危急值, 请及时查看并处理 <br> [患者-主管医生-住院/门诊号-床号] <br> {msg} <br> <br> <br> 点击 [确认] 跳转至危急值页面')
 
     # 通知医技科室
     if json_data.get('alertman_pers_id'):
@@ -769,15 +774,16 @@ def create_cv_by_system(json_data, cv_source):
         cvd['cv_unit'] = json_data.get('RESULT_UNIT')
 
     # 超时时间配置
-    cvd['nurse_recv_timeout'] = redis_client.get(cv_config.TIMEOUT_REDIS_KEY['nurse_recv']) or 300
-    cvd['nurse_send_timeout'] = redis_client.get(cv_config.TIMEOUT_REDIS_KEY['nurse_send']) or 120
-    cvd['doctor_recv_timeout'] = redis_client.get(cv_config.TIMEOUT_REDIS_KEY['doctor_recv']) or 300
-    cvd['doctor_handle_timeout'] = redis_client.get(cv_config.TIMEOUT_REDIS_KEY['doctor_handle']) or 300
+    cvd['nurse_recv_timeout'] = redis_client.get(cv_config.TIMEOUT_REDIS_KEY['nurse_recv']) or 120
+    cvd['nurse_send_timeout'] = redis_client.get(cv_config.TIMEOUT_REDIS_KEY['nurse_send']) or 60
+    cvd['doctor_recv_timeout'] = redis_client.get(cv_config.TIMEOUT_REDIS_KEY['doctor_recv']) or 120
+    cvd['doctor_handle_timeout'] = redis_client.get(cv_config.TIMEOUT_REDIS_KEY['doctor_handle']) or 120
     cvd['total_timeout'] = redis_client.get(cv_config.TIMEOUT_REDIS_KEY['total']) or 600
 
     if json_data.get('INSTRNA'):
         cvd['instrna'] = json_data.get('INSTRNA')
-        if json_data.get('REPORTID') and (cvd['instrna'].__contains__('血气仪') or cvd['instrna'].__contains__('荧光仪')):
+        if json_data.get('REPORTID') and (
+                cvd['instrna'].__contains__('血气仪') or cvd['instrna'].__contains__('荧光仪')):
             cvd['report_id'] = json_data.get('REPORTID')
 
     db = DbUtil(global_config.DB_HOST, global_config.DB_USERNAME, global_config.DB_PASSWORD,
@@ -794,8 +800,8 @@ def create_cv_by_system(json_data, cv_source):
     # 发送危机值 直接通知医生和护士
     msg = '[{} - {} - {} - {}]'.format(cvd.get('patient_name', 'unknown'), cvd.get('req_docno', 'unknown'),
                                        cvd.get('patient_treat_id', '0'), cvd.get('patient_bed_num', '0'))
-    async_alert(cvd.get('dept_id'), cvd.get('ward_id'),
-        f'发现新危急值, 请及时查看并处理 <br> [患者-主管医生-住院/门诊号-床号] <br> {msg}  <br> <br> <br> 点击 [确认] 跳转至危急值页面')
+    main_alert(cvd.get('dept_id'), cvd.get('ward_id'),
+                f'发现新危急值, 请及时查看并处理 <br> [患者-主管医生-住院/门诊号-床号] <br> {msg}  <br> <br> <br> 点击 [确认] 跳转至危急值页面')
 
     # 通知医技科室
     if cvd.get('alertman_pers_id'):
@@ -915,11 +921,14 @@ def query_process_cv_and_notice(dept_id, ward_id):
                 global_config.DB_DATABASE_GYL)
 
     if not dept_id:
-        condition_sql = f" and ward_id in ({','.join(map(str, ward_id))})" if type(ward_id) == list else f' and ward_id = {ward_id}'
+        condition_sql = f" and ward_id in ({','.join(map(str, ward_id))})" if type(
+            ward_id) == list else f' and ward_id = {ward_id}'
     elif not ward_id:
-        condition_sql = f" and dept_id in ({','.join(map(str, dept_id))})" if type(dept_id) == list else f' and dept_id = {dept_id}'
+        condition_sql = f" and dept_id in ({','.join(map(str, dept_id))})" if type(
+            dept_id) == list else f' and dept_id = {dept_id}'
     else:
-        condition_sql = f" and (dept_id in ({','.join(map(str, dept_id))}) or ward_id in ({','.join(map(str, ward_id))}) )" if type(dept_id) == list else f' and (dept_id = {dept_id} or ward_id = {ward_id})'
+        condition_sql = f" and (dept_id in ({','.join(map(str, dept_id))}) or ward_id in ({','.join(map(str, ward_id))}) )" if type(
+            dept_id) == list else f' and (dept_id = {dept_id} or ward_id = {ward_id})'
 
     states = (cv_config.INVALID_STATE, cv_config.DOCTOR_HANDLE_STATE)
     query_sql = f'select * from nsyy_gyl.cv_info where state not in {states} {condition_sql} '
@@ -932,14 +941,13 @@ def query_process_cv_and_notice(dept_id, ward_id):
             msg = '[{} - {} - {} - {}]'.format(item.get('patient_name', 'unknown'), item.get('req_docno', 'unknown'),
                                                item.get('patient_treat_id', '0'), item.get('patient_bed_num', '0'))
             timeout_record.append(msg)
-
         msgs = list(set(timeout_record))
-        alertmsg = f'以下危急值未及时处理 <br> [患者-主管医生-住院/门诊号-床号] <br> ' + ' <br> '.join(msgs) + ' <br> <br> <br> 点击 [确认] 跳转至危急值页面'
         if dept_id and type(dept_id) == list:
             dept_id = dept_id[0]
         if ward_id and type(ward_id) == list:
             ward_id = ward_id[0]
-        async_alert(dept_id, ward_id, alertmsg)
+        main_alert(dept_id, ward_id, f'以下危急值未及时处理 <br> [患者-主管医生-住院/门诊号-床号] <br> ' + ' <br> '.join(
+            msgs) + ' <br> <br> <br> 点击 [确认] 跳转至危急值页面')
 
 
 """
@@ -956,11 +964,8 @@ def write_alert_fail_log(fail_ips, fail_log):
         for ip in fail_ips:
             if redis_client.sismember(cv_config.ALERT_FAIL_IPS_REDIS_KEY, ip):
                 continue
-            failed_log.append({
-                "ip": ip,
-                "time": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
-                "log": fail_log
-            })
+            failed_log.append({"ip": ip, "time": datetime.now().strftime("%Y-%m-%d %H:%M:%S"), "log": fail_log})
+
         for log in failed_log:
             keys = ','.join(log.keys())
             values = tuple(log.values())
@@ -971,38 +976,28 @@ def write_alert_fail_log(fail_ips, fail_log):
         del db
     except Exception:
         del db
-        # print("写入失败日志异常", fail_ips, fail_log)
         pass
 
 
 async def call_remote_auto_start_script(ip, url, payload):
     try:
-        timeout = ClientTimeout(total=4)  # 设置总超时时间为10秒
+        timeout = ClientTimeout(total=3)  # 设置总超时时间为3秒
         async with aiohttp.ClientSession(timeout=timeout) as session:
             url = str(url).replace('8085', '8091')
-            async with session.post(url, json=payload, timeout=3) as response:
+            async with session.post(url, json=payload, timeout=2) as response:
                 response.raise_for_status()
-                # print(datetime.now(), '发送成功： ', ip, payload.get('type'))
-    except Exception as e:
-        # 处理其他未捕获的异常
-        # print(f"call_remote_auto_start_script 发生异常: {url} {e}")
-        try:
+    except Exception:
+        with suppress(Exception):
             write_alert_fail_log([ip], "调用自动启动程序失败")
-        except Exception:
-            pass
 
 
 async def send_request(ip, url, payload):
     try:
-        timeout = ClientTimeout(total=4)  # 设置总超时时间为10秒
+        timeout = ClientTimeout(total=3)  # 设置总超时时间为3秒
         async with aiohttp.ClientSession(timeout=timeout) as session:
-            async with session.post(url, json=payload, timeout=3) as response:
+            async with session.post(url, json=payload, timeout=2) as response:
                 response.raise_for_status()
-                # print(datetime.now(), '发送成功： ', ip, payload.get('type'))
-    except Exception as e:
-        # 处理其他未捕获的异常
-        # print(f"send_request 发生异常: {url} {e}")
-        # 如果发送弹框失败，尝试调用自动启动程序
+    except Exception:
         if payload.get('type') == 'popup':
             await call_remote_auto_start_script(ip, url, payload)
 
@@ -1018,8 +1013,6 @@ async def alert(dept_id, ward_id, msg):
     merged_set = dept_sites.union(ward_sites)
 
     if merged_set:
-        # print(datetime.now(), '查询到 ', merged_set)
-        stop_tasks = []
         popup_tasks = []
         for ip in merged_set:
             try:
@@ -1030,17 +1023,13 @@ async def alert(dept_id, ward_id, msg):
             except Exception:
                 continue
             url = f'http://{ip}:8085/opera_wiki'
-            stop_tasks.append(send_request(ip, url, {'type': 'stop'}))
-            popup_tasks.append(send_request(ip, url, {'type': 'popup', 'wiki_info': msg}))
+            popup_tasks.append(asyncio.create_task(send_request(ip, url, {'type': 'popup', 'wiki_info': msg})))
 
-        if stop_tasks:
-            await asyncio.gather(*stop_tasks)
-        await asyncio.sleep(0.3)  # 间隔 300 毫秒
         if popup_tasks:
-            await asyncio.gather(*popup_tasks)
+            await asyncio.wait(popup_tasks)
 
 
-def async_alert(dept_id, ward_id, msg):
+def main_alert(dept_id, ward_id, msg):
     try:
         loop = asyncio.get_running_loop()
     except RuntimeError:
@@ -1052,22 +1041,7 @@ def async_alert(dept_id, ward_id, msg):
         else:
             asyncio.run(alert(dept_id, ward_id, msg))
     except Exception as e:
-        print(f"1在执行 alert 时发生错误: {e}")
-
-
-def async_alert_task(dept_id, ward_id, msg):
-    try:
-        loop = asyncio.get_running_loop()
-    except RuntimeError:
-        loop = None
-
-    try:
-        if loop and loop.is_running():
-            asyncio.create_task(alert(dept_id, ward_id, msg))
-        else:
-            asyncio.run(alert(dept_id, ward_id, msg))
-    except Exception as e:
-        print(f"2在执行 alert 时发生错误: {e}")
+        print(datetime.now(), f"在执行 alert 时发生错误: {e}")
 
 
 """
@@ -1113,7 +1087,8 @@ def push(json_data):
         # 弹框提醒医生
         msg = '[{} - {} - {} - {}]'.format(patient_name, value.get('req_docno', 'unknown'),
                                            value.get('patient_treat_id', '0'), value.get('patient_bed_num', '0'))
-        async_alert(dept_id, None, f"发现新危机值, 护理已确认，请医生及时查看并处理, <br> [患者-主管医生-住院/门诊号-床号] <br> {msg}  <br> <br> <br> 点击 [确认] 跳转至危急值页面" )
+        main_alert(dept_id, None,
+                    f"发现新危机值, 护理已确认，请医生及时查看并处理, <br> [患者-主管医生-住院/门诊号-床号] <br> {msg}  <br> <br> <br> 点击 [确认] 跳转至危急值页面")
     del db
 
 
@@ -1266,7 +1241,8 @@ def doctor_handle_cv(json_data):
                 # 心电系统和 pacs 系统单独回写对应的系统
                 if int(cv_source) == 4:
                     # 心电危机值特殊处理
-                    xindian_data_feedback({"cv_id": cv_id, "doc_id": handler_id, "doc_name": handler_name, "body": method})
+                    xindian_data_feedback(
+                        {"cv_id": cv_id, "doc_id": handler_id, "doc_name": handler_name, "body": method})
                 elif int(cv_source) == 3:
                     # pacs 危机值特殊处理
                     pacs_data_feedback({"cv_id": cv_id, "doc_name": handler_name, "body": method, "handle_time": timer})
@@ -1275,7 +1251,7 @@ def doctor_handle_cv(json_data):
                     msg = '患者 {} 的危急值，医生 {} 已处理'.format(record.get('patient_name', 'unknown'), handler_name)
                     notiaction_alert_man(msg, int(record.get('alertman_pers_id')))
             except Exception as e:
-                print(f'数据回写失败，错误信息：{e}')
+                print(datetime.now(), f'数据回写失败，错误信息：{e}')
     del db
 
 
@@ -1314,7 +1290,8 @@ def medical_record_writing_back(json_data):
                 body = body + " " + record.get('cv_unit')
 
             if record.get('nurse_recv_name') and record.get('nurse_recv_time'):
-                body = body + "护士 " + record.get('nurse_recv_name') + " 于 " + record.get('nurse_recv_time').strftime("%Y-%m-%d %H:%M:%S") + "接收了危机值"
+                body = body + "护士 " + record.get('nurse_recv_name') + " 于 " + record.get('nurse_recv_time').strftime(
+                    "%Y-%m-%d %H:%M:%S") + "接收了危机值"
 
             body = body + " 医生 " + json_data.get('handler_name') + " " + json_data.get('timer') + "处理了该危机值"
             if json_data.get('analysis'):
@@ -1344,9 +1321,9 @@ def medical_record_writing_back(json_data):
             }
             call_third_systems_obtain_data('his_procedure', param)
         else:
-            print('未找到病人信息，无法回写病历数据', json_data)
+            print(datetime.now(), '未找到病人信息，无法回写病历数据', json_data)
     except Exception as e:
-        print("病历回写异常 = ", e)
+        print(datetime.now(), "病历回写异常 = ", e)
 
 
 """
@@ -1507,7 +1484,7 @@ def xindian_data_feedback(json_data):
         client.options.cache.clear()  # 清除缓存
         return res
     except Exception as e:
-        print("心电系统数据回写失败, cv_id = ", cv_id, " 异常： ", e)
+        print(datetime.now(), "心电系统数据回写失败, cv_id = ", cv_id, " 异常： ", e)
         return ''
 
 
@@ -1538,7 +1515,7 @@ def pacs_data_feedback(json_data):
         cursor.callproc('sp_wjz_jg', (main_key, doctor, wjzjg, clsj))
         conn.commit()
     except Exception as e:
-        print("PACS 数据回写失败, cv_id = ", main_key, " 异常： ", e)
+        print(datetime.now(), "PACS 数据回写失败, cv_id = ", main_key, " 异常： ", e)
     finally:
         # 关闭连接
         if cursor:
@@ -1698,5 +1675,3 @@ def query_cv_template(key):
                 or key in str(item.get("cv_source", ""))]
 
     return all_template
-
-
