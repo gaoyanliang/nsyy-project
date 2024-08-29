@@ -1,4 +1,5 @@
 import json
+import mimetypes
 
 import zlib
 import base64
@@ -76,19 +77,33 @@ def send_email(sender: str, recipients: [str], ccs: [str],
             download_file(filepath, filename)
 
             # 添加附件
-            with open(filename, "rb") as attachment:
+            with open(filename, "rb") as file:
+            # with open(filename, "rb") as attachment:
                 # 获取上传文件的MIME类型
-                mime_type = attachment.mimetype
+                # 获取文件的 MIME 类型
+                mime_type, _ = mimetypes.guess_type(filename)
+                # mime_type = attachment.mimetype
                 if mime_type.startswith('image/'):
                     # 文件是图像
-                    image = MIMEImage(attachment.read())
+                    # image = MIMEImage(attachment.read())
+                    # image.add_header("Content-ID", "<image1>")
+                    # image.add_header('Content-Disposition', 'attachment', filename=filename)
+                    # msg.attach(image)
+                    # 文件是图像
+                    image = MIMEImage(file.read())
                     image.add_header("Content-ID", "<image1>")
                     image.add_header('Content-Disposition', 'attachment', filename=filename)
                     msg.attach(image)
                 else:
+                    # # 文件是其他类型
+                    # part = MIMEBase("application", "octet-stream")
+                    # part.set_payload(attachment.read())
+                    # encoders.encode_base64(part)
+                    # part.add_header("Content-Disposition", 'attachment', filename=filename)
+                    # msg.attach(part)
                     # 文件是其他类型
                     part = MIMEBase("application", "octet-stream")
-                    part.set_payload(attachment.read())
+                    part.set_payload(file.read())
                     encoders.encode_base64(part)
                     part.add_header("Content-Disposition", 'attachment', filename=filename)
                     msg.attach(part)
@@ -508,67 +523,105 @@ def delete_mail_account(user_account):
     db.execute(delete_sql, args, need_commit=True)
 
 
+def reset_user_password(user_account, old_password, new_password, is_default):
+    db = DbUtil('192.168.124.128', 'root', '111111', 'vmail')
+    user_mail = user_account + ws_config.MAIL_DOMAIN
+    user_mail = user_mail.lower()
+
+    # 查询用户邮箱数据
+    query_sql = f"select * from vmail.mailbox where username = '{user_mail}'"
+    mailbox = db.query_one(query_sql)
+    if not mailbox:
+        raise Exception(f"用户 {user_account} 不存在")
+
+    if int(is_default) == 0:
+        ssh = SshUtil(ws_config.MAIL_SSH_HOST, ws_config.MAIL_SSH_USERNAME, ws_config.MAIL_SSH_PASSWORD)
+        # 校验旧密码
+        # doveadm pw -t '{hashed_password}' -p '{plaintext_password}'
+        ssh_ret = ssh.execute_shell_command(
+            f"doveadm pw -t '{mailbox.get('password')}' -p '{old_password}'")
+        if not (ssh_ret and ssh_ret.__contains__("verified")):
+            raise Exception(f"旧密码错误")
+
+        # 生成新密码，并替换
+        # doveadm pw -s 'ssha512' -p '{plain_password}'
+        new_password_hash = ssh.execute_shell_command(
+            f"doveadm pw -s 'ssha512' -p '{new_password}'")
+        new_password_hash = new_password_hash.replace("\n", "")
+        if not new_password_hash:
+            raise Exception(f"新密码不符合规范, 新密码必须包含：至少一个字母, 至少一个大写字母, 至少一个数字, 至少一个特殊字符")
+    else:
+        new_password_hash = "{SSHA512}FDiYQRyOxV/jZ0QubV0kFerxgKeGNV3EVutzgdSza2sclIxFZVfYRb+4SIHMUdYcRDDuoBndbDzShPIhO+49tVmU6t0="
+
+    update_sql = f"UPDATE vmail.mailbox SET password='{new_password_hash}' WHERE username='{user_mail}'"
+    db.execute(update_sql, need_commit=True)
+    del db
+
+
 # ===========================================================
 # =============   mail group manager    =====================
 # ===========================================================
 
+"""
+创建邮箱分组
+"""
 
-def create_mail_group(user_account: str, user_name: str, mail_group_name: str,
-                      mail_group_description: str, user_list, is_public: int):
-    """
-    创建邮箱分组
-    :param user_account:
-    :param user_name:
-    :param mail_group_name:
-    :param mail_group_description:
-    :param user_list:
-    :param is_public:
-    :return:
-    """
+
+def create_mail_group(json_data):
+    user_account = json_data.get("user_account")
+    user_name = json_data.get("user_name")
+    mail_group_name = json_data.get("mail_group_name")
+    mail_group_description = json_data.get("mail_group_description")
+    user_list = json_data.get("user_list")
+    is_public = json_data.get("is_public")
+
     db = DbUtil(global_config.DB_HOST, global_config.DB_USERNAME, global_config.DB_PASSWORD,
                 global_config.DB_DATABASE_GYL)
 
-    query_sql = "select id from nsyy_gyl.ws_mail_group where name = '{}' ".format(mail_group_name)
+    query_sql = f"select id from nsyy_gyl.ws_mail_group where name = '{mail_group_name}' "
     mail_group = db.query_one(query_sql)
-    if mail_group is not None:
-        raise Exception("邮箱群组名已被占用，请输入新的名字（邮箱群组名仅支持字母数字组合）")
+    if mail_group:
+        raise Exception(f"邮箱群组名 {mail_group_name} 已被占用，请输入新的名字（邮箱群组名仅支持字母数字组合）")
 
-    # 1. 调用邮箱服务器群组管理脚本，创建新群组
+    # 调用邮箱服务器群组管理脚本，创建新群组
     group_name = mail_group_name + ws_config.MAIL_DOMAIN
-    # 通过脚本创建邮箱群组
+    group_name = group_name.lower()
     ssh = SshUtil(ws_config.MAIL_SSH_HOST, ws_config.MAIL_SSH_USERNAME, ws_config.MAIL_SSH_PASSWORD)
     # 检查群组列表是否存在
     output = ssh.execute_shell_command(f"cd /opt/mlmmjadmin/tools; python3 maillist_admin.py info {group_name}")
     if 'Error: NO_SUCH_ACCOUNT' not in output:
-        raise Exception("邮箱群组群组" + mail_group_name + " 已存在")
-
-    output = ssh.execute_shell_command(f"cd /opt/mlmmjadmin/tools; "
+        raise Exception(f"邮箱群组名 {mail_group_name} 已被占用，请输入新的名字（邮箱群组名仅支持字母数字组合）")
+    # 创建群组
+    only_subscriber_can_post = 'no'
+    if int(is_public) == 0:
+        only_subscriber_can_post = 'yes'
+    output = ssh.execute_shell_command(f"cd /opt/mlmmjadmin-3.1.8/tools; "
                                        f"python3 maillist_admin.py create {group_name}"
-                                       f" only_subscriber_can_post=no disable_archive=no ")
+                                       f" only_subscriber_can_post={only_subscriber_can_post} "
+                                       f"disable_archive=no disable_send_copy_to_sender=yes")
     if 'Created.' not in output:
         raise Exception("邮箱群组群组" + mail_group_name + " 创建失败")
 
-    timer = datetime.now()
-    timer = timer.strftime("%Y-%m-%d %H:%M:%S")
+    timer = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
     args = (mail_group_name, mail_group_description, user_account, user_name, timer, is_public)
     insert_sql = "INSERT INTO nsyy_gyl.ws_mail_group (name, description, " \
                  "user_account, user_name, timer, is_public) " \
                  "VALUES (%s,%s,%s,%s,%s,%s)"
     last_rowid = db.execute(insert_sql, args, need_commit=True)
     if last_rowid == -1:
+        del db
         raise Exception("新群组入库失败!")
 
     # 2. 组装用户邮箱账号 [用户账号]@邮箱后缀， 将用户邮箱加入到新群组中
-    joined_user_list = []
+    batch_insert_list = []
     failed_user_list = []
+    user_dict = {}
     # 将创建者本人也加入
-    user_list.append({
-        "user_account": user_account,
-        "user_name": user_name
-    })
+    user_list.append({"user_account": user_account, "user_name": user_name})
     for user in user_list:
         account = user.get('user_account')
         mail_account = account + ws_config.MAIL_DOMAIN
+        mail_account = mail_account.lower()
         # 账号存在将账号加入到
         output = ssh.execute_shell_command(f"cd /opt/mlmmjadmin/tools; "
                                            f"python3 maillist_admin.py add_subscribers {group_name} {mail_account} ")
@@ -576,74 +629,101 @@ def create_mail_group(user_account: str, user_name: str, mail_group_name: str,
         if 'Added.' not in output:
             failed_user_list.append(user)
         else:
-            joined_user_list.append(user)
-            query_sql = "select * from nsyy_gyl.ws_mail_group_members " \
-                        "where mail_group_id = {} and user_account = '{}' " \
-                .format(int(last_rowid), str(user.get('user_account')))
-            mem = db.query_one(query_sql)
-            if mem is None:
-                args = (last_rowid, user.get('user_account'), user.get('user_name'), timer)
-                insert_sql = "INSERT INTO nsyy_gyl.ws_mail_group_members (mail_group_id, " \
-                             "user_account, user_name, timer) " \
-                             "VALUES (%s,%s,%s,%s)"
-                db.execute(insert_sql, args, need_commit=True)
+            batch_insert_list.append(account)
+            user_dict[account] = user
 
+    query_sql = f"select user_account from nsyy_gyl.ws_mail_group_members where mail_group_id = {int(last_rowid)} "
+    mem = db.query_all(query_sql)
+    if mem:
+        mem = [m.get('user_account') for m in mem]
+        batch_insert_list = list(set(batch_insert_list) - set(mem))
+
+    # 批量插入群组成员
+    if batch_insert_list:
+        args = []
+        for account in batch_insert_list:
+            user = user_dict.get(account)
+            args.append((last_rowid, user.get('user_account'), user.get('user_name'), timer))
+        insert_sql = "INSERT INTO nsyy_gyl.ws_mail_group_members (mail_group_id, " \
+                     "user_account, user_name, timer) VALUES (%s,%s,%s,%s)"
+        db.execute_many(insert_sql, args, need_commit=True)
+
+    del db
     del ssh
     return failed_user_list
 
 
-def operate_mail_group(user_account: str, mail_group_id: int, mail_group_name: str, operate_type: int,
-                       new_mail_group_desc: str, user_list, is_public: int):
-    """
-    编辑群组
-    operate_type = 0 更新群组描述
-    operate_type = 1 向群组中新增用户
-    operate_type = 2 从群组中移除用户
-    operate_type = 3 修改群组公开性
-    operate_type = 4 删除群组 (对本人隐藏，但群组还在)
-    """
+"""
+编辑群组
+operate_type = 0 更新群组描述
+operate_type = 1 向群组中新增用户
+operate_type = 2 从群组中移除用户
+operate_type = 3 修改群组公开性
+operate_type = 4 删除群组 (对本人隐藏，但群组还在)
+"""
+
+
+def operate_mail_group(json_data):
+    user_account = json_data.get("user_account")
+    mail_group_id = json_data.get("mail_group_id")
+    mail_group_name = json_data.get("mail_group_name")
+    operate_type = json_data.get("operate_type")
+    new_mail_group_desc = json_data.get("new_mail_group_desc")
+    user_list = json_data.get("user_list")
+    is_public = json_data.get("is_public")
+
+    mail_group = mail_group_name + ws_config.MAIL_DOMAIN
+    mail_group = mail_group.lower()
+
     db = DbUtil(global_config.DB_HOST, global_config.DB_USERNAME, global_config.DB_PASSWORD,
                 global_config.DB_DATABASE_GYL)
-
-    timer = datetime.now()
-    timer = timer.strftime("%Y-%m-%d %H:%M:%S")
+    timer = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
     if operate_type == ws_config.MAIL_OPERATE_UPDATE:
         # 更新群组描述
         update_sql = 'UPDATE nsyy_gyl.ws_mail_group SET description = %s, timer = %s WHERE name = %s'
         args = (new_mail_group_desc, timer, mail_group_name)
         db.execute(update_sql, args, need_commit=True)
+        del db
         return
     elif operate_type == ws_config.MAIL_OPERATE_ADD:
         # 添加群组成员
         ssh = SshUtil(ws_config.MAIL_SSH_HOST, ws_config.MAIL_SSH_USERNAME, ws_config.MAIL_SSH_PASSWORD)
         joined_user_list = []
         failed_user_list = []
+        user_dict = {}
         for user in user_list:
             account = user.get('user_account')
             mail_account = account + ws_config.MAIL_DOMAIN
+            mail_account = mail_account.lower()
             # 账号存在将账号加入到邮箱群组
             output = ssh.execute_shell_command(f"cd /opt/mlmmjadmin/tools; "
                                                f"python3 maillist_admin.py add_subscribers"
-                                               f" {mail_group_name + ws_config.MAIL_DOMAIN} {mail_account} ")
+                                               f" {mail_group} {mail_account} ")
             # 将执行不成功的（账号不存在，添加失败） 移除列表，并想办法告知客户端
             if 'Added.' not in output:
                 failed_user_list.append(user)
             else:
-                joined_user_list.append(user)
+                joined_user_list.append(account)
+                user_dict[account] = user
         del ssh
 
-        for user in joined_user_list:
-            query_sql = "select * from nsyy_gyl.ws_mail_group_members " \
-                        "where mail_group_id = {} and user_account = '{}' " \
-                .format(int(mail_group_id), str(user.get('user_account')))
-            mem = db.query_one(query_sql)
-            if mem is None:
-                args = (mail_group_id, user.get('user_account'), user.get('user_name'), timer)
-                insert_sql = "INSERT INTO nsyy_gyl.ws_mail_group_members (mail_group_id, " \
-                             "user_account, user_name, timer) " \
-                             "VALUES (%s,%s,%s,%s)"
-                db.execute(insert_sql, args, need_commit=True)
+        query_sql = f"select user_account from nsyy_gyl.ws_mail_group_members where mail_group_id = {int(mail_group_id)} "
+        mem = db.query_all(query_sql)
+        if mem:
+            mem = [m.get('user_account') for m in mem]
+            joined_user_list = list(set(joined_user_list) - set(mem))
 
+        # 批量插入群组成员
+        if joined_user_list:
+            args = []
+            for account in joined_user_list:
+                user = user_dict.get(account)
+                args.append((mail_group_id, user.get('user_account'), user.get('user_name'), timer))
+            insert_sql = "INSERT INTO nsyy_gyl.ws_mail_group_members (mail_group_id, " \
+                         "user_account, user_name, timer) VALUES (%s,%s,%s,%s)"
+            db.execute_many(insert_sql, args, need_commit=True)
+
+        del db
         return failed_user_list
     elif operate_type == ws_config.MAIL_OPERATE_REMOVE:
         # 移除群组成员
@@ -653,26 +733,27 @@ def operate_mail_group(user_account: str, mail_group_id: int, mail_group_name: s
         for user in user_list:
             account = user.get('user_account')
             mail_account = account + ws_config.MAIL_DOMAIN
+            mail_account = mail_account.lower()
             # 账号存在将账号加入到邮箱群组
             output = ssh.execute_shell_command(f"cd /opt/mlmmjadmin/tools; "
                                                f"python3 maillist_admin.py remove_subscribers"
-                                               f" {mail_group_name + ws_config.MAIL_DOMAIN} {mail_account} ")
+                                               f" {mail_group} {mail_account} ")
             # 将执行不成功的（账号不存在，添加失败） 移除列表，并想办法告知客户端
             if 'Removed.' not in output:
                 failed_user_list.append(user)
             else:
-                removed_user_list.append(user)
+                removed_user_list.append(account)
         del ssh
 
-        for user in removed_user_list:
-            args = (mail_group_id, user.get('user_account'), user.get('user_name'))
+        if removed_user_list:
             delete_sql = "DELETE FROM nsyy_gyl.ws_mail_group_members " \
-                         "WHERE mail_group_id = %s and user_account = %s and user_name = %s "
-            db.execute(delete_sql, args, need_commit=True)
+                         f"WHERE mail_group_id = {mail_group_id} and user_account in {tuple(removed_user_list)}  "
+            db.execute(delete_sql, need_commit=True)
+
+        del db
         return failed_user_list
     elif operate_type == ws_config.MAIL_OPERATE_PUBLIC:
-        query_sql = "select * from nsyy_gyl.ws_mail_group " \
-                    "where id = {} ".format(int(mail_group_id))
+        query_sql = f"select * from nsyy_gyl.ws_mail_group where id = {int(mail_group_id)} "
         mail_group = db.query_one(query_sql)
         if int(mail_group.get('is_public')) == int(is_public):
             return
@@ -689,15 +770,16 @@ def operate_mail_group(user_account: str, mail_group_id: int, mail_group_name: s
         update_sql = 'UPDATE nsyy_gyl.ws_mail_group SET is_public = %s, timer = %s WHERE name = %s'
         args = (is_public, timer, mail_group_name)
         db.execute(update_sql, args, need_commit=True)
+        del db
 
-        if is_public == 1:
-            # 如果群组公开，则允许不在群组中的人向群组发送邮件
-            ssh = SshUtil(ws_config.MAIL_SSH_HOST, ws_config.MAIL_SSH_USERNAME, ws_config.MAIL_SSH_PASSWORD)
-            ssh.execute_shell_command(f"cd /opt/mlmmjadmin/tools; "
-                                      f"python3 maillist_admin.py update"
-                                      f" {mail_group_name + ws_config.MAIL_DOMAIN} "
-                                      f"only_moderator_can_post=yes disable_subscription=yes")
-            del ssh
+        only_subscriber_can_post = 'no'
+        if int(is_public) == 0:
+            only_subscriber_can_post = 'yes'
+        # 如果群组公开，则允许不在群组中的人向群组发送邮件
+        ssh = SshUtil(ws_config.MAIL_SSH_HOST, ws_config.MAIL_SSH_USERNAME, ws_config.MAIL_SSH_PASSWORD)
+        ssh.execute_shell_command(f"cd /opt/mlmmjadmin/tools; python3 maillist_admin.py update {mail_group} "
+                                  f"only_subscriber_can_post={only_subscriber_can_post} disable_subscription=yes", sudo=True)
+        del ssh
 
         return
     elif operate_type == ws_config.MAIL_OPERATE_DELETE:
@@ -706,21 +788,19 @@ def operate_mail_group(user_account: str, mail_group_id: int, mail_group_name: s
                      'WHERE user_account = %s and mail_group_id = %s '
         args = (timer, user_account, mail_group_id)
         db.execute(update_sql, args, need_commit=True)
+        del db
 
-    del db
+
+"""
+查询当前用户可以看到的所有群组
+1. 已加入的群组（包含本人创建的）
+2. 公开的群组
+"""
 
 
 def query_mail_group_list(user_account: str):
-    """
-    查询当前用户可以看到的所有群组
-    1. 已加入的群组（包含本人创建的）
-    2. 公开的群组
-    :param user_account:
-    :return:
-    """
     db = DbUtil(global_config.DB_HOST, global_config.DB_USERNAME, global_config.DB_PASSWORD,
                 global_config.DB_DATABASE_GYL)
-
     query_sql = "select * from nsyy_gyl.ws_mail_group where id in ( " \
                 "select mail_group_id from nsyy_gyl.ws_mail_group_members " \
                 "where user_account = '{}' and is_show = 1 ) or is_public = 1 " \

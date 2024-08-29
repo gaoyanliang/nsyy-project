@@ -1,3 +1,5 @@
+import time
+
 import paramiko
 
 
@@ -75,7 +77,11 @@ ssh_password = "111111"
 
 if __name__ == "__main__":
     ssh = SshUtil(ssh_host, ssh_username, ssh_password)
-    ssh.execute_shell_command("pwd", sudo=False)
+    ssh.execute_shell_command("pwd")
+    # ssh.execute_shell_command("whoami", sudo=True)
+    # ssh.execute_shell_command("python3 -V", sudo=True)
+    ssh.execute_shell_command(f"cd /opt/mlmmjadmin-3.1.8/tools/; python3 /opt/mlmmjadmin-3.1.8/tools/maillist_admin.py update tg1@nsyy.com only_subscriber_can_post=yes disable_subscription=no", sudo=True)
+    ssh.execute_shell_command(f"cd /opt/mlmmjadmin-3.1.8/tools/; python3 /opt/mlmmjadmin-3.1.8/tools/maillist_admin.py info tg1@nsyy.com")
     del ssh
 
 

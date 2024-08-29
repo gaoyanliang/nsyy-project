@@ -18,17 +18,17 @@ print("=============== 开始注册路由 =====================")
 # gylroute.register_blueprint(sport_mng)
 
 
-# # ============================
-# # === 2. 注册工作站相关路由 ====
-# # ============================
-# print('2. 注册工作站相关路由')
-# workstation = Blueprint('workstation', __name__, url_prefix='/workstation')
+# ============================
+# === 2. 注册工作站相关路由 ====
+# ============================
+print('2. 注册工作站相关路由')
+workstation = Blueprint('workstation', __name__, url_prefix='/workstation')
 # # 2.1 注册消息管理路由
 # workstation.register_blueprint(message_router)
-# # 2.2 注册邮箱管理路由
-# workstation.register_blueprint(mail_router)
-#
-# gylroute.register_blueprint(workstation)
+# 2.2 注册邮箱管理路由
+workstation.register_blueprint(mail_router)
+
+gylroute.register_blueprint(workstation)
 
 
 # ============================

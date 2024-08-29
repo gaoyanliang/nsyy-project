@@ -116,6 +116,22 @@ class DbUtil:
             self.__conn.rollback()
         return -1
 
+    def execute_many(self, sql, args=None, need_commit: bool = False):
+        """获取SQL执行结果"""
+        try:
+            self.__cursor.executemany(sql, args)
+            if need_commit:
+                self.__commit()
+
+            # 获取最后一个插入记录的ID
+            self.__cursor.execute("SELECT LAST_INSERT_ID()")
+            last_rowid = self.__cursor.fetchone()[0]
+            return last_rowid
+        except Exception as e:
+            print(f"执行SQL {sql}, 遇到异常", e)
+            self.__conn.rollback()
+        return -1
+
     def query_one(self, sql):
         """查询单条数据"""
         result = None

@@ -5,6 +5,7 @@ from flask import Blueprint, jsonify, request, send_file
 from io import BytesIO
 from gylmodules.workstation import ws_config
 from gylmodules.workstation.mail import mail
+from datetime import datetime
 import json
 
 mail_router = Blueprint('mail router', __name__, url_prefix='/mail')
@@ -45,7 +46,7 @@ def send_email():
     })
 
 
-@mail_router.route('/query_mail_list', methods=['POST'])
+@mail_router.route('/query_mail_list', methods=['POST', 'GET'])
 def query_mail_list():
     json_data = json.loads(request.get_data().decode('utf-8'))
     user_account = json_data.get("user_account")
@@ -234,6 +235,35 @@ def delete_mail_account():
     })
 
 
+"""
+重置密码
+"""
+
+
+@mail_router.route('/reset_user_password', methods=['POST'])
+def reset_user_password():
+    json_data = json.loads(request.get_data().decode('utf-8'))
+    user_account = json_data.get("user_account")
+    old_password = json_data.get("old_password")
+    new_password = json_data.get("new_password")
+    is_default = json_data.get("is_default")
+    try:
+        mail.reset_user_password(user_account, old_password, new_password, is_default)
+    except Exception as e:
+        print(datetime.now(), f"mail_router.reset_user_password: An unexpected error occurred: {e}")
+        return jsonify({
+            'code': 50000,
+            'res': '密码重置失败，请稍后重试' + e.__str__(),
+            'data': ''
+        })
+
+    return jsonify({
+        'code': 20000,
+        'res': '密码重置成功',
+        'data': '密码重置成功'
+    })
+
+
 # ===========================================================
 # =============   mail group manager    =====================
 # ===========================================================
@@ -242,17 +272,9 @@ def delete_mail_account():
 #  创建邮箱分组
 @mail_router.route('/create_mail_group', methods=['POST'])
 def create_mail_group():
-    json_data = json.loads(request.get_data().decode('utf-8'))
-    user_account = json_data.get("user_account")
-    user_name = json_data.get("user_name")
-    mail_group_name = json_data.get("mail_group_name")
-    mail_group_description = json_data.get("mail_group_description")
-    user_list = json_data.get("user_list")
-    is_public = json_data.get("is_public")
-
     try:
-        failed_user_list = mail.create_mail_group(user_account, user_name,
-                                                  mail_group_name, mail_group_description, user_list, is_public)
+        json_data = json.loads(request.get_data().decode('utf-8'))
+        failed_user_list = mail.create_mail_group(json_data)
         if len(failed_user_list) != 0:
             return jsonify({
                 'code': 20000,
@@ -260,8 +282,7 @@ def create_mail_group():
                 'data': '邮箱群组创建成功，但成员 ' + ' '.join(failed_user_list) + ' 加入群组失败，请检查以上用户是否拥有邮箱账户'
             })
     except Exception as e:
-        print(f"mail_router.create_mail_group: An unexpected error occurred: {e}")
-        print(traceback.print_exc())
+        print(datetime.now(), f"mail_router.create_mail_group: An unexpected error occurred: {e}")
         return jsonify({
             'code': 50000,
             'res': '邮箱群组创建失败，请稍后重试' + e.__str__(),
@@ -278,36 +299,26 @@ def create_mail_group():
 #  编辑邮箱分组
 @mail_router.route('/operate_mail_group', methods=['POST'])
 def operate_mail_group():
-    json_data = json.loads(request.get_data().decode('utf-8'))
-    user_account = json_data.get("user_account")
-    mail_group_id = json_data.get("mail_group_id")
-    mail_group_name = json_data.get("mail_group_name")
-    operate_type = json_data.get("operate_type")
-    new_mail_group_desc = json_data.get("new_mail_group_desc")
-    user_list = json_data.get("user_list")
-    is_public = json_data.get("is_public")
-
     try:
-        failed_user_list = mail.operate_mail_group(user_account, mail_group_id, mail_group_name, operate_type,
-                                                   new_mail_group_desc, user_list, is_public)
-        if failed_user_list is not None and len(failed_user_list) != 0:
+        json_data = json.loads(request.get_data().decode('utf-8'))
+        operate_type = json_data.get("operate_type")
+        mail_group_name = json_data.get("mail_group_name")
+
+        failed_user_list = mail.operate_mail_group(json_data)
+        if failed_user_list and len(failed_user_list) != 0:
             if operate_type == ws_config.MAIL_OPERATE_ADD:
                 info = ' '.join(failed_user_list) + ': 以上用户订阅邮箱群组 ' + mail_group_name + ' 失败, 请联系管理员处理'
-                return jsonify({
-                    'code': 20000,
-                    'res': info,
-                    'data': info
-                })
             elif operate_type == ws_config.MAIL_OPERATE_REMOVE:
                 info = ' '.join(failed_user_list) + ': 以上用户取消订阅邮箱群组 ' + mail_group_name + ' 失败, 请联系管理员处理'
-                return jsonify({
-                    'code': 20000,
-                    'res': info,
-                    'data': info
-                })
+            else:
+                info = ''
+            return jsonify({
+                'code': 20000,
+                'res': info,
+                'data': info
+            })
     except Exception as e:
-        print(f"mail_router.operate_mail_group: An unexpected error occurred: {e}")
-        print(traceback.print_exc())
+        print(datetime.now(), f"mail_router.operate_mail_group: An unexpected error occurred: {e}")
         return jsonify({
             'code': 50000,
             'res': '邮箱群组操作失败，请稍后重试' + e.__str__(),
