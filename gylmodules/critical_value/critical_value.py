@@ -128,12 +128,12 @@ def cache_all_site_and_timeout():
         if site.get('site_dept_id'):
             dept_idl = str(site.get('site_dept_id')).split(',')
             for dept_id in dept_idl:
-                key = cv_config.CV_SITES_REDIS_KEY[2] + str(dept_id)
+                key = cv_config.CV_SITES_REDIS_KEY[2].format(str(dept_id))
                 redis_client.sadd(key, site.get('site_ip'))
         if site.get('site_ward_id'):
             ward_idl = str(site.get('site_ward_id')).split(',')
             for ward_id in ward_idl:
-                key = cv_config.CV_SITES_REDIS_KEY[1] + str(ward_id)
+                key = cv_config.CV_SITES_REDIS_KEY[1].format(str(ward_id))
                 redis_client.sadd(key, site.get('site_ip'))
 
     # 将超时时间配置加载至 redis 缓存
@@ -1006,10 +1006,10 @@ async def alert(dept_id, ward_id, msg):
     redis_client = redis.Redis(connection_pool=pool)
     dept_sites = set()
     if dept_id is not None and dept_id != '' and int(dept_id):
-        dept_sites = redis_client.smembers(cv_config.CV_SITES_REDIS_KEY[2] + str(dept_id))
+        dept_sites = redis_client.smembers(cv_config.CV_SITES_REDIS_KEY[2].format(str(dept_id)))
     ward_sites = set()
     if ward_id is not None and ward_id != '' and int(ward_id):
-        ward_sites = redis_client.smembers(cv_config.CV_SITES_REDIS_KEY[1] + str(ward_id))
+        ward_sites = redis_client.smembers(cv_config.CV_SITES_REDIS_KEY[1].format(str(ward_id)))
     merged_set = dept_sites.union(ward_sites)
 
     if merged_set:
@@ -1236,6 +1236,10 @@ def doctor_handle_cv(json_data):
                     "pat_no": pat_no, "pat_type": pat_type, "record": record,
                     "handler_name": handler_name, "timer": timer, "method": method, "analysis": ''
                 })
+
+                if "nurse_recv" in cv and int(cv.get("nurse_recv")) == 0:
+                    # 如果护士没有接收，由医生接收，回传接收数据
+                    data_feedback(cv_id, int(cv_source), handler_name, timer, '已确认', 2)
                 # 所有 cv source 类型都需要执行 data feedback，为了防止抓取到重复的危急值
                 data_feedback(cv_id, int(cv_source), handler_name, timer, method, 3)
                 # 心电系统和 pacs 系统单独回写对应的系统
@@ -1626,14 +1630,14 @@ def site_maintenance(json_data):
         deptl = sited.get('site_dept_id')
         deptl = str(deptl).split(',')
         for dept in deptl:
-            key = cv_config.CV_SITES_REDIS_KEY[2] + str(dept)
+            key = cv_config.CV_SITES_REDIS_KEY[2].format(str(dept))
             redis_client.sadd(key, sited['site_ip'])
 
     if sited.get('site_ward_id'):
         ward_idl = sited.get('site_ward_id')
         ward_idl = str(ward_idl).split(',')
         for ward in ward_idl:
-            key = cv_config.CV_SITES_REDIS_KEY[1] + str(ward)
+            key = cv_config.CV_SITES_REDIS_KEY[1].format(str(ward))
             redis_client.sadd(key, sited['site_ip'])
 
 

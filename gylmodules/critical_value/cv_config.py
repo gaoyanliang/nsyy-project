@@ -38,11 +38,11 @@ DOCTOR_HANDLE_TIMEOUT_STATE = 8  # 医生处理超时
 DOCTOR_HANDLE_STATE = 9  # 医生已处理
 
 # 超时时间 redis key
-TIMEOUT_REDIS_KEY = {'nurse_recv': 'CV_NURSE_RECV_TIMEOUT',
-                     'nurse_send': 'CV_NURSE_SEND_TIMEOUT',
-                     'doctor_recv': 'CV_DOCTOR_RECV_TIMEOUT',
-                     'doctor_handle': 'CV_DOCTOR_HANDLE_TIMEOUT',
-                     'total': 'CV_TOTAL_TIMEOUT'}
+TIMEOUT_REDIS_KEY = {'nurse_recv': 'CV_TIMEOUT:CV_NURSE_RECV_TIMEOUT',
+                     'nurse_send': 'CV_TIMEOUT:CV_NURSE_SEND_TIMEOUT',
+                     'doctor_recv': 'CV_TIMEOUT:CV_DOCTOR_RECV_TIMEOUT',
+                     'doctor_handle': 'CV_TIMEOUT:CV_DOCTOR_HANDLE_TIMEOUT',
+                     'total': 'CV_TIMEOUT:CV_TOTAL_TIMEOUT'}
 
 # 部门信息
 DEPT_INFO_REDIS_KEY = 'CV_DEPT_INFO_REDIS_KEY'
@@ -54,7 +54,7 @@ RUNNING_CVS_REDIS_KEY = 'CV_RUNNING_CVS'
 MANUAL_CVS_REDIS_KEY = 'CV_MANUAL_CVS'
 
 # 站点类型
-CV_SITES_REDIS_KEY = {1: 'CV_SITES_WARD_', 2: 'CV_SITES_DEPT_'}
+CV_SITES_REDIS_KEY = {1: 'CV_SITES_WARD:{}', 2: 'CV_SITES_DEPT:{}'}
 
 # 危急值模版
 CV_TEMPLATE_REDIS_KEY = 'CV_TEMPLATE'
