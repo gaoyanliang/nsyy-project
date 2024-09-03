@@ -123,7 +123,7 @@ if __name__ == '__main__':
     print(formatted_json)
 
     print('------------------------------')
-    assembling_cda_record(patient_info, 3)
+    # assembling_cda_record(patient_info, 3)
     # assembling_cda_record(patient_info, 2)
 
 

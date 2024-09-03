@@ -32,8 +32,7 @@ def parse_cda_xml_document(root):
 
     # === 1. 文档信息
     file_info = {}
-    file_info['标题'] = root.find('hl7:title', namespaces).text if root.find('hl7:title',
-                                                                               namespaces) is not None else '/'
+    file_info['标题'] = root.find('hl7:title', namespaces).text if root.find('hl7:title', namespaces) is not None else '/'
     file_info['文档流水号'] = root.find('hl7:id', namespaces).get('extension') if root.find('hl7:id',
                                                                                            namespaces) is not None else '/'
     file_info['文档生成时间'] = root.find('hl7:effectiveTime', namespaces).get('value')
@@ -412,14 +411,16 @@ component_name = {
     '48768-6': '费用章节',
     '行政管理': '行政管理',
     '46241-6': '入院诊断',
+    '46209-3': '医嘱(用药)章节',
 
 }
 
 
 if __name__ == '__main__':
-    parse_data = parse_cda_xml_document_by_file('/Users/gaoyanliang/nsyy/病历解析/住院病案首页.xml')
+    # parse_data = parse_cda_xml_document_by_file('/Users/gaoyanliang/nsyy/病历解析/住院病案首页.xml')
     # parse_data = parse_cda_xml_document_by_file('/Users/gaoyanliang/nsyy/病历解析/病程记录/首次病程记录.xml')
-    # parse_data = parse_cda_xml_document('/Users/gaoyanliang/nsyy/病历解析/出院记录/出院记录文档示例.xml')
+    # parse_data = parse_cda_xml_document_by_file('/Users/gaoyanliang/nsyy/病历解析/出院记录/出院记录文档示例.xml')
+    parse_data = parse_cda_xml_document_by_file('/Users/gaoyanliang/nsyy/病历解析/入院记录/入院记录文档示例.xml')
 
     # 将 Python 对象转换为格式化的 JSON 字符串
     formatted_json = json.dumps(parse_data, indent=4, ensure_ascii=False)

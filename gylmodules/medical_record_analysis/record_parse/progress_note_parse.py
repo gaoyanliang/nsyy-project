@@ -227,40 +227,40 @@ def parse_test(xml_file):
 # Press the green button in the gutter to run the script.
 if __name__ == '__main__':
     # 遍历所有目录中xml 文件完成解析，并生成入院记录 cda 文档
-    index = 0
-    directory = '/Users/gaoyanliang/nsyy/病历解析/病程记录/bingli/'
-    for root, dirs, files in os.walk(directory):
-        for file in files:
-            if file.endswith(".xml"):
-                # parse_test(os.path.join(root, file))
-                index = index + 1
-                patient_info = parse_patient_document(os.path.join(root, file))
-                patient_info = clean_dict(patient_info)
-
-                # parse_test(os.path.join(root, file))
-
-                # 将 Python 对象转换为格式化的 JSON 字符串
-                # formatted_json = json.dumps(patient_info, indent=4, ensure_ascii=False)
-                # print(formatted_json)
-                try:
-                    parse_progress_note_record(file, patient_info, True)
-                except Exception as e:
-                    print('=========> 解析异常', file)
-    print(index)
-    # print(subdoc_info)
-
-    # patient_info = parse_patient_document('/Users/gaoyanliang/nsyy/病历解析/病程记录/0304/病程记录_2024-03-04_11-13-47.xml')
-    # patient_info = clean_dict(patient_info)
-    # formatted_json = json.dumps(patient_info, indent=4, ensure_ascii=False)
-    # print(formatted_json)
+    # index = 0
+    # directory = '/Users/gaoyanliang/nsyy/病历解析/病程记录/bingli/'
+    # for root, dirs, files in os.walk(directory):
+    #     for file in files:
+    #         if file.endswith(".xml"):
+    #             # parse_test(os.path.join(root, file))
+    #             index = index + 1
+    #             patient_info = parse_patient_document(os.path.join(root, file))
+    #             patient_info = clean_dict(patient_info)
     #
-    # try:
-    #     cda_list = parse_progress_note_record('file', patient_info, True)
-    #     print('------------------------------')
-    #     # for cda in cda_list:
-    #     #     print(cda)
-    # except Exception as e:
-    #     print('===> 解析异常', e)
+    #             # parse_test(os.path.join(root, file))
+    #
+    #             # 将 Python 对象转换为格式化的 JSON 字符串
+    #             # formatted_json = json.dumps(patient_info, indent=4, ensure_ascii=False)
+    #             # print(formatted_json)
+    #             try:
+    #                 parse_progress_note_record(file, patient_info, True)
+    #             except Exception as e:
+    #                 print('=========> 解析异常', file)
+    # print(index)
+    # # print(subdoc_info)
+
+    patient_info = parse_patient_document('/Users/gaoyanliang/nsyy/病历解析/病程记录/0304/病程记录_2024-03-04_11-13-47.xml')
+    patient_info = clean_dict(patient_info)
+    formatted_json = json.dumps(patient_info, indent=4, ensure_ascii=False)
+    print(formatted_json)
+
+    try:
+        cda_list = parse_progress_note_record('file', patient_info, True)
+        print('------------------------------')
+        # for cda in cda_list:
+        #     print(cda)
+    except Exception as e:
+        print('===> 解析异常', e)
 
 
 
