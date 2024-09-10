@@ -1237,7 +1237,7 @@ def doctor_handle_cv(json_data):
                     "handler_name": handler_name, "timer": timer, "method": method, "analysis": ''
                 })
 
-                if "nurse_recv" in cv and int(cv.get("nurse_recv")) == 0:
+                if not record.get('nurse_recv_id'):
                     # 如果护士没有接收，由医生接收，回传接收数据
                     data_feedback(cv_id, int(cv_source), handler_name, timer, '已确认', 2)
                 # 所有 cv source 类型都需要执行 data feedback，为了防止抓取到重复的危急值
