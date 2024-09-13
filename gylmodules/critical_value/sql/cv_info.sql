@@ -1,5 +1,5 @@
 /*
- Navicat Premium Data Transfer
+ Navicat Premium Dump SQL
 
  Source Server         : 192.168.3.12
  Source Server Type    : MySQL
@@ -11,7 +11,7 @@
  Target Server Version : 80039 (8.0.39-0ubuntu0.20.04.1)
  File Encoding         : 65001
 
- Date: 17/08/2024 11:36:51
+ Date: 13/09/2024 11:28:06
 */
 
 SET NAMES utf8mb4;
@@ -80,8 +80,10 @@ CREATE TABLE `cv_info` (
   `total_timeout` int DEFAULT '600' COMMENT '总超时时间',
   `instrna` varchar(100) DEFAULT NULL,
   `report_id` varchar(100) DEFAULT NULL,
+  `record` text COMMENT '危急值处理记录',
+  `record_time` datetime DEFAULT NULL COMMENT '危急值处理记录书写时间',
   PRIMARY KEY (`id`),
   UNIQUE KEY `unique_cv_id_cv_source` (`cv_id`,`cv_source`)
-) ENGINE=InnoDB AUTO_INCREMENT=7953 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+) ENGINE=InnoDB AUTO_INCREMENT=9661 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 
 SET FOREIGN_KEY_CHECKS = 1;
