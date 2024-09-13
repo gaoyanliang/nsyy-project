@@ -83,18 +83,29 @@ def system_create_cv():
 def manual_report_cv():
     try:
         json_data = json.loads(request.get_data().decode('utf-8'))
-        critical_value.manual_report_cv(json_data)
-    except Exception:
-        timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-        msg = f"[{timestamp}] manual_report_cv Exception occurred: {traceback.print_exc()}"
-        print(msg)
+        is_repted, cv_data = critical_value.manual_report_cv(json_data)
+        if is_repted:
+            # 重复上报 Repeated reporting
+            return jsonify({
+                'code': 20000,
+                "is_repeated": True,
+                "data": cv_data
+            })
+    except Exception as e:
+        print(datetime.now(), f"manual_report_cv Exception occurred: ", e)
         return jsonify({
             'code': 50000,
-            'res': msg
+            'res': "手工上报异常: " + e.__str__()
         })
     return jsonify({
-        'code': 20000
+        'code': 20000,
+        "is_repeated": False
     })
+
+
+"""
+作废危急值
+"""
 
 
 @cv.route('/invalid_cv', methods=['POST'])
@@ -150,33 +161,6 @@ def query_process_cv_and_notice():
         'res': '危机值查询并通知成功',
         'data': '危机值查询并通知成功'
     })
-
-
-"""
-设置危机值超时时间
-TODO 禁止用户修改
-"""
-
-
-# @cv.route('/setting_timeout', methods=['POST'])
-# def setting_timeout():
-#     json_data = json.loads(request.get_data().decode('utf-8'))
-#     try:
-#         critical_value.setting_timeout(json_data)
-#     except Exception as e:
-#         timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-#         print(f"[{timestamp}] Exception occurred: {traceback.print_exc()}")
-#         return jsonify({
-#             'code': 50000,
-#             'res': e.__str__(),
-#             'data': '危机值超时时间设置失败，请稍后重试'
-#         })
-#
-#     return jsonify({
-#         'code': 20000,
-#         'res': '危机值超时时间设置成功',
-#         'data': '危机值超时时间设置'
-#     })
 
 
 """
@@ -393,8 +377,7 @@ def query_all():
     try:
         report = critical_value.report_form(json_data)
     except Exception as e:
-        timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-        print(f"[{timestamp}] report_form Exception occurred: {e.__str__()}, param: ", json_data)
+        print(datetime.now(), f"report_form Exception occurred: {e.__str__()}, param: ", json_data)
         return jsonify({
             'code': 50000,
             'res': e.__str__(),
@@ -538,4 +521,20 @@ def check_cv_count():
     return jsonify({
         'code': 20000,
         'data': res
+    })
+
+
+@cv.route('/record', methods=['POST', 'GET'])
+def test():
+    try:
+        cv_manage.fetch_cv_record()
+    except Exception as e:
+        return jsonify({
+            'code': 50000,
+            'res': e.__str__(),
+            'data': []
+        })
+
+    return jsonify({
+        'code': 20000,
     })

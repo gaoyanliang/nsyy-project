@@ -13,7 +13,7 @@ PATIENT_TYPE_PHYSICAL_EXAMINATION = 4
 PATIENT_TYPE_OTHER = 5
 
 
-# 危机值来源 1=人工 2=检验系统 3=影像系统 4 心电图 5 床旁血糖 10 手工临时上报
+# 危机值来源 1=人工 2=检验系统 3=影像系统 4 心电图 5 床旁血糖 10 手工上报
 
 CV_SOURCE_LABOR = 1
 CV_SOURCE_INSPECTION_SYSTEM = 2

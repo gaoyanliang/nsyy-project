@@ -12,6 +12,32 @@ from gylmodules.medical_record_analysis.build_cda.build_cda import assembling_cd
 """
 
 
+# 从病程记录中解析危急值记录
+def parse_cv_by_str(xml_str):
+    # tree = ET.parse(xml_str)
+    # root = tree.getroot()
+    try:
+        root = ET.fromstring(xml_str)
+        cv_info = {}
+        for subdoc in root.find('document').iter('subdoc'):
+            title = subdoc.get('title') if subdoc.get('title') is not None else ''
+            antetypeid = subdoc.get('antetypeid') if subdoc.get('antetypeid') is not None else ''
+            if title.__contains__('危急值报告处理记录') or antetypeid == '870E9708C9C8421FBA23C093F397068D':
+                element = subdoc.find(".//element[@sid='CE6A04DE74264F938FC1A903103BFC5E']")
+                record_time = ''
+                if element is not None:
+                    record_time = element.get('value')
+                cv_record = ''
+                for utext in subdoc.iter('utext'):
+                    if utext.text is not None and not utext.text.__contains__('家属签字确认'):
+                        cv_record = cv_record + utext.text.strip() if utext.text else ''
+                if record_time:
+                    cv_info[record_time] = cv_record
+        return cv_info
+    except Exception as e:
+        return {}
+
+
 def parse_patient_document_by_str(xml_str):
     root = ET.fromstring(xml_str)
     patient_info = {}
@@ -216,51 +242,57 @@ def parse_test(xml_file):
     root = tree.getroot()
     document = root.find('./document')
     for element in document.iter('subdoc'):
-        key = element.get('title').replace(' ', '') if element.get('title') is not None else ''
+        key = element.get('title') if element.get('title') is not None else ''
         antetypeid = element.get('antetypeid')
         if key:
             subdoc_info[antetypeid] = key
-            if antetypeid == 'BAFB050135AA4C119B0E24446EB3C723':
-                print(xml_file)
+            if antetypeid == '870E9708C9C8421FBA23C093F397068D':
+                print(key, antetypeid, xml_file)
 
 
 # Press the green button in the gutter to run the script.
 if __name__ == '__main__':
     # 遍历所有目录中xml 文件完成解析，并生成入院记录 cda 文档
-    # index = 0
-    # directory = '/Users/gaoyanliang/nsyy/病历解析/病程记录/bingli/'
-    # for root, dirs, files in os.walk(directory):
-    #     for file in files:
-    #         if file.endswith(".xml"):
-    #             # parse_test(os.path.join(root, file))
-    #             index = index + 1
-    #             patient_info = parse_patient_document(os.path.join(root, file))
-    #             patient_info = clean_dict(patient_info)
-    #
-    #             # parse_test(os.path.join(root, file))
-    #
-    #             # 将 Python 对象转换为格式化的 JSON 字符串
-    #             # formatted_json = json.dumps(patient_info, indent=4, ensure_ascii=False)
-    #             # print(formatted_json)
-    #             try:
-    #                 parse_progress_note_record(file, patient_info, True)
-    #             except Exception as e:
-    #                 print('=========> 解析异常', file)
+    index = 0
+    directory = '/Users/gaoyanliang/nsyy/病历解析/病程记录/bingli/'
+    for root, dirs, files in os.walk(directory):
+        for file in files:
+            if file.endswith(".xml"):
+                # index = index + 1
+                # patient_info = parse_patient_document(os.path.join(root, file))
+                # patient_info = clean_dict(patient_info)
+
+                # parse_test(os.path.join(root, file))
+
+                cv_info = parse_cv_by_str(os.path.join(root, file))
+                if cv_info:
+                    print(cv_info)
+                    print('----------', file)
+                # 将 Python 对象转换为格式化的 JSON 字符串
+                # formatted_json = json.dumps(patient_info, indent=4, ensure_ascii=False)
+                # print(formatted_json)
+                # try:
+                #     parse_progress_note_record(file, patient_info, True)
+                # except Exception as e:
+                #     print('=========> 解析异常', file)
     # print(index)
-    # # print(subdoc_info)
+    # print(subdoc_info)
 
-    patient_info = parse_patient_document('/Users/gaoyanliang/nsyy/病历解析/病程记录/0304/病程记录_2024-03-04_11-13-47.xml')
-    patient_info = clean_dict(patient_info)
-    formatted_json = json.dumps(patient_info, indent=4, ensure_ascii=False)
-    print(formatted_json)
+    # patient_info = parse_patient_document('/Users/gaoyanliang/nsyy/病历解析/病程记录/0304/病程记录_2024-03-04_11-13-47.xml')
+    # patient_info = clean_dict(patient_info)
+    # formatted_json = json.dumps(patient_info, indent=4, ensure_ascii=False)
+    # print(formatted_json)
+    #
+    # try:
+    #     cda_list = parse_progress_note_record('file', patient_info, True)
+    #     print('------------------------------')
+    #     # for cda in cda_list:
+    #     #     print(cda)
+    # except Exception as e:
+    #     print('===> 解析异常', e)
 
-    try:
-        cda_list = parse_progress_note_record('file', patient_info, True)
-        print('------------------------------')
-        # for cda in cda_list:
-        #     print(cda)
-    except Exception as e:
-        print('===> 解析异常', e)
+    # patient_info = parse_cv_by_str('/Users/gaoyanliang/nsyy/病历解析/病程记录/bingli/病程记录_2024-03-05_21-24-43.xml')
+    # print(patient_info)
 
 
 
