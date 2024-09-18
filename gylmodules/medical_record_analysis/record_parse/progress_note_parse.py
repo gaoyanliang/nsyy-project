@@ -109,7 +109,7 @@ def parse_patient_document(xml_file):
     return patient_info
 
 
-def parse_progress_note_record(file, data, test: bool = False):
+def parse_progress_note_record(data, test: bool = False):
     if test:
         patient_info = data
     else:
@@ -195,7 +195,7 @@ def parse_progress_note_record(file, data, test: bool = False):
                 shallow_copy.update(sub)
                 cda_data = assembling_cda_record(shallow_copy, 14)
         except Exception as e:
-            print(file, sub.get('antetypeid'), sub.get('title'), '解析异常', e)
+            print(sub.get('antetypeid'), sub.get('title'), '解析异常', e)
 
         if cda_data:
             cda_list.append(cda_data)
