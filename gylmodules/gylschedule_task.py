@@ -2,6 +2,7 @@ import json
 from datetime import datetime, timedelta
 import redis
 import requests
+from apscheduler.executors.pool import ThreadPoolExecutor
 from ping3 import ping
 import asyncio
 
@@ -14,10 +15,16 @@ from apscheduler.schedulers.background import BackgroundScheduler
 
 from gylmodules.critical_value.cv_manage import fetch_cv_record
 from gylmodules.utils.db_utils import DbUtil
+from gylmodules.workstation.schedule_task import write_data_to_db
 
 pool = redis.ConnectionPool(host=cv_config.CV_REDIS_HOST, port=cv_config.CV_REDIS_PORT,
                             db=cv_config.CV_REDIS_DB, decode_responses=True)
-gylmodule_scheduler = BackgroundScheduler(timezone="Asia/Shanghai")
+
+# 配置调度器，设置执行器，ThreadPoolExecutor 管理线程池并发
+executors = {
+    'default': ThreadPoolExecutor(10),  # 设置线程池大小为10
+}
+gylmodule_scheduler = BackgroundScheduler(timezone="Asia/Shanghai", executors=executors)
 
 # check_time 检查字段
 # timeout_file 超时时间配置字段
@@ -104,23 +111,25 @@ def handle_timeout_cv():
                 key = str(cv_id) + '_' + str(cv_source)
                 write_cache(key, value)
 
+    alert_list = []
     if timeout_record:
         for ids, msgs in timeout_record.items():
-            try:
-                asyncio.run(alert(ids[0], ids[1],
-                                  f'超时危急值，请及时处理 <br> [患者-主管医生-住院/门诊号-床号] <br> ' + ' <br> '.join(msgs)
-                                  + ' <br> <br> <br> 点击 [确认] 跳转至危急值页面'))
-            except Exception as e:
-                print(datetime.now(), "超时危急值通知异常: ", e)
-
+            alert_list.append((ids[0], ids[1],
+                               f'超时危急值，请及时处理 <br> [患者-主管医生-住院/门诊号-床号] <br> ' + ' <br> '.join(
+                                   msgs)
+                               + ' <br> <br> <br> 点击 [确认] 跳转至危急值页面'))
     # 通知医技科室
     if first_timeout_record:
         for alert_dept_id, msgs in first_timeout_record.items():
+            alert_list.append((alert_dept_id, None,
+                               f'超时危急值，请及通知科室处理 <br> [患者-主管医生-住院/门诊号-床号] <br> ' + ' <br> '.join(
+                                   msgs)
+                               + ' <br> <br> <br> 点击 [确认] 跳转至危急值页面'))
+
+    if alert_list:
+        for alert_info in alert_list:
             try:
-                asyncio.run(alert(alert_dept_id, None,
-                                  f'超时危急值，请及通知科室处理 <br> [患者-主管医生-住院/门诊号-床号] <br> ' + ' <br> '.join(
-                                      msgs)
-                                  + ' <br> <br> <br> 点击 [确认] 跳转至危急值页面'))
+                asyncio.run(alert(alert_info[0], alert_info[1], alert_info[2]))
             except Exception as e:
                 print(datetime.now(), "超时危急值通知异常: ", e)
 
@@ -209,7 +218,8 @@ def schedule_task():
     print('1. 危急值模块定时任务')
     if global_config.schedule_task['cv_timeout']:
         print("1.1 危机值超时管理 ", datetime.now())
-        gylmodule_scheduler.add_job(handle_timeout_cv, trigger='interval', seconds=10, max_instances=20, id='cv_timeout')
+        gylmodule_scheduler.add_job(handle_timeout_cv, trigger='interval', seconds=10, max_instances=20,
+                                    id='cv_timeout')
 
         print("1.2 ip 地址是否可用校验", datetime.now())
         gylmodule_scheduler.add_job(re_alert_fail_ip_log, 'cron', hour=2, minute=20, id='re_alert_fail_ip_log')
@@ -218,7 +228,7 @@ def schedule_task():
         gylmodule_scheduler.add_job(fetch_cv_record, 'cron', hour=3, minute=20, id='fetch_cv_record')
 
         print("1.4 危机值部门信息更新 ", datetime.now())
-        gylmodule_scheduler.add_job(regular_update_dept_info, trigger='interval', seconds=60*60, max_instances=10,
+        gylmodule_scheduler.add_job(regular_update_dept_info, trigger='interval', seconds=60 * 60, max_instances=10,
                                     id='cv_dept_update')
 
     # ======================  综合预约定时任务  ======================
@@ -231,7 +241,7 @@ def schedule_task():
         gylmodule_scheduler.add_job(update_appt_capacity, 'cron', hour=1, minute=10, id='update_appt_capacity')
 
     print("3. 定时任务状态 ", datetime.now())
-    gylmodule_scheduler.add_job(task_state, trigger='interval', seconds=6*60*60, max_instances=10, id='sched_state')
+    gylmodule_scheduler.add_job(task_state, trigger='interval', seconds=6 * 60 * 60, max_instances=10, id='sched_state')
 
     # print("4. 消息模块定时任务 ", datetime.now())
     # gylmodule_scheduler.add_job(write_data_to_db, trigger='interval', minutes=2)
