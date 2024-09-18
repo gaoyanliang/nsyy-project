@@ -32,7 +32,7 @@ def check_crisis_value_count(json_data):
         "randstr": "XPFDFZDF7193CIONS1PD7XCJ3AD4ORRC",
         "sql": f"SELECT inter_lab_resultalert.*, 2 AS \"cv_source\"  FROM inter_lab_resultalert WHERE {ora_dt_condation}"
     }
-    lis_cv = call_third_systems('orcl_db_read', param)
+    lis_cv = call_third_systems(param)
     if not lis_cv:
         lis_cv = []
 
@@ -42,7 +42,7 @@ def check_crisis_value_count(json_data):
         "randstr": "XPFDFZDF7193CIONS1PD7XCJ3AD4ORRC",
         "sql": f"SELECT * FROM NS_EXT.PACS危急值上报表 WHERE {ora_dt_condation}"
     }
-    oth_cv = call_third_systems('orcl_db_read', param)
+    oth_cv = call_third_systems(param)
     if not oth_cv:
         oth_cv = []
 
