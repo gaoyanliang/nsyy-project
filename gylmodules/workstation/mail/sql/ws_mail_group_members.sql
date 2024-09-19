@@ -1,17 +1,17 @@
 /*
  Navicat Premium Dump SQL
 
- Source Server         : 192.168.3.12
+ Source Server         : yanliang
  Source Server Type    : MySQL
- Source Server Version : 80039 (8.0.39-0ubuntu0.20.04.1)
- Source Host           : 192.168.3.12:3306
+ Source Server Version : 80300 (8.3.0)
+ Source Host           : 127.0.0.1:3306
  Source Schema         : nsyy_gyl
 
  Target Server Type    : MySQL
- Target Server Version : 80039 (8.0.39-0ubuntu0.20.04.1)
+ Target Server Version : 80300 (8.3.0)
  File Encoding         : 65001
 
- Date: 21/08/2024 08:59:34
+ Date: 18/09/2024 18:02:26
 */
 
 SET NAMES utf8mb4;
@@ -28,7 +28,8 @@ CREATE TABLE `ws_mail_group_members` (
   `user_name` varchar(100) DEFAULT NULL,
   `is_show` int DEFAULT '1' COMMENT '是否展示（用户移除群组仅仅是不展示，但是群组还在）',
   `timer` datetime DEFAULT NULL,
-  PRIMARY KEY (`id`)
-) ENGINE=InnoDB AUTO_INCREMENT=101 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `unique_constraint` (`mail_group_id`,`user_account`)
+) ENGINE=InnoDB AUTO_INCREMENT=120 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 
 SET FOREIGN_KEY_CHECKS = 1;

@@ -11,7 +11,7 @@
  Target Server Version : 80039 (8.0.39-0ubuntu0.20.04.1)
  File Encoding         : 65001
 
- Date: 13/09/2024 11:28:06
+ Date: 18/09/2024 18:13:42
 */
 
 SET NAMES utf8mb4;
@@ -84,6 +84,6 @@ CREATE TABLE `cv_info` (
   `record_time` datetime DEFAULT NULL COMMENT '危急值处理记录书写时间',
   PRIMARY KEY (`id`),
   UNIQUE KEY `unique_cv_id_cv_source` (`cv_id`,`cv_source`)
-) ENGINE=InnoDB AUTO_INCREMENT=9661 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+) ENGINE=InnoDB AUTO_INCREMENT=9945 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 
 SET FOREIGN_KEY_CHECKS = 1;

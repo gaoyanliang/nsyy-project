@@ -31,7 +31,7 @@ def send_email():
     try:
         mail.send_email(sender, recipients, ccs, bccs, subject, body, attachments, names)
     except Exception as e:
-        print(f"mail_router.send_email: An unexpected error occurred: {e}")
+        print(datetime.now(), f"mail_router.send_email: {e}")
         print(traceback.print_exc())
         return jsonify({
             'code': 50000,
@@ -57,7 +57,7 @@ def query_mail_list():
     try:
         mail_list = mail.read_mail_list(user_account, page_size, page_number, mailbox)
     except Exception as e:
-        print(f"mail_router.query_mail_list: An unexpected error occurred: {e}")
+        print(datetime.now(), f"mail_router.query_mail_list: {e}")
         print(traceback.print_exc())
         return jsonify({
             'code': 50000,
@@ -84,7 +84,7 @@ def query_mail_list_by_keyword():
     try:
         mail_list = mail.read_mail_list_by_keyword(user_account, page_size, page_number, mailbox, keyword)
     except Exception as e:
-        print(f"mail_router.query_mail_list: An unexpected error occurred: {e}")
+        print(datetime.now(), f"mail_router.query_mail_list: {e}")
         print(traceback.print_exc())
         return jsonify({
             'code': 50000,
@@ -109,7 +109,7 @@ def query_mail():
     try:
         email = mail.read_mail(user_account, mail_id, mailbox)
     except Exception as e:
-        print(f"mail_router.query_mail: An unexpected error occurred: {e}")
+        print(datetime.now(), f"mail_router.query_mail: {e}")
         print(traceback.print_exc())
         return jsonify({
             'code': 50000,
@@ -134,7 +134,7 @@ def delete_mail():
     try:
         mail.delete_mail(user_account, mail_ids, mailbox)
     except Exception as e:
-        print(f"mail_router.delete_mail: An unexpected error occurred: {e}")
+        print(datetime.now(), f"mail_router.delete_mail: {e}")
         print(traceback.print_exc())
         return jsonify({
             'code': 50000,
@@ -197,7 +197,7 @@ def create_mail_account():
     try:
         mail.create_mail_account(user_list)
     except Exception as e:
-        print(f"mail_router.create_mail_group: An unexpected error occurred: {e}")
+        print(datetime.now(), f"mail_router.create_mail_group: {e}")
         print(traceback.print_exc())
         return jsonify({
             'code': 50000,
@@ -220,7 +220,7 @@ def delete_mail_account():
     try:
         mail.delete_mail_account(user_account)
     except Exception as e:
-        print(f"mail_router.delete_mail_account: An unexpected error occurred: {e}")
+        print(datetime.now(), f"mail_router.delete_mail_account: {e}")
         print(traceback.print_exc())
         return jsonify({
             'code': 50000,
@@ -250,7 +250,7 @@ def reset_user_password():
     try:
         mail.reset_user_password(user_account, old_password, new_password, is_default)
     except Exception as e:
-        print(datetime.now(), f"mail_router.reset_user_password: An unexpected error occurred: {e}")
+        print(datetime.now(), f"mail_router.reset_user_password: {e}")
         return jsonify({
             'code': 50000,
             'res': '密码重置失败，请稍后重试' + e.__str__(),
@@ -282,7 +282,7 @@ def create_mail_group():
                 'data': '邮箱群组创建成功，但成员 ' + ' '.join(failed_user_list) + ' 加入群组失败，请检查以上用户是否拥有邮箱账户'
             })
     except Exception as e:
-        print(datetime.now(), f"mail_router.create_mail_group: An unexpected error occurred: {e}")
+        print(datetime.now(), f"mail_router.create_mail_group: {e}")
         return jsonify({
             'code': 50000,
             'res': '邮箱群组创建失败，请稍后重试' + e.__str__(),
@@ -318,7 +318,7 @@ def operate_mail_group():
                 'data': info
             })
     except Exception as e:
-        print(datetime.now(), f"mail_router.operate_mail_group: An unexpected error occurred: {e}")
+        print(datetime.now(), f"mail_router.operate_mail_group: {e}")
         return jsonify({
             'code': 50000,
             'res': '邮箱群组操作失败，请稍后重试' + e.__str__(),
@@ -339,7 +339,7 @@ def query_mail_group_list():
     try:
         mail_group_list = mail.query_mail_group_list(user_account)
     except Exception as e:
-        print(f"mail_router.query_mail_group_list: An unexpected error occurred: {e}")
+        print(f"mail_router.query_mail_group_list: {e}")
         print(traceback.print_exc())
         return jsonify({
             'code': 50000,

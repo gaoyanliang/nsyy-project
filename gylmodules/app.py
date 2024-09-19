@@ -9,7 +9,7 @@ from gylmodules.workstation.message.message_router import message_router
 from gylmodules.workstation.mail.mail_router import mail_router
 
 gylroute = Blueprint('gyl', __name__)
-print("=============== 开始注册路由 =====================")
+print("=============== Start 开始注册路由 =====================")
 
 # ============================
 # === 1. 注册医体融合项目路由 ===
@@ -23,9 +23,11 @@ print("=============== 开始注册路由 =====================")
 # ============================
 print('2. 注册工作站相关路由')
 workstation = Blueprint('workstation', __name__, url_prefix='/workstation')
-# # 2.1 注册消息管理路由
-# workstation.register_blueprint(message_router)
+# 2.1 注册消息管理路由
+print('2.1 注册消息管理路由')
+workstation.register_blueprint(message_router)
 # 2.2 注册邮箱管理路由
+print('2.2 注册邮箱管理路由')
 workstation.register_blueprint(mail_router)
 
 gylroute.register_blueprint(workstation)
@@ -51,10 +53,11 @@ gylroute.register_blueprint(cv)
 print('5. 注册综合预约系统路由')
 gylroute.register_blueprint(appt)
 
+
 # ============================
 # === 6. 注册病历解析系统路由 ====
 # ============================
 print('6. 注册病历解析系统路由')
 gylroute.register_blueprint(parse)
 
-print("=============== 路由注册完成 =====================")
+print("=============== End 路由注册完成 =====================")

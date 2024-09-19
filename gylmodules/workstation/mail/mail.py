@@ -1,7 +1,8 @@
 import json
 import mimetypes
 
-import zlib
+import string
+import random
 import base64
 import os
 from datetime import datetime
@@ -128,7 +129,7 @@ def send_email(sender: str, recipients: [str], ccs: [str],
         # Close the SMTP server connection
         __close_mail(mail)
 
-        print("Email sent successfully")
+        # print("Email sent successfully")
 
         # 发送成功后删除附件文件
         if attachments is not None:
@@ -164,12 +165,11 @@ def read_mail_list(user_account: str, page_size: int, page_number: int, mailbox:
         email_id_list = email_ids[0].split()
         # Sort the email IDs in descending order (newest first)
         email_id_list.reverse()
-
         # Calculate the range of email IDs for the current page
         start_email_id = 1 + (page_size * (page_number - 1))
         end_email_id = page_size * page_number
-        print("email count: " + str(len(email_id_list)) + " page_size: " + str(page_size)
-              + " , page_number: " + str(page_number))
+        # print("email count: " + str(len(email_id_list)) + " page_size: " + str(page_size)
+        #       + " , page_number: " + str(page_number))
 
         # Limit the number of emails to retrieve to the latest 5
         email_id_list = email_id_list[start_email_id - 1:end_email_id]
@@ -209,8 +209,8 @@ def read_mail_list_by_keyword(user_account: str, page_size: int, page_number: in
         # Calculate the range of email IDs for the current page
         start_email_id = 1 + (page_size * (page_number - 1))
         end_email_id = page_size * page_number
-        print("email count: " + str(len(email_id_list)) + " page_size: " + str(page_size)
-              + " , page_number: " + str(page_number))
+        # print("email count: " + str(len(email_id_list)) + " page_size: " + str(page_size)
+        #       + " , page_number: " + str(page_number))
 
         # Limit the number of emails to retrieve to the latest 5
         email_id_list = email_id_list[start_email_id - 1:end_email_id]
@@ -272,9 +272,9 @@ def fetch_attachment(user_account: str, mail_id: int, mailbox: str, file_name: s
         # Parse the email message
         msg = email.message_from_bytes(message_data[0][1])
         # Extract email details
-        subject, encoding = decode_header(msg.get("Subject"))[0]
-        subject = subject.decode(encoding) if encoding else subject
-        print("Subject              : {}".format(subject))
+        # subject, encoding = decode_header(msg.get("Subject"))[0]
+        # subject = subject.decode(encoding) if encoding else subject
+        # print("Subject              : {}".format(subject))
 
         for part in msg.walk():
             if part.get_content_maintype() == "multipart" or part.get("Content-Disposition") is None:
@@ -310,19 +310,19 @@ def __read_mail_by_mail_id(mail, email_id, query_body: bool):
         subject = subject.decode(encoding) if encoding else subject
 
         # Print the email details
-        print(f"================== mail {email_id} ==================")
-        print("Unread               : {}".format('Yes' if is_unread else 'No'))
-        print("Email ID             : {}".format(email_id))
-        print("Subject              : {}".format(subject))
-        print("From                 : {}".format(msg.get("From")))
-        print("To                   : {}".format(msg.get("To")))
-        print("CC                   : {}".format(msg.get("CC")))
-        print("Bcc                  : {}".format(msg.get("Bcc")))
-        print("Priority             : {}".format(msg.get("Priority")))
-        print("ReplyToList          : {}".format(msg.get("ReplyToList")))
-        print("Date                 : {}".format(msg.get("Date")))
-        print("X-Attachments        : {}".format(msg.get("X-Attachments")))
-        print("X-Names              : {}".format(msg.get("X-Names")))
+        # print(f"================== mail {email_id} ==================")
+        # print("Unread               : {}".format('Yes' if is_unread else 'No'))
+        # print("Email ID             : {}".format(email_id))
+        # print("Subject              : {}".format(subject))
+        # print("From                 : {}".format(msg.get("From")))
+        # print("To                   : {}".format(msg.get("To")))
+        # print("CC                   : {}".format(msg.get("CC")))
+        # print("Bcc                  : {}".format(msg.get("Bcc")))
+        # print("Priority             : {}".format(msg.get("Priority")))
+        # print("ReplyToList          : {}".format(msg.get("ReplyToList")))
+        # print("Date                 : {}".format(msg.get("Date")))
+        # print("X-Attachments        : {}".format(msg.get("X-Attachments")))
+        # print("X-Names              : {}".format(msg.get("X-Names")))
 
         # Extract attachments
         attachments = []
@@ -360,7 +360,6 @@ def __read_mail_by_mail_id(mail, email_id, query_body: bool):
 
                     if "attachment" not in content_disposition:
                         body = part.get_payload(decode=True)
-
                         # Check for encoding and decode if necessary
                         charset = part.get_content_charset()
                         if charset:
@@ -420,7 +419,7 @@ def compress_string(original_string):
 def __login_mail_server(user_account: str, mailbox: str):
     # Connect to the IMAP server
     mail = imaplib.IMAP4_SSL(ws_config.MAIL_SSH_HOST, ws_config.MAIL_IMAP_PORT)
-    print("Successed to connect to the IMAP server " + ws_config.MAIL_SSH_HOST)
+    # print("Successed to connect to the IMAP server " + ws_config.MAIL_SSH_HOST)
 
     # Login to the email account
     mail_account = user_account + ws_config.MAIL_DOMAIN
@@ -429,32 +428,29 @@ def __login_mail_server(user_account: str, mailbox: str):
         print(user_account + " Login failed. Please check your credentials.")
         mail.logout()
         return "Fail", f" {mail_account} Login failed. Please check your credentials."
-    print(user_account + " Login successed. ")
+    # print(user_account + " Login successed. ")
 
     # list mailboxes
     status, data = mail.list()
     if status != "OK":
-        print("Failed to get mail list.")
         mail.logout()
         return "Fail", "Failed to get mail list."
-    print(f'mailboxes: {data}')
+    # print(f'mailboxes: {data}')
 
     # Select the mailbox you want to read, 使用 select() 方法选择要读取的邮件文件夹
     status, _ = mail.select(mailbox)
     if status != "OK":
-        print("Failed to select the mailbox: " + mailbox)
         mail.logout()
-        return "Fail", "Failed to select the mailbox."
-    print(f"select {mailbox}")
+        return "Fail", "Failed to select the mailbox {}".format(mailbox)
 
     return "OK", mail
 
 
 def __close_mail(mail):
     # Close the mailbox and log out
-    print("Close the mailbox and log out")
-    mail.close()
-    mail.logout()
+    if mail:
+        mail.close()
+        mail.logout()
 
 
 # ===========================================================
@@ -524,7 +520,8 @@ def delete_mail_account(user_account):
 
 
 def reset_user_password(user_account, old_password, new_password, is_default):
-    db = DbUtil('192.168.124.128', 'root', '111111', 'vmail')
+    db = DbUtil(ws_config.MAIL_DB_HOST, ws_config.MAIL_DB_USERNAME, ws_config.MAIL_DB_PASSWORD,
+                ws_config.MAIL_DB_DATABASE)
     user_mail = user_account + ws_config.MAIL_DOMAIN
     user_mail = user_mail.lower()
 
@@ -551,7 +548,7 @@ def reset_user_password(user_account, old_password, new_password, is_default):
         if not new_password_hash:
             raise Exception(f"新密码不符合规范, 新密码必须包含：至少一个字母, 至少一个大写字母, 至少一个数字, 至少一个特殊字符")
     else:
-        new_password_hash = "{SSHA512}FDiYQRyOxV/jZ0QubV0kFerxgKeGNV3EVutzgdSza2sclIxFZVfYRb+4SIHMUdYcRDDuoBndbDzShPIhO+49tVmU6t0="
+        new_password_hash = ws_config.mail_default_passwd
 
     update_sql = f"UPDATE vmail.mailbox SET password='{new_password_hash}' WHERE username='{user_mail}'"
     db.execute(update_sql, need_commit=True)
@@ -578,19 +575,22 @@ def create_mail_group(json_data):
     db = DbUtil(global_config.DB_HOST, global_config.DB_USERNAME, global_config.DB_PASSWORD,
                 global_config.DB_DATABASE_GYL)
 
-    query_sql = f"select id from nsyy_gyl.ws_mail_group where name = '{mail_group_name}' "
+    # 随机生成群组账号
+    mail_group_account = generate_random_string(5)
+
+    query_sql = f"select id from nsyy_gyl.ws_mail_group where account = '{mail_group_account}' "
     mail_group = db.query_one(query_sql)
     if mail_group:
-        raise Exception(f"邮箱群组名 {mail_group_name} 已被占用，请输入新的名字（邮箱群组名仅支持字母数字组合）")
+        raise Exception(f"系统繁忙，请稍后再试")
 
     # 调用邮箱服务器群组管理脚本，创建新群组
-    group_name = mail_group_name + ws_config.MAIL_DOMAIN
+    group_name = mail_group_account + ws_config.MAIL_DOMAIN
     group_name = group_name.lower()
     ssh = SshUtil(ws_config.MAIL_SSH_HOST, ws_config.MAIL_SSH_USERNAME, ws_config.MAIL_SSH_PASSWORD)
     # 检查群组列表是否存在
     output = ssh.execute_shell_command(f"cd /opt/mlmmjadmin/tools; python3 maillist_admin.py info {group_name}")
     if 'Error: NO_SUCH_ACCOUNT' not in output:
-        raise Exception(f"邮箱群组名 {mail_group_name} 已被占用，请输入新的名字（邮箱群组名仅支持字母数字组合）")
+        raise Exception(f"系统繁忙，请稍后再试")
     # 创建群组
     only_subscriber_can_post = 'no'
     if int(is_public) == 0:
@@ -603,10 +603,10 @@ def create_mail_group(json_data):
         raise Exception("邮箱群组群组" + mail_group_name + " 创建失败")
 
     timer = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-    args = (mail_group_name, mail_group_description, user_account, user_name, timer, is_public)
-    insert_sql = "INSERT INTO nsyy_gyl.ws_mail_group (name, description, " \
+    args = (mail_group_name, mail_group_account, mail_group_description, user_account, user_name, timer, is_public)
+    insert_sql = "INSERT INTO nsyy_gyl.ws_mail_group (name, account, description, " \
                  "user_account, user_name, timer, is_public) " \
-                 "VALUES (%s,%s,%s,%s,%s,%s)"
+                 "VALUES (%s,%s,%s,%s,%s,%s,%s)"
     last_rowid = db.execute(insert_sql, args, need_commit=True)
     if last_rowid == -1:
         del db
@@ -667,12 +667,13 @@ def operate_mail_group(json_data):
     user_account = json_data.get("user_account")
     mail_group_id = json_data.get("mail_group_id")
     mail_group_name = json_data.get("mail_group_name")
+    mail_group_account = json_data.get("mail_group_account")
     operate_type = json_data.get("operate_type")
     new_mail_group_desc = json_data.get("new_mail_group_desc")
     user_list = json_data.get("user_list")
     is_public = json_data.get("is_public")
 
-    mail_group = mail_group_name + ws_config.MAIL_DOMAIN
+    mail_group = mail_group_account + ws_config.MAIL_DOMAIN
     mail_group = mail_group.lower()
 
     db = DbUtil(global_config.DB_HOST, global_config.DB_USERNAME, global_config.DB_PASSWORD,
@@ -680,8 +681,8 @@ def operate_mail_group(json_data):
     timer = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
     if operate_type == ws_config.MAIL_OPERATE_UPDATE:
         # 更新群组描述
-        update_sql = 'UPDATE nsyy_gyl.ws_mail_group SET description = %s, timer = %s WHERE name = %s'
-        args = (new_mail_group_desc, timer, mail_group_name)
+        update_sql = 'UPDATE nsyy_gyl.ws_mail_group SET description = %s, timer = %s WHERE id = %s'
+        args = (new_mail_group_desc, timer, mail_group_id)
         db.execute(update_sql, args, need_commit=True)
         del db
         return
@@ -816,3 +817,12 @@ def query_mail_group_list(user_account: str):
 
     del db
     return mail_group_list
+
+
+# 生成指定长度的字符串
+def generate_random_string(length):
+    # 定义生成字符串的字符集
+    characters = string.ascii_lowercase + string.digits
+    # 使用random.choices从字符集中随机选择字符，形成指定长度的字符串
+    random_string = ''.join(random.choices(characters, k=length))
+    return 'g' + random_string

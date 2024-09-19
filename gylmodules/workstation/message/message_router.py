@@ -4,6 +4,7 @@ from flask import Blueprint, jsonify, request
 from gylmodules.workstation import ws_config
 from gylmodules.workstation.message import message
 import json
+from datetime import datetime
 
 message_router = Blueprint('message router', __name__, url_prefix='/msg')
 
@@ -25,14 +26,13 @@ def chat():
 
     try:
         if group_id is None:
-            message.send_private_message(int(context_type), int(sender),
-                                  sender_name, receiver, receiver_name, context)
+            message.send_message(ws_config.PRIVATE_CHAT, int(context_type), int(sender), sender_name,
+                                 None, receiver, receiver_name, context)
         else:
-            message.send_group_message(int(context_type), int(sender),
-                                         sender_name, group_id, context)
+            message.send_message(ws_config.GROUP_CHAT, int(context_type), int(sender), sender_name,
+                                 int(group_id), receiver, receiver_name, context)
     except Exception as e:
-        print(f"chat: An unexpected error occurred: {e}")
-        print(traceback.print_exc())
+        print(datetime.now(), f"chat: An unexpected error occurred: {e}")
         return jsonify({
             'code': 50000,
             'res': e.__str__(),
@@ -101,7 +101,7 @@ def read_messages():
                 'res': '读取消息失败，缺少参数 read_type, '
                        'read_type = 0 读取通知消息; read_type = 1 读取私聊消息; read_type = 2 读取群聊消息',
                 'data': '读取消息失败，缺少参数 read_type, '
-                       'read_type = 0 读取通知消息; read_type = 1 读取私聊消息; read_type = 2 读取群聊消息'
+                        'read_type = 0 读取通知消息; read_type = 1 读取私聊消息; read_type = 2 读取群聊消息'
             })
         elif int(read_type) == 0 and cur_user_id is None:
             return jsonify({
@@ -139,61 +139,61 @@ def read_messages():
     })
 
 
-@message_router.route('/read_messages_for_update', methods=['POST'])
-def read_messages_for_update():
-    json_data = json.loads(request.get_data().decode('utf-8'))
-    read_type = json_data.get('read_type')
-    # 当前用户是发送者
-    cur_user_id = json_data.get("cur_user_id")
-    # 聊天对象是接收者
-    chat_user_id = json_data.get("chat_user_id")
-    start = json_data.get("start")
-    count = json_data.get("count")
-
-    try:
-        if read_type is None:
-            return jsonify({
-                'code': 50000,
-                'res': '读取消息失败，缺少参数 read_type, '
-                       'read_type = 0 读取通知消息; read_type = 1 读取私聊消息; read_type = 2 读取群聊消息',
-                'data': '读取消息失败，缺少参数 read_type, '
-                       'read_type = 0 读取通知消息; read_type = 1 读取私聊消息; read_type = 2 读取群聊消息'
-            })
-        elif int(read_type) == 0 and cur_user_id is None:
-            return jsonify({
-                'code': 50000,
-                'res': '读取消息失败，缺少参数 cur_user_id, ',
-                'data': '读取消息失败，缺少参数 read_type, '
-            })
-        elif int(read_type) == 1 and chat_user_id is None:
-            return jsonify({
-                'code': 50000,
-                'res': '读取消息失败，缺少参数 chat_user_id, chat_user_id 为私聊对象的id',
-                'data': '读取消息失败，缺少参数 chat_user_id, chat_user_id 为私聊对象的id'
-            })
-        elif int(read_type) == 2 and chat_user_id is None:
-            return jsonify({
-                'code': 50000,
-                'res': '读取消息失败，缺少参数 chat_user_id, chat_user_id 为group_id',
-                'data': '读取消息失败，缺少参数 chat_user_id, chat_user_id 为group_id'
-            })
-
-        messages = message.read_messages_for_update(int(read_type), int(cur_user_id),
-                                                    chat_user_id, int(start), int(count))
-    except Exception as e:
-        print(f"message_router.read_messages: An unexpected error occurred: {e}")
-        print(traceback.print_exc())
-        return jsonify({
-            'code': 50000,
-            'res': e.__str__(),
-            'data': '读取消息失败，请稍后重试'
-        })
-
-    return jsonify({
-        'code': 20000,
-        'res': '读取消息成功',
-        'data': messages
-    })
+# @message_router.route('/read_messages_for_update', methods=['POST'])
+# def read_messages_for_update():
+#     json_data = json.loads(request.get_data().decode('utf-8'))
+#     read_type = json_data.get('read_type')
+#     # 当前用户是发送者
+#     cur_user_id = json_data.get("cur_user_id")
+#     # 聊天对象是接收者
+#     chat_user_id = json_data.get("chat_user_id")
+#     start = json_data.get("start")
+#     count = json_data.get("count")
+#
+#     try:
+#         if read_type is None:
+#             return jsonify({
+#                 'code': 50000,
+#                 'res': '读取消息失败，缺少参数 read_type, '
+#                        'read_type = 0 读取通知消息; read_type = 1 读取私聊消息; read_type = 2 读取群聊消息',
+#                 'data': '读取消息失败，缺少参数 read_type, '
+#                        'read_type = 0 读取通知消息; read_type = 1 读取私聊消息; read_type = 2 读取群聊消息'
+#             })
+#         elif int(read_type) == 0 and cur_user_id is None:
+#             return jsonify({
+#                 'code': 50000,
+#                 'res': '读取消息失败，缺少参数 cur_user_id, ',
+#                 'data': '读取消息失败，缺少参数 read_type, '
+#             })
+#         elif int(read_type) == 1 and chat_user_id is None:
+#             return jsonify({
+#                 'code': 50000,
+#                 'res': '读取消息失败，缺少参数 chat_user_id, chat_user_id 为私聊对象的id',
+#                 'data': '读取消息失败，缺少参数 chat_user_id, chat_user_id 为私聊对象的id'
+#             })
+#         elif int(read_type) == 2 and chat_user_id is None:
+#             return jsonify({
+#                 'code': 50000,
+#                 'res': '读取消息失败，缺少参数 chat_user_id, chat_user_id 为group_id',
+#                 'data': '读取消息失败，缺少参数 chat_user_id, chat_user_id 为group_id'
+#             })
+#
+#         messages = message.read_messages_for_update(int(read_type), int(cur_user_id),
+#                                                     chat_user_id, int(start), int(count))
+#     except Exception as e:
+#         print(f"message_router.read_messages: An unexpected error occurred: {e}")
+#         print(traceback.print_exc())
+#         return jsonify({
+#             'code': 50000,
+#             'res': e.__str__(),
+#             'data': '读取消息失败，请稍后重试'
+#         })
+#
+#     return jsonify({
+#         'code': 20000,
+#         'res': '读取消息成功',
+#         'data': messages
+#     })
 
 
 # 读取群聊列表
@@ -328,7 +328,9 @@ def update_group():
     json_data = json.loads(request.get_data().decode('utf-8'))
     group_name = json_data.get("group_name")
     group_id = json_data.get("group_id")
-    members = json_data.get('members')
+    members = json_data.get('members') if json_data.get('members') else []
+
+    print(json_data)
 
     try:
         message.update_group(int(group_id), group_name, members)
@@ -358,7 +360,7 @@ def confirm_join_group():
     confirm = json_data.get("confirm")
 
     try:
-        message.confirm_join_group(int(group_id), int(user_id), user_name, confirm)
+        message.confirm_join_group(int(group_id), int(user_id), user_name, int(confirm))
     except Exception as e:
         print(f"search_group: An unexpected error occurred: {e}")
         print(traceback.print_exc())
@@ -373,8 +375,3 @@ def confirm_join_group():
         'res': '操作成功',
         'data': '操作成功'
     })
-
-
-
-
-

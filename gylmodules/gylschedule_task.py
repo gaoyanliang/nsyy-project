@@ -243,8 +243,8 @@ def schedule_task():
     print("3. 定时任务状态 ", datetime.now())
     gylmodule_scheduler.add_job(task_state, trigger='interval', seconds=6 * 60 * 60, max_instances=10, id='sched_state')
 
-    # print("4. 消息模块定时任务 ", datetime.now())
-    # gylmodule_scheduler.add_job(write_data_to_db, trigger='interval', minutes=2)
+    print("4. 消息模块定时任务 ", datetime.now())
+    gylmodule_scheduler.add_job(write_data_to_db, trigger='interval', minutes=2)
 
     # ======================  Start ======================
     gylmodule_scheduler.start()

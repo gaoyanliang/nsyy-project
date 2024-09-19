@@ -1,4 +1,6 @@
-#  === message type ===
+# ===========================================================
+# =============         message         =====================
+# ===========================================================
 # 通知消息
 NOTIFICATION_MESSAGE = 0
 # 私聊
@@ -14,13 +16,38 @@ REDIS_DB = 2
 
 
 #  === redis key (new record) ===
-NEW_MESSAGE = 'NEW-MESSAGE'
-NEW_HISTORICAL_CONTACTS_RECORD = 'NEW-HISTORICAL-CONTACTS-RECORD'
+NEW_MESSAGE = 'MSG_NEW-MESSAGE'
+NEW_HISTORICAL_CONTACTS_RECORD = 'MSG_NEW-HISTORICAL-CONTACTS-RECORD'
+
+
+# msg cache redis key
+msg_cache_key = {
+    "notification_msg": "MSG_NotificationMessage:{}",
+    "private_msg": "MSG_PrivateChat:{}",
+    "group_msg": "MSG_GroupChat:{}",
+    "hist_contacts": "MSG_HistoricalContacts:{}",
+    "group_unread": "MSG_GroupUnread:{}:{}",
+    "notification_unread": "MSG_NotificationUnread:{}",
+    "unread": "MSG_PrivateUnread:{}:{}",
+    "group_member": "MSG_GroupMember:{}"
+}
+
+msg_cache_count = 100
 
 
 # ===========================================================
 # =============         mail            =====================
 # ===========================================================
+
+# mail server db config
+MAIL_DB_HOST = '192.168.124.128'
+MAIL_DB_PORT = 3306
+MAIL_DB_USERNAME = 'root'
+MAIL_DB_PASSWORD = '111111'
+MAIL_DB_DATABASE = 'vmail'
+
+# 默认密码  nsyy0601
+mail_default_passwd = "{SSHA512}w1gDN4y3uc/nyhuB+nMkbpd7c6yEB4/7DEoC6sIewkk9U9JvyGe498psVz92IfakT6ERsXzdNxoO23TKXi1+yN4UWjo="
 
 MAIL_DOMAIN = '@nsyy.com'
 MAIL_ACCOUNT_PASSWORD = 'nsyy0601'
