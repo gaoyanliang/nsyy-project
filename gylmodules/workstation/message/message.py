@@ -47,11 +47,20 @@ def flush_msg_cache():
             continue
         redis_client.delete(key)
 
+    # cache group info
+    db = DbUtil(global_config.DB_HOST, global_config.DB_USERNAME, global_config.DB_PASSWORD,
+                global_config.DB_DATABASE_GYL)
+    query_sql = 'select * from nsyy_gyl.ws_group'
+    all_group = db.query_all(query_sql)
+    del db
+    for group in all_group:
+        redis_client.set(ws_config.msg_cache_key['group_info'].format(str(group.get('id'))), json.dumps(group, default=str))
+
     write_data_to_db()
 
 
 # 项目启动刷新消息缓存
-flush_msg_cache()
+# flush_msg_cache()
 
 
 # 测试环境：
@@ -170,9 +179,7 @@ def cache_group_member(group_id):
 
     redis_key = ws_config.msg_cache_key['group_member'].format(str(group_id))
     for member in group_member:
-        redis_client.sadd(redis_key,
-                          json.dumps({"user_id": int(member.get('user_id')),
-                                      "user_name": member.get('user_name')}, default=str))
+        redis_client.sadd(redis_key, int(member.get('user_id')))
 
 
 """
@@ -185,6 +192,13 @@ def send_message(chat_type: int, context_type: int, sender: int, sender_name: st
     # 1. 获取消息 id, 并将消息组装为 json str
     new_message_id = get_message_id()
     timer = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+
+    if chat_type == ws_config.GROUP_CHAT:
+        # 群聊，先验证是否属于群成员
+        in_group = is_in_group(group_id, sender)
+        if not in_group:
+            raise Exception('用户不在群组中, 无法发送消息')
+
     new_message = {
         'id': new_message_id,
         'chat_type': chat_type,
@@ -218,20 +232,6 @@ def send_message(chat_type: int, context_type: int, sender: int, sender_name: st
         redis_client.rpush(msg_redis_key, json.dumps(new_message, default=str))
         ltrim_100(msg_redis_key)
     elif chat_type == ws_config.GROUP_CHAT:
-        # 群聊，先验证是否属于群成员
-        in_group = False
-        group_member_redis_key = ws_config.msg_cache_key['group_member'].format(str(group_id))
-        if not redis_client.exists(group_member_redis_key):
-            cache_group_member(group_id)
-
-        for member in redis_client.smembers(group_member_redis_key):
-            member = json.loads(member)
-            if int(member.get('user_id')) == int(sender):
-                in_group = True
-                break
-        if not in_group:
-            raise Exception('用户不在群组中, 无法发送消息')
-
         msg_redis_key = ws_config.msg_cache_key['group_msg'].format(str(group_id))
         redis_client.rpush(msg_redis_key, json.dumps(new_message, default=str))
         ltrim_100(msg_redis_key)
@@ -252,6 +252,8 @@ def send_message(chat_type: int, context_type: int, sender: int, sender_name: st
         new_message['context'] = json.loads(new_message.get('context'))
     socket_push(new_message)
 
+    return new_message_id
+
 
 """
 记录历史联系人
@@ -261,7 +263,14 @@ def send_message(chat_type: int, context_type: int, sender: int, sender_name: st
 def cache_historical_contacts(sender: int, sender_name: str, chat_type: int, receiver: str,
                               receiver_name: str, last_msg_id: int, last_msg: str, last_msg_time):
     redis_client = redis.Redis(connection_pool=pool)
+
+    if not redis_client.exists(ws_config.msg_cache_key['hist_contacts'].format(str(sender))):
+        cache_hist_contacts(int(sender))
+
     if chat_type == ws_config.PRIVATE_CHAT:
+        if not redis_client.exists(ws_config.msg_cache_key['hist_contacts'].format(str(receiver))):
+            cache_hist_contacts(int(receiver))
+
         # 私聊
         historical_contacts = {
             'user_id': sender,
@@ -309,8 +318,11 @@ def cache_historical_contacts(sender: int, sender_name: str, chat_type: int, rec
         if redis_client.exists(group_member_redis_key) == 1:
             all_elements = redis_client.smembers(group_member_redis_key)
             for element in all_elements:
-                element = json.loads(element)
-                redis_key = ws_config.msg_cache_key['hist_contacts'].format(str(element.get('user_id')))
+                redis_key = ws_config.msg_cache_key['hist_contacts'].format(str(element))
+
+                if not redis_client.exists(redis_key):
+                    cache_hist_contacts(int(element))
+
                 redis_hash_key = 'Group[' + str(receiver) + ']'
                 redis_client.hset(redis_key, redis_hash_key, json.dumps(historical_contacts, default=str))
 
@@ -327,6 +339,9 @@ def cache_historical_contacts(sender: int, sender_name: str, chat_type: int, rec
         }
         receivers = receiver.split(',')
         for recv in receivers:
+            if not redis_client.exists(ws_config.msg_cache_key['hist_contacts'].format(str(recv))):
+                cache_hist_contacts(int(recv))
+
             redis_key = ws_config.msg_cache_key['hist_contacts'].format(str(recv))
             redis_hash_key = 'Notification'
             redis_client.hset(redis_key, redis_hash_key, json.dumps(historical_contacts, default=str))
@@ -357,6 +372,9 @@ def socket_push(msg: dict):
         msg_receiver, msg_sender = msg.get('receiver'), msg.get('sender')
         # 查询未读数量（先读缓存，缓存不存在读库）
         unread_redis_key = ws_config.msg_cache_key['unread'].format(str(msg_sender), str(msg_receiver))
+        # 缓存中不存在唯独数量，读数据库，初始化
+        if redis_client.exists(unread_redis_key) == 0:
+            update_read(ws_config.PRIVATE_CHAT, msg_sender, msg_receiver, -1, True)
         unread = read_unread_count(unread_redis_key)
         push({"type": 100, "data": {"msg": msg, "unread": unread}}, int(msg_receiver))
 
@@ -370,18 +388,17 @@ def socket_push(msg: dict):
         group_member = redis_client.smembers(group_member_redis_key)
         # 遍历群成员推送消息
         for member in group_member:
-            if type(member) != dict:
-                member = json.loads(member)
-            member_id = member.get('user_id')
             # 如果群成员就是发送者本身，跳过
-            if int(member_id) == int(msg_sender):
+            if int(member) == int(msg_sender):
                 continue
 
             # 查询未读数量（先读缓存，缓存不存在读库）
-            ws_config.msg_cache_key['group_unread'].format(str(member), str(msg_group_id))
-            group_unread_redis_key = ws_config.msg_cache_key['group_unread'].format(str(member), str(msg_group_id))
+            group_unread_redis_key = ws_config.msg_cache_key['group_unread'].format(str(msg_group_id), str(member))
+            if redis_client.exists(group_unread_redis_key) == 0:
+                update_read(ws_config.GROUP_CHAT, int(member), int(msg_group_id), -1, True)
+
             unread = read_unread_count(group_unread_redis_key)
-            push({"type": 100, "data": {"msg": msg, "unread": unread}}, int(member_id))
+            push({"type": 100, "data": {"msg": msg, "unread": unread}}, int(member))
 
     elif chat_type == ws_config.NOTIFICATION_MESSAGE:
         # 向所有用户推送未读消息数量，以及最后一条消息内容
@@ -391,6 +408,8 @@ def socket_push(msg: dict):
             if int(recv) == int(msg.get('sender')):
                 continue
             notification_unread_redis_key = ws_config.msg_cache_key['notification_unread'].format(str(recv))
+            if redis_client.exists(notification_unread_redis_key) == 0:
+                update_read(ws_config.NOTIFICATION_MESSAGE, None, int(recv), -1, True)
             unread = read_unread_count(notification_unread_redis_key)
             push({"type": 100, "data": {"msg": msg, "unread": unread}}, int(recv))
 
@@ -454,6 +473,7 @@ def read_messages(read_type: int, cur_user_id: int, chat_user_id: int, start: in
             messages = db.query_all(query_sql)
             if messages:
                 for m in messages:
+                    m['context'] = json.loads(m.get('context'))
                     if isinstance(m.get('timer'), datetime):
                         m['timer'] = m.get('timer').strftime("%Y-%m-%d %H:%M:%S")
 
@@ -519,6 +539,10 @@ def read_messages(read_type: int, cur_user_id: int, chat_user_id: int, start: in
             update_read(ws_config.PRIVATE_CHAT, int(chat_user_id), cur_user_id, int(last_msg.get('id')))
 
     elif read_type == ws_config.GROUP_CHAT:
+        in_group = is_in_group(chat_user_id, cur_user_id)
+        if not in_group:
+            raise Exception('您已被移除群组, 无法查看消息')
+
         # 读取群聊消息
         group_msg_redis_key = ws_config.msg_cache_key['group_msg'].format(str(chat_user_id))
         # 判断是否存在缓存，不存在查库并缓存
@@ -567,7 +591,7 @@ def read_messages(read_type: int, cur_user_id: int, chat_user_id: int, start: in
         if len(messages) != 0:
             # 更新群聊已读状态
             last_msg = messages[len(messages) - 1]
-            update_read(ws_config.GROUP_CHAT, cur_user_id, int(chat_user_id), int(last_msg.get('id')))
+            update_read(ws_config.GROUP_CHAT, int(chat_user_id), cur_user_id, int(last_msg.get('id')))
 
     del db
 
@@ -762,13 +786,13 @@ read_type = 2 群聊消息
 #     return messages
 
 
-def update_read(chat_type: int, sender: int, receiver: int, last_read: int):
+def update_read(chat_type: int, sender: int, receiver: int, last_read: int, update_cache: bool = False):
     redis_client = redis.Redis(connection_pool=pool)
     db = DbUtil(global_config.DB_HOST, global_config.DB_USERNAME, global_config.DB_PASSWORD,
                 global_config.DB_DATABASE_GYL)
 
     # 如果是通知类消息不需要关心发送者，只需要关心接收者
-    need_update_cache = False
+    need_update_cache = update_cache
     if chat_type == ws_config.NOTIFICATION_MESSAGE:
         query_sql = 'SELECT * FROM nsyy_gyl.ws_message_read WHERE type = {} AND receiver = {} ' \
             .format(chat_type, receiver)
@@ -781,11 +805,9 @@ def update_read(chat_type: int, sender: int, receiver: int, last_read: int):
             need_update_cache = True
         elif existing_record is None:
             # 如果不存在记录，则插入新纪录
-            timer = datetime.now()
-            timer = timer.strftime("%Y-%m-%d %H:%M:%S")
+            timer = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
             args = (chat_type, receiver, last_read, timer)
-            insert_sql = "INSERT INTO nsyy_gyl.ws_message_read (type, receiver, last_read, timer) " \
-                         "VALUES (%s,%s,%s,%s)"
+            insert_sql = "INSERT INTO nsyy_gyl.ws_message_read (type, receiver, last_read, timer) VALUES (%s,%s,%s,%s)"
             last_rowid = db.execute(insert_sql, args, need_commit=True)
             if last_rowid == -1:
                 raise Exception("已读状态入库失败!")
@@ -814,8 +836,7 @@ def update_read(chat_type: int, sender: int, receiver: int, last_read: int):
             need_update_cache = True
         elif existing_record is None:
             # 如果不存在记录，则插入新纪录
-            timer = datetime.now()
-            timer = timer.strftime("%Y-%m-%d %H:%M:%S")
+            timer = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
             args = (chat_type, sender, receiver, last_read, timer)
             insert_sql = "INSERT INTO nsyy_gyl.ws_message_read (type, sender, receiver, last_read, timer) " \
                          "VALUES (%s,%s,%s,%s,%s)"
@@ -827,6 +848,9 @@ def update_read(chat_type: int, sender: int, receiver: int, last_read: int):
         if need_update_cache:
             # 更新缓存
             if chat_type == ws_config.GROUP_CHAT:
+                if not sender:
+                    del db
+                    return
                 query_sql = 'select count(*) from nsyy_gyl.ws_message ' \
                             'where chat_type = {} and group_id = {} and id > {} and sender != {}' \
                     .format(ws_config.GROUP_CHAT, int(receiver), int(last_read), int(sender))
@@ -901,6 +925,7 @@ def get_chat_list(user_id: int):
             all_unread += int(unread)
 
     # 聊天消息
+    chat_group_set = set()
     all_fields_and_values = redis_client.hgetall(historical_contacts_redis_key)
     for key, value in all_fields_and_values.items():
         # 跳过通知消息
@@ -910,56 +935,49 @@ def get_chat_list(user_id: int):
         contact = json.loads(value)
         if contact.get('chat_type') == ws_config.GROUP_CHAT:
             # 判断当前用户还在不在该群聊中
-            in_group = False
-            gm_redis_key = ws_config.msg_cache_key['group_member'].format(str(contact.get('group_id')))
-            if not redis_client.exists(gm_redis_key):
-                cache_group_member(contact.get('group_id'))
-
-            for member in redis_client.smembers(gm_redis_key):
-                member = json.loads(member)
-                if int(member.get('user_id')) == int(user_id):
-                    in_group = True
-                    break
+            in_group = is_in_group(int(contact.get('group_id')), user_id)
+            if not in_group:
+                continue
 
             # 群聊消息
             group_id = int(contact.get('group_id'))
-            group_unread_redis_key = ws_config.msg_cache_key['group_unread'].format(str(user_id), str(group_id))
-            if not in_group:
-                unread = 0
+            chat_group_set.add(group_id)
+            group_unread_redis_key = ws_config.msg_cache_key['group_unread'].format(str(group_id), str(user_id))
+            # 查询未读数量
+            if redis_client.exists(group_unread_redis_key) == 1:
+                unread = redis_client.get(group_unread_redis_key)
             else:
-                # 查询未读数量
-                if redis_client.exists(group_unread_redis_key) == 1:
-                    unread = redis_client.get(group_unread_redis_key)
+                query_sql = 'select * from nsyy_gyl.ws_message_read ' \
+                            'where type = {} and sender = {} and receiver = {} ' \
+                    .format(ws_config.GROUP_CHAT, int(user_id), int(group_id))
+                message_read = db.query_one(query_sql)
+                last_read = -1
+                if message_read is not None:
+                    last_read = message_read.get('last_read')
                 else:
-                    query_sql = 'select * from nsyy_gyl.ws_message_read ' \
-                                'where type = {} and sender = {} and receiver = {} ' \
-                        .format(ws_config.GROUP_CHAT, int(user_id), int(group_id))
-                    message_read = db.query_one(query_sql)
-                    last_read = -1
-                    if message_read is not None:
-                        last_read = message_read.get('last_read')
-                    else:
-                        # 向 message_read 中插入一条记录
-                        timer = datetime.now()
-                        timer = timer.strftime("%Y-%m-%d %H:%M:%S")
-                        args = (ws_config.PRIVATE_CHAT, int(user_id), int(group_id), -1, timer)
-                        insert_sql = "INSERT INTO nsyy_gyl.ws_message_read (type, sender, receiver, last_read, timer) " \
-                                     "VALUES (%s,%s,%s,%s,%s)"
-                        last_rowid = db.execute(insert_sql, args, need_commit=True)
-                        if last_rowid == -1:
-                            raise Exception("已读状态入库失败!")
+                    # 向 message_read 中插入一条记录
+                    timer = datetime.now()
+                    timer = timer.strftime("%Y-%m-%d %H:%M:%S")
+                    args = (ws_config.PRIVATE_CHAT, int(user_id), int(group_id), -1, timer)
+                    insert_sql = "INSERT INTO nsyy_gyl.ws_message_read (type, sender, receiver, last_read, timer) " \
+                                 "VALUES (%s,%s,%s,%s,%s)"
+                    last_rowid = db.execute(insert_sql, args, need_commit=True)
+                    if last_rowid == -1:
+                        raise Exception("已读状态入库失败!")
 
-                    query_sql = 'select count(*) from nsyy_gyl.ws_message ' \
-                                'where chat_type = {} and group_id = {} and id > {} and sender != {}' \
-                        .format(ws_config.GROUP_CHAT, int(group_id), int(last_read), int(user_id))
-                    unread = db.query_one(query_sql)
-                    unread = unread.get('count(*)')
+                query_sql = 'select count(*) from nsyy_gyl.ws_message ' \
+                            'where chat_type = {} and group_id = {} and id > {} and sender != {}' \
+                    .format(ws_config.GROUP_CHAT, int(group_id), int(last_read), int(user_id))
+                unread = db.query_one(query_sql)
+                unread = unread.get('count(*)')
 
+            group_info = redis_client.get(ws_config.msg_cache_key['group_info'].format(str(group_id)))
+            group_info = json.loads(group_info)
             # 更新缓存(这里 sender 是接收群消息的人， receiver 是群)
             redis_client.set(group_unread_redis_key, int(unread))
             chats.append({
                 'id': group_id,
-                'name': contact.get('chat_name'),
+                'name': group_info.get('group_name'),
                 'chat_type': contact.get('chat_type'),
                 'last_msg_id': contact.get('last_msg_id'),
                 'last_msg': contact.get('last_msg'),
@@ -1012,137 +1030,40 @@ def get_chat_list(user_id: int):
             })
             all_unread += int(unread)
 
-    # else:
-    #     query_sql = 'SELECT * FROM nsyy_gyl.ws_historical_contacts ' \
-    #                 'WHERE user_id = {} ' \
-    #                 'or group_id in ' \
-    #                 '(select group_id from nsyy_gyl.ws_group_member where user_id = {} and state = 1 ) ' \
-    #                 'order by last_msg_time desc' \
-    #         .format(user_id, user_id)
-    #     historical_contacts = db.query_all(query_sql)
-    #
-    #     # 组装信息，私聊提供发送人姓名，群聊提供群名称
-    #     for contact in historical_contacts:
-    #         if contact.get('chat_type') == ws_config.GROUP_CHAT:
-    #             group_id = int(contact.get('group_id'))
-    #             # 查询未读数量
-    #             group_unread_redis_key = ws_config.msg_cache_key['group_unread'].format(str(user_id), str(group_id))
-    #             if redis_client.exists(group_unread_redis_key) == 1:
-    #                 unread = redis_client.get(group_unread_redis_key)
-    #             else:
-    #                 query_sql = 'select * from nsyy_gyl.ws_message_read ' \
-    #                             'where type = {} and sender = {} and receiver = {} ' \
-    #                     .format(ws_config.GROUP_CHAT, int(user_id), int(group_id))
-    #                 message_read = db.query_one(query_sql)
-    #                 last_read = -1
-    #                 if message_read is not None:
-    #                     last_read = message_read.get('last_read')
-    #                 else:
-    #                     # 向 message_read 中插入一条记录
-    #                     timer = datetime.now()
-    #                     timer = timer.strftime("%Y-%m-%d %H:%M:%S")
-    #                     args = (ws_config.GROUP_CHAT, int(user_id), int(group_id), -1, timer)
-    #                     insert_sql = "INSERT INTO nsyy_gyl.ws_message_read (type, sender, receiver, last_read, timer) " \
-    #                                  "VALUES (%s,%s,%s,%s,%s)"
-    #                     last_rowid = db.execute(insert_sql, args, need_commit=True)
-    #                     if last_rowid == -1:
-    #                         raise Exception("已读状态入库失败!")
-    #
-    #                 query_sql = 'select count(*) from nsyy_gyl.ws_message ' \
-    #                             'where chat_type = {} and group_id = {} and id > {} ' \
-    #                     .format(ws_config.GROUP_CHAT, int(group_id), int(last_read))
-    #                 unread = db.query_one(query_sql)
-    #                 unread = unread.get('count(*)')
-    #
-    #                 # 更新缓存(这里 sender 是接收群消息的人， receiver 是群)
-    #                 redis_client.set(group_unread_redis_key, int(unread))
-    #
-    #             chats.append({
-    #                 'id': group_id,
-    #                 'name': contact.get('chat_name'),
-    #                 'chat_type': contact.get('chat_type'),
-    #                 'last_msg_id': contact.get('last_msg_id'),
-    #                 'last_msg': contact.get('last_msg'),
-    #                 'last_msg_time': contact.get('last_msg_time'),
-    #                 'unread': int(unread)
-    #             })
-    #             all_unread += int(unread)
-    #
-    #         else:
-    #             # 查询未读数量
-    #             chat_user_id = contact.get('chat_id')
-    #             unread_redis_key = ws_config.msg_cache_key['unread'].format(str(chat_user_id), str(user_id))
-    #             if redis_client.exists(unread_redis_key) == 1:
-    #                 unread = redis_client.get(unread_redis_key)
-    #             else:
-    #                 query_sql = 'select * from nsyy_gyl.ws_message_read ' \
-    #                             'where type = {} and sender = {} and receiver = {} ' \
-    #                     .format(ws_config.PRIVATE_CHAT, int(chat_user_id), int(user_id))
-    #                 message_read = db.query_one(query_sql)
-    #                 last_read = -1
-    #                 if message_read is not None:
-    #                     last_read = message_read.get('last_read')
-    #                 else:
-    #                     # 向 message_read 中插入一条记录
-    #                     timer = datetime.now()
-    #                     timer = timer.strftime("%Y-%m-%d %H:%M:%S")
-    #                     args = (ws_config.PRIVATE_CHAT, int(chat_user_id), int(user_id), -1, timer)
-    #                     insert_sql = "INSERT INTO nsyy_gyl.ws_message_read (type, sender, receiver, last_read, timer) " \
-    #                                  "VALUES (%s,%s,%s,%s,%s)"
-    #                     last_rowid = db.execute(insert_sql, args, need_commit=True)
-    #                     if last_rowid == -1:
-    #                         raise Exception("已读状态入库失败!")
-    #
-    #                 query_sql = 'select count(*) from nsyy_gyl.ws_message ' \
-    #                             'where chat_type = {} and sender = {} and receiver = {} and id > {} ' \
-    #                     .format(ws_config.PRIVATE_CHAT, int(chat_user_id), int(user_id), int(last_read))
-    #                 unread = db.query_one(query_sql)
-    #                 unread = int(unread.get("count(*)"))
-    #                 redis_client.set(unread_redis_key, unread)
-    #
-    #             chats.append({
-    #                 'id': user_id,
-    #                 'chat_id': int(chat_user_id),
-    #                 'chat_type': contact.get('chat_type'),
-    #                 'name': contact.get('chat_name'),
-    #                 'last_msg_id': contact.get('last_msg_id'),
-    #                 'last_msg': contact.get('last_msg'),
-    #                 'last_msg_time': contact.get('last_msg_time'),
-    #                 'unread': int(unread)
-    #             })
-    #             all_unread += int(unread)
-
-    # 将刚创建的群聊（还没有发送过消息）也展示出来
-    # 发送过消息的群聊
-    query_sql = 'SELECT group_id FROM nsyy_gyl.ws_historical_contacts ' \
-                'WHERE group_id in (select group_id from nsyy_gyl.ws_group_member where user_id = {} and state = 1 ) ' \
-        .format(user_id)
-    useds = db.query_all(query_sql)
-
     # 加入的所有群聊
     query_sql = 'select group_id from nsyy_gyl.ws_group_member where user_id = {} and state = 1' \
         .format(user_id)
     all = db.query_all(query_sql)
 
-    if useds is not None and all is not None:
-        # 从所有群聊中移除发送过消息的群聊，剩下的就是已创建但未发送过消息的群聊
-        # 将要移除的元素从列表中删除
-        for item in useds:
-            if item in all:
-                all.remove(item)
+    # 从所有群聊中移除发送过消息的群聊，剩下的就是已创建但未发送过消息的群聊
+    # 将要移除的元素从列表中删除
+    empty_group_list = []
+    for item in all:
+        if int(item.get('group_id')) not in list(chat_group_set):
+            empty_group_list.append(item.get('group_id'))
 
-    for id in all:
-        query_sql = 'select * from nsyy_gyl.ws_group where id = {}' \
-            .format(int(id.get('group_id')))
-        group = db.query_one(query_sql)
+    for id in empty_group_list:
+        group = db.query_one('select * from nsyy_gyl.ws_group where id = {}'.format(int(id)))
         if group is not None:
             chats.append({
                 'id': group.get('id'),
                 'name': group.get('group_name'),
                 'chat_type': ws_config.GROUP_CHAT,
+                "last_msg_time": group.get('timer').strftime("%Y-%m-%d %H:%M:%S"),
                 'unread': 0
             })
     del db
+
+    # 按照未读数量和最后发送时间排序
+    chats = sorted(
+        chats,
+        key=lambda x: (x['unread'], datetime.strptime(x['last_msg_time'], "%Y-%m-%d %H:%M:%S")),
+        reverse=True
+    )
+    order_num = 1
+    for chat in chats:
+        chat['order_num'] = order_num
+        order_num += 1
     return chats, all_unread
 
 
@@ -1203,10 +1124,13 @@ def create_group(group_name: str, creator: int, creator_name: str, members):
     if group_id == -1:
         raise Exception(f"群组 {group_name} 入库失败!")
 
+    redis_client.set(ws_config.msg_cache_key['group_info'].format(str(group_id)), json.dumps({
+        "id": group_id, "group_name": group_name, "creator": creator, "creator_name": creator_name, "timer": timer
+    }, default=str))
+
     # 将创建者本身放入缓存
     group_member_redis_key = ws_config.msg_cache_key['group_member'].format(str(group_id))
-    redis_client.sadd(group_member_redis_key,
-                      json.dumps({"user_id": int(creator), "user_name": creator_name}, default=str))
+    redis_client.sadd(group_member_redis_key, int(creator))
 
     args = (group_id, int(creator), creator_name, 0, 1, timer)
     insert_sql = "INSERT INTO nsyy_gyl.ws_group_member (group_id, user_id, user_name, join_type, state, timer)" \
@@ -1264,6 +1188,10 @@ def update_group(group_id: int, group_name: str, members):
         update_sql = 'UPDATE nsyy_gyl.ws_group SET group_name = %s WHERE id = %s'
         args = (group_name, group_id)
         db.execute(update_sql, args, need_commit=True)
+        redis_client.set(ws_config.msg_cache_key['group_info'].format(str(group_id)), json.dumps({
+            "id": group_id, "group_name": group_name, "creator": group.get('creator'),
+            "creator_name": group.get('creator_name'), "timer": group.get('timer')
+        }, default=str))
 
     timer = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
     for member in members:
@@ -1311,9 +1239,7 @@ def update_group(group_id: int, group_name: str, members):
             # 移出缓存
             group_member_redis_key = ws_config.msg_cache_key['group_member'].format(str(group_id))
             if redis_client.exists(group_member_redis_key) == 1:
-                redis_client.srem(group_member_redis_key,
-                                  json.dumps({"user_id": int(member.get('user_id')),
-                                              "user_name": member.get('user_name')}, default=str))
+                redis_client.srem(group_member_redis_key, int(member.get('user_id')))
     del db
 
 
@@ -1364,5 +1290,19 @@ def confirm_join_group(group_id: int, user_id: int, user_name: str, confirm: int
     # 放入缓存
     if confirm == 1:
         group_member_redis_key = ws_config.msg_cache_key['group_member'].format(str(group_id))
-        redis_client.sadd(group_member_redis_key, json.dumps({"user_id": int(user_id), "user_name": user_name}, default=str))
+        redis_client.sadd(group_member_redis_key, int(user_id))
 
+
+def is_in_group(group_id: int, user_id: int):
+    in_group = False
+    redis_client = redis.Redis(connection_pool=pool)
+    gm_redis_key = ws_config.msg_cache_key['group_member'].format(str(group_id))
+    if redis_client.exists(gm_redis_key) == 0:
+        cache_group_member(group_id)
+
+    for member in redis_client.smembers(gm_redis_key):
+        if int(member) == int(user_id):
+            in_group = True
+            break
+
+    return in_group

@@ -26,13 +26,13 @@ def chat():
 
     try:
         if group_id is None:
-            message.send_message(ws_config.PRIVATE_CHAT, int(context_type), int(sender), sender_name,
+            msg_id = message.send_message(ws_config.PRIVATE_CHAT, int(context_type), int(sender), sender_name,
                                  None, receiver, receiver_name, context)
         else:
-            message.send_message(ws_config.GROUP_CHAT, int(context_type), int(sender), sender_name,
+            msg_id = message.send_message(ws_config.GROUP_CHAT, int(context_type), int(sender), sender_name,
                                  int(group_id), receiver, receiver_name, context)
     except Exception as e:
-        print(datetime.now(), f"chat: An unexpected error occurred: {e}")
+        print(datetime.now(), f"chat: An unexpected error occurred: {e}, param = ", json_data)
         return jsonify({
             'code': 50000,
             'res': e.__str__(),
@@ -42,7 +42,7 @@ def chat():
     return jsonify({
         'code': 20000,
         'res': '消息发送成功',
-        'data': '消息发送成功'
+        'data': msg_id
     })
 
 
@@ -64,7 +64,7 @@ def notification():
             context = json.dumps(context, default=str)
         message.send_notification_message(int(context_type), int(cur_user_id), cur_user_name, receiver, context)
     except Exception as e:
-        print(f"chat: An unexpected error occurred: {e}")
+        print(datetime.now(), f"chat: An unexpected error occurred: {e}, param = ", json_data)
         print(traceback.print_exc())
         return jsonify({
             'code': 50000,
@@ -124,7 +124,7 @@ def read_messages():
 
         messages = message.read_messages(int(read_type), int(cur_user_id), chat_user_id, int(start), int(count))
     except Exception as e:
-        print(f"message_router.read_messages: An unexpected error occurred: {e}")
+        print(datetime.now(), f"message_router.read_messages: An unexpected error occurred: {e}, param = ", json_data)
         print(traceback.print_exc())
         return jsonify({
             'code': 50000,
@@ -229,7 +229,7 @@ def read_chats():
                     filtered.append(record)
             chats = filtered
     except Exception as e:
-        print(f"read_notification_messages: An unexpected error occurred: {e}")
+        print(datetime.now(), f"read_notification_messages: An unexpected error occurred: {e}, param = ", json_data)
         print(traceback.print_exc())
         return jsonify({
             'code': 50000,
@@ -254,9 +254,13 @@ def update_unread():
     last_read = json_data.get("last_read")
 
     try:
-        message.update_read(int(chat_type), sender, receiver, last_read)
+        if last_read is None or last_read == '':
+            return jsonify({
+                'code': 20000
+            })
+        message.update_read(int(chat_type), sender, receiver, last_read, True)
     except Exception as e:
-        print(f"chat: An unexpected error occurred: {e}")
+        print(datetime.now(), f"chat: An unexpected error occurred: {e}, pararm = ", json_data)
         print(traceback.print_exc())
         return jsonify({
             'code': 50000
@@ -284,7 +288,7 @@ def create_group():
     try:
         group = message.create_group(group_name, creator, creator_name, members)
     except Exception as e:
-        print(f"create_chat_group: An unexpected error occurred: {e}")
+        print(datetime.now(), f"create_chat_group: An unexpected error occurred: {e}, param = ", json_data)
         print(traceback.print_exc())
         return jsonify({
             'code': 50000,
@@ -307,7 +311,7 @@ def query_group():
     try:
         group = message.query_group(group_id)
     except Exception as e:
-        print(f"query_group: An unexpected error occurred: {e}")
+        print(datetime.now(), f"query_group: An unexpected error occurred: {e}, param = ", json_data)
         print(traceback.print_exc())
         return jsonify({
             'code': 50000,
@@ -329,13 +333,10 @@ def update_group():
     group_name = json_data.get("group_name")
     group_id = json_data.get("group_id")
     members = json_data.get('members') if json_data.get('members') else []
-
-    print(json_data)
-
     try:
         message.update_group(int(group_id), group_name, members)
     except Exception as e:
-        print(f"update_group: An unexpected error occurred: {e}")
+        print(datetime.now(), f"update_group: An unexpected error occurred: {e}, param = ", json_data)
         print(traceback.print_exc())
         return jsonify({
             'code': 50000,
@@ -362,7 +363,7 @@ def confirm_join_group():
     try:
         message.confirm_join_group(int(group_id), int(user_id), user_name, int(confirm))
     except Exception as e:
-        print(f"search_group: An unexpected error occurred: {e}")
+        print(datetime.now(), f"search_group: An unexpected error occurred: {e}, param = ", json_data)
         print(traceback.print_exc())
         return jsonify({
             'code': 50000,
