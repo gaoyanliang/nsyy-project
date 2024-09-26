@@ -452,7 +452,7 @@ def manual_cv_feedback(record):
 
 
 def invalid_crisis_value(cv_ids, cv_source, invalid_remote: bool = False):
-    print(datetime.now(), '作废危急值： cv_source=', cv_source, " cv_ids=", cv_ids)
+    print(datetime.now(), '作废危急值： cv_source=', cv_source, " cv_ids=", cv_ids, invalid_remote)
     # 从内存中移除
     for cv_id in cv_ids:
         key = cv_id + '_' + str(cv_source)
