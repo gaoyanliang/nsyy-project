@@ -414,7 +414,7 @@ def create_cv(cvd):
                     continue
             create_cv_by_system(cv_data, int(cv_source))
         except Exception as e:
-            print(datetime.now(), "新增危急值异常：cv_data = ", cv_data, ' key = ', key, 'Exception = ', e)
+            print(datetime.now(), "新增危急值异常：cv_data = ", cv_data, ' key = ', key, 'Exception = ', e.__str__())
     del db
 
 
@@ -1375,7 +1375,7 @@ def medical_record_writing_back(json_data):
             }
             call_third_systems_obtain_data('his_procedure', param)
         else:
-            print(datetime.now(), '未找到病人信息，无法回写病历数据', json_data)
+            print(datetime.now(), '未找到病人信息，无法回写病历数据 pat_no = ', pat_no)
     except Exception as e:
         print(datetime.now(), "病历回写异常 = ", e)
 
