@@ -163,8 +163,9 @@ def query_vital_signs(sick_id, homepage_id):
                f"from DOCS_NORMAL_REPORT_REC@YDHLCIS t join DOCS_NORMAL_REPORT_DETAIL_REC@YDHLCIS t2 "
                f"on t.report_id = t2.report_id and t2.item_name in ('呼吸', '体温', '脉搏', '血压') "
                f"and t2.enabled_value = 'Y' and t.enabled_value = 'Y' and t.theme_code = '一般护理记录单(二)' "
-               f"and t.time_point = (select min(time_point)  from DOCS_NORMAL_REPORT_REC@YDHLCIS t3 "
-               f"where t3.patient_id = t.patient_id and t3.visit_id = t.visit_id) "
+               f"and t.time_point = (select min(time_point) from DOCS_NORMAL_REPORT_REC@YDHLCIS t3 "
+               f"where t3.patient_id = t.patient_id and t3.visit_id = t.visit_id "
+               f"and t3.theme_code = '一般护理记录单(二)'and t3.enabled_value = 'Y')"
                f"where patient_id = '{sick_id}' and visit_id = '{homepage_id}'"
     })
     if not vital_signs:
@@ -206,6 +207,8 @@ def register(json_data):
             json_data['medical_order_info'] = json.dumps(medical_order_info, default=str)
 
         # 查询生命体征
+        if not json_data.get('patient_info'):
+            raise Exception('缺少病人信息 patient_info = ', json_data.get('patient_info'))
         vital_signs = query_vital_signs(json_data['patient_info']['sick_id'], json_data['patient_info']['homepage_id'])
         doc1['b'] = vital_signs.get('血压') if vital_signs.get('血压') else ''
         doc1['t'] = vital_signs.get('体温') if vital_signs.get('体温') else ''
@@ -262,8 +265,8 @@ def query_register_record(query_type, key):
         for record in sorted_data:
             record.pop('medical_order_info')
             record.pop('doc1')
-            record['patient_info'] = json.loads(record['patient_info']) if record['patient_info'] else {}
-            record['sign_info'] = json.loads(record['sign_info']) if record['sign_info'] else {}
+            record['patient_info'] = json.loads(record['patient_info']) if record.get('patient_info') else {}
+            record['sign_info'] = json.loads(record['sign_info']) if record.get('sign_info') else {}
 
     return sorted_data
 
@@ -283,19 +286,21 @@ def query_treatment_record(json_data):
                 global_config.DB_DATABASE_GYL)
     if int(query_type) == 1:
         query_sql = f"select * from nsyy_gyl.hbot_treatment_record WHERE register_id = '{register_id}'"
-        data = db.query_all(query_sql)
     elif int(query_type) == 2:
         query_sql = f"select doc1, sign_info from nsyy_gyl.hbot_register_record WHERE register_id = '{register_id}'"
-        data = db.query_all(query_sql)
+        if json_data.get('id'):
+            query_sql = f"select sign_info from nsyy_gyl.hbot_register_record WHERE id = '{json_data['id']}' "
     else:
         raise Exception('参数错误, query_type = ', query_type, '(1=查询治疗记录 2=查询知情同意书&签名)')
+
+    data = db.query_all(query_sql)
     del db
 
     if data:
         for record in data:
-            record['record_info'] = json.loads(record['record_info']) if record['record_info'] else {}
-            record['sign_info'] = json.loads(record['sign_info']) if record['sign_info'] else {}
-            record['doc1'] = json.loads(record['doc1']) if record['doc1'] else {}
+            record['record_info'] = json.loads(record['record_info']) if record.get('record_info') else {}
+            record['sign_info'] = json.loads(record['sign_info']) if record.get('sign_info') else {}
+            record['doc1'] = json.loads(record['doc1']) if record.get('doc1') else {}
     return data
 
 
