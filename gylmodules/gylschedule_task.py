@@ -14,6 +14,7 @@ from gylmodules.critical_value.critical_value import write_cache, \
 from apscheduler.schedulers.background import BackgroundScheduler
 
 from gylmodules.critical_value.cv_manage import fetch_cv_record
+from gylmodules.hyperbaric_oxygen_therapy.hbot_server import hbot_run_everyday
 from gylmodules.utils.db_utils import DbUtil
 from gylmodules.workstation.message.message import flush_msg_cache
 from gylmodules.workstation.schedule_task import write_data_to_db
@@ -23,7 +24,7 @@ pool = redis.ConnectionPool(host=cv_config.CV_REDIS_HOST, port=cv_config.CV_REDI
 
 # 配置调度器，设置执行器，ThreadPoolExecutor 管理线程池并发
 executors = {
-    'default': ThreadPoolExecutor(10),  # 设置线程池大小为10
+    'default': ThreadPoolExecutor(20),  # 设置线程池大小为10
 }
 gylmodule_scheduler = BackgroundScheduler(timezone="Asia/Shanghai", executors=executors)
 
@@ -220,7 +221,7 @@ def re_alert_fail_ip_log():
                     redis_client.srem(cv_config.ALERT_FAIL_IPS_REDIS_KEY, ip['ip'])
                     db.execute(f"delete from nsyy_gyl.alert_fail_log where ip = '{ip['ip']}' ", need_commit=True)
             except Exception as e:
-                print(datetime.now(), f" {url} 调用失败，危急值程序依旧未正常运行", e)
+                print(datetime.now(), f" {url} 调用失败，危急值程序依旧未正常运行", e.__str__())
     del db
 
 
@@ -241,7 +242,7 @@ def schedule_task():
         gylmodule_scheduler.add_job(fetch_cv_record, 'cron', hour=3, minute=20, id='fetch_cv_record')
 
         print("1.4 危机值部门信息更新 ", datetime.now())
-        gylmodule_scheduler.add_job(regular_update_dept_info, trigger='interval', seconds=6*60*60, max_instances=10,
+        gylmodule_scheduler.add_job(regular_update_dept_info, trigger='interval', seconds=6*60*60,
                                     id='cv_dept_update')
 
     # ======================  综合预约定时任务  ======================
@@ -254,11 +255,16 @@ def schedule_task():
         gylmodule_scheduler.add_job(update_appt_capacity, 'cron', hour=1, minute=10, id='update_appt_capacity')
 
     print("3. 定时任务状态 ", datetime.now())
-    gylmodule_scheduler.add_job(task_state, trigger='interval', seconds=6*60*60, max_instances=10, id='sched_state')
+    gylmodule_scheduler.add_job(task_state, trigger='interval', seconds=6*60*60, id='sched_state')
 
+    # ======================  workstation 定时任务  ======================
     print("4. 消息模块定时任务 ", datetime.now())
     gylmodule_scheduler.add_job(flush_msg_cache, trigger='date', run_date=datetime.now())
     gylmodule_scheduler.add_job(write_data_to_db, trigger='interval', minutes=2)
+
+    # ======================  高压氧定时任务  ======================
+    print("5. 高压氧模块定时任务 ", datetime.now())
+    gylmodule_scheduler.add_job(hbot_run_everyday, 'cron', hour=1, minute=30, id='hbot_run_everyday')
 
     # ======================  Start ======================
     gylmodule_scheduler.start()
