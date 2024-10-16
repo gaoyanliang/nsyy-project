@@ -10,6 +10,10 @@ from gylmodules.hyperbaric_oxygen_therapy import hbot_config
 from gylmodules.utils.db_utils import DbUtil
 
 
+pool = redis.ConnectionPool(host=cv_config.CV_REDIS_HOST, port=cv_config.CV_REDIS_PORT,
+                                        db=cv_config.CV_REDIS_DB, decode_responses=True)
+
+
 def call_third_systems_obtain_data(type: str, param: dict):
     data = []
     if global_config.run_in_local:
@@ -41,17 +45,28 @@ def call_third_systems_obtain_data(type: str, param: dict):
 
 
 def query_medical_order(patient_id, register_time):
-    data = {}
+    data = None
     medical_order_list = call_third_systems_obtain_data('orcl_db_read', {
         "type": "orcl_db_read",
         "db_source": "nshis",
         "randstr": "XPFDFZDF7193CIONS1PD7XCJ3AD4ORRC",
         "sql": "select a.* from 病人医嘱记录 a, 病案主页 b "
                f"where a.病人id=b.病人id and a.主页id=b.主页id and b.住院号='{patient_id}' "
-               f"and a.开嘱时间 >= to_date('{register_time}', 'yyyy-mm-dd hh24:mi:ss') "
+               f"and a.开嘱时间 >= to_date('{register_time}', 'yyyy-mm-dd') "
                f"and a.医嘱内容 like '%高压氧%' and a.执行标记!='-1'"
     })
     if medical_order_list:
+        redis_client = redis.Redis(connection_pool=pool)
+        bill_dept_code = medical_order_list[0].get('开嘱科室ID')
+        dept_info = redis_client.hget(cv_config.DEPT_INFO_REDIS_KEY, str(bill_dept_code))
+        dept_info = json.loads(dept_info) if dept_info else None
+        bill_dept_code = dept_info.get('dept_code') if dept_info else bill_dept_code
+
+        execution_dept_code = medical_order_list[0].get('执行科室ID')
+        dept_info = redis_client.hget(cv_config.DEPT_INFO_REDIS_KEY, str(execution_dept_code))
+        dept_info = json.loads(dept_info) if dept_info else None
+        execution_dept_code = dept_info.get('dept_code') if dept_info else execution_dept_code
+
         data = {
             "homepage_id": medical_order_list[0].get('主页ID'),
             "doc_advice_id": medical_order_list[0].get('ID'),
@@ -61,8 +76,8 @@ def query_medical_order(patient_id, register_time):
             "start_time": medical_order_list[0].get('开始执行时间'),
             "patient_id": medical_order_list[0].get('病人ID'),
             "doc_advice_order_num": medical_order_list[0].get('序号'),
-            "bill_dept_code": medical_order_list[0].get('开嘱科室ID'),
-            "execution_dept_code": medical_order_list[0].get('执行科室ID'),
+            "bill_dept_code": bill_dept_code,
+            "execution_dept_code": execution_dept_code,
             "bill_people": medical_order_list[0].get('开嘱医生'),
         }
     if len(medical_order_list) > 1:
@@ -123,8 +138,6 @@ def query_patient_info(patient_type, patient_id):
             raise Exception('未找到该住院号对应的患者信息，请仔细核对住院号是否正确')
         dept_name = patient_infos[0].get('当前科室ID')
         if int(dept_name) != 0:
-            pool = redis.ConnectionPool(host=cv_config.CV_REDIS_HOST, port=cv_config.CV_REDIS_PORT,
-                                        db=cv_config.CV_REDIS_DB, decode_responses=True)
             redis_client = redis.Redis(connection_pool=pool)
             dept_info = redis_client.hget(cv_config.DEPT_INFO_REDIS_KEY, str(dept_name))
             dept_info = json.loads(dept_info) if dept_info else str(dept_name) + '=未知科室'
@@ -159,14 +172,17 @@ def query_vital_signs(sick_id, homepage_id):
         "type": "orcl_db_read",
         "db_source": "nshis",
         "randstr": "XPFDFZDF7193CIONS1PD7XCJ3AD4ORRC",
-        "sql": f"select t.patient_id, t.visit_id, t.time_point, t2.item_name, t2.item_value "
-               f"from DOCS_NORMAL_REPORT_REC@YDHLCIS t join DOCS_NORMAL_REPORT_DETAIL_REC@YDHLCIS t2 "
-               f"on t.report_id = t2.report_id and t2.item_name in ('呼吸', '体温', '脉搏', '血压') "
-               f"and t2.enabled_value = 'Y' and t.enabled_value = 'Y' and t.theme_code = '一般护理记录单(二)' "
-               f"and t.time_point = (select min(time_point) from DOCS_NORMAL_REPORT_REC@YDHLCIS t3 "
-               f"where t3.patient_id = t.patient_id and t3.visit_id = t.visit_id "
-               f"and t3.theme_code = '一般护理记录单(二)'and t3.enabled_value = 'Y')"
-               f"where patient_id = '{sick_id}' and visit_id = '{homepage_id}'"
+        "sql": f"""
+            select PATIENT_ID, VISIT_ID, TIME_POINT, THEME_CODE, ITEM_NAME, ITEM_VALUE
+            from (select t.patient_id, t.visit_id, t.time_point, 
+            rank() over(partition by t.patient_id, t.visit_id order by t.time_point) sn,
+                   t.theme_code, t2.item_name, t2.item_value from DOCS_NORMAL_REPORT_REC@YDHLCIS t
+              join DOCS_NORMAL_REPORT_DETAIL_REC@YDHLCIS t2 on t.report_id = t2.report_id
+               and t2.item_name in ('呼吸', '体温', '脉搏', '血压')
+               and t2.enabled_value = 'Y' and t.enabled_value = 'Y'
+               and t.theme_code = '一般护理记录单(二)'
+             where patient_id = '{sick_id}' and visit_id = '{homepage_id}') where sn = 1
+        """
     })
     if not vital_signs:
         return data
@@ -201,7 +217,7 @@ def register(json_data):
     }
     if int(json_data.get('patient_type')) == 3:
         # 1. 根据住院号查询是否存在医嘱
-        medical_order_info = query_medical_order(patient_id, json_data['register_time'])
+        medical_order_info = query_medical_order(patient_id, datetime.today().strftime('%Y-%m-%d'))
         if medical_order_info:
             json_data['medical_order_status'] = hbot_config.medical_order_status['ordered']
             json_data['medical_order_info'] = json.dumps(medical_order_info, default=str)
@@ -259,9 +275,8 @@ def query_register_record(query_type, key):
                 f"on a.register_id = b.register_id and b.record_date = '{today_str}' where {condition_sql}"
     data = db.query_all(query_sql)
     sorted_data = sorted(data, key=lambda x: (x['start_time'], x['id']))
-
     del db
-    if data:
+    if sorted_data:
         for record in sorted_data:
             record.pop('medical_order_info')
             record.pop('doc1')
@@ -274,7 +289,7 @@ def query_register_record(query_type, key):
 """
 查询治疗记录, 默认查询当天的治疗记录，还可以按照日期或者 住院号/门诊号 查询
 query_type = 1 查询治疗记录
-query_type = 2 查询知情同意书
+query_type = 2 查询知情同意书/仅查签名
 """
 
 
@@ -344,8 +359,10 @@ def update_register_record(json_data):
         if start_date:
             if datetime.strptime(start_date, '%Y-%m-%d').date() > datetime.now().date():
                 set_sql += f"execution_status = {hbot_config.register_status['not_started']} "
-            if datetime.strptime(start_date, '%Y-%m-%d').date() == datetime.now().date():
+            elif datetime.strptime(start_date, '%Y-%m-%d').date() == datetime.now().date():
                 set_sql += f"execution_status = {hbot_config.register_status['in_progress']} "
+            else:
+                raise Exception('登记记录开始日期不能早于今天')
 
             set_sql += f", start_date = '{json_data.get('start_date')}' " if json_data.get('start_date') else ""
         set_sql += f", execution_days = {int(json_data.get('execution_days'))}" if json_data.get(
@@ -365,6 +382,9 @@ def update_register_record(json_data):
     if execution_status and execution_status == hbot_config.register_status['cancelled']:
         update_sql = f"update nsyy_gyl.hbot_register_record set execution_status = {hbot_config.register_status['cancelled']} " \
                      f"where register_id = '{register_id}' "
+        db.execute(update_sql, need_commit=True)
+        update_sql = f"update nsyy_gyl.hbot_treatment_record set execution_status = {hbot_config.treatment_record_status['cancel_this']} " \
+                     f"where register_id = '{register_id}' and execution_status = {hbot_config.treatment_record_status['pending']} "
         db.execute(update_sql, need_commit=True)
         del db
         return
@@ -403,6 +423,9 @@ def update_treatment_record(json_data):
         if int(state) == int(treatment_record.get('execution_status')):
             del db
             return
+
+        query_sql = f"select * from nsyy_gyl.hbot_register_record where register_id = '{register_id}'"
+        register_record = db.query_one(query_sql)
         if int(state) == hbot_config.treatment_record_status['implement']:
             date_to_check = datetime.strptime(treatment_record.get('record_date'), '%Y-%m-%d')
             if date_to_check.date() > datetime.now().date():
@@ -412,11 +435,7 @@ def update_treatment_record(json_data):
                 del db
                 raise Exception('治疗记录已取消，无法再次执行')
 
-        query_sql = f"select * from nsyy_gyl.hbot_register_record where register_id = '{register_id}'"
-        register_record = db.query_one(query_sql)
-        if state == hbot_config.treatment_record_status['implement']:
-            if int(register_record.get('execution_status')) in (hbot_config.register_status['cancelled'],
-                                                                hbot_config.register_status['completed']):
+            if int(register_record.get('execution_status')) >= hbot_config.register_status['cancelled']:
                 del db
                 raise Exception('本次治疗周期已被取消或已完成，如需继续治疗请重新登记')
             # 首次执行需要先签署心理指导/知情同意书
@@ -477,6 +496,95 @@ def update_sign_info(json_data):
 
 
 """
+高压氧 扣款
+高压氧坐97  躺145.5 急救单独开仓坐194+97  躺194+145.5
+
+对应的扣费次数如下
+
+高压氧坐  1
+高压氧躺  1.5
+急救单独开仓坐  3
+急救单独开仓躺  3.5
+"""
+
+
+def hbot_charge(json_data):
+    rid = json_data.get('rid')
+    tid = json_data.get('tid')
+    pay_num = json_data.get('pay_num')
+
+    db = DbUtil(global_config.DB_HOST, global_config.DB_USERNAME, global_config.DB_PASSWORD,
+                global_config.DB_DATABASE_GYL)
+    query_sql = f"select * from nsyy_gyl.hbot_treatment_record where id = '{tid}' "
+    treatment_record = db.query_one(query_sql)
+    if not treatment_record:
+        del db
+        raise Exception("未找到治疗记录")
+    if int(treatment_record.get('pay_status')) == 1:
+        del db
+        raise Exception("已付款，请勿重复操作")
+
+    query_sql = f"select * from nsyy_gyl.hbot_register_record where id = '{rid}' "
+    register_record = db.query_one(query_sql)
+    if not register_record or not register_record.get('medical_order_info'):
+        del db
+        raise Exception("未找到该治疗记录的医嘱信息， 请联系医生先开医嘱")
+
+    medical_order_info = json.loads(register_record.get('medical_order_info'))
+    pay_info = {
+        "procedure": "瑞美血库费用",
+        "1s_test": 1 if global_config.run_in_local else 0,  # 0 为正式库 1 为测试库
+        "病人id": medical_order_info.get('patient_id'),
+        "主页id": medical_order_info.get('homepage_id'),
+        "医嘱序号": medical_order_info.get('doc_advice_id'),
+        "开单部门编码": medical_order_info.get('bill_dept_code'),
+        "开单人": medical_order_info.get('bill_people'),
+        "执行部门编码": medical_order_info.get('execution_dept_code'),
+        "操作员编号": "0392",
+        "操作员姓名": "刘春敏",
+        "data": [{"收费细目id": 18248, "数量": pay_num}]
+    }
+    # 构造 SOAP 请求
+    param = f"""
+                <soapenv:Envelope xmlns:soapenv="http://schemas.xmlsoap.org/soap/envelope/" xmlns:urn="urn:hl7-org:v3">
+                    <soapenv:Header>
+                        <soapenv:Body>
+                            <request>
+                            {json.dumps(pay_info, default=str)}
+                            </request>
+                        </soapenv:Body>
+                    </soapenv:Header>
+                </soapenv:Envelope>
+            """
+    response_data = ''
+    try:
+        if global_config.run_in_local:
+            response = requests.post("http://192.168.124.53:6080/his_webservice", data=param)
+        else:
+            response = requests.post("http://192.168.3.12:6080/his_webservice", data=param)
+        response_data = response.text
+        print("高压氧扣费返回:", response_data)
+
+        start = response_data.find("<return>") + len("<return>")
+        end = response_data.find("</return>")
+        json_response = response_data[start:end].strip()
+        data = json.loads(json_response)
+        #  [{"状态": "0", "描述": "None", "his收费no": "YH095105", "收费细目id": "18248", "数量": "3.5"}]
+        if data and data[0].get('状态') == '0':
+            update_sql = f"update nsyy_gyl.hbot_treatment_record set pay_status = 1, pay_num = {pay_num}  " \
+                         f"where id = '{tid}' "
+            db.execute(update_sql, need_commit=True)
+        else:
+            del db
+            raise Exception("高压氧扣费失败，请重试！", data)
+    except Exception as e:
+        del db
+        print(datetime.now(), f'高压氧扣费失败, pay_info', pay_info, " pay return : ", response_data)
+        raise Exception("高压氧扣费失败，请重试！", e)
+    del db
+
+
+"""
 定时任务
 1. 如果到达执行时间，修改登记记录的状态
 2. 刷新医嘱
@@ -496,8 +604,8 @@ def hbot_run_everyday():
         if register_record.get('medical_order_status') == hbot_config.medical_order_status['unordered'] \
                 and int(register_record.get('patient_type')) == 3:
             # 根据患者住院号，查询医嘱状态
-            medical_order_info = query_medical_order(register_record.get('patient_id'),
-                                                     register_record.get('register_time'))
+            register_time = datetime.strptime(register_record.get('register_time'), '%Y-%m-%d %H:%M:%S').strftime('%Y-%m-%d')
+            medical_order_info = query_medical_order(register_record.get('patient_id'), register_time)
             if medical_order_info or global_config.run_in_local:
                 update_sql = f"update nsyy_gyl.hbot_register_record " \
                              f"set medical_order_status = {hbot_config.medical_order_status['ordered']}, " \

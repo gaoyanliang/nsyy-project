@@ -11,7 +11,7 @@
  Target Server Version : 80300 (8.3.0)
  File Encoding         : 65001
 
- Date: 12/10/2024 15:33:10
+ Date: 16/10/2024 11:20:26
 */
 
 SET NAMES utf8mb4;
@@ -38,7 +38,8 @@ CREATE TABLE `hbot_register_record` (
   `medical_order_info` json DEFAULT NULL COMMENT '医嘱信息',
   `register_time` datetime DEFAULT NULL COMMENT '登记时间',
   `sign_info` json DEFAULT NULL COMMENT '签名信息',
-  PRIMARY KEY (`id`,`register_id`) USING BTREE
-) ENGINE=InnoDB AUTO_INCREMENT=11 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+  PRIMARY KEY (`id`,`register_id`) USING BTREE,
+  UNIQUE KEY `unique_rid` (`register_id`)
+) ENGINE=InnoDB AUTO_INCREMENT=25 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 
 SET FOREIGN_KEY_CHECKS = 1;

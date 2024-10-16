@@ -159,3 +159,20 @@ def update_sign_info():
         'code': 20000,
         'res': 'sign successes'
     })
+
+
+@hbot.route('/hbot_charge', methods=['POST'])
+def hbot_charge():
+    try:
+        json_data = json.loads(request.get_data().decode('utf-8'))
+        hbot_server.hbot_charge(json_data)
+    except Exception as e:
+        print(datetime.now(), "hbot_charge exception: ", e)
+        return jsonify({
+            'code': 50000,
+            'res': "高压氧扣费失败: " + e.__str__()
+        })
+    return jsonify({
+        'code': 20000,
+        'res': 'charge successes'
+    })

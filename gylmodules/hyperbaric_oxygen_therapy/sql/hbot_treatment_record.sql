@@ -11,7 +11,7 @@
  Target Server Version : 80300 (8.3.0)
  File Encoding         : 65001
 
- Date: 12/10/2024 15:33:20
+ Date: 16/10/2024 11:20:38
 */
 
 SET NAMES utf8mb4;
@@ -31,8 +31,11 @@ CREATE TABLE `hbot_treatment_record` (
   `record_time` varchar(11) DEFAULT NULL,
   `record_info` json DEFAULT NULL,
   `sign_info` json DEFAULT NULL COMMENT '签名信息',
+  `pay_status` int DEFAULT '0' COMMENT '付款状态',
+  `pay_num` float DEFAULT NULL COMMENT '付款数量',
   PRIMARY KEY (`id`),
-  UNIQUE KEY `unique_constraint` (`register_id`,`patient_id`,`record_date`)
-) ENGINE=InnoDB AUTO_INCREMENT=10 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+  UNIQUE KEY `unique_constraint` (`register_id`,`patient_id`,`record_date`),
+  KEY `unique_tid` (`register_id`)
+) ENGINE=InnoDB AUTO_INCREMENT=16 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 
 SET FOREIGN_KEY_CHECKS = 1;

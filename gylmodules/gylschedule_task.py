@@ -24,7 +24,7 @@ pool = redis.ConnectionPool(host=cv_config.CV_REDIS_HOST, port=cv_config.CV_REDI
 
 # 配置调度器，设置执行器，ThreadPoolExecutor 管理线程池并发
 executors = {
-    'default': ThreadPoolExecutor(20),  # 设置线程池大小为10
+    'default': ThreadPoolExecutor(10),  # 设置线程池大小为10
 }
 gylmodule_scheduler = BackgroundScheduler(timezone="Asia/Shanghai", executors=executors)
 
@@ -232,8 +232,7 @@ def schedule_task():
     print('1. 危急值模块定时任务')
     if global_config.schedule_task['cv_timeout']:
         print("1.1 危机值超时管理 ", datetime.now())
-        gylmodule_scheduler.add_job(handle_timeout_cv, trigger='interval', seconds=30, misfire_grace_time=60,
-                                    coalesce=True, id='cv_timeout')
+        gylmodule_scheduler.add_job(handle_timeout_cv, trigger='interval', seconds=35, coalesce=True, id='cv_timeout')
 
         print("1.2 ip 地址是否可用校验", datetime.now())
         gylmodule_scheduler.add_job(re_alert_fail_ip_log, 'cron', hour=2, minute=20, id='re_alert_fail_ip_log')
