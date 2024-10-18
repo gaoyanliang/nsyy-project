@@ -58,14 +58,14 @@ def query_medical_order(patient_id, register_time):
     if medical_order_list:
         redis_client = redis.Redis(connection_pool=pool)
         bill_dept_code = medical_order_list[0].get('开嘱科室ID')
-        dept_info = redis_client.hget(cv_config.DEPT_INFO_REDIS_KEY, str(bill_dept_code))
-        dept_info = json.loads(dept_info) if dept_info else None
-        bill_dept_code = dept_info.get('dept_code') if dept_info else bill_dept_code
+        # dept_info = redis_client.hget(cv_config.DEPT_INFO_REDIS_KEY, str(bill_dept_code))
+        # dept_info = json.loads(dept_info) if dept_info else None
+        # bill_dept_code = dept_info.get('dept_code') if dept_info else bill_dept_code
 
         execution_dept_code = medical_order_list[0].get('执行科室ID')
-        dept_info = redis_client.hget(cv_config.DEPT_INFO_REDIS_KEY, str(execution_dept_code))
-        dept_info = json.loads(dept_info) if dept_info else None
-        execution_dept_code = dept_info.get('dept_code') if dept_info else execution_dept_code
+        # dept_info = redis_client.hget(cv_config.DEPT_INFO_REDIS_KEY, str(execution_dept_code))
+        # dept_info = json.loads(dept_info) if dept_info else None
+        # execution_dept_code = dept_info.get('dept_code') if dept_info else execution_dept_code
 
         data = {
             "homepage_id": medical_order_list[0].get('主页ID'),
@@ -533,7 +533,7 @@ def hbot_charge(json_data):
     medical_order_info = json.loads(register_record.get('medical_order_info'))
     pay_info = {
         "procedure": "瑞美血库费用",
-        "1s_test": 1 if global_config.run_in_local else 0,  # 0 为正式库 1 为测试库
+        "is_test": 1 if global_config.run_in_local else 0,  # 0 为正式库 1 为测试库
         "病人id": medical_order_info.get('patient_id'),
         "主页id": medical_order_info.get('homepage_id'),
         "医嘱序号": medical_order_info.get('doc_advice_id'),
