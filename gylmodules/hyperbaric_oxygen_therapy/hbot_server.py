@@ -604,7 +604,7 @@ def hbot_run_everyday():
         if register_record.get('medical_order_status') == hbot_config.medical_order_status['unordered'] \
                 and int(register_record.get('patient_type')) == 3:
             # 根据患者住院号，查询医嘱状态
-            register_time = datetime.strptime(register_record.get('register_time'), '%Y-%m-%d %H:%M:%S').strftime('%Y-%m-%d')
+            register_time = register_record.get('register_time').strftime('%Y-%m-%d')
             medical_order_info = query_medical_order(register_record.get('patient_id'), register_time)
             if medical_order_info or global_config.run_in_local:
                 update_sql = f"update nsyy_gyl.hbot_register_record " \
