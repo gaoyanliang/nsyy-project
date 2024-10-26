@@ -14,8 +14,9 @@ APPT_URGENCY_LEVEL = {'green': 1, 'yellow': 2, 'red': 3}
 # oa 和 his 均付款的情况下 oa付款支持退款 4=oa已退款
 appt_pay_state = {'unpaid': 0, 'oa_pay': 1, 'his_pay': 2, 'oa_his_both_pay': 3, 'oa_refunded': 4}
 
-# 0=保留 1=已预约 2=排队中 3=处理中 4=过号 5=已完成 6=已取消
-APPT_STATE = {'new': 0, 'booked': 1, 'in_queue': 2, 'processing': 3, 'over_num': 4, 'completed': 5, 'canceled': 6}
+# 0=保留 1=已预约 2=排队中 3=处理中 4=过号 5=已完成 6=已取消（未签到前，小程序取消金额原路返回） 7=已退费（签到后，调用退费接口）
+APPT_STATE = {'new': 0, 'booked': 1, 'in_queue': 2, 'processing': 3,
+              'over_num': 4, 'completed': 5, 'canceled': 6, 'refund': 7}
 
 # APPT_PERIOD_INFO = {1: '8:00-8:30', 2: '8:30-9:00', 3: '9:00-9:30', 4: '9:30-10:00', 5: '10:00-10:30', 6: '10:30-11:00', 7: '11:00-11:30', 8: '11:30-12:00'}
 APPT_PERIOD_INFO = {1: '8:00-8:30', 2: '8:30-9:00', 3: '9:00-9:30', 4: '9:30-10:00', 5: '10:00-10:30', 6: '10:30-11:00',

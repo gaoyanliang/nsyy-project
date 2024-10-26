@@ -579,8 +579,24 @@ def update_or_insert_proj():
         json_data = json.loads(request.get_data().decode('utf-8'))
         ca_server.update_or_insert_project(json_data)
     except Exception as e:
-        timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-        print(f"[{timestamp}] update_or_insert_proj Exception occurred: {e.__str__()}, param: ", json_data)
+        print(datetime.now(), f"update_or_insert_proj Exception occurred: {e.__str__()}, param: ", json_data)
+        return jsonify({
+            'code': 50000,
+            'res': e.__str__()
+        })
+
+    return jsonify({
+        'code': 20000
+    })
+
+
+@appt.route('/refund', methods=['POST'])
+def refund():
+    try:
+        json_data = json.loads(request.get_data().decode('utf-8'))
+        ca_server.refund(json_data.get('appt_id'))
+    except Exception as e:
+        print(datetime.now(), f"refund Exception occurred: {e.__str__()}, param: ", json_data)
         return jsonify({
             'code': 50000,
             'res': e.__str__()
