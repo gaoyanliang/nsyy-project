@@ -21,3 +21,8 @@ treatment_record_status = {
     "cancel_this": 2,  # 取消本执行
     "cancel_all": 3    # 取消全部
 }
+
+comp_type = {
+    12: "南石医院总院",
+    32: "康复中医院"
+}

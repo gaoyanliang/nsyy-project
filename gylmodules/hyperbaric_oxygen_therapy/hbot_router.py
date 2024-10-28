@@ -15,9 +15,11 @@ hbot = Blueprint('hyperbaric oxygen therapy', __name__, url_prefix='/hbot')
 
 @hbot.route('/query_patient_info', methods=['POST'])
 def query_patient_info():
+    json_data = {}
     try:
         json_data = json.loads(request.get_data().decode('utf-8'))
-        patient_info = hbot_server.query_patient_info(json_data.get('patient_type'), json_data.get('patient_id'))
+        patient_info = hbot_server.query_patient_info(json_data.get('patient_type'),
+                                                      json_data.get('patient_id'), json_data.get('comp_type'))
     except Exception as e:
         print(datetime.now(), "query_patient_info exception, param: ", json_data, e)
         return jsonify({
@@ -146,11 +148,12 @@ def refresh_medical_status():
 
 @hbot.route('/sign', methods=['POST'])
 def update_sign_info():
+    json_data = {}
     try:
         json_data = json.loads(request.get_data().decode('utf-8'))
         hbot_server.update_sign_info(json_data)
     except Exception as e:
-        print(datetime.now(), "update_sign_info exception: ", e)
+        print(datetime.now(), "update_sign_info exception:  param = ", json_data, e)
         return jsonify({
             'code': 50000,
             'res': "更新前面异常: " + e.__str__()
@@ -163,11 +166,12 @@ def update_sign_info():
 
 @hbot.route('/hbot_charge', methods=['POST'])
 def hbot_charge():
+    json_data = {}
     try:
         json_data = json.loads(request.get_data().decode('utf-8'))
         hbot_server.hbot_charge(json_data)
     except Exception as e:
-        print(datetime.now(), "hbot_charge exception: ", e)
+        print(datetime.now(), "hbot_charge exception: param = ", json_data, e)
         return jsonify({
             'code': 50000,
             'res': "高压氧扣费失败: " + e.__str__()
@@ -176,3 +180,23 @@ def hbot_charge():
         'code': 20000,
         'res': 'charge successes'
     })
+
+
+@hbot.route('/data_statistics', methods=['POST', 'GET'])
+def data_statistics():
+    json_data = {}
+    try:
+        json_data = json.loads(request.get_data().decode('utf-8'))
+        data = hbot_server.data_statistics(json_data)
+    except Exception as e:
+        print(datetime.now(), "data_statistics exception: param = ", json_data, e)
+        return jsonify({
+            'code': 50000,
+            'res': "工作量统计数据查询失败: " + e.__str__()
+        })
+    return jsonify({
+        'code': 20000,
+        'res': 'query successes',
+        'data': data
+    })
+

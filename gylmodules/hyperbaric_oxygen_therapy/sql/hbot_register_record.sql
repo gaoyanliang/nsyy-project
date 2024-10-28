@@ -11,7 +11,7 @@
  Target Server Version : 80300 (8.3.0)
  File Encoding         : 65001
 
- Date: 16/10/2024 11:20:26
+ Date: 26/10/2024 14:53:00
 */
 
 SET NAMES utf8mb4;
@@ -26,6 +26,7 @@ CREATE TABLE `hbot_register_record` (
   `register_id` varchar(50) NOT NULL COMMENT '登记号',
   `patient_type` int DEFAULT NULL COMMENT '患者类型',
   `patient_id` varchar(30) DEFAULT NULL COMMENT '住院号/门诊号',
+  `comp_type` varchar(255) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci DEFAULT NULL COMMENT '12=总院 32=康复中医院',
   `execution_status` int DEFAULT NULL COMMENT '0=未开始 1=执行中 2=已取消 3=已完成',
   `medical_order_status` int DEFAULT NULL COMMENT '0=未开医嘱 1=已开医嘱',
   `start_date` varchar(11) DEFAULT NULL COMMENT '开始日期',
@@ -40,6 +41,6 @@ CREATE TABLE `hbot_register_record` (
   `sign_info` json DEFAULT NULL COMMENT '签名信息',
   PRIMARY KEY (`id`,`register_id`) USING BTREE,
   UNIQUE KEY `unique_rid` (`register_id`)
-) ENGINE=InnoDB AUTO_INCREMENT=25 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+) ENGINE=InnoDB AUTO_INCREMENT=5 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 
 SET FOREIGN_KEY_CHECKS = 1;
