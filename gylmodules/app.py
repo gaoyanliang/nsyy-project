@@ -3,6 +3,7 @@ from flask import Blueprint
 from gylmodules.app_version.app_version_router import app_version
 from gylmodules.critical_value.critical_value_router import cv
 from gylmodules.hyperbaric_oxygen_therapy.hbot_router import hbot
+from gylmodules.questionnaire.question_router import question
 from gylmodules.composite_appointment.composite_appointment_router import appt
 from gylmodules.medical_record_analysis.parse_router import parse
 from gylmodules.sport_mng.sport_mng import sport_mng
@@ -68,5 +69,11 @@ gylroute.register_blueprint(parse)
 print('7. 注册高压氧系统路由')
 gylroute.register_blueprint(hbot)
 
+
+# ============================
+# === 8. 注册问卷调查系统路由 ===
+# ============================
+print('8. 注册问卷调查系统路由')
+gylroute.register_blueprint(question)
 
 print("=============== End 路由注册完成 =====================")
