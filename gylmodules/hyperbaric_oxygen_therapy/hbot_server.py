@@ -378,6 +378,7 @@ def update_register_record(json_data):
 
 
 def update_treatment_record(json_data):
+    tid = json_data.get('id')
     register_id = json_data.get('register_id')
     record_id = json_data.get('record_id')
     record_info = json_data.get('record_info')
@@ -385,8 +386,7 @@ def update_treatment_record(json_data):
 
     db = DbUtil(global_config.DB_HOST, global_config.DB_USERNAME, global_config.DB_PASSWORD,
                 global_config.DB_DATABASE_GYL)
-    query_sql = f"select * from nsyy_gyl.hbot_treatment_record " \
-                f"where register_id = '{register_id}' and record_id = '{record_id}'"
+    query_sql = f"select * from nsyy_gyl.hbot_treatment_record where id = '{tid}' "
     treatment_record = db.query_one(query_sql)
     if not treatment_record:
         del db
@@ -395,7 +395,7 @@ def update_treatment_record(json_data):
     # 更新治疗记录信息
     if record_info:
         set_info = f" record_info = '{json.dumps(record_info, default=str)}'"
-        update_sql = f"update nsyy_gyl.hbot_treatment_record set {set_info} where id = '{treatment_record.get('id')}' "
+        update_sql = f"update nsyy_gyl.hbot_treatment_record set {set_info} where id = '{tid}' "
         db.execute(update_sql, need_commit=True)
 
     state = json_data.get('state')
@@ -425,8 +425,7 @@ def update_treatment_record(json_data):
                 del db
                 raise Exception("更新HBOT治疗记录失败，未签署高压氧治疗知情同意书！")
 
-        update_sql = f"update nsyy_gyl.hbot_treatment_record set execution_status = {state}  " \
-                     f"where register_id = '{register_id}' and record_id = '{record_id}' "
+        update_sql = f"update nsyy_gyl.hbot_treatment_record set execution_status = {state} where id = '{tid}' "
         db.execute(update_sql, need_commit=True)
 
         # 本次执行完成，判断明天是否还需要执行
@@ -436,7 +435,7 @@ def update_treatment_record(json_data):
                          f"where register_id = '{register_id}' "
             db.execute(update_sql, need_commit=True)
         else:
-            tomorrow = datetime.strptime(datetime.now().strftime('%Y-%m-%d'), '%Y-%m-%d') + timedelta(days=1)
+            tomorrow = datetime.strptime(treatment_record.get('record_date'), '%Y-%m-%d') + timedelta(days=1)
             last_day = datetime.strptime(register_record.get('start_date'), '%Y-%m-%d') + \
                        timedelta(days=int(register_record.get('execution_days')) - 1)
             if tomorrow.date() <= last_day.date():
