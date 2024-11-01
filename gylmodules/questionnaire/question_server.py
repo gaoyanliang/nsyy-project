@@ -157,6 +157,37 @@ def question_survey_ans(json_data):
     del db
 
 
+def update_question_survey_ans(json_data):
+    # 提取病历所需数据， 提取出 主诉/现病史/既往史 然后把所有数据拼起来
+    ans_data = []
+    data = json_data['ans_list']
+    # 先按 'type' 值排序
+    data.sort(key=lambda x: x['type'])
+    # 使用 groupby 按 'type' 分组
+    for key, group in groupby(data, key=lambda x: x['type']):
+        title = '未知'
+        if int(key) == 1:
+            title = '主诉'
+        elif int(key) == 2:
+            title = '现病史'
+        elif int(key) == 3:
+            title = '既往史'
+        elif int(key) == 4:
+            title = '体格检查'
+        ans_data.append({'sort_num': int(key), 'title': title, 'content': assembly_data(group)})
+
+    qs_id = json_data.get('id')
+    ans_data = json.dumps(ans_data, default=str)
+    ans_list = json.dumps(json_data['ans_list'], default=str)
+    db = DbUtil(global_config.DB_HOST, global_config.DB_USERNAME, global_config.DB_PASSWORD,
+                global_config.DB_DATABASE_GYL)
+
+    update_sql = f"update nsyy_gyl.question_survey_list set ans_list = '{ans_list}', ans_data = '{ans_data}' " \
+                 f"where id = {qs_id} "
+    db.execute(update_sql, need_commit=True)
+    del db
+
+
 """
 组装数据
 """
@@ -223,6 +254,8 @@ def query_question_survey_by_patient_id(patient_id):
     })
     medical_card_no = patient_infos[0].get('就诊卡号')
     id_card_no = patient_infos[0].get('身份证号')
+    if medical_card_no == 0 and id_card_no == 0:
+        raise Exception("未查询到病人信息, 病人 ID = ", patient_id)
 
     db = DbUtil(global_config.DB_HOST, global_config.DB_USERNAME, global_config.DB_PASSWORD,
                 global_config.DB_DATABASE_GYL)

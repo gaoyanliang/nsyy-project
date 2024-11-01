@@ -122,6 +122,29 @@ def question_survey_ans():
 
 
 """
+更新问卷调查
+"""
+
+
+@question.route('/update_question_survey_ans', methods=['POST'])
+def update_question_survey_ans():
+    json_data = {}
+    try:
+        json_data = json.loads(request.get_data().decode('utf-8'))
+        questions = question_server.update_question_survey_ans(json_data)
+    except Exception as e:
+        print(datetime.now(), "update_question_survey_ans exception, param: ", json_data, e)
+        return jsonify({
+            'code': 50000,
+            'res': "问卷调查结果更新异常: " + e.__str__()
+        })
+    return jsonify({
+        'code': 20000,
+        'res': 'update question survey successes',
+    })
+
+
+"""
 查询问卷调查结果
 """
 
