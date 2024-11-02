@@ -141,10 +141,10 @@ def question_survey_ans(json_data):
 
     json_data['medical_card_no'] = json_data['patient_info'].get('medical_card_no', "0")
     json_data['id_card_no'] = json_data['patient_info'].get('id_card_no', "0")
-    json_data['patient_info'] = json.dumps(json_data['patient_info'], default=str)
-    json_data['ans_list'] = json.dumps(json_data['ans_list'], default=str)
+    json_data['patient_info'] = json.dumps(json_data['patient_info'], default=str, ensure_ascii=False)
+    json_data['ans_list'] = json.dumps(json_data['ans_list'], default=str, ensure_ascii=False)
     json_data['create_time'] = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
-    json_data['ans_data'] = json.dumps(ans_data, default=str)
+    json_data['ans_data'] = json.dumps(ans_data, default=str, ensure_ascii=False)
     db = DbUtil(global_config.DB_HOST, global_config.DB_USERNAME, global_config.DB_PASSWORD,
                 global_config.DB_DATABASE_GYL)
     fileds = ','.join(json_data.keys())
@@ -177,8 +177,8 @@ def update_question_survey_ans(json_data):
         ans_data.append({'sort_num': int(key), 'title': title, 'content': assembly_data(group)})
 
     qs_id = json_data.get('id')
-    ans_data = json.dumps(ans_data, default=str)
-    ans_list = json.dumps(json_data['ans_list'], default=str)
+    ans_data = json.dumps(ans_data, default=str, ensure_ascii=False)
+    ans_list = json.dumps(json_data['ans_list'], default=str, ensure_ascii=False)
     db = DbUtil(global_config.DB_HOST, global_config.DB_USERNAME, global_config.DB_PASSWORD,
                 global_config.DB_DATABASE_GYL)
 
