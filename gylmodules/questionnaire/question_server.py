@@ -194,7 +194,7 @@ def update_question_survey_ans(json_data):
 
 
 def assembly_data(data):
-    content = ''
+    content = []
     for x in data:
         if int(x['ans_type']) == question_config.ans_type['填空']:
             ans = x['question_answer'] if x['question_answer'] else '/'
@@ -202,7 +202,11 @@ def assembly_data(data):
             ans = '、'.join(x['question_answer']) if x['question_answer'] else '/'
         prefix = x['ans_prefix'] if x['ans_prefix'] else ''
         suffix = x['ans_suffix'] if x['ans_suffix'] else ''
-        content += f"{x['medical_record_field']}：{prefix} {ans} {suffix}；"
+
+        content.append({
+            'question_name': x['medical_record_field'],
+            'question_answer': f"{prefix} {ans} {suffix}"
+        })
     return content
 
 
