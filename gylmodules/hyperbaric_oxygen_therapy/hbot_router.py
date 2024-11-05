@@ -61,7 +61,7 @@ def query_register_record():
     json_data = {}
     try:
         json_data = json.loads(request.get_data().decode('utf-8'))
-        register_records = hbot_server.query_register_record(json_data.get('query_type'), json_data.get('key'))
+        register_records = hbot_server.query_register_record(json_data)
     except Exception as e:
         print(datetime.now(), "query_register_record exception, param: ", json_data, e)
         return jsonify({
@@ -72,6 +72,24 @@ def query_register_record():
         'code': 20000,
         'res': 'query successes',
         'data': register_records
+    })
+
+
+@hbot.route('/update_register_start_time', methods=['POST'])
+def update_register_start_time():
+    json_data = {}
+    try:
+        json_data = json.loads(request.get_data().decode('utf-8'))
+        hbot_server.update_register_start_time(json_data)
+    except Exception as e:
+        print(datetime.now(), "update_register_record exception, param: ", json_data, e)
+        return jsonify({
+            'code': 50000,
+            'res': "更新开始时间异常: " + e.__str__()
+        })
+    return jsonify({
+        'code': 20000,
+        'res': 'update successes'
     })
 
 
@@ -174,7 +192,7 @@ def hbot_charge():
         print(datetime.now(), "hbot_charge exception: param = ", json_data, e)
         return jsonify({
             'code': 50000,
-            'res': "高压氧扣费失败: " + e.__str__()
+            'res': e.__str__()
         })
     return jsonify({
         'code': 20000,

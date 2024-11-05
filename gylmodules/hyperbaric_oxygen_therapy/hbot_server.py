@@ -213,9 +213,9 @@ def register(json_data):
 """
 
 
-def query_register_record(query_type, key):
-    db = DbUtil(global_config.DB_HOST, global_config.DB_USERNAME, global_config.DB_PASSWORD,
-                global_config.DB_DATABASE_GYL)
+def query_register_record(json_data):
+    query_type = json_data.get('query_type')
+    key = json_data.get('key')
     if int(query_type) == 0:
         condition_sql = f"a.execution_status = {hbot_config.register_status['not_started']}"
     elif int(query_type) == 1:
@@ -231,10 +231,17 @@ def query_register_record(query_type, key):
                                         f"or JSON_CONTAINS(a.patient_info->'$.patient_dept', '\"{key}\"') " \
                                         f"or JSON_CONTAINS(a.patient_info->'$.diagnosis', '\"{key}\"') )"
 
+    if json_data.get('start_date') and json_data.get('end_date'):
+        condition_sql = condition_sql + f" and a.start_date between '{json_data.get('start_date')}' " \
+                                        f"and '{json_data.get('end_date')}'"
+
     today_str = datetime.now().strftime('%Y-%m-%d')
     query_sql = f"select a.*, COALESCE( b.execution_status, 0) as today_status " \
                 f"from nsyy_gyl.hbot_register_record a left join nsyy_gyl.hbot_treatment_record b " \
                 f"on a.register_id = b.register_id and b.record_date = '{today_str}' where {condition_sql}"
+
+    db = DbUtil(global_config.DB_HOST, global_config.DB_USERNAME, global_config.DB_PASSWORD,
+                global_config.DB_DATABASE_GYL)
     data = db.query_all(query_sql)
     sorted_data = sorted(data, key=lambda x: (x['start_time'], x['id']))
     del db
@@ -246,6 +253,23 @@ def query_register_record(query_type, key):
             record['sign_info'] = json.loads(record['sign_info']) if record.get('sign_info') else {}
 
     return sorted_data
+
+
+"""
+更新登记记录开始时间
+"""
+
+
+def update_register_start_time(json_data):
+    rid = json_data.get('id')
+    start_time = json_data.get('start_time')
+    if not start_time:
+        raise Exception('更新开始时间，开始时间不能为空')
+    db = DbUtil(global_config.DB_HOST, global_config.DB_USERNAME, global_config.DB_PASSWORD,
+                global_config.DB_DATABASE_GYL)
+    update_sql = f"update nsyy_gyl.hbot_register_record set start_time = '{start_time}' where id = {rid}"
+    db.execute(update_sql, need_commit=True)
+    del db
 
 
 """
@@ -266,8 +290,10 @@ def query_treatment_record(json_data):
     elif int(query_type) == 2:
         query_sql = f"select comp_type, doc1, sign_info, patient_info " \
                     f"from nsyy_gyl.hbot_register_record WHERE register_id = '{register_id}'"
-        if json_data.get('id'):
-            query_sql = f"select sign_info from nsyy_gyl.hbot_register_record WHERE id = '{json_data['id']}' "
+    elif int(query_type) == 3:
+        query_sql = f"select sign_info from nsyy_gyl.hbot_register_record WHERE id = '{json_data['id']}' "
+    elif int(query_type) == 4:
+        query_sql = f"select sign_info from nsyy_gyl.hbot_treatment_record WHERE id = '{json_data['id']}' "
     else:
         raise Exception('参数错误, query_type = ', query_type, '(1=查询治疗记录 2=查询知情同意书&签名)')
 
@@ -280,6 +306,11 @@ def query_treatment_record(json_data):
                 record['doc1'] = json.loads(record['doc1'])
             if record.get('patient_info'):
                 record['patient_info'] = json.loads(record['patient_info'])
+    if int(query_type) == 3 and not data[0].get('sign_info'):
+        data[0]['sign_info'] = {"img1": hbot_config.sign_info.get(json_data.get('operator'), ""), "img2": "",
+                                "img3": hbot_config.sign_info.get('刘春敏', ""), "img4": ""}
+    if int(query_type) == 4 and not data[0].get('sign_info'):
+        data[0]['sign_info'] = {"img5": hbot_config.sign_info.get(json_data.get('operator'), ""), "img6": ""}
 
     if int(query_type) == 2 and 'id' not in json_data:
         # 如果登记记录未录入生命体征，则查询，并更新登记记录
@@ -320,7 +351,8 @@ def update_register_record(json_data):
     # 签署高压氧治疗知情同意书 & 进行高压氧患者入舱安全教育与心理指导
     doc1 = json_data.get('doc1')
     if doc1:
-        set_sql = f"doc2 = '1', doc1 = '{json.dumps(doc1, default=str)}' "  # todo doc2 暂时没有意义，仅仅用来表示是否已经签署知情同意书
+        # todo doc2 暂时没有意义，仅仅用来表示是否已经签署知情同意书
+        set_sql = f"doc2 = '1', doc1 = '{json.dumps(doc1, default=str)}', operator = '{json_data.get('operator')}' "
         update_sql = f"update nsyy_gyl.hbot_register_record set {set_sql} where register_id = '{register_id}' "
         db.execute(update_sql, need_commit=True)
         write_new_treatment_record(register_id, patient_id, start_date, db)
@@ -345,16 +377,15 @@ def update_register_record(json_data):
                 set_sql += f"execution_status = {hbot_config.register_status['in_progress']} "
             else:
                 raise Exception('登记记录开始日期不能早于今天')
-
             set_sql += f", start_date = '{json_data.get('start_date')}' " if json_data.get('start_date') else ""
+
         set_sql += f", execution_days = {int(json_data.get('execution_days'))}" if json_data.get(
             'execution_days') else ""
         set_sql += f", start_time = '{json_data.get('start_time')}' " if json_data.get('start_time') else ""
         set_sql += f", execution_duration = {int(json_data.get('execution_duration'))}" \
             if json_data.get('execution_duration') else ""
 
-        update_sql = f"update nsyy_gyl.hbot_register_record set {set_sql} " \
-                     f"where register_id = '{register_id}' "
+        update_sql = f"update nsyy_gyl.hbot_register_record set {set_sql} where register_id = '{register_id}' "
         db.execute(update_sql, need_commit=True)
         write_new_treatment_record(register_id, patient_id, start_date, db)
         del db
@@ -365,7 +396,7 @@ def update_register_record(json_data):
         update_sql = f"update nsyy_gyl.hbot_register_record set execution_status = {hbot_config.register_status['cancelled']} " \
                      f"where register_id = '{register_id}' "
         db.execute(update_sql, need_commit=True)
-        update_sql = f"update nsyy_gyl.hbot_treatment_record set execution_status = {hbot_config.treatment_record_status['cancel_this']} " \
+        update_sql = f"update nsyy_gyl.hbot_treatment_record set execution_status = {hbot_config.treatment_record_status['cancel_all']} " \
                      f"where register_id = '{register_id}' and execution_status = {hbot_config.treatment_record_status['pending']} "
         db.execute(update_sql, need_commit=True)
         del db
@@ -383,6 +414,8 @@ def update_treatment_record(json_data):
     record_id = json_data.get('record_id')
     record_info = json_data.get('record_info')
     sign_info = json_data.get('sign_info')
+    record_time = json_data.get('record_time')
+    operator = json_data.get('operator')
 
     db = DbUtil(global_config.DB_HOST, global_config.DB_USERNAME, global_config.DB_PASSWORD,
                 global_config.DB_DATABASE_GYL)
@@ -395,6 +428,7 @@ def update_treatment_record(json_data):
     # 更新治疗记录信息
     if record_info:
         set_info = f" record_info = '{json.dumps(record_info, default=str)}'"
+        set_info += f", record_time = '{record_time}'" if record_time else ""
         update_sql = f"update nsyy_gyl.hbot_treatment_record set {set_info} where id = '{tid}' "
         db.execute(update_sql, need_commit=True)
 
@@ -425,7 +459,8 @@ def update_treatment_record(json_data):
                 del db
                 raise Exception("更新HBOT治疗记录失败，未签署高压氧治疗知情同意书！")
 
-        update_sql = f"update nsyy_gyl.hbot_treatment_record set execution_status = {state} where id = '{tid}' "
+        update_sql = f"update nsyy_gyl.hbot_treatment_record set execution_status = {state}, " \
+                     f"operator = '{operator}' where id = '{tid}' "
         db.execute(update_sql, need_commit=True)
 
         # 本次执行完成，判断明天是否还需要执行
@@ -500,16 +535,16 @@ def hbot_charge(json_data):
     treatment_record = db.query_one(query_sql)
     if not treatment_record:
         del db
-        raise Exception("未找到治疗记录")
+        raise Exception("扣费失败，未找到治疗记录")
     if int(treatment_record.get('pay_status')) == 1:
         del db
-        raise Exception("已付款，请勿重复操作")
+        raise Exception("扣费失败：已付款，请勿重复操作")
 
     query_sql = f"select * from nsyy_gyl.hbot_register_record where id = '{rid}' "
     register_record = db.query_one(query_sql)
     if int(register_record.get('patient_type')) != 3:
         del db
-        raise Exception("本系统暂时仅支持对住院患者进行扣款, 门诊患者请刷就诊卡。")
+        raise Exception("扣费失败：本系统暂时仅支持对住院患者进行扣款, 门诊患者请刷就诊卡。")
 
     patient_id, homepage_id, doc_advice_id, bill_dept_code, bill_people = '', '', '', '', ''
     if not register_record.get('medical_order_info'):
@@ -517,34 +552,29 @@ def hbot_charge(json_data):
         patient_info = query_patient_info(int(register_record.get('patient_type')),
                                           int(register_record.get('patient_id')),
                                           int(register_record.get('comp_type')))
-        patient_id = patient_info.get('sick_id')
-        homepage_id = patient_info.get('homepage_id')
-        bill_dept_code = patient_info.get('patient_dept_code')
-        bill_people = patient_info.get('doctor_name')
+        patient_id, homepage_id = patient_info.get('sick_id'), patient_info.get('homepage_id')
+        bill_dept_code, bill_people = patient_info.get('patient_dept_code'), patient_info.get('doctor_name')
         doc_advice_id = 0
     else:
         medical_order_info = json.loads(register_record.get('medical_order_info'))
-        patient_id = medical_order_info.get('patient_id')
-        homepage_id = medical_order_info.get('homepage_id')
-        bill_dept_code = medical_order_info.get('bill_dept_code')
-        bill_people = medical_order_info.get('bill_people')
+        patient_id, homepage_id = medical_order_info.get('patient_id'), medical_order_info.get('homepage_id')
+        bill_dept_code, bill_people = medical_order_info.get('bill_dept_code'), medical_order_info.get('bill_people')
         doc_advice_id = medical_order_info.get('doc_advice_id')
 
     comp_id, executor, executor_code, execution_dept_code = 0, "刘春敏", "0392", "0421"
     if int(register_record.get('comp_type')) == 32:
         comp_id, executor, executor_code, execution_dept_code = 32, "崔世阳", "0408", "00049"
     pay_info = {
-        "procedure": "瑞美血库费用", "comp_id": comp_id, "is_test": 1 if global_config.run_in_local else 0,  # 0 为正式库 1 为测试库
+        "procedure": "瑞美血库费用", "comp_id": comp_id, "is_test": 1 if global_config.run_in_local else 0,
+        # 0 为正式库 1 为测试库
         "病人id": patient_id, "主页id": homepage_id, "医嘱序号": doc_advice_id,
         "开单部门编码": bill_dept_code, "开单人": bill_people, "执行部门编码": execution_dept_code,
         "操作员编号": executor_code, "操作员姓名": executor, "data": [{"收费细目id": 18248, "数量": pay_num}]
     }
     param = f"""
                 <soapenv:Envelope xmlns:soapenv="http://schemas.xmlsoap.org/soap/envelope/" xmlns:urn="urn:hl7-org:v3">
-                    <soapenv:Header> <soapenv:Body> <request>
-                            {json.dumps(pay_info, default=str)}
-                    </request> </soapenv:Body> </soapenv:Header>
-                </soapenv:Envelope>
+                    <soapenv:Header> <soapenv:Body> <request> {json.dumps(pay_info, default=str)}
+                    </request> </soapenv:Body> </soapenv:Header> </soapenv:Envelope>
             """
     response_data = ''
     try:
@@ -553,7 +583,7 @@ def hbot_charge(json_data):
         else:
             response = requests.post("http://192.168.3.12:6080/his_webservice", data=param)
         response_data = response.text
-        print("高压氧扣费返回:", response_data)
+        print(datetime.now(), "高压氧扣费返回:", response_data, pay_info)
 
         start = response_data.find("<return>") + len("<return>")
         end = response_data.find("</return>")
@@ -566,11 +596,18 @@ def hbot_charge(json_data):
                          f"where id = '{tid}' "
             db.execute(update_sql, need_commit=True)
         else:
-            raise Exception("高压氧扣费失败，请重试！", data)
+            if data:
+                err_info = data[0].get('描述')
+                if err_info.__contains__('没有找到患者信息'):
+                    raise Exception("扣费失败：没有找到患者信息, 请确认患者是否已经出院")
+                else:
+                    raise Exception("扣费失败：", err_info)
+            else:
+                raise Exception("扣费失败：请联系技术人员处理！", data)
     except Exception as e:
         print(datetime.now(), f'高压氧扣费失败, pay_info', pay_info, " pay return : ", response_data, e)
         del db
-        raise Exception("高压氧扣费失败，请重试！", e)
+        raise Exception("扣费失败：请联系技术人员处理！", e)
     del db
 
 
@@ -681,6 +718,3 @@ def data_statistics(json_data):
             "amount_of_money": amount_of_money
         })
     return data
-
-
-

@@ -1,17 +1,17 @@
 /*
  Navicat Premium Dump SQL
 
- Source Server         : yanliang
+ Source Server         : 192.168.3.12
  Source Server Type    : MySQL
- Source Server Version : 80300 (8.3.0)
- Source Host           : 127.0.0.1:3306
+ Source Server Version : 80039 (8.0.39-0ubuntu0.20.04.1)
+ Source Host           : 192.168.3.12:3306
  Source Schema         : nsyy_gyl
 
  Target Server Type    : MySQL
- Target Server Version : 80300 (8.3.0)
+ Target Server Version : 80039 (8.0.39-0ubuntu0.20.04.1)
  File Encoding         : 65001
 
- Date: 26/10/2024 14:53:00
+ Date: 05/11/2024 14:22:50
 */
 
 SET NAMES utf8mb4;
@@ -39,8 +39,10 @@ CREATE TABLE `hbot_register_record` (
   `medical_order_info` json DEFAULT NULL COMMENT '医嘱信息',
   `register_time` datetime DEFAULT NULL COMMENT '登记时间',
   `sign_info` json DEFAULT NULL COMMENT '签名信息',
+  `registrant` varchar(50) DEFAULT NULL COMMENT '登记人',
+  `operator` varchar(50) DEFAULT NULL COMMENT '操作人',
   PRIMARY KEY (`id`,`register_id`) USING BTREE,
   UNIQUE KEY `unique_rid` (`register_id`)
-) ENGINE=InnoDB AUTO_INCREMENT=5 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+) ENGINE=InnoDB AUTO_INCREMENT=51 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 
 SET FOREIGN_KEY_CHECKS = 1;
