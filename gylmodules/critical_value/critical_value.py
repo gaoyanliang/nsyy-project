@@ -1044,9 +1044,9 @@ async def call_remote_auto_start_script(ip, url, payload):
 
 async def send_request(ip, url, payload):
     try:
-        timeout = ClientTimeout(total=3)  # 设置总超时时间为3秒
+        timeout = ClientTimeout(total=2)  # 设置总超时时间为3秒
         async with aiohttp.ClientSession(timeout=timeout) as session:
-            async with session.post(url, json=payload, timeout=2) as response:
+            async with session.post(url, json=payload, timeout=1) as response:
                 response.raise_for_status()
     except Exception:
         if payload.get('type') == 'popup':
