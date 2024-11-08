@@ -529,12 +529,6 @@ def hbot_charge(json_data):
     tid = json_data.get('tid')
     pay_num = json_data.get('pay_num')
 
-    key = f"hbot:{rid}:{tid}"
-    redis_client = redis.Redis(connection_pool=pool)
-    # 尝试设置键，只有当键不存在时才设置成功, ex=600 表示过期时间 600 秒（10 分钟），nx=True 表示不存在时才设置
-    if not redis_client.set(key, pay_num, ex=600, nx=True):
-        raise Exception('扣费失败：当前患者今天的治疗，10分钟内已扣过一次费，请勿重复扣费')  # 已经在 10 分钟内执行过，不能重复执行
-
     db = DbUtil(global_config.DB_HOST, global_config.DB_USERNAME, global_config.DB_PASSWORD,
                 global_config.DB_DATABASE_GYL)
     query_sql = f"select * from nsyy_gyl.hbot_treatment_record where id = '{tid}' "
@@ -597,6 +591,11 @@ def hbot_charge(json_data):
         data = json.loads(json_response)
         #  [{"状态": "0", "描述": "None", "his收费no": "YH095105", "收费细目id": "18248", "数量": "3.5"}]
         if data and data[0].get('状态') == '0':
+            redis_client = redis.Redis(connection_pool=pool)
+            # 尝试设置键，只有当键不存在时才设置成功, ex=600 表示过期时间 600 秒（10 分钟），nx=True 表示不存在时才设置
+            if not redis_client.set(f"hbot:{rid}:{tid}", pay_num, ex=600, nx=True):
+                raise Exception('扣费失败：当前患者今天的治疗，10分钟内已扣过一次费，请勿重复扣费')  # 已经在 10 分钟内执行过，不能重复执行
+
             update_sql = f"update nsyy_gyl.hbot_treatment_record " \
                          f"set pay_status = 1, pay_num = {pay_num}, pay_no = '{data[0].get('his收费no')}' " \
                          f"where id = '{tid}' "
