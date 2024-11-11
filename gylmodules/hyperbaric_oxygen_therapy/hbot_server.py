@@ -1,17 +1,19 @@
 import uuid
 import json
-import requests
+
 import redis
+import requests
 
 from itertools import groupby
 from datetime import datetime, timedelta
 from gylmodules import global_config
+from gylmodules.composite_appointment import appt_config
 from gylmodules.critical_value import cv_config
 from gylmodules.hyperbaric_oxygen_therapy import hbot_config
 from gylmodules.utils.db_utils import DbUtil
 
-pool = redis.ConnectionPool(host=cv_config.CV_REDIS_HOST, port=cv_config.CV_REDIS_PORT,
-                            db=cv_config.CV_REDIS_DB, decode_responses=True)
+pool = redis.ConnectionPool(host=appt_config.APPT_REDIS_HOST, port=appt_config.APPT_REDIS_PORT,
+                            db=appt_config.APPT_REDIS_DB, decode_responses=True)
 
 
 def call_third_systems_obtain_data(type: str, sql: str, db_source: str):
@@ -36,7 +38,7 @@ def call_third_systems_obtain_data(type: str, sql: str, db_source: str):
 
 
 """
-根据住院号和登记时间，查询病人高压氧医嘱信息
+根据住院号和登记时间，查询病人医嘱信息
 """
 
 
@@ -68,8 +70,7 @@ def query_medical_order(patient_id, register_time, db_source):
 
 """
 根据患者住院号查询患者信息
-⚠️ 注意： 查询门诊患者，需要根据 就诊卡号/身份证号 查询，
-查询出来的科室是 id， 需要依赖 危急值系统缓存的科室信息查询 科室名字
+⚠️ 注意： 查询门诊患者，需要根据 就诊卡号/身份证号 查询
 """
 
 
@@ -131,15 +132,13 @@ def query_vital_signs(sick_id, homepage_id, db_source):
     else:
         sql = f"""
                 select 住院号, 项目名称 ITEM_NAME, 记录内容 ITEM_VALUE, 记录时间
-                from (select 住院号, 项目名称, 记录内容, 记录时间,
-                rank() over(partition by 住院号 order by 记录时间 desc) sn
+                from (select 住院号, 项目名称, 记录内容, 记录时间, rank() over(partition by 住院号 order by 记录时间 desc) sn
                 from (select g.住院号, t3.记录id, t3.记录时间, t3.项目名称, t3.记录内容,
-                       count(1) over(partition by g.病人ID, g.主页ID, t3.记录id) cn
-                  from 病案主页 g join 病人护理文件 t on g.病人id = t.病人id and g.主页id = t.主页id
-                  join 病人护理数据 t2 on t.id = t2.文件id join 病人护理明细 t3 on t2.id = t3.记录id
-                 where regexp_like(t3.项目名称, '(体温|呼吸|脉搏|舒张压|收缩压)')
-                   and g.病人ID = '{sick_id}' and g.主页ID = '{homepage_id}')
-                where cn = 5) where sn = 1
+                count(1) over(partition by g.病人ID, g.主页ID, t3.记录id) cn from 病案主页 g 
+                join 病人护理文件 t on g.病人id = t.病人id and g.主页id = t.主页id
+                join 病人护理数据 t2 on t.id = t2.文件id join 病人护理明细 t3 on t2.id = t3.记录id
+                where regexp_like(t3.项目名称, '(体温|呼吸|脉搏|舒张压|收缩压)') 
+                and g.病人ID = '{sick_id}' and g.主页ID = '{homepage_id}') where cn = 5) where sn = 1
         """
     vital_signs = call_third_systems_obtain_data('orcl_db_read', sql, db_source)
     if not vital_signs:
@@ -175,10 +174,8 @@ def register(json_data):
     json_data['register_time'] = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
     json_data['medical_order_status'] = hbot_config.medical_order_status['unordered']
 
-    doc1 = {
-        'b': '', 't': '', 'p': '', 'r': '',
-        'map': '0.1', 'order': '1', 'method': 2, 'minute': '105', 'number': '1', 'disease': []
-    }
+    doc1 = {'b': '', 't': '', 'p': '', 'r': '', 'map': '0.1', 'order': '1', 'method': 2,
+            'minute': '105', 'number': '1', 'disease': []}
     if int(json_data.get('patient_type')) == 3:
         db_source = 'nshis' if int(json_data.get('comp_type')) == 12 else 'kfhis'
         # 1. 根据住院号查询是否存在医嘱
@@ -282,9 +279,6 @@ query_type = 2 查询知情同意书/仅查签名
 def query_treatment_record(json_data):
     register_id = json_data.get('register_id')
     query_type = json_data.get('query_type', 0)
-
-    db = DbUtil(global_config.DB_HOST, global_config.DB_USERNAME, global_config.DB_PASSWORD,
-                global_config.DB_DATABASE_GYL)
     if int(query_type) == 1:
         query_sql = f"select * from nsyy_gyl.hbot_treatment_record WHERE register_id = '{register_id}'"
     elif int(query_type) == 2:
@@ -297,6 +291,8 @@ def query_treatment_record(json_data):
     else:
         raise Exception('参数错误, query_type = ', query_type, '(1=查询治疗记录 2=查询知情同意书&签名)')
 
+    db = DbUtil(global_config.DB_HOST, global_config.DB_USERNAME, global_config.DB_PASSWORD,
+                global_config.DB_DATABASE_GYL)
     data = db.query_all(query_sql)
     if data:
         for record in data:
@@ -470,10 +466,13 @@ def update_treatment_record(json_data):
                          f"where register_id = '{register_id}' "
             db.execute(update_sql, need_commit=True)
         else:
-            tomorrow = datetime.strptime(treatment_record.get('record_date'), '%Y-%m-%d') + timedelta(days=1)
-            last_day = datetime.strptime(register_record.get('start_date'), '%Y-%m-%d') + \
-                       timedelta(days=int(register_record.get('execution_days')) - 1)
-            if tomorrow.date() <= last_day.date():
+            # 查询执行周期内所有 已执行的治疗记录数量，判断是否需要继续执行
+            query_sql = f"select count(1) as cnt from nsyy_gyl.hbot_treatment_record " \
+                        f"where register_id = '{register_id}' " \
+                        f"and execution_status = {hbot_config.treatment_record_status['implement']}"
+            cnt = db.query_one(query_sql)
+            if int(cnt.get('cnt')) < int(register_record.get('execution_days')):
+                tomorrow = datetime.strptime(treatment_record.get('record_date'), '%Y-%m-%d') + timedelta(days=1)
                 write_new_treatment_record(treatment_record.get('register_id'), treatment_record.get('patient_id'),
                                            tomorrow.strftime('%Y-%m-%d'), db)
             else:
@@ -529,6 +528,11 @@ def hbot_charge(json_data):
     tid = json_data.get('tid')
     pay_num = json_data.get('pay_num')
 
+    redis_client = redis.Redis(connection_pool=pool)
+    # 尝试设置键，只有当键不存在时才设置成功.  ex=300 表示过期时间 300 秒（5 分钟），nx=True 表示不存在时才设置
+    if not redis_client.set(f"hbot_charge:{rid}:{tid}", pay_num, ex=300, nx=True):
+        raise Exception('扣费失败：当前患者今天的治疗，10分钟内已扣过一次费，请勿重复扣费')
+
     db = DbUtil(global_config.DB_HOST, global_config.DB_USERNAME, global_config.DB_PASSWORD,
                 global_config.DB_DATABASE_GYL)
     query_sql = f"select * from nsyy_gyl.hbot_treatment_record where id = '{tid}' "
@@ -579,9 +583,9 @@ def hbot_charge(json_data):
     response_data = ''
     try:
         if global_config.run_in_local:
-            response = requests.post("http://192.168.124.53:6080/his_webservice", data=param)
+            response = requests.post("http://192.168.124.53:6080/his_webservice", data=param, timeout=3)
         else:
-            response = requests.post("http://192.168.3.12:6080/his_webservice", data=param)
+            response = requests.post("http://192.168.3.12:6080/his_webservice", data=param, timeout=3)
         response_data = response.text
         print(datetime.now(), "高压氧扣费返回:", response_data, pay_info)
 
@@ -591,11 +595,6 @@ def hbot_charge(json_data):
         data = json.loads(json_response)
         #  [{"状态": "0", "描述": "None", "his收费no": "YH095105", "收费细目id": "18248", "数量": "3.5"}]
         if data and data[0].get('状态') == '0':
-            redis_client = redis.Redis(connection_pool=pool)
-            # 尝试设置键，只有当键不存在时才设置成功, ex=600 表示过期时间 600 秒（10 分钟），nx=True 表示不存在时才设置
-            if not redis_client.set(f"hbot:{rid}:{tid}", pay_num, ex=600, nx=True):
-                raise Exception('扣费失败：当前患者今天的治疗，10分钟内已扣过一次费，请勿重复扣费')  # 已经在 10 分钟内执行过，不能重复执行
-
             update_sql = f"update nsyy_gyl.hbot_treatment_record " \
                          f"set pay_status = 1, pay_num = {pay_num}, pay_no = '{data[0].get('his收费no')}' " \
                          f"where id = '{tid}' "
@@ -652,6 +651,19 @@ def hbot_run_everyday():
                          f"set execution_status = {hbot_config.register_status['in_progress']} " \
                          f"where id = {register_record.get('id')} "
             db.execute(update_sql, need_commit=True)
+
+    query_sql = f"select * from nsyy_gyl.hbot_treatment_record " \
+                f"where execution_status = {hbot_config.treatment_record_status['pending']}"
+    treatment_records = db.query_all(query_sql)
+    for treatment_record in treatment_records:
+        # 今天之前未执行的记录 自动取消
+        if datetime.strptime(treatment_record.get('record_date'), "%Y-%m-%d").date() < datetime.now().date():
+            update_sql = f"update nsyy_gyl.hbot_treatment_record " \
+                         f"set execution_status = {hbot_config.treatment_record_status['cancel_this']}, " \
+                         f"operator = 'auto task' where id = {treatment_record.get('id')} "
+            db.execute(update_sql, need_commit=True)
+            write_new_treatment_record(treatment_record.get('register_id'), treatment_record.get('patient_id'),
+                                       today, db)
     del db
 
 
