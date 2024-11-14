@@ -42,19 +42,8 @@ def call_third_systems_obtain_data(url: str, type: str, param: dict):
 def query_patient_info(card_no):
     patient_infos = call_third_systems_obtain_data('int_api', 'orcl_db_read', {
         "type": "orcl_db_read", "db_source": "nshis", "randstr": "XPFDFZDF7193CIONS1PD7XCJ3AD4ORRC",
-        "sql": f"select * from 病人信息 where 就诊卡号 like '%{card_no}%' or 身份证号 like '%{card_no}%'"
+        "sql": f"select * from 病人信息 where 就诊卡号 = '{card_no}' or 身份证号 = '{card_no}'"
     })
-
-    # patient_infos = call_third_systems_obtain_data('int_api', 'orcl_db_read', {
-    #     "type": "orcl_db_read",
-    #     "db_source": "nshis",
-    #     "randstr": "XPFDFZDF7193CIONS1PD7XCJ3AD4ORRC",
-    #     "sql": f'select a.*, b.身份证号, b.当前科室ID, b.当前床号, b.联系人电话, b.出生日期, '
-    #            f'b.婚姻状况, b.职业, b.家庭地址, b.工作单位, b.民族, b.就诊时间 '
-    #            f'from 病人挂号记录 a left join 病人信息 b on a.病人id=b.病人id '
-    #            f"where ( b.就诊卡号 like '%{card_no}%' or b.身份证号 like '%{card_no}%' ) "
-    #            f" order by a.登记时间 desc "
-    # })
     if not patient_infos:
         raise Exception('未找到该患者挂号信息，请仔细核对 就诊卡号/身份证号 是否正确')
     data = {
@@ -109,10 +98,14 @@ def query_question_list(json_data):
     question_list = db.query_all(query_sql)
     del db
 
-    for d in question_list:
+    sorted_data = sorted(question_list, key=lambda x: (x['type'], x['sort_num']))
+    for d in sorted_data:
         if d['ans_list']:
             d['ans_list'] = json.loads(d['ans_list'])
-    return question_list
+            if type(d['ans_list']) == dict:
+                d['ans_list'] = d['ans_list'].get(f"{tpl_type}-{tpl_type_detail}", ["其他"])
+                # d['ans_list'] = json.loads(d['ans_list'])
+    return sorted_data
 
 
 """
@@ -196,8 +189,10 @@ def update_question_survey_ans(json_data):
 def assembly_data(data):
     content = []
     for x in data:
-        if int(x['ans_type']) == question_config.ans_type['填空']:
+        if int(x['ans_type']) in (question_config.ans_type['填空'], question_config.ans_type['单选择器']):
             ans = x['question_answer'] if x['question_answer'] else '/'
+        elif int(x['ans_type']) == question_config.ans_type['双选择器']:
+            ans = '/'.join(x['question_answer']) if x['question_answer'] else '/'
         else:
             ans = '、'.join(x['question_answer']) if x['question_answer'] else '/'
         prefix = x['ans_prefix'] if x['ans_prefix'] else ''
@@ -221,23 +216,36 @@ def query_question_survey(json_data):
     question_id = json_data.get('question_id')
     patient_name = json_data.get('patient_name')
     card_no = json_data.get('card_no')
+    doctor = json_data.get('doctor')
+    operator = json_data.get('operator')
+    start_time = json_data.get('start_time')
+    end_time = json_data.get('end_time')
 
     db = DbUtil(global_config.DB_HOST, global_config.DB_USERNAME, global_config.DB_PASSWORD,
                 global_config.DB_DATABASE_GYL)
     if question_id:
-        # todo 查询问题详情
         query_sql = f"select * from nsyy_gyl.question_survey_list where id = {question_id}"
     else:
         condition_sql = ""
-        condition_sql = f" patient_name = '{patient_name}'" if patient_name else ""
+        condition_sql = f" patient_name like '%{patient_name}%'" if patient_name else ""
+        if operator:
+            condition_sql = f"{condition_sql} or operator like '%{operator}%'" if condition_sql \
+                else f" operator like '%{operator}%'"
         if card_no:
             condition_sql = f"{condition_sql} or card_no = '{card_no}'" if condition_sql else f"card_no = '{card_no}'"
+        if doctor:
+            condition_sql = f"{condition_sql} or doctor like '%{doctor}%'" if condition_sql \
+                else f"doctor like '%{doctor}%'"
+        if start_time and end_time:
+            condition_sql = f"{condition_sql} and (create_time between '{start_time}' and '{end_time}') " \
+                if condition_sql else f"create_time between '{start_time}' and '{end_time}'"
 
         if not condition_sql:
             raise Exception("查询条件不足")
         query_sql = f"select * from nsyy_gyl.question_survey_list where {condition_sql}"
 
     data = db.query_all(query_sql)
+    del db
     for d in data:
         d['patient_info'] = json.loads(d['patient_info'])
         d['ans_list'] = json.loads(d['ans_list'])
@@ -258,17 +266,33 @@ def query_question_survey_by_patient_id(patient_id):
     })
     medical_card_no = patient_infos[0].get('就诊卡号')
     id_card_no = patient_infos[0].get('身份证号')
+    query_sql = ""
     if medical_card_no == 0 and id_card_no == 0:
         raise Exception("未查询到病人信息, 病人 ID = ", patient_id)
-
+    elif medical_card_no != 0 and id_card_no != 0:
+        query_sql = f"select * from nsyy_gyl.question_survey_list where medical_card_no = '{medical_card_no}' " \
+                    f"or id_card_no = '{id_card_no}' order by create_time desc limit 1"
+    elif medical_card_no != 0:
+        query_sql = f"select * from nsyy_gyl.question_survey_list where medical_card_no = '{medical_card_no}' " \
+                    f" order by create_time desc limit 1"
+    elif id_card_no != 0:
+        query_sql = f"select * from nsyy_gyl.question_survey_list where " \
+                    f" id_card_no = '{id_card_no}' order by create_time desc limit 1"
+    if not query_sql:
+        raise Exception("未查询到病人信息, 病人 ID = ", patient_id)
     db = DbUtil(global_config.DB_HOST, global_config.DB_USERNAME, global_config.DB_PASSWORD,
                 global_config.DB_DATABASE_GYL)
-    query_sql = f"select * from nsyy_gyl.question_survey_list where medical_card_no = '{medical_card_no}' " \
-                f"or id_card_no = '{id_card_no}' order by create_time desc limit 1"
     survives = db.query_one(query_sql)
-    survives['patient_info'] = json.loads(survives['patient_info']) if survives['patient_info'] else {}
-    survives['ans_list'] = json.loads(survives['ans_list']) if survives['ans_list'] else {}
+    del db
+    if survives:
+        survives['patient_info'] = json.loads(survives['patient_info']) if survives['patient_info'] else {}
+        survives['ans_list'] = json.loads(survives['ans_list']) if survives['ans_list'] else {}
     return survives
+
+
+"""
+查看病历
+"""
 
 
 def view_medical_records(qid):
@@ -280,7 +304,20 @@ def view_medical_records(qid):
 
     if not record:
         raise Exception("未查找到病历")
-
     ans_data = json.loads(record['ans_data']) if record['ans_data'] else []
     patient_info = json.loads(record['patient_info']) if record['patient_info'] else []
     return {"patient_info": patient_info, "ans_data": ans_data}
+
+
+"""
+删除问卷
+"""
+
+
+def delete_question_survey(qid):
+    db = DbUtil(global_config.DB_HOST, global_config.DB_USERNAME, global_config.DB_PASSWORD,
+                global_config.DB_DATABASE_GYL)
+    delete_sql = f"update nsyy_gyl.question_survey_list set status = 0 where id = {qid}"
+    record = db.execute(delete_sql, need_commit=True)
+    del db
+

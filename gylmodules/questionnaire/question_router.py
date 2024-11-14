@@ -4,7 +4,7 @@ from datetime import datetime
 
 from flask import Blueprint, jsonify, request
 
-from gylmodules.questionnaire import question_server
+from gylmodules.questionnaire import question_server, question_config
 
 question = Blueprint('question survey', __name__, url_prefix='/question')
 
@@ -59,18 +59,10 @@ def create_patient_info():
 
 @question.route('/query_tpl_list', methods=['POST', 'GET'])
 def query_tpl_list():
-    try:
-        tpl = question_server.query_tpl_list()
-    except Exception as e:
-        print(datetime.now(), "query_tpl_list exception, param: ", e)
-        return jsonify({
-            'code': 50000,
-            'res': "问题模版类型查询异常: " + e.__str__()
-        })
     return jsonify({
         'code': 20000,
         'res': 'query successes',
-        'data': tpl
+        'data': question_config.tpl_list
     })
 
 
@@ -208,6 +200,29 @@ def view_medical_records():
         'code': 20000,
         'res': 'view medical records successes',
         'data': medical_records
+    })
+
+
+"""
+删除问卷
+"""
+
+
+@question.route('/delete_question_survey', methods=['POST', 'DELETE'])
+def delete_question_survey():
+    json_data = {}
+    try:
+        json_data = json.loads(request.get_data().decode('utf-8'))
+        question_server.delete_question_survey(json_data.get('qid'))
+    except Exception as e:
+        print(datetime.now(), "delete_question_survey exception, param: ", json_data, e)
+        return jsonify({
+            'code': 50000,
+            'res': "门诊病历查询异常: " + e.__str__()
+        })
+    return jsonify({
+        'code': 20000,
+        'res': 'delete successes'
     })
 
 

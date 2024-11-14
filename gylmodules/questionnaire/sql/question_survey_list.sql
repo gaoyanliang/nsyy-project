@@ -1,17 +1,17 @@
 /*
  Navicat Premium Dump SQL
 
- Source Server         : yanliang
+ Source Server         : 192.168.3.12
  Source Server Type    : MySQL
- Source Server Version : 80300 (8.3.0)
- Source Host           : 127.0.0.1:3306
+ Source Server Version : 80040 (8.0.40-0ubuntu0.20.04.1)
+ Source Host           : 192.168.3.12:3306
  Source Schema         : nsyy_gyl
 
  Target Server Type    : MySQL
- Target Server Version : 80300 (8.3.0)
+ Target Server Version : 80040 (8.0.40-0ubuntu0.20.04.1)
  File Encoding         : 65001
 
- Date: 31/10/2024 15:03:28
+ Date: 14/11/2024 10:13:35
 */
 
 SET NAMES utf8mb4;
@@ -33,7 +33,9 @@ CREATE TABLE `question_survey_list` (
   `create_time` datetime DEFAULT NULL,
   `medical_card_no` varchar(20) DEFAULT NULL COMMENT '就诊卡号',
   `id_card_no` varchar(20) DEFAULT NULL COMMENT '身份证号',
+  `doctor` varchar(50) DEFAULT NULL COMMENT '医生名字',
+  `operator` varchar(50) DEFAULT NULL COMMENT '操作人',
   PRIMARY KEY (`id`)
-) ENGINE=InnoDB AUTO_INCREMENT=9 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+) ENGINE=InnoDB AUTO_INCREMENT=112 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 
 SET FOREIGN_KEY_CHECKS = 1;
