@@ -4,6 +4,7 @@ import json
 import redis
 import requests
 
+from contextlib import closing
 from itertools import groupby
 from datetime import datetime, timedelta
 from gylmodules import global_config
@@ -550,6 +551,24 @@ def hbot_charge(json_data):
         del db
         raise Exception("扣费失败：本系统暂时仅支持对住院患者进行扣款, 门诊患者请刷就诊卡。")
 
+    # 查询是否扣过费（上次扣费因超时报错，但其实扣款成功）
+    sick_id = register_record.get('patient_info')
+    sick_id = json.loads(sick_id)
+    sick_id = sick_id.get('sick_id')
+    db_source = 'nshis' if int(register_record.get('comp_type')) == 12 else 'kfhis'
+    sql = f"select * from 住院费用记录 where 病人ID = {sick_id} and 收费细目ID = 18248 and 记录性质 < 10 " \
+          f"and 记录状态 = 1 and 发生时间 >= SYSDATE - INTERVAL '30' MINUTE order by 发生时间 desc"
+    charge_list = call_third_systems_obtain_data('orcl_db_read', sql, db_source)
+    if charge_list:
+        # 如果已经扣过费了直接更新治疗记录
+        update_sql = f"update nsyy_gyl.hbot_treatment_record " \
+                     f"set pay_status = 1, pay_num = {charge_list[0].get('数次')}, " \
+                     f"pay_no = '{charge_list[0].get('NO')}' " \
+                     f"where id = '{tid}' "
+        db.execute(update_sql, need_commit=True)
+        del db
+        return
+
     patient_id, homepage_id, doc_advice_id, bill_dept_code, bill_people = '', '', '', '', ''
     if not register_record.get('medical_order_info'):
         # 如果不存在医嘱，查询患者信息（患者信息需要重新查，防止患者换科室）
@@ -565,6 +584,7 @@ def hbot_charge(json_data):
         bill_dept_code, bill_people = medical_order_info.get('bill_dept_code'), medical_order_info.get('bill_people')
         doc_advice_id = medical_order_info.get('doc_advice_id')
 
+    # 总院 comp——id 使用 0， 康复中医院 使用 32
     comp_id, executor, executor_code, execution_dept_code = 0, "刘春敏", "0392", "0421"
     if int(register_record.get('comp_type')) == 32:
         comp_id, executor, executor_code, execution_dept_code = 32, "崔世阳", "0408", "00049"
@@ -582,17 +602,21 @@ def hbot_charge(json_data):
             """
     response_data = ''
     try:
+        url = "http://192.168.3.12:6080/his_webservice"
         if global_config.run_in_local:
-            response = requests.post("http://192.168.124.53:6080/his_webservice", data=param, timeout=3)
-        else:
-            response = requests.post("http://192.168.3.12:6080/his_webservice", data=param, timeout=3)
-        response_data = response.text
-        print(datetime.now(), "高压氧扣费返回:", response_data, pay_info)
+            url = "http://192.168.124.53:6080/his_webservice"
+        data = ''
+        with requests.Session() as session:
+            with closing(session.post(url, data=param, timeout=5)) as response:
+                response.raise_for_status()  # Ensure HTTP errors raise exceptions
+                response_data = response.text
 
+        print(datetime.now(), "高压氧扣费返回:", response_data, pay_info)
         start = response_data.find("<return>") + len("<return>")
         end = response_data.find("</return>")
         json_response = response_data[start:end].strip()
         data = json.loads(json_response)
+
         #  [{"状态": "0", "描述": "None", "his收费no": "YH095105", "收费细目id": "18248", "数量": "3.5"}]
         if data and data[0].get('状态') == '0':
             update_sql = f"update nsyy_gyl.hbot_treatment_record " \
@@ -600,15 +624,17 @@ def hbot_charge(json_data):
                          f"where id = '{tid}' "
             db.execute(update_sql, need_commit=True)
         else:
+            redis_client.delete(f"hbot_charge:{rid}:{tid}")
             if data:
                 err_info = data[0].get('描述')
                 if err_info.__contains__('没有找到患者信息'):
-                    raise Exception("扣费失败：没有找到患者信息, 请确认患者是否已经出院")
+                    raise Exception("没有找到患者信息, 请确认患者是否已经出院")
                 else:
-                    raise Exception("扣费失败：", err_info)
+                    raise Exception(err_info)
             else:
-                raise Exception("扣费失败：请联系技术人员处理！", data)
+                raise Exception("扣费请求无返回值", data)
     except Exception as e:
+        redis_client.delete(f"hbot_charge:{rid}:{tid}")
         print(datetime.now(), f'高压氧扣费失败, pay_info', pay_info, " pay return : ", response_data, e)
         del db
         raise Exception("扣费失败：请联系技术人员处理！", e)
