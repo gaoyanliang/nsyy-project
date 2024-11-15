@@ -261,11 +261,13 @@ def query_register_record(json_data):
 def update_register_start_time(json_data):
     rid = json_data.get('id')
     start_time = json_data.get('start_time')
-    if not start_time:
-        raise Exception('更新开始时间，开始时间不能为空')
+    execution_days = json_data.get('execution_days')
+    if not start_time and not execution_days:
+        raise Exception('更新开始时间/执行天数，开始时间/执行天数 不能为空')
     db = DbUtil(global_config.DB_HOST, global_config.DB_USERNAME, global_config.DB_PASSWORD,
                 global_config.DB_DATABASE_GYL)
-    update_sql = f"update nsyy_gyl.hbot_register_record set start_time = '{start_time}' where id = {rid}"
+    condition_sql = f"start_time = '{start_time}'" if start_time else f"execution_days = {execution_days}"
+    update_sql = f"update nsyy_gyl.hbot_register_record set {condition_sql} where id = {rid}"
     db.execute(update_sql, need_commit=True)
     del db
 
