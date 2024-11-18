@@ -172,6 +172,8 @@ def update_question_survey_ans(json_data):
     qs_id = json_data.get('id')
     ans_data = json.dumps(ans_data, default=str, ensure_ascii=False)
     ans_list = json.dumps(json_data['ans_list'], default=str, ensure_ascii=False)
+    ans_list = ans_list.replace('\r', '\\r')
+    ans_list = ans_list.replace('\n', '\\n')
     db = DbUtil(global_config.DB_HOST, global_config.DB_USERNAME, global_config.DB_PASSWORD,
                 global_config.DB_DATABASE_GYL)
 
@@ -242,7 +244,7 @@ def query_question_survey(json_data):
 
         if not condition_sql:
             raise Exception("查询条件不足")
-        query_sql = f"select * from nsyy_gyl.question_survey_list where {condition_sql}"
+        query_sql = f"select * from nsyy_gyl.question_survey_list where status = 1 and ({condition_sql})"
 
     data = db.query_all(query_sql)
     del db
@@ -270,13 +272,14 @@ def query_question_survey_by_patient_id(patient_id):
     if medical_card_no == 0 and id_card_no == 0:
         raise Exception("未查询到病人信息, 病人 ID = ", patient_id)
     elif medical_card_no != 0 and id_card_no != 0:
-        query_sql = f"select * from nsyy_gyl.question_survey_list where medical_card_no = '{medical_card_no}' " \
-                    f"or id_card_no = '{id_card_no}' order by create_time desc limit 1"
+        query_sql = f"select * from nsyy_gyl.question_survey_list where status = 1 and " \
+                    f"(medical_card_no = '{medical_card_no}' " \
+                    f"or id_card_no = '{id_card_no}') order by create_time desc limit 1"
     elif medical_card_no != 0:
-        query_sql = f"select * from nsyy_gyl.question_survey_list where medical_card_no = '{medical_card_no}' " \
-                    f" order by create_time desc limit 1"
+        query_sql = f"select * from nsyy_gyl.question_survey_list where status = 1 and" \
+                    f" medical_card_no = '{medical_card_no}' order by create_time desc limit 1"
     elif id_card_no != 0:
-        query_sql = f"select * from nsyy_gyl.question_survey_list where " \
+        query_sql = f"select * from nsyy_gyl.question_survey_list where status = 1 and " \
                     f" id_card_no = '{id_card_no}' order by create_time desc limit 1"
     if not query_sql:
         raise Exception("未查询到病人信息, 病人 ID = ", patient_id)
