@@ -98,7 +98,7 @@ def query_treatment_record():
     json_data = {}
     try:
         json_data = json.loads(request.get_data().decode('utf-8'))
-        treatment_records = hbot_server.query_treatment_record(json_data)
+        treatment_records, total, pending, implemented, canceled = hbot_server.query_treatment_record(json_data)
     except Exception as e:
         print(datetime.now(), "query_treatment_record exception, param: ", json_data, e)
         return jsonify({
@@ -108,7 +108,11 @@ def query_treatment_record():
     return jsonify({
         'code': 20000,
         'res': 'query successes',
-        'data': treatment_records
+        'data': treatment_records,
+        'total': total,
+        'pending': pending,
+        'implemented': implemented,
+        'canceled': canceled
     })
 
 

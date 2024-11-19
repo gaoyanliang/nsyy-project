@@ -308,8 +308,17 @@ def query_treatment_record(json_data):
     db = DbUtil(global_config.DB_HOST, global_config.DB_USERNAME, global_config.DB_PASSWORD,
                 global_config.DB_DATABASE_GYL)
     data = db.query_all(query_sql)
+    total, pending, implemented, canceled = 0, 0, 0, 0
     if data:
+        total = len(data)
         for record in data:
+            if 'execution_status' in record:
+                if record['execution_status'] == hbot_config.treatment_record_status['pending']:
+                    pending = pending + 1
+                elif record['execution_status'] == hbot_config.treatment_record_status['implement']:
+                    implemented = implemented + 1
+                else:
+                    canceled = canceled + 1
             record['record_info'] = json.loads(record['record_info']) if record.get('record_info') else {}
             record['sign_info'] = json.loads(record['sign_info']) if record.get('sign_info') else {}
             if record.get('doc1'):
@@ -339,7 +348,7 @@ def query_treatment_record(json_data):
                              f"where id={data[0].get('id')}"
                 db.execute(update_sql, need_commit=True)
     del db
-    return data
+    return data, total, pending, implemented, canceled
 
 
 """
