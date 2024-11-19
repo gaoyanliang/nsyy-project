@@ -42,7 +42,7 @@ def call_third_systems_obtain_data(url: str, type: str, param: dict):
 def query_patient_info(card_no):
     patient_infos = call_third_systems_obtain_data('int_api', 'orcl_db_read', {
         "type": "orcl_db_read", "db_source": "nshis", "randstr": "XPFDFZDF7193CIONS1PD7XCJ3AD4ORRC",
-        "sql": f"select * from 病人信息 where 就诊卡号 = '{card_no}' or 身份证号 = '{card_no}'"
+        "sql": f"select * from 病人信息 where 就诊卡号 = '{card_no}' or 身份证号 = '{card_no}' order by 就诊时间 desc"
     })
     if not patient_infos:
         raise Exception('未找到该患者挂号信息，请仔细核对 就诊卡号/身份证号 是否正确')
