@@ -101,7 +101,7 @@ def query_patient_info(patient_type, patient_id, comp_type):
         # 门诊
         sql = 'select a.*, bm.编码 执行部门编码, bm.名称 执行部门名称, b.联系人电话 ' \
               'from 病人挂号记录 a left join 病人信息 b on a.病人id=b.病人id join 部门表 bm on a.执行部门id = bm.id ' \
-              f"where ( b.就诊卡号 like '%{patient_id}%' or b.身份证号 like '%{patient_id}%' ) order by a.登记时间 desc "
+              f"where ( b.就诊卡号 = '{patient_id}' or b.身份证号 = '{patient_id}' or a.ID = '{patient_id}' ) order by a.登记时间 desc "
         patient_infos = call_third_systems_obtain_data('orcl_db_read', sql, db_source)
         if not patient_infos:
             raise Exception('未找到该住院号对应的患者信息，请仔细核对住院号是否正确')
