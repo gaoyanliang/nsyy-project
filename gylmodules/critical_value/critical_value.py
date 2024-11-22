@@ -363,7 +363,9 @@ def create_cv(cvd):
         cv_idd[cv_source].append(cv_id)
     for cv_source, cv_ids in cv_idd.items():
         try:
-            invalid_crisis_value(cv_ids, cv_source)
+            invalid_info = {"invalid_person": "第三方系统", "invalid_time": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+                            "invalid_reason": "系统触发"}
+            invalid_crisis_value(cv_ids, cv_source, invalid_info)
         except Exception as e:
             print(datetime.now(), "作废危急值异常：cv_ids = ", cv_ids, ' cv_source = ', cv_source, 'Exception = ', e)
 
@@ -452,7 +454,7 @@ def manual_cv_feedback(record):
 """
 
 
-def invalid_crisis_value(cv_ids, cv_source, invalid_remote: bool = False):
+def invalid_crisis_value(cv_ids, cv_source, invalid_info, invalid_remote: bool = False):
     print(datetime.now(), '作废危急值： cv_source=', cv_source, " cv_ids=", cv_ids, invalid_remote)
     # 从内存中移除
     for cv_id in cv_ids:
@@ -466,8 +468,11 @@ def invalid_crisis_value(cv_ids, cv_source, invalid_remote: bool = False):
     # 更新危急值状态未作废
     cv_ids = [f"'{item}'" for item in cv_ids]
     ids = ','.join(cv_ids)
-    update_sql = f'UPDATE nsyy_gyl.cv_info SET state = {cv_config.INVALID_STATE}' \
-                 f' WHERE cv_id in ({ids}) and cv_source = {cv_source} and state != 0'
+    update_sql = f"UPDATE nsyy_gyl.cv_info SET state = {cv_config.INVALID_STATE}, " \
+                 f"invalid_person = '{invalid_info.get('invalid_person')}', " \
+                 f"invalid_time = '{invalid_info.get('invalid_time')}', " \
+                 f"invalid_reason = '{invalid_info.get('invalid_reason')}' " \
+                 f" WHERE cv_id in ({ids}) and cv_source = {cv_source} and state != 0"
     db.execute(update_sql, need_commit=True)
     del db
 
@@ -869,7 +874,7 @@ def create_cv_by_system(json_data, cv_source):
 
 
 def get_cv_list(json_data):
-    # type =1 未处理， type =2 已处理, type = 3 总流程超时, type = 4 所有状态
+    # type =1 未处理, type =2 已处理, type = 3 总流程超时, type = 4 所有状态, type = 5 已作废
     db = DbUtil(global_config.DB_HOST, global_config.DB_USERNAME, global_config.DB_PASSWORD,
                 global_config.DB_DATABASE_GYL)
 
@@ -895,6 +900,8 @@ def get_cv_list(json_data):
         state_sql = ' is_timeout = 1 '
     if int(json_data.get('type')) == 4:
         state_sql = ' state >= 0 '
+    if int(json_data.get('type')) == 5:
+        state_sql = ' state = 0 '
 
     alert_dept_id = json_data.get('alert_dept_id')
     alert_dept_id_sql = ''
@@ -1269,8 +1276,12 @@ def doctor_handle_cv(json_data):
             update_total_timeout_sql = ''
             if (cur_time - create_time).seconds > int(timeout):
                 update_total_timeout_sql = 'is_timeout = 1 , '
+
+            actual_handle_time = cv.get('actual_handle_time') if cv.get('actual_handle_time') else timer
+            reason_for_remark = cv.get('reason_for_remark') if cv.get('reason_for_remark') else '无'
+            remark_sql = f"actual_handle_time = '{actual_handle_time}', reason_for_remark = '{reason_for_remark}' , "
             # 更新危机值状态为 【医生处理】
-            update_sql = f'UPDATE nsyy_gyl.cv_info SET {update_total_timeout_sql} state = %s, ' \
+            update_sql = f'UPDATE nsyy_gyl.cv_info SET {update_total_timeout_sql} state = %s, {remark_sql} ' \
                          f' method = %s, handle_time = %s, handle_doctor_name = %s, handle_doctor_id = %s ' \
                          'WHERE cv_id = %s and cv_source = %s '
             args = (cv_config.DOCTOR_HANDLE_STATE, method, timer, handler_name, handler_id, cv_id, cv_source)
@@ -1395,16 +1406,21 @@ def report_form(json_data):
     end_time = json_data.get("end_time")
     patient_type = json_data.get("patient_type")
     query_by = json_data.get("query_by")
+    # query type = 0 按处理（系统）时间查询，1 按实际处理时间查询
+    query_type = int(json_data.get("query_type", 0))
 
     if not query_by:
         raise Exception('query_by 参数不能为空, 请刷新重试')
 
     db = DbUtil(global_config.DB_HOST, global_config.DB_USERNAME, global_config.DB_PASSWORD,
                 global_config.DB_DATABASE_GYL)
-
     time_condition = ''
     if start_time and end_time:
         time_condition = f' WHERE time BETWEEN \'{start_time}\' AND \'{end_time}\' '
+
+    handle_condition_sql = "is_timeout = 1"
+    if query_type:
+        handle_condition_sql = f"TIMESTAMPDIFF(MINUTE, alertdt, COALESCE(actual_handle_time, handle_time)) > 10"
 
     ptype = ''
     if patient_type:
@@ -1419,9 +1435,11 @@ def report_form(json_data):
                     f'COUNT(*) AS total_cv_count, ' \
                     f'SUM(CASE WHEN (state = 9 or state = 0) THEN 1 ELSE 0 END) AS handled_count, ' \
                     f'SUM(CASE WHEN (handle_time IS NULL and state != 0) THEN 1 ELSE 0 END) AS handled_undo_count, ' \
-                    f'SUM(CASE WHEN is_timeout = 1 and state != 0 THEN 1 ELSE 0 END) AS handled_timeout_count, ' \
+                    f'SUM(CASE WHEN {handle_condition_sql} and state != 0 THEN 1 ELSE 0 END) AS handled_timeout_count, ' \
+                    f'SUM(CASE WHEN state = 0 THEN 1 ELSE 0 END) AS invalid_count, ' \
                     f'ROUND((SUM(CASE WHEN (state = 9 or state = 0) THEN 1 ELSE 0 END) / COUNT(*)) * 100, 2) AS handling_rate, ' \
-                    f'ROUND((SUM(CASE WHEN (is_timeout = 1 and state != 0) THEN 1 ELSE 0 END) / COUNT(*)) * 100, 2) AS handling_timeout_rate ' \
+                    f'ROUND((SUM(CASE WHEN state = 0 THEN 1 ELSE 0 END) / COUNT(*)) * 100, 2) AS invalid_rate, ' \
+                    f'ROUND((SUM(CASE WHEN ({handle_condition_sql} and state != 0) THEN 1 ELSE 0 END) / COUNT(*)) * 100, 2) AS handling_timeout_rate ' \
                     f'FROM nsyy_gyl.cv_info {time_condition} {ptype} GROUP BY dept_name ' \
                     f'UNION ALL ' \
                     f'SELECT ' \
@@ -1431,9 +1449,11 @@ def report_form(json_data):
                     f'COUNT(*) AS total_cv_count, ' \
                     f'SUM(CASE WHEN nurse_recv_time IS NOT NULL OR (nurse_recv_time IS NULL AND handle_time IS NOT NULL) OR state = 0 THEN 1 ELSE 0 END ) AS handled_count, ' \
                     f'SUM(CASE WHEN nurse_recv_time IS NULL AND handle_time IS NULL AND state != 0 THEN 1 ELSE 0 END ) AS handled_undo_count, ' \
-                    f'SUM(CASE WHEN is_timeout = 1 AND state != 0 THEN 1 ELSE 0 END) AS handled_timeout_count, ' \
+                    f'SUM(CASE WHEN {handle_condition_sql} AND state != 0 THEN 1 ELSE 0 END) AS handled_timeout_count, ' \
+                    f'SUM(CASE WHEN state = 0 THEN 1 ELSE 0 END) AS invalid_count, ' \
                     f'ROUND((SUM(CASE WHEN nurse_recv_time IS NOT NULL OR (nurse_recv_time IS NULL AND handle_time IS NOT NULL) OR state = 0 THEN 1 ELSE 0 END) / COUNT(*)) * 100, 2) AS handling_rate, ' \
-                    f'ROUND((SUM(CASE WHEN (is_timeout = 1 and state != 0) THEN 1 ELSE 0 END ) / COUNT(*)) * 100, 2) AS handling_timeout_rate ' \
+                    f'ROUND((SUM(CASE WHEN state = 0 THEN 1 ELSE 0 END) / COUNT(*)) * 100, 2) AS invalid_rate, ' \
+                    f'ROUND((SUM(CASE WHEN ({handle_condition_sql} and state != 0) THEN 1 ELSE 0 END ) / COUNT(*)) * 100, 2) AS handling_timeout_rate ' \
                     f'FROM nsyy_gyl.cv_info {time_condition} {ptype} GROUP BY ward_name '
     elif query_by == 'alert_dept':
         # 根据上报科室查询
@@ -1441,9 +1461,11 @@ def report_form(json_data):
                     f'COUNT(*) AS total_cv_count, ' \
                     f'SUM(CASE WHEN (state = 9 or state = 0) THEN 1 ELSE 0 END) AS handled_count, ' \
                     f'SUM(CASE WHEN (handle_time IS NULL and state != 0) THEN 1 ELSE 0 END) AS handled_undo_count, ' \
-                    f'SUM(CASE WHEN is_timeout = 1 and state != 0 THEN 1 ELSE 0 END) AS handled_timeout_count, ' \
+                    f'SUM(CASE WHEN {handle_condition_sql} and state != 0 THEN 1 ELSE 0 END) AS handled_timeout_count, ' \
+                    f'SUM(CASE WHEN state = 0 THEN 1 ELSE 0 END) AS invalid_count, ' \
                     f'ROUND((SUM(CASE WHEN (state = 9 or state = 0) THEN 1 ELSE 0 END) / COUNT(*)) * 100, 2) AS handling_rate, ' \
-                    f'ROUND((SUM(CASE WHEN (is_timeout = 1 and state != 0) THEN 1 ELSE 0 END) / COUNT(*)) * 100, 2) AS handling_timeout_rate ' \
+                    f'ROUND((SUM(CASE WHEN state = 0 THEN 1 ELSE 0 END) / COUNT(*)) * 100, 2) AS invalid_rate, ' \
+                    f'ROUND((SUM(CASE WHEN ({handle_condition_sql} and state != 0) THEN 1 ELSE 0 END) / COUNT(*)) * 100, 2) AS handling_timeout_rate ' \
                     f'FROM nsyy_gyl.cv_info {time_condition} GROUP BY alert_dept_name '
     elif query_by == 'cv_source':
         # 根据危急值类型查询
@@ -1459,9 +1481,11 @@ def report_form(json_data):
                     f'COUNT(*) AS total_cv_count, ' \
                     f'SUM(CASE WHEN (state = 9 or state = 0) THEN 1 ELSE 0 END) AS handled_count, ' \
                     f'SUM(CASE WHEN (handle_time IS NULL and state != 0) THEN 1 ELSE 0 END) AS handled_undo_count, ' \
-                    f'SUM(CASE WHEN is_timeout = 1 and state != 0 THEN 1 ELSE 0 END) AS handled_timeout_count, ' \
+                    f'SUM(CASE WHEN {handle_condition_sql} and state != 0 THEN 1 ELSE 0 END) AS handled_timeout_count, ' \
+                    f'SUM(CASE WHEN state = 0 THEN 1 ELSE 0 END) AS invalid_count, ' \
                     f'ROUND((SUM(CASE WHEN (state = 9 or state = 0) THEN 1 ELSE 0 END) / COUNT(*)) * 100, 2) AS handling_rate, ' \
-                    f'ROUND((SUM(CASE WHEN (is_timeout = 1 and state != 0) THEN 1 ELSE 0 END) / COUNT(*)) * 100, 2) AS handling_timeout_rate ' \
+                    f'ROUND((SUM(CASE WHEN state = 0 THEN 1 ELSE 0 END) / COUNT(*)) * 100, 2) AS invalid_rate, ' \
+                    f'ROUND((SUM(CASE WHEN ({handle_condition_sql} and state != 0) THEN 1 ELSE 0 END) / COUNT(*)) * 100, 2) AS handling_timeout_rate ' \
                     f'FROM nsyy_gyl.cv_info {time_condition} GROUP BY cv_source '
     else:
         raise Exception('query_by 参数错误, 无法处理 ', query_by)

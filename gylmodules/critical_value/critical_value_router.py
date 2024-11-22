@@ -114,7 +114,10 @@ def invalid_cv():
         json_data = json.loads(request.get_data().decode('utf-8'))
         cv_id = json_data.get('cv_id')
         cv_source = json_data.get('cv_source')
-        critical_value.invalid_crisis_value([str(cv_id)], int(cv_source), True)
+        invalid_info = {"invalid_person": json_data.get('invalid_person', ""),
+                        "invalid_time": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+                        "invalid_reason": json_data.get('invalid_reason', "")}
+        critical_value.invalid_crisis_value([str(cv_id)], int(cv_source), invalid_info, True)
     except Exception as e:
         timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
         msg = f"[{timestamp}] invalid_cv Exception occurred: {e.__str__()}, param: {json_data}"
