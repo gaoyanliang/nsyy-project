@@ -374,7 +374,7 @@ def update_register_record(json_data):
         set_sql = f"doc2 = '1', doc1 = '{json.dumps(doc1, default=str)}', operator = '{json_data.get('operator')}' "
         update_sql = f"update nsyy_gyl.hbot_register_record set {set_sql} where register_id = '{register_id}' "
         db.execute(update_sql, need_commit=True)
-        write_new_treatment_record(register_id, patient_id, start_date, db)
+        write_new_treatment_record(register_id, patient_id, start_date, start_time, db)
         del db
         return
 
@@ -406,7 +406,7 @@ def update_register_record(json_data):
 
         update_sql = f"update nsyy_gyl.hbot_register_record set {set_sql} where register_id = '{register_id}' "
         db.execute(update_sql, need_commit=True)
-        write_new_treatment_record(register_id, patient_id, start_date, db)
+        write_new_treatment_record(register_id, patient_id, start_date, register_record.get('start_time'), db)
         del db
         return
 
@@ -497,7 +497,7 @@ def update_treatment_record(json_data):
             if int(cnt.get('cnt')) < int(register_record.get('execution_days')):
                 tomorrow = datetime.strptime(treatment_record.get('record_date'), '%Y-%m-%d') + timedelta(days=1)
                 write_new_treatment_record(treatment_record.get('register_id'), treatment_record.get('patient_id'),
-                                           tomorrow.strftime('%Y-%m-%d'), db)
+                                           tomorrow.strftime('%Y-%m-%d'), treatment_record.get('record_time'), db)
             else:
                 # 更新登录记录的状态
                 update_sql = f"update nsyy_gyl.hbot_register_record set execution_status = {hbot_config.register_status['completed']} " \
@@ -711,11 +711,11 @@ def hbot_run_everyday():
                          f"operator = 'auto task' where id = {treatment_record.get('id')} "
             db.execute(update_sql, need_commit=True)
             write_new_treatment_record(treatment_record.get('register_id'), treatment_record.get('patient_id'),
-                                       today, db)
+                                       today, treatment_record.get('record_time'), db)
     del db
 
 
-def write_new_treatment_record(register_id, patient_id, record_date, db):
+def write_new_treatment_record(register_id, patient_id, record_date, record_time, db):
     query_sql = f"select * from nsyy_gyl.hbot_treatment_record where register_id = '{register_id}' " \
                 f"and record_date = '{record_date}' and patient_id = '{patient_id}'"
     exist_record = db.query_one(query_sql)
@@ -727,23 +727,30 @@ def write_new_treatment_record(register_id, patient_id, record_date, db):
             record_date = datetime.strptime(datetime.now().strftime('%Y-%m-%d'), '%Y-%m-%d') + timedelta(days=1)
             record_date = record_date.strftime('%Y-%m-%d')
 
-    query_sql = f"select * from nsyy_gyl.hbot_register_record where register_id = '{register_id}' " \
-                f"and patient_id = '{patient_id}'"
-    register_record = db.query_one(query_sql)
-    if register_record['execution_status'] != hbot_config.register_status['in_progress']:
-        return
-
-    # 插入明天的执行记录
-    treatment_record = {'register_id': register_id, 'record_id': datetime.now().strftime("%Y%m%d%H%M%S"),
-                        'patient_id': patient_id, 'record_date': record_date,
-                        'record_time': register_record.get('start_time'),
-                        'execution_status': hbot_config.treatment_record_status['pending']}
-    fileds = ','.join(treatment_record.keys())
-    args = str(tuple(treatment_record.values()))
-    insert_sql = f"INSERT INTO nsyy_gyl.hbot_treatment_record ({fileds}) VALUES {args}"
-    last_rowid = db.execute(insert_sql, need_commit=True)
-    if last_rowid == -1:
-        del db
+    # 插入新的执行记录
+    treatment_records = []
+    if datetime.strptime(record_date, "%Y-%m-%d").date() >= datetime.now().date():
+        treatment_records.append({'register_id': register_id, 'record_id': datetime.now().strftime("%Y%m%d%H%M%S"),
+                                  'patient_id': patient_id, 'record_date': record_date, 'record_time': record_time,
+                                  'execution_status': hbot_config.treatment_record_status['pending']})
+    else:
+        # 设置起始日期和结束日期
+        start_date = datetime.strptime(record_date, "%Y-%m-%d")
+        end_date = datetime.today()
+        current_date = start_date
+        while current_date.date() <= end_date.date():
+            today_execution_status = hbot_config.treatment_record_status['cancel_this']
+            if current_date.date() == end_date.date():
+                today_execution_status = hbot_config.treatment_record_status['pending']
+            treatment_records.append({'register_id': register_id, 'record_id': datetime.now().strftime("%Y%m%d%H%M%S"),
+                                      'patient_id': patient_id, 'record_date': current_date.strftime("%Y-%m-%d"),
+                                      'record_time': record_time, 'execution_status': today_execution_status})
+            current_date += timedelta(days=1)
+    for treatment_record in treatment_records:
+        fileds = ','.join(treatment_record.keys())
+        args = str(tuple(treatment_record.values()))
+        insert_sql = f"INSERT INTO nsyy_gyl.hbot_treatment_record ({fileds}) VALUES {args}"
+        last_rowid = db.execute(insert_sql, need_commit=True)
 
 
 """
