@@ -234,7 +234,7 @@ def query_register_record(json_data):
                                         f"and '{json_data.get('end_date')}'"
 
     today_str = datetime.now().strftime('%Y-%m-%d')
-    query_sql = f"select a.*, COALESCE( b.execution_status, 0) as today_status " \
+    query_sql = f"select a.*, COALESCE( b.execution_status, 0) as today_status, COALESCE( b.pay_num, 0) as pay_num " \
                 f"from nsyy_gyl.hbot_register_record a left join nsyy_gyl.hbot_treatment_record b " \
                 f"on a.register_id = b.register_id and b.record_date = '{today_str}' where {condition_sql}"
 
