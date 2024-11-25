@@ -46,9 +46,9 @@ def call_third_systems_obtain_data(type: str, sql: str, db_source: str):
 def query_medical_order(patient_id, register_time, db_source):
     data = None
     sql = "select a.*, bm.编码 开嘱科室编码, b.住院号 from 病人医嘱记录 a, 病案主页 b, 部门表 bm " \
-          f"where a.病人id=b.病人id and a.主页id=b.主页id and a.开嘱科室id = bm.id and b.住院号='{patient_id}' " \
-          f"and a.开嘱时间 >= to_date('{register_time}', 'yyyy-mm-dd') - 5 " \
-          f"and a.医嘱内容 like '%高压氧%' and a.执行标记 != -1 and a.医嘱状态 not in (-1, 2, 4)"
+          f"where a.病人id=b.病人id and a.主页id=b.主页id and a.开嘱科室id = bm.id " \
+          f"and a.开嘱时间 >= to_date('{register_time}', 'yyyy-mm-dd') - 30 and a.医嘱内容 like '%高压氧%' " \
+          f"and a.执行标记 != -1 and a.医嘱状态 not in (-1, 2, 4) and a.停嘱时间 is null and b.住院号='{patient_id}'"
     medical_order_list = call_third_systems_obtain_data('orcl_db_read', sql, db_source)
     if medical_order_list:
         data = {
@@ -67,6 +67,15 @@ def query_medical_order(patient_id, register_time, db_source):
         print(datetime.now(), 'DEBUG 查询出 ', len(medical_order_list), ' 条高压氧医嘱 住院号=', patient_id,
               register_time)
     return data
+
+
+def has_medical_order_been_stopped(doc_advice_id, db_source):
+    data = None
+    sql = f"select * from 病人医嘱记录 where ID = {doc_advice_id} "
+    medical_order = call_third_systems_obtain_data('orcl_db_read', sql, db_source)
+    if medical_order and medical_order[0].get('停嘱时间'):
+        return True
+    return False
 
 
 """
@@ -183,7 +192,7 @@ def register(json_data):
         medical_order_info = query_medical_order(patient_id, datetime.today().strftime('%Y-%m-%d'), db_source)
         if medical_order_info and len(medical_order_info) > 1:
             json_data['medical_order_status'] = hbot_config.medical_order_status['ordered']
-            json_data['medical_order_info'] = json.dumps(medical_order_info, default=str)
+            json_data['medical_order_info'] = json.dumps(medical_order_info, ensure_ascii=False, default=str)
         # 2. 查询生命体征
         vital_signs = query_vital_signs(json_data['patient_info']['sick_id'], json_data['patient_info']['homepage_id'],
                                         db_source)
@@ -192,8 +201,8 @@ def register(json_data):
         doc1['p'] = vital_signs.get('脉搏') if vital_signs.get('脉搏') else ''
         doc1['r'] = vital_signs.get('呼吸') if vital_signs.get('呼吸') else ''
 
-    json_data['doc1'] = json.dumps(doc1, default=str)
-    json_data['patient_info'] = json.dumps(json_data['patient_info'], default=str)
+    json_data['doc1'] = json.dumps(doc1, ensure_ascii=False, default=str)
+    json_data['patient_info'] = json.dumps(json_data['patient_info'], ensure_ascii=False, default=str)
     db = DbUtil(global_config.DB_HOST, global_config.DB_USERNAME, global_config.DB_PASSWORD,
                 global_config.DB_DATABASE_GYL)
     fileds, args = ','.join(json_data.keys()), str(tuple(json_data.values()))
@@ -344,7 +353,8 @@ def query_treatment_record(json_data):
                 doc1['p'] = vital_signs.get('脉搏') if vital_signs.get('脉搏') else ''
                 doc1['r'] = vital_signs.get('呼吸') if vital_signs.get('呼吸') else ''
                 data[0]['doc1'] = doc1
-                update_sql = f"update nsyy_gyl.hbot_register_record set doc1='{json.dumps(doc1)}' " \
+                update_sql = f"update nsyy_gyl.hbot_register_record " \
+                             f"set doc1='{json.dumps(doc1, ensure_ascii=False, default=str)}' " \
                              f"where id={data[0].get('id')}"
                 db.execute(update_sql, need_commit=True)
     del db
@@ -371,7 +381,7 @@ def update_register_record(json_data):
     doc1 = json_data.get('doc1')
     if doc1:
         # todo doc2 暂时没有意义，仅仅用来表示是否已经签署知情同意书
-        set_sql = f"doc2 = '1', doc1 = '{json.dumps(doc1, default=str)}', operator = '{json_data.get('operator')}' "
+        set_sql = f"doc2 = '1', doc1 = '{json.dumps(doc1, ensure_ascii=False, default=str)}', operator = '{json_data.get('operator')}' "
         update_sql = f"update nsyy_gyl.hbot_register_record set {set_sql} where register_id = '{register_id}' "
         db.execute(update_sql, need_commit=True)
         write_new_treatment_record(register_id, patient_id, start_date, start_time, db)
@@ -446,7 +456,7 @@ def update_treatment_record(json_data):
 
     # 更新治疗记录信息
     if record_info:
-        set_info = f" record_info = '{json.dumps(record_info, default=str)}'"
+        set_info = f" record_info = '{json.dumps(record_info, ensure_ascii=False, default=str)}'"
         set_info += f", record_time = '{record_time}'" if record_time else ""
         update_sql = f"update nsyy_gyl.hbot_treatment_record set {set_info} where id = '{tid}' "
         db.execute(update_sql, need_commit=True)
@@ -478,6 +488,16 @@ def update_treatment_record(json_data):
                 del db
                 raise Exception("更新HBOT治疗记录失败，未签署高压氧治疗知情同意书！")
 
+        db_source = 'nshis' if int(register_record.get('comp_type')) == 12 else 'kfhis'
+        # 如果存在医嘱状态 查看医嘱是否停止（正常停止/转科自动停止）
+        if register_record.get('medical_order_status') == hbot_config.medical_order_status['ordered']:
+            doc_advice_id = json.loads(register_record.get('medical_order_info')).get('doc_advice_id')
+            if has_medical_order_been_stopped(doc_advice_id, db_source):
+                update_sql = f"update nsyy_gyl.hbot_register_record " \
+                             f"set medical_order_status = {hbot_config.medical_order_status['unordered']}, " \
+                             f"medical_order_info = NULL " \
+                             f"where id = {register_record.get('id')} "
+                db.execute(update_sql, need_commit=True)
         update_sql = f"update nsyy_gyl.hbot_treatment_record set execution_status = {state}, " \
                      f"operator = '{operator}' where id = '{tid}' "
         db.execute(update_sql, need_commit=True)
@@ -619,7 +639,7 @@ def hbot_charge(json_data):
     }
     param = f"""
                 <soapenv:Envelope xmlns:soapenv="http://schemas.xmlsoap.org/soap/envelope/" xmlns:urn="urn:hl7-org:v3">
-                    <soapenv:Header> <soapenv:Body> <request> {json.dumps(pay_info, default=str)}
+                    <soapenv:Header> <soapenv:Body> <request> {json.dumps(pay_info, ensure_ascii=False, default=str)}
                     </request> </soapenv:Body> </soapenv:Header> </soapenv:Envelope>
             """
     response_data = ''
@@ -679,17 +699,27 @@ def hbot_run_everyday():
 
     today = datetime.now().strftime('%Y-%m-%d')
     for register_record in register_records:
+        db_source = 'nshis' if int(register_record.get('comp_type')) == 12 else 'kfhis'
         # 更新医嘱 仅关注住院患者的医嘱状态
         if register_record.get('medical_order_status') == hbot_config.medical_order_status['unordered'] \
                 and int(register_record.get('patient_type')) == 3:
             # 根据患者住院号，查询医嘱状态
             register_time = register_record.get('register_time').strftime('%Y-%m-%d')
-            db_source = 'nshis' if int(register_record.get('comp_type')) == 12 else 'kfhis'
             medical_order_info = query_medical_order(register_record.get('patient_id'), register_time, db_source)
             if medical_order_info:
                 update_sql = f"update nsyy_gyl.hbot_register_record " \
                              f"set medical_order_status = {hbot_config.medical_order_status['ordered']}, " \
-                             f"medical_order_info = '{json.dumps(medical_order_info, default=str)}' " \
+                             f"medical_order_info = '{json.dumps(medical_order_info, ensure_ascii=False, default=str)}' " \
+                             f"where id = {register_record.get('id')} "
+                db.execute(update_sql, need_commit=True)
+
+        # 如果存在医嘱状态 查看医嘱是否停止（正常停止/转科自动停止）
+        if register_record.get('medical_order_status') == hbot_config.medical_order_status['ordered']:
+            doc_advice_id = json.loads(register_record.get('medical_order_info')).get('doc_advice_id')
+            if has_medical_order_been_stopped(doc_advice_id, db_source):
+                update_sql = f"update nsyy_gyl.hbot_register_record " \
+                             f"set medical_order_status = {hbot_config.medical_order_status['unordered']}, " \
+                             f"medical_order_info = NULL " \
                              f"where id = {register_record.get('id')} "
                 db.execute(update_sql, need_commit=True)
 
