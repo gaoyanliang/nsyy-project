@@ -493,11 +493,21 @@ def update_treatment_record(json_data):
         if register_record.get('medical_order_status') == hbot_config.medical_order_status['ordered']:
             doc_advice_id = json.loads(register_record.get('medical_order_info')).get('doc_advice_id')
             if has_medical_order_been_stopped(doc_advice_id, db_source):
+                patient_info_sql = ''
+                try:
+                    patient_info = query_patient_info(int(register_record.get('patient_type')),
+                                                      int(register_record.get('patient_id')),
+                                                      int(register_record.get('comp_type')))
+                    patient_info = json.dumps(patient_info, ensure_ascii=False, default=str)
+                    patient_info_sql = f", patient_info = '{patient_info}' "
+                except Exception as e:
+                    print('更新患者信息失败', e)
                 update_sql = f"update nsyy_gyl.hbot_register_record " \
                              f"set medical_order_status = {hbot_config.medical_order_status['unordered']}, " \
-                             f"medical_order_info = NULL " \
+                             f"medical_order_info = NULL {patient_info_sql}" \
                              f"where id = {register_record.get('id')} "
                 db.execute(update_sql, need_commit=True)
+
         update_sql = f"update nsyy_gyl.hbot_treatment_record set execution_status = {state}, " \
                      f"operator = '{operator}' where id = '{tid}' "
         db.execute(update_sql, need_commit=True)
@@ -648,8 +658,9 @@ def hbot_charge(json_data):
         if global_config.run_in_local:
             url = "http://192.168.124.53:6080/his_webservice"
         data = ''
+        headers = {"Content-Type": "application/xml; charset=utf-8"}
         with requests.Session() as session:
-            with closing(session.post(url, data=param, timeout=5)) as response:
+            with closing(session.post(url, data=param.encode('utf-8'), headers=headers, timeout=5)) as response:
                 response.raise_for_status()  # Ensure HTTP errors raise exceptions
                 response_data = response.text
 
@@ -717,9 +728,18 @@ def hbot_run_everyday():
         if register_record.get('medical_order_status') == hbot_config.medical_order_status['ordered']:
             doc_advice_id = json.loads(register_record.get('medical_order_info')).get('doc_advice_id')
             if has_medical_order_been_stopped(doc_advice_id, db_source):
+                patient_info_sql = ''
+                try:
+                    patient_info = query_patient_info(int(register_record.get('patient_type')),
+                                                      int(register_record.get('patient_id')),
+                                                      int(register_record.get('comp_type')))
+                    patient_info = json.dumps(patient_info, ensure_ascii=False, default=str)
+                    patient_info_sql = f", patient_info = '{patient_info}' "
+                except Exception as e:
+                    print('更新患者信息失败', e)
                 update_sql = f"update nsyy_gyl.hbot_register_record " \
                              f"set medical_order_status = {hbot_config.medical_order_status['unordered']}, " \
-                             f"medical_order_info = NULL " \
+                             f"medical_order_info = NULL {patient_info_sql}" \
                              f"where id = {register_record.get('id')} "
                 db.execute(update_sql, need_commit=True)
 
