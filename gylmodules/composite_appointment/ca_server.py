@@ -98,7 +98,7 @@ def call_third_systems_obtain_data(url: str, type: str, param: dict):
         try:
             # 发送 POST 请求，将字符串数据传递给 data 参数
             # response = requests.post(f"http://192.168.3.12:6080/{url}", json=param)
-            response = requests.post(f"http://192.168.124.53:6080/{url}", json=param)
+            response = requests.post(f"http://192.168.124.53:6080/{url}", timeout=3, json=param)
             data = response.text
             data = json.loads(data)
             if type == 'his_visit_reg':
@@ -1025,6 +1025,10 @@ def sign_in(json_data, over_num: bool):
         # 第一次签到 如果发现已经签到过，直接返回
         del db
         return
+
+    if datetime.strptime(record.get('book_date'), '%Y-%m-%d').date() != datetime.now().date():
+        del db
+        raise Exception(f"预约日期是 {record.get('book_date')} 非当天的预约记录，无法签到")
 
     # 如果是医嘱预约，检查付款状态 (type = 5 住院医嘱不需要检查付款状态)
     if appt_type == appt_config.APPT_TYPE['advice_appt']:
