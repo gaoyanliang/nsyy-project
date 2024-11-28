@@ -23,7 +23,7 @@ def call_third_systems_obtain_data(type: str, sql: str, db_source: str):
     if global_config.run_in_local:
         try:
             # response = requests.post(f"http://192.168.3.12:6080/int_api", json=param)
-            response = requests.post(f"http://192.168.124.53:6080/int_api", json=param)
+            response = requests.post(f"http://192.168.124.53:6080/int_api", timeout=3, json=param)
             data = json.loads(response.text)
             data = data.get('data')
         except Exception as e:
