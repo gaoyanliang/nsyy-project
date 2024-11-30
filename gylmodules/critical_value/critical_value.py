@@ -874,7 +874,7 @@ def create_cv_by_system(json_data, cv_source):
 
 
 def get_cv_list(json_data):
-    # type =1 未处理, type =2 已处理, type = 3 总流程超时, type = 4 所有状态, type = 5 已作废
+    # type =1 未处理, type =2 已处理, type = 3 总流程超时, type = 4 所有状态, type = 5 已作废, type=6 所有存在备注待质控的危急值
     db = DbUtil(global_config.DB_HOST, global_config.DB_USERNAME, global_config.DB_PASSWORD,
                 global_config.DB_DATABASE_GYL)
 
@@ -902,6 +902,8 @@ def get_cv_list(json_data):
         state_sql = ' state >= 0 '
     if int(json_data.get('type')) == 5:
         state_sql = ' state = 0 '
+    if int(json_data.get('type')) == 6:
+        state_sql = ' reason_for_remark is not null '
 
     alert_dept_id = json_data.get('alert_dept_id')
     alert_dept_id_sql = ''
