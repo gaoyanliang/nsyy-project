@@ -4,7 +4,7 @@ from datetime import datetime
 
 from flask import Blueprint, jsonify, request
 
-from gylmodules.questionnaire import question_server, question_config
+from gylmodules.questionnaire import question_config, sq_server
 
 question = Blueprint('question survey', __name__, url_prefix='/question')
 
@@ -19,7 +19,7 @@ def query_patient_info():
     json_data = {}
     try:
         json_data = json.loads(request.get_data().decode('utf-8'))
-        patient_info = question_server.query_patient_info(json_data.get('card_no'))
+        patient_info = sq_server.query_patient_info(json_data.get('card_no'))
     except Exception as e:
         print(datetime.now(), "query_patient_info exception, param: ", json_data, e)
         return jsonify({
@@ -33,12 +33,17 @@ def query_patient_info():
     })
 
 
-@question.route('/create_patient_info', methods=['POST', 'GET'])
+"""
+登记病人信息
+"""
+
+
+@question.route('/create_patient_info', methods=['POST'])
 def create_patient_info():
     json_data = {}
     try:
         json_data = json.loads(request.get_data().decode('utf-8'))
-        patient_info = question_server.create_patient_info(json_data)
+        patient_info = sq_server.create_patient_info(json_data)
     except Exception as e:
         print(datetime.now(), "create_patient_info exception, param: ", json_data, e)
         return jsonify({
@@ -59,10 +64,18 @@ def create_patient_info():
 
 @question.route('/query_tpl_list', methods=['POST', 'GET'])
 def query_tpl_list():
+    try:
+        surveys = sq_server.query_tpl_list()
+    except Exception as e:
+        print(datetime.now(), "create_patient_info exception ", e)
+        return jsonify({
+            'code': 50000,
+            'res': "查询问题模版类型异常: " + e.__str__()
+        })
     return jsonify({
         'code': 20000,
         'res': 'query successes',
-        'data': question_config.tpl_list
+        'data': surveys
     })
 
 
@@ -76,7 +89,7 @@ def query_question_list():
     json_data = {}
     try:
         json_data = json.loads(request.get_data().decode('utf-8'))
-        questions = question_server.query_question_list(json_data)
+        questions, hist_answer_list = sq_server.query_question_list(json_data.get('su_id'), json_data.get('card_no'))
     except Exception as e:
         print(datetime.now(), "query_question_list exception, param: ", json_data, e)
         return jsonify({
@@ -86,7 +99,8 @@ def query_question_list():
     return jsonify({
         'code': 20000,
         'res': 'query successes',
-        'data': questions
+        'data': questions,
+        'hist_answer_list': hist_answer_list
     })
 
 
@@ -95,21 +109,21 @@ def query_question_list():
 """
 
 
-@question.route('/question_survey_ans', methods=['POST'])
-def question_survey_ans():
+@question.route('/submit_survey_record', methods=['POST'])
+def submit_survey_record():
     json_data = {}
     try:
         json_data = json.loads(request.get_data().decode('utf-8'))
-        questions = question_server.question_survey_ans(json_data)
+        questions = sq_server.submit_survey_record(json_data)
     except Exception as e:
-        print(datetime.now(), "question_survey_ans exception, param: ", json_data, e)
+        print(datetime.now(), "submit_survey_record exception, param: ", json_data, e)
         return jsonify({
             'code': 50000,
             'res': "问卷调查结果写入异常: " + e.__str__()
         })
     return jsonify({
         'code': 20000,
-        'res': 'question survey successes',
+        'res': 'submit_survey_record successes',
     })
 
 
@@ -118,21 +132,21 @@ def question_survey_ans():
 """
 
 
-@question.route('/update_question_survey_ans', methods=['POST'])
-def update_question_survey_ans():
+@question.route('/update_survey_record', methods=['POST'])
+def update_survey_record():
     json_data = {}
     try:
         json_data = json.loads(request.get_data().decode('utf-8'))
-        questions = question_server.update_question_survey_ans(json_data)
+        questions = sq_server.update_survey_record(json_data)
     except Exception as e:
-        print(datetime.now(), "update_question_survey_ans exception, param: ", json_data, e)
+        print(datetime.now(), "update_survey_record exception, param: ", json_data, e)
         return jsonify({
             'code': 50000,
             'res': "问卷调查结果更新异常: " + e.__str__()
         })
     return jsonify({
         'code': 20000,
-        'res': 'update question survey successes',
+        'res': 'update_survey_record successes',
     })
 
 
@@ -146,7 +160,18 @@ def query_question_survey():
     json_data = {}
     try:
         json_data = json.loads(request.get_data().decode('utf-8'))
-        question_surveys = question_server.query_question_survey(json_data)
+        if json_data.get('re_id'):
+            survey_record, answer_list, test_results, examination_result = \
+                sq_server.query_hist_questionnaires_details(json_data)
+            data = {
+                "survey_record": survey_record,
+                "answer_list": answer_list,
+                "test_results": test_results,
+                "examination_result": examination_result,
+            }
+        else:
+            data = sq_server.query_hist_questionnaires_list(json_data)
+
     except Exception as e:
         print(datetime.now(), "query_question_survey exception, param: ", json_data, e)
         return jsonify({
@@ -155,32 +180,13 @@ def query_question_survey():
         })
     return jsonify({
         'code': 20000,
-        'res': 'question survey query successes',
-        'data': question_surveys
-    })
-
-
-@question.route('/query_question_survey_by_id', methods=['POST', 'GET'])
-def query_question_survey_byid():
-    json_data = {}
-    try:
-        json_data = json.loads(request.get_data().decode('utf-8'))
-        question_surveys = question_server.query_question_survey_by_patient_id(json_data.get('patient_id'))
-    except Exception as e:
-        print(datetime.now(), "query_question_survey exception, param: ", json_data, e)
-        return jsonify({
-            'code': 50000,
-            'res': "问卷调查结果查询(根据病人 id)异常: " + e.__str__()
-        })
-    return jsonify({
-        'code': 20000,
-        'res': 'question survey query successes',
-        'data': question_surveys
+        'res': 'survey query successes',
+        'data': data
     })
 
 
 """
-查询问卷调查结果
+查看门诊病历
 """
 
 
@@ -189,7 +195,7 @@ def view_medical_records():
     json_data = {}
     try:
         json_data = json.loads(request.get_data().decode('utf-8'))
-        medical_records = question_server.view_medical_records(json_data.get('qid'))
+        patient_info, medical_data = sq_server.query_outpatient_medical_record(json_data.get('re_id'))
     except Exception as e:
         print(datetime.now(), "view_medical_records exception, param: ", json_data, e)
         return jsonify({
@@ -199,7 +205,10 @@ def view_medical_records():
     return jsonify({
         'code': 20000,
         'res': 'view medical records successes',
-        'data': medical_records
+        'data': {
+            "patient_info": patient_info,
+            "medical_data": medical_data
+        }
     })
 
 
@@ -213,12 +222,12 @@ def delete_question_survey():
     json_data = {}
     try:
         json_data = json.loads(request.get_data().decode('utf-8'))
-        question_server.delete_question_survey(json_data.get('qid'))
+        sq_server.delete_question_survey(json_data.get('re_id'))
     except Exception as e:
         print(datetime.now(), "delete_question_survey exception, param: ", json_data, e)
         return jsonify({
             'code': 50000,
-            'res': "门诊病历查询异常: " + e.__str__()
+            'res': f"问卷 {json_data.get('re_id')} 删除异常: " + e.__str__()
         })
     return jsonify({
         'code': 20000,
@@ -226,4 +235,68 @@ def delete_question_survey():
     })
 
 
+"""
+查询问卷报表
+"""
+
+
+@question.route('/query_operator_report', methods=['POST', 'GET'])
+def query_operator_report():
+    json_data = {}
+    try:
+        json_data = json.loads(request.get_data().decode('utf-8'))
+        report = sq_server.query_report(json_data)
+    except Exception as e:
+        print(datetime.now(), "query_operator_report exception param:", json_data, e)
+        return jsonify({
+            'code': 50000,
+            'res': "统计报表查询异常: " + e.__str__()
+        })
+    return jsonify({
+        'code': 20000,
+        'res': 'query successes',
+        'data': report
+    })
+
+
+"""
+his 查询问卷列表
+"""
+
+
+@question.route('/query_question_survey_by_id', methods=['POST', 'GET'])
+def query_question_survey_byid():
+    json_data = {}
+    try:
+        json_data = json.loads(request.get_data().decode('utf-8'))
+        question_surveys = sq_server.query_question_survey_by_patient_id(json_data.get('patient_id'))
+    except Exception as e:
+        print(datetime.now(), "query_question_survey_by_patient_id exception, param: ", json_data, e)
+        return jsonify({
+            'code': 50000,
+            'res': "问卷调查结果查询(根据病人 id)异常: " + e.__str__()
+        })
+    return jsonify({
+        'code': 20000,
+        'res': 'question survey query successes',
+        'data': question_surveys
+    })
+
+
+@question.route('/submit_treatment_advice', methods=['POST', 'GET'])
+def submit_treatment_advice():
+    json_data = {}
+    try:
+        json_data = json.loads(request.get_data().decode('utf-8'))
+        question_surveys = sq_server.submit_treatment_advice(json_data)
+    except Exception as e:
+        print(datetime.now(), "submit_treatment_advice exception, param: ", json_data, e)
+        return jsonify({
+            'code': 50000,
+            'res': "治疗意见提交异常: " + e.__str__()
+        })
+    return jsonify({
+        'code': 20000,
+        'res': 'submit treatment advice successes'
+    })
 
