@@ -124,9 +124,7 @@ class DbUtil:
                 self.__commit()
 
             # 获取最后一个插入记录的ID
-            self.__cursor.execute("SELECT LAST_INSERT_ID()")
-            last_rowid = self.__cursor.fetchone()[0]
-            return last_rowid
+            return self.__cursor.lastrowid
         except Exception as e:
             print(f"执行SQL {sql}, 遇到异常", e)
             self.__conn.rollback()
