@@ -75,10 +75,14 @@ def query_patient_info(card_no):
     if not patient_infos:
         raise Exception('未找到该患者信息，请仔细核对 就诊卡号/身份证号 是否正确')
     patient_age = calculate_age_from_id(patient_infos[0].get('身份证号'), patient_infos[0].get('出生日期'))
+    if patient_infos[0].get('手机号') and len(patient_infos[0].get('手机号')) > 1:
+        patient_phone = patient_infos[0].get('手机号')
+    else:
+        patient_phone = patient_infos[0].get('联系人电话')
     data = {
         "sick_id": patient_infos[0].get('病人ID'), "patient_name": patient_infos[0].get('姓名'),
         "patient_sex": patient_infos[0].get('性别'), "patient_age": patient_age,
-        "patient_phone": patient_infos[0].get('联系人电话'), "birth_day": patient_infos[0].get('出生日期'),
+        "patient_phone": patient_phone, "birth_day": patient_infos[0].get('出生日期'),
         "marital_status": patient_infos[0].get('婚姻状况'), "occupation": patient_infos[0].get('职业'),
         "home_address": patient_infos[0].get('家庭地址'), "work_unit": patient_infos[0].get('工作单位'),
         "nation": patient_infos[0].get('民族'), "visit_time": datetime.now().strftime('%Y-%m-%d %H:%M:%S'),
@@ -92,7 +96,7 @@ def query_patient_info(card_no):
         "type": "orcl_db_read", "db_source": "nshis", "randstr": "XPFDFZDF7193CIONS1PD7XCJ3AD4ORRC",
         "sql": f"select t.姓名 姓名, t.执行人 执行人, t.执行部门ID 执行部门ID, bm.名称 部门名称, t.发生时间 发生时间, "
                f"ry.ID 执行人ID from 病人挂号记录 t join 部门表 bm on t.执行部门ID = bm.id left join 人员表 ry on "
-               f"t.执行人 = ry.姓名 WHERE t.姓名 = {patient_name} and t.记录状态=1 and t.执行状态!=-1 "
+               f"t.执行人 = ry.姓名 WHERE t.姓名 = '{patient_name}' and t.记录状态=1 and t.执行状态!=-1 "
                f"and TRUNC(t.发生时间) = TRUNC(SYSDATE) order by t.发生时间 desc"
     })
     if register_infos:
@@ -112,13 +116,16 @@ def calculate_age_from_id(card_no, birth_date):
     :return:
     """
     try:
-        if card_no:
-            # 从身份证中提取出生日期（第7到14位）
-            birth_date_str = card_no[6:14]
+        if type(birth_date) != str:
+            birth_date_str = birth_date.strftime("%Y%m%d")
         else:
-            # 解析日期字符串为 datetime 对象
-            parsed_date = datetime.strptime(birth_date, "%a, %d %b %Y %H:%M:%S %Z")
-            birth_date_str = parsed_date.strftime("%Y%m%d")
+            if card_no:
+                # 从身份证中提取出生日期（第7到14位）
+                birth_date_str = card_no[6:14]
+            else:
+                # 解析日期字符串为 datetime 对象
+                parsed_date = datetime.strptime(birth_date, "%a, %d %b %Y %H:%M:%S %Z")
+                birth_date_str = parsed_date.strftime("%Y%m%d")
         birth_date = datetime.strptime(birth_date_str, "%Y%m%d")
         today = datetime.today()
 
@@ -213,7 +220,7 @@ def query_question_list(su_id, card_no):
         hist_answer_list = db.query_all(query_sql)
         for answer in hist_answer_list:
             answer["answer"] = json.loads(answer["answer"])
-            answer["other_answer"] = json.loads(answer["other_answer"]) if answer.get('other_answer') else ""
+            # answer["other_answer"] = json.loads(answer["other_answer"]) if answer.get('other_answer') else ""
     del db
     return question_list, hist_answer_list
 
@@ -254,7 +261,7 @@ def submit_survey_record(json_data):
 
     answer_list = [
         (re_id, item['qu_id'], json.dumps(item['answer'], default=str, ensure_ascii=False), item.get('qu_unit', ''),
-         json.dumps(item['other_answer'], default=str, ensure_ascii=False) if item.get('other_answer') else "")
+         item.get('other_answer') if item.get('other_answer') else "")
         for item in question_list if item.get('answer')
     ]
 
@@ -293,7 +300,7 @@ def update_survey_record(json_data):
     question_list = json_data['question_list']
     answer_list = [
         (re_id, item['qu_id'], json.dumps(item['answer'], default=str, ensure_ascii=False), item.get('qu_unit', ''),
-         json.dumps(item['other_answer'], default=str, ensure_ascii=False) if item.get('other_answer') else "")
+         item.get('other_answer') if item.get('other_answer') else "")
         for item in question_list if item.get('answer')
     ]
 
@@ -330,7 +337,7 @@ def query_hist_questionnaires_list(json_data):
     """
     patient_name = json_data.get('patient_name')
     card_no = json_data.get('card_no')
-    doctor_name = json_data.get('doctor_name')
+    doctor_name = json_data.get('doctor')
     operator = json_data.get('operator')
     start_time = json_data.get('start_time')
     end_time = json_data.get('end_time')
@@ -348,8 +355,8 @@ def query_hist_questionnaires_list(json_data):
                         f"or id_card_no = '{card_no}'" if condition_sql \
             else f"card_no = '{card_no}' or medical_card_no = '{card_no}' or id_card_no = '{card_no}' "
     if doctor_name:
-        condition_sql = f"{condition_sql} or doctor like '%{doctor_name}%'" if condition_sql \
-            else f"doctor like '%{doctor_name}%'"
+        condition_sql = f"{condition_sql} or doctor_name like '%{doctor_name}%'" if condition_sql \
+            else f"doctor_name like '%{doctor_name}%'"
     if start_time and end_time:
         condition_sql = f"{condition_sql} and (visit_time between '{start_time}' and '{end_time}') " \
             if condition_sql else f"visit_time between '{start_time}' and '{end_time}'"
@@ -387,7 +394,7 @@ def query_hist_questionnaires_details(json_data):
     answer_list = db.query_all(query_sql)
     for answer in answer_list:
         answer["answer"] = json.loads(answer["answer"])
-        answer["other_answer"] = json.loads(answer["other_answer"]) if answer.get('other_answer') else ""
+        # answer["other_answer"] = json.loads(answer["other_answer"]) if answer.get('other_answer') else ""
     del db
 
     # 查询 检查/检验 结果
@@ -406,7 +413,7 @@ def query_question_survey_by_patient_id(patient_id):
     # 根据 病人 id 查询病人信息
     patient_infos = call_third_systems_obtain_data('int_api', 'orcl_db_read', {
         "type": "orcl_db_read", "db_source": "nshis", "randstr": "XPFDFZDF7193CIONS1PD7XCJ3AD4ORRC",
-        "sql": f"select * from 病人信息 where 病人ID = '{patient_id}' " })
+        "sql": f"select * from 病人信息 where 病人ID = '{patient_id}' "})
     medical_card_no, id_card_no = patient_infos[0].get('就诊卡号'), patient_infos[0].get('身份证号')
     query_sql = ""
     if medical_card_no == 0 and id_card_no == 0:
@@ -602,7 +609,7 @@ def query_outpatient_medical_record(re_id):
 
     # todo 初步印象 治疗意见 应该是医生自己写的？？
     # 查询诊断（初步印象）
-    medical_data[7] = query_zhen_duan(survey_record.get('patient_name'))
+    medical_data[7] = query_zhen_duan(survey_record.get('patient_name'), visit_time)
     medical_data[8] = survey_record.get('treatment_advice', '')
 
     return survey_record, medical_data
@@ -662,7 +669,8 @@ def collect_answer(node, ans_dict):
     """
     answer = ans_dict.get(node['qu_id'], {}).get('answer', "/")
     if type(answer) == list:
-        answer = ','.join(answer)
+        # 血压特殊处理
+        answer = '/'.join(answer) if int(node['qu_id']) == 195 else ','.join(answer)
     answer = answer + ans_dict.get(node['qu_id'], {}).get('qu_unit', "")
 
     # 拼接问题在病历中展示字段
@@ -686,20 +694,25 @@ def collect_answer(node, ans_dict):
             if child.get('pre_qu_answer') in option:
                 checked_qu_list.append(child)
 
-        checked_qu_list.sort(key=itemgetter('pre_qu_answer'))
-        for key, group in groupby(checked_qu_list, key=lambda x: x['pre_qu_answer']):
-            ans_ret = ans_ret + key
-            for item in group:
-                ans_ret = ans_ret + collect_answer(item, ans_dict) + ","
-            if ans_ret.endswith(","):
-                ans_ret = ans_ret[:-1]
-            ans_ret = ans_ret + "、"
+        if checked_qu_list:
+            checked_qu_list.sort(key=itemgetter('pre_qu_answer'))
+            for key, group in groupby(checked_qu_list, key=lambda x: x['pre_qu_answer']):
+                ans_ret = ans_ret + key
+                for item in group:
+                    ans_ret = ans_ret + collect_answer(item, ans_dict) + ","
+                if ans_ret.endswith(","):
+                    ans_ret = ans_ret[:-1]
+                ans_ret = ans_ret + "、"
+        else:
+            ans_ret = ans_ret + answer if not answer.__contains__("其他") else ans_ret
 
         if ans_ret.endswith("、"):
             ans_ret = ans_ret[:-1]
     else:
         # 如果不存在子问题，直接拼接当前问题答案
-        ans_ret = ans_ret + answer
+        ans_ret = ans_ret + answer if not answer.__contains__("其他") else ans_ret
+
+    ans_ret = ans_ret + ans_dict.get(node['qu_id'], {}).get('other_answer', "")
 
     # 拼接问题后缀
     if node.get('ans_suffix'):
@@ -725,13 +738,16 @@ def submit_treatment_advice(json_data):
     del db
 
 
-def query_zhen_duan(patient_name):
+def query_zhen_duan(patient_name, visit_time):
+    sql = f"select t.姓名 姓名, t.病人ID, t.ID, t.执行人 执行人, t.执行部门ID 执行部门ID, bm.名称 部门名称, t.发生时间 发生时间, " \
+            f"ry.ID 执行人ID from 病人挂号记录 t join 部门表 bm on t.执行部门ID = bm.id left join 人员表 ry on " \
+            f"t.执行人 = ry.姓名 WHERE t.姓名 = '{patient_name}' and t.记录状态=1 and t.执行状态!=-1 " \
+            f"and TRUNC(t.发生时间) >= to_date('{visit_time}', 'yyyy-mm-dd') " \
+          f"and TRUNC(t.发生时间) < to_date('{visit_time}', 'yyyy-mm-dd') + 1 order by t.发生时间 desc"
+
     register_infos = call_third_systems_obtain_data('int_api', 'orcl_db_read', {
         "type": "orcl_db_read", "db_source": "nshis", "randstr": "XPFDFZDF7193CIONS1PD7XCJ3AD4ORRC",
-        "sql": f"select t.姓名 姓名, t.执行人 执行人, t.执行部门ID 执行部门ID, bm.名称 部门名称, t.发生时间 发生时间, "
-               f"ry.ID 执行人ID from 病人挂号记录 t join 部门表 bm on t.执行部门ID = bm.id left join 人员表 ry on "
-               f"t.执行人 = ry.姓名 WHERE t.姓名 = {patient_name} and t.记录状态=1 and t.执行状态!=-1 "
-               f"and TRUNC(t.发生时间) = TRUNC(SYSDATE) order by t.发生时间 desc"
+        "sql": sql
     })
     if not register_infos:
         return ""
