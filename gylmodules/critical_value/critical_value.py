@@ -1280,8 +1280,9 @@ def doctor_handle_cv(json_data):
                 update_total_timeout_sql = 'is_timeout = 1 , '
 
             actual_handle_time = cv.get('actual_handle_time') if cv.get('actual_handle_time') else timer
-            reason_for_remark = cv.get('reason_for_remark') if cv.get('reason_for_remark') else '无'
-            remark_sql = f"actual_handle_time = '{actual_handle_time}', reason_for_remark = '{reason_for_remark}' , "
+            remark_sql = f"actual_handle_time = '{actual_handle_time}', "
+            if cv.get('reason_for_remark'):
+                remark_sql = remark_sql + f" reason_for_remark = '{cv.get('reason_for_remark')}' , "
             # 更新危机值状态为 【医生处理】
             update_sql = f'UPDATE nsyy_gyl.cv_info SET {update_total_timeout_sql} state = %s, {remark_sql} ' \
                          f' method = %s, handle_time = %s, handle_doctor_name = %s, handle_doctor_id = %s ' \
@@ -1422,7 +1423,7 @@ def report_form(json_data):
 
     handle_condition_sql = "is_timeout = 1"
     if query_type:
-        handle_condition_sql = f"TIMESTAMPDIFF(MINUTE, alertdt, COALESCE(actual_handle_time, handle_time)) > 10"
+        handle_condition_sql = f"TIMESTAMPDIFF(MINUTE, time, COALESCE(actual_handle_time, handle_time)) >= 10"
 
     ptype = ''
     if patient_type:
