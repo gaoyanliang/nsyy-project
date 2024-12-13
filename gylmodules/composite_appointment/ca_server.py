@@ -1056,7 +1056,7 @@ def sign_in(json_data, over_num: bool):
         if doctorinfo:
             doctorinfo = json.loads(doctorinfo)
             param = {"type": "his_visit_reg", "patient_id": patient_id,
-                     "AsRowid": int(doctorinfo.get('appointment_id')),
+                     "AsRowid": str(doctorinfo.get('appointment_id')),
                      "PayAmt": float(doctorinfo.get('fee'))}
             sign_in_ret = call_third_systems_obtain_data('his_socket', 'his_visit_reg', param)
             try:
@@ -1472,7 +1472,7 @@ def update_doc(json_data):
     condition_sql += ', dept_name = \'{}\' '.format(json_data.get('dept_name')) if json_data.get('dept_name') else ''
     condition_sql += ', career = \'{}\' '.format(json_data.get('career')) if json_data.get('career') else ''
     condition_sql += ', fee = {} '.format(json_data.get('fee')) if json_data.get('fee') else ''
-    condition_sql += ', appointment_id = {} '.format(json_data.get('appointment_id')) if json_data.get(
+    condition_sql += ", appointment_id = '{}' ".format(json_data.get('appointment_id')) if json_data.get(
         'appointment_id') else ''
     condition_sql += ', photo = \'{}\' '.format(json_data.get('photo')) if json_data.get('photo') else ''
     condition_sql += ', `desc` = \'{}\' '.format(json_data.get('desc')) if json_data.get('desc') else ''
