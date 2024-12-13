@@ -9,10 +9,10 @@ app_version = Blueprint('app version', __name__, url_prefix='/app_version')
 
 
 #  查询 app 版本信息
-@app_version.route('/query_app_version/<type>', methods=['GET', 'POST'])
-def query_app_version(type):
+@app_version.route('/query_app_version/<type>/<detail>', methods=['GET', 'POST'])
+def query_app_version(type, detail):
     try:
-        version_info = query_app_version_from_db(type)
+        version_info = query_app_version_from_db(type, detail)
     except Exception as e:
         print(f"mail_router.delete_mail: An unexpected error occurred: {e}")
         print(traceback.print_exc())
@@ -29,10 +29,11 @@ def query_app_version(type):
     })
 
 
-def query_app_version_from_db(type):
+def query_app_version_from_db(type, detail):
     db = DbUtil(global_config.DB_HOST, global_config.DB_USERNAME, global_config.DB_PASSWORD,
                 global_config.DB_DATABASE_GYL)
-    query_sql = 'select * from nsyy_gyl.app_version where type = \'{}\' '.format(type.lower())
+    query_sql = f"select * from nsyy_gyl.app_version " \
+                f"where type = '{type}' and detail = '{detail}' order by update_time desc limit 1"
     version_info = db.query_one(query_sql)
 
     return version_info
