@@ -247,6 +247,7 @@ def submit_survey_record(json_data):
         surveys_record.pop('dept_name')
     surveys_record['treatment_advice'] = ''
     surveys_record['initial_impression'] = ''
+    surveys_record['status'] = 1
 
     fileds = ','.join(surveys_record.keys())
     args = str(tuple(surveys_record.values()))
@@ -290,6 +291,7 @@ def update_survey_record(json_data):
     surveys_record.pop('id')
     surveys_record['treatment_advice'] = ''
     surveys_record['initial_impression'] = ''
+    surveys_record['status'] = 1
 
     set_clause = ", ".join([f"{key} = %s" for key in surveys_record.keys()])
     update_sql = f"UPDATE nsyy_gyl.sq_surveys_record SET {set_clause} WHERE id = %s"
@@ -511,7 +513,7 @@ def query_examination_result(card_no, visit_date):
               join 检验报告明细 b on b.组合id = d.id and b.标本id = e.标本id join 检验指标 c on b.项目id = c.id
              where gh.登记时间 >= to_date('{visit_date}', 'yyyy-mm-dd') 
              and gh.登记时间 < to_date('{visit_date}', 'yyyy-mm-dd') + 1
-             and (gh.门诊号 = '{card_no}' or xx.身份证号 = '{card_no}')
+             and (xx.就诊卡号 = '{card_no}' or xx.身份证号 = '{card_no}')
         """
 
     test_results = call_third_systems_obtain_data('int_api', 'orcl_db_read', {
@@ -531,7 +533,7 @@ def query_report(json_data):
                 global_config.DB_DATABASE_GYL)
     time_sql = ""
     if start_time and end_time:
-        time_sql = f" where b.visit_time BETWEEN '{start_time}' AND '{end_time}' "
+        time_sql = f" where visit_time BETWEEN '{start_time}' AND '{end_time}' "
 
     if query_type == 'question':
         # 统计问卷报表
