@@ -174,8 +174,9 @@ def query_tpl_list():
     db = DbUtil(global_config.DB_HOST, global_config.DB_USERNAME, global_config.DB_PASSWORD,
                 global_config.DB_DATABASE_GYL)
     surveys = db.query_all(f"select * from nsyy_gyl.sq_surveys")
+    sorted_data = sorted(surveys, key=lambda x: (x['type'], x['id']))
     del db
-    return surveys
+    return sorted_data
 
 
 def query_question_list(su_id, card_no):
