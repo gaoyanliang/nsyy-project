@@ -222,3 +222,97 @@ def data_statistics():
         'data': data
     })
 
+
+@hbot.route('/save_sign_info', methods=['POST'])
+def save_doc_sign_info():
+    json_data = {}
+    try:
+        json_data = json.loads(request.get_data().decode('utf-8'))
+        data = hbot_server.save_sign_info(json_data)
+    except Exception as e:
+        print(datetime.now(), "save_doc_sign_info exception: param = ", json_data, e)
+        return jsonify({
+            'code': 50000,
+            'res': "医生签名信息保存失败: " + e.__str__()
+        })
+    return jsonify({
+        'code': 20000,
+        'res': 'doc sign info save successes',
+        'biz_sn': data
+    })
+
+
+@hbot.route('/save_pdf', methods=['POST'])
+def save_pdf():
+    json_data = {}
+    try:
+        json_data = json.loads(request.get_data().decode('utf-8'))
+        data = hbot_server.save_pdf(json_data)
+    except Exception as e:
+        print(datetime.now(), "save_pdf exception: ", e)
+        return jsonify({
+            'code': 50000,
+            'res': "签名 pdf 保存失败: " + e.__str__()
+        })
+    return jsonify({
+        'code': 20000,
+        'res': 'sign pdf save successes'
+    })
+
+
+@hbot.route('/query_sign_ret', methods=['POST', 'GET'])
+def query_sign_ret():
+    json_data = {}
+    try:
+        json_data = json.loads(request.get_data().decode('utf-8'))
+        data = hbot_server.query_sign_ret(json_data)
+    except Exception as e:
+        print(datetime.now(), "query_sign_ret exception: param = ", json_data, e)
+        return jsonify({
+            'code': 50000,
+            'res': "签名结果查询失败: " + e.__str__()
+        })
+    return jsonify({
+        'code': 20000,
+        'res': 'sign ret query successes',
+        'data': data
+    })
+
+
+@hbot.route('/query_sign_img', methods=['POST', 'GET'])
+def query_sign_img():
+    json_data = {}
+    try:
+        json_data = json.loads(request.get_data().decode('utf-8'))
+        data = hbot_server.query_sign_ret(json_data, is_query_sign_img=True)
+    except Exception as e:
+        print(datetime.now(), "query_sign_img exception: param = ", json_data, e)
+        return jsonify({
+            'code': 50000,
+            'res': "签名图片查询失败: " + e.__str__()
+        })
+    return jsonify({
+        'code': 20000,
+        'res': 'sign ret query successes',
+        'data': data
+    })
+
+
+@hbot.route('/sign_first_evaluation', methods=['POST', 'GET'])
+def sign_first_evaluation():
+    json_data = {}
+    try:
+        json_data = json.loads(request.get_data().decode('utf-8'))
+        data = hbot_server.sign_first_evaluation(json_data)
+    except Exception as e:
+        print(datetime.now(), "sign_first_evaluation exception: param = ", json_data, e)
+        return jsonify({
+            'code': 50000,
+            'res': "首次评估签名失败: " + e.__str__()
+        })
+    return jsonify({
+        'code': 20000,
+        'res': 'first evaluation sign successes'
+    })
+
+

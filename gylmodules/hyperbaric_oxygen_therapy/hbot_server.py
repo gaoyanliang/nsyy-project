@@ -1,5 +1,6 @@
 import uuid
 import json
+import base64
 
 import redis
 import requests
@@ -296,6 +297,8 @@ def update_register_start_time(json_data):
 查询治疗记录, 默认查询当天的治疗记录，还可以按照日期或者 住院号/门诊号 查询
 query_type = 1 查询治疗记录
 query_type = 2 查询知情同意书/仅查签名
+query_type = 3 查询知情同意书签名
+query_type = 4 查询治疗记录签名
 """
 
 
@@ -385,6 +388,15 @@ def update_register_record(json_data):
         update_sql = f"update nsyy_gyl.hbot_register_record set {set_sql} where register_id = '{register_id}' "
         db.execute(update_sql, need_commit=True)
         write_new_treatment_record(register_id, patient_id, start_date, start_time, db)
+        del db
+        return
+
+    # 首次评估单
+    first_evaluation = json_data.get('first_evaluation')
+    if first_evaluation:
+        set_sql = f" first_evaluation = '{json.dumps(first_evaluation, ensure_ascii=False, default=str)}' "
+        update_sql = f"update nsyy_gyl.hbot_register_record set {set_sql} where register_id = '{register_id}' "
+        db.execute(update_sql, need_commit=True)
         del db
         return
 
@@ -544,6 +556,7 @@ sign_type = 2 治疗记录签名
 
 
 def update_sign_info(json_data):
+    # todo 待废弃⚠️
     sign_id = json_data.get('sign_id')
     sign_type = json_data.get('sign_type')
     sign_info = json_data.get('sign_info')
@@ -660,7 +673,7 @@ def hbot_charge(json_data):
         data = ''
         headers = {"Content-Type": "application/xml; charset=utf-8"}
         with requests.Session() as session:
-            with closing(session.post(url, data=param.encode('utf-8'), headers=headers, timeout=5)) as response:
+            with closing(session.post(url, data=param.encode('utf-8'), headers=headers, timeout=10)) as response:
                 response.raise_for_status()  # Ensure HTTP errors raise exceptions
                 response_data = response.text
 
@@ -840,3 +853,320 @@ def data_statistics(json_data):
             "amount_of_money": amount_of_money
         })
     return data
+
+
+def sign_first_evaluation(json_data):
+    """
+    签署首次评估 & 保存 pdf
+    :return:
+    """
+    register_id = json_data.get('register_id')
+    patient_name = json_data.get('patient_name')
+
+    sign_msg = json_data.get('sign_msg')  # 文件摘要
+    user_id = json_data.get('user_id', "")  # 医生/护士 云医签 id
+    user_name = json_data.get('user_name')
+    base64_str = json_data.get('base64_str')
+    first_evaluation = json_data.get('first_evaluation')
+
+    sign_desc = f"患者 [{patient_name}] 首次评估单签名"
+    user_id = hbot_config.sign_user_id['刘春敏']
+    biz_sn = f"{register_id}_4"
+    if not user_id:
+        raise Exception('医生/护士不存在, 请先联系信息科配置【云医签】', user_name)
+
+    try:
+        # 医生签名固定是刘春敏
+        sign_param = {"type": "sign_push", "user_id": "U0392", "bizSn": biz_sn, "msg": sign_msg, "desc": sign_desc}
+        sign_ret1 = call_yangcheng_sign_serve(sign_param)
+        # 时间戳签名
+        ts_sign_param = {"sign_org": sign_msg, "type": "ts_gene"}
+        ts_sign_ret1 = call_yangcheng_sign_serve(ts_sign_param, ts_sign=True)
+
+        sign_param = {"type": "sign_push", "user_id": user_id, "bizSn": biz_sn, "msg": sign_msg, "desc": sign_desc}
+        sign_ret2 = call_yangcheng_sign_serve(sign_param)
+        # 时间戳签名
+        ts_sign_param = {"sign_org": sign_msg, "type": "ts_gene"}
+        ts_sign_ret2 = call_yangcheng_sign_serve(ts_sign_param, ts_sign=True)
+    except Exception as e:
+        raise Exception('签名服务器异常', e)
+
+    save_sign_info = dict()
+    save_sign_info['register_id'] = register_id
+    save_sign_info['patient_name'] = patient_name
+    save_sign_info['sign_type'] = 4
+    save_sign_info['user_id'] = user_id
+    save_sign_info['doctor_name'] = "刘春敏"
+    save_sign_info['pdf'] = ""
+    save_sign_info['doc_sign'] = json.dumps(sign_ret1, default=str)
+    save_sign_info['doc_ts_sign'] = json.dumps(ts_sign_ret1, default=str)
+    save_sign_info['sign_time'] = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+
+    db = DbUtil(global_config.DB_HOST, global_config.DB_USERNAME, global_config.DB_PASSWORD,
+                global_config.DB_DATABASE_GYL)
+    insert_sql = """
+            INSERT INTO nsyy_gyl.hbot_sign_info (register_id, patient_name, sign_type, user_id, doctor_name, pdf, 
+            doc_sign, doc_ts_sign, sign_time) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s) ON DUPLICATE KEY UPDATE 
+            register_id = VALUES(register_id), patient_name = VALUES(patient_name), sign_type = VALUES(sign_type),
+            user_id = VALUES(user_id), doctor_name = VALUES(doctor_name), pdf = VALUES(pdf), 
+            doc_sign = VALUES(doc_sign), doc_ts_sign = VALUES(doc_ts_sign), sign_time = VALUES(sign_time)  
+    """
+    last_rowid = db.execute(insert_sql, tuple(save_sign_info.values()), need_commit=True)
+    if last_rowid == -1:
+        del db
+        raise Exception("首次评估签名信息入库失败! ", insert_sql)
+
+    # 上传 首次评估 pdf
+    pdf_url = 'http://192.168.3.12:6080/att_download?save_path=' \
+              + upload_sign_file(base64_str, is_pdf=True)
+    save_sign_info['pdf'] = pdf_url
+    save_sign_info['register_id'] = f"{register_id}_1"
+    save_sign_info['user_id'] = user_id
+    save_sign_info['doctor_name'] = user_name
+    save_sign_info['doc_sign'] = json.dumps(sign_ret2, default=str)
+    save_sign_info['doc_ts_sign'] = json.dumps(ts_sign_ret2, default=str)
+    last_rowid = db.execute(insert_sql, tuple(save_sign_info.values()), need_commit=True)
+    if last_rowid == -1:
+        del db
+        raise Exception("首次评估签名信息入库失败! ", insert_sql)
+
+    query_sql = f"select sign_info from nsyy_gyl.hbot_register_record where register_id = '{register_id}'"
+    hist_record = db.query_one(query_sql)
+    sign_img_dict = json.loads(hist_record.get('sign_info')) if hist_record else {}
+    sign_img_dict['img5'] = hbot_config.sign_info.get('刘春敏')
+    sign_img_dict['img6'] = hbot_config.sign_info.get(user_name, "")
+    update_register_record_sql = f"update nsyy_gyl.hbot_register_record set sign_info = " \
+                                 f"'{json.dumps(sign_img_dict, default=str)}', " \
+                                 f"first_evaluation = '{json.dumps(first_evaluation, default=str)}' " \
+                                 f"where register_id = '{register_id}' "
+    db.execute(update_register_record_sql, need_commit=True)
+    del db
+
+
+
+
+def save_sign_info(json_data):
+    """
+    后端直接触发 医生/护士 签名， 随后保存签名返回信息
+    :param json_data:
+    :return:
+    """
+    register_id = json_data.get('register_id')
+    rid = json_data.get('rid')
+    patient_name = json_data.get('patient_name')
+    biz_sn = json_data.get('biz_sn')
+
+    sign_type = json_data.get('sign_type')  # 1=知情同意书/2=心理指导/3=治疗记录
+    sign_msg = json_data.get('sign_msg')  # 文件摘要
+    user_id = json_data.get('user_id', "")  # 医生/护士 云医签 id
+    user_name = json_data.get('user_name')
+    sign_desc = f"患者 [{patient_name}] {'治疗记录签名' if sign_type == 3 else '知情同意书/心理指导签名'}"
+    if int(sign_type) == 1:
+        # 知情同意书 签名医生固定是 刘春敏
+        user_id = hbot_config.sign_user_id['刘春敏']
+        biz_sn = f"{biz_sn}_1"
+    elif int(sign_type) == 2:
+        # 心理指导
+        user_id = hbot_config.sign_user_id.get(user_name)
+        biz_sn = f"{biz_sn}_2"
+    else:
+        # 治疗记录
+        user_id = hbot_config.sign_user_id.get(user_name)
+        biz_sn = f"{biz_sn}_{str(rid)}"
+
+    if not user_id:
+        raise Exception('医生/护士不存在, 请先联系信息科配置【云医签】', user_name)
+
+    try:
+        # 构造签名数据bizSn 业务流水号 需要唯一 登记记录签名用 register_id 治疗记录签名用 register_id + patient_id + record_date
+        sign_param = {"type": "sign_push", "user_id": user_id, "bizSn": biz_sn, "msg": sign_msg, "desc": sign_desc}
+        sign_ret = call_yangcheng_sign_serve(sign_param)
+
+        # 时间戳签名
+        ts_sign_param = {"sign_org": sign_msg, "type": "ts_gene"}
+        ts_sign_ret = call_yangcheng_sign_serve(ts_sign_param, ts_sign=True)
+    except Exception as e:
+        raise Exception('签名服务器异常', e)
+
+    save_sign_info = dict()
+    save_sign_info['register_id'] = register_id
+    save_sign_info['record_id'] = rid if rid else ''
+    save_sign_info['patient_name'] = patient_name
+    save_sign_info['sign_type'] = sign_type
+    save_sign_info['user_id'] = user_id
+    save_sign_info['doctor_name'] = "刘春敏" if int(sign_type) == 1 else user_name
+    save_sign_info['doc_sign'] = json.dumps(sign_ret, default=str)
+    save_sign_info['doc_ts_sign'] = json.dumps(ts_sign_ret, default=str)
+    save_sign_info['sign_time'] = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+
+    db = DbUtil(global_config.DB_HOST, global_config.DB_USERNAME, global_config.DB_PASSWORD,
+                global_config.DB_DATABASE_GYL)
+    insert_sql = """
+            INSERT INTO nsyy_gyl.hbot_sign_info (register_id, record_id, patient_name, sign_type, user_id, doctor_name, 
+            doc_sign, doc_ts_sign, sign_time) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s) ON DUPLICATE KEY UPDATE 
+            register_id = VALUES(register_id), record_id = VALUES(record_id), patient_name = VALUES(patient_name), 
+            sign_type = VALUES(sign_type), user_id = VALUES(user_id), doctor_name = VALUES(doctor_name), 
+            doc_sign = VALUES(doc_sign), doc_ts_sign = VALUES(doc_ts_sign), sign_time = VALUES(sign_time)  
+    """
+    last_rowid = db.execute(insert_sql, tuple(save_sign_info.values()), need_commit=True)
+    if last_rowid == -1:
+        del db
+        raise Exception("签名信息入库失败! ", insert_sql)
+
+    if int(sign_type) == 3:
+        sign_img_dict = {'img5': hbot_config.sign_info.get(user_name)}
+        update_treatment_record_sql = f"update nsyy_gyl.hbot_treatment_record set sign_info = " \
+                                      f"'{json.dumps(sign_img_dict, default=str)}' where id = {int(rid)} "
+        db.execute(update_treatment_record_sql, need_commit=True)
+    else:
+        query_sql = f"select sign_info from nsyy_gyl.hbot_register_record where register_id = '{register_id}' "
+        hist_register_record = db.query_one(query_sql)
+        sign_img = json.loads(hist_register_record['sign_info']) if hist_register_record.get('sign_info') else {}
+        if int(sign_type) == 2:
+            sign_img['img1'] = hbot_config.sign_info.get(user_name)
+        else:
+            sign_img['img3'] = hbot_config.sign_info.get('刘春敏')
+        update_treatment_record_sql = f"update nsyy_gyl.hbot_register_record set sign_info = " \
+                                      f"'{json.dumps(sign_img, default=str)}' where register_id = '{register_id}' "
+        db.execute(update_treatment_record_sql, need_commit=True)
+
+    del db
+    return biz_sn
+
+
+def save_pdf(json_data):
+    """
+    保存签名 pdf 信息
+    :param json_data:
+    :return:
+    """
+    if int(json_data['ret_code']) != 0:
+        raise Exception("患者签名失败! ", json_data['ret_code'], json_data['ret_msg'])
+
+    # 将字符串按 `&` 分割
+    parts = json_data['document_no'].split('_')
+    register_id = parts[0]
+    try:
+        pdf_url = ''
+        if json_data.get('pdf'):
+            pdf_url = 'http://192.168.3.12:6080/att_download?save_path=' \
+                      + upload_sign_file(json_data.get('pdf'), is_pdf=True)
+        pat_hand_sign_url = ''
+        if json_data.get('hand_sign'):
+            pat_hand_sign_url = 'http://192.168.3.12:6080/att_download?save_path=' \
+                                + upload_sign_file(json_data.get('hand_sign'))
+        pat_face_photo_url = ''
+        if json_data.get('face_photo'):
+            pat_face_photo_url = 'http://192.168.3.12:6080/att_download?save_path=' \
+                                 + upload_sign_file(json_data.get('face_photo'))
+        pat_fingerprint_url = ''
+        if json_data.get('pat_fingerprint'):
+            pat_fingerprint_url = 'http://192.168.3.12:6080/att_download?save_path=' \
+                                 + upload_sign_file(json_data.get('pat_fingerprint'))
+    except Exception as e:
+        raise Exception("上传签名文件失败! ", e)
+
+    if len(parts) == 4:
+        record_id = parts[3]
+        # 大于 2 则说明是 治疗记录签名
+        update_sql = f"update nsyy_gyl.hbot_sign_info set pdf = '{pdf_url}', pat_hand_sign = '{pat_hand_sign_url}', " \
+                     f"pat_face_photo = '{pat_face_photo_url}', pat_fingerprint = '{pat_fingerprint_url}'  " \
+                     f"where register_id = '{register_id}' and sign_type = 3 and record_id = '{record_id}'"
+    elif len(parts) == 2:
+        update_sql = f"update nsyy_gyl.hbot_sign_info set pdf = '{pdf_url}', pat_hand_sign = '{pat_hand_sign_url}', " \
+                     f"pat_face_photo = '{pat_face_photo_url}', pat_fingerprint = '{pat_fingerprint_url}'  " \
+                     f"where register_id = '{register_id}' and sign_type = {int(parts[1])}"
+    else:
+        raise Exception("参数错误 无法解析业务字段 ", json_data['document_no'])
+
+    # 更新签名数据
+    db = DbUtil(global_config.DB_HOST, global_config.DB_USERNAME, global_config.DB_PASSWORD,
+                global_config.DB_DATABASE_GYL)
+    db.execute(update_sql, need_commit=True)
+
+    if len(parts) == 4:
+        record_id = parts[3]
+        query_sql = f"select sign_info from nsyy_gyl.hbot_treatment_record where id = {int(record_id)}"
+        hist_record = db.query_one(query_sql)
+        sign_img_dict = json.loads(hist_record.get('sign_info')) if hist_record else {}
+        sign_img_dict['img6'] = pat_hand_sign_url
+        update_treatment_record_sql = f"update nsyy_gyl.hbot_treatment_record set sign_info = " \
+                                  f"'{json.dumps(sign_img_dict, default=str)}' where id = {int(record_id)} "
+        db.execute(update_treatment_record_sql, need_commit=True)
+    else:
+        query_sql = f"select sign_info from nsyy_gyl.hbot_register_record where register_id = '{register_id}'"
+        hist_record = db.query_one(query_sql)
+        sign_img_dict = json.loads(hist_record.get('sign_info')) if hist_record else {}
+        if int(parts[1]) == 2:
+            sign_img_dict['img2'] = pat_hand_sign_url
+        else:
+            sign_img_dict['img4'] = pat_hand_sign_url
+        update_register_record_sql = f"update nsyy_gyl.hbot_register_record set sign_info = " \
+                                     f"'{json.dumps(sign_img_dict, default=str)}' where register_id = '{register_id}' "
+        db.execute(update_register_record_sql, need_commit=True)
+
+    del db
+
+
+def query_sign_ret(json_data, is_query_sign_img: bool = False):
+    """
+    查询签名结果
+    :param json_data:
+    :param is_query_sign_img
+    :return:
+    """
+    register_id = json_data.get('register_id')
+    rid = json_data.get('rid')
+    sign_type = json_data.get('sign_type')
+
+    if rid:
+        query_sql = f"select * from nsyy_gyl.hbot_sign_info where register_id = '{register_id}' " \
+                     f"and record_id = '{rid}' and sign_type = {int(sign_type)}"
+    else:
+        query_sql = f"select * from nsyy_gyl.hbot_sign_info where register_id = '{register_id}' " \
+                     f"and sign_type = {int(sign_type)}"
+    db = DbUtil(global_config.DB_HOST, global_config.DB_USERNAME, global_config.DB_PASSWORD,
+                global_config.DB_DATABASE_GYL)
+    hbot_sign_info = db.query_one(query_sql)
+    del db
+    if is_query_sign_img:
+        sign_img = {'doctor_img': '', 'patient_img': ''}
+        if hbot_sign_info:
+            sign_img['doctor_img'] = hbot_config.sign_info.get(hbot_sign_info.get('doctor_name', '刘春敏'), "")
+            sign_img['patient_img'] = hbot_sign_info.get('pat_hand_sign')
+        return sign_img
+    return hbot_sign_info
+
+
+def call_yangcheng_sign_serve(param: dict, ts_sign: bool = False):
+    """
+    调用 杨程 部署的签名服务器，进行签名
+    :param param:
+    :param ts_sign:
+    :return:
+    """
+    sign_serve_url = "http://192.168.3.45:8087/yun_signer/opera_sign" \
+        if not ts_sign else "http://192.168.3.45:8087/signer/opera_sign"
+    response = requests.post(sign_serve_url, timeout=10, json=param)
+    data = json.loads(response.text)
+    if int(data.get('code')) != 20000:
+        raise Exception(data)
+    return data.get('data')
+
+
+def upload_sign_file(base64_str, is_pdf: bool = False):
+    """
+    将签名后的 pdf 以及图片上传至服务器
+    :param base64_str:
+    :param is_pdf:
+    :return:
+    """
+    param = {"type": "save", "b64file": base64_str}
+    if is_pdf:
+        param['fext'] = 'pdf'
+    response = requests.post("http://192.168.3.12:6080/b64pic_process", timeout=10, json=param)
+    data = json.loads(response.text)
+    if int(data.get('code')) != 20000:
+        raise Exception(data)
+    return data.get('download_path')
+

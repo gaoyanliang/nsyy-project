@@ -28,8 +28,21 @@ comp_type = {
 }
 
 sign_info = {
-    "刘春敏": "http://120.194.96.67:6080/att_download?save_path=L2hvbWUvY2MvYXR0LzIwMjQvMjAyNC0xMS0wNS8xNzMwNzY2ODExLjc0NjgyMS5wbmc=",
-    "付杰": "http://120.194.96.67:6080/att_download?save_path=L2hvbWUvY2MvYXR0LzIwMjQvMjAyNC0xMS0wMS8xNzMwNDI3MjEyLjE3NzI4MTYucG5n",
-    "陈安平": "http://120.194.96.67:6080/att_download?save_path=L2hvbWUvY2MvYXR0LzIwMjQvMjAyNC0xMS0wNS8xNzMwNzY0NzY3LjQ1OTA5OS5wbmc=",
-    "樊琳": "http://120.194.96.67:6080/att_download?save_path=L2hvbWUvY2MvYXR0LzIwMjQvMjAyNC0xMS0wMy8xNzMwNTk4NjI0Ljc4MzI3OTcucG5n"
+    "刘春敏": "http://192.168.3.12:6080/att_download?save_path=L2hvbWUvY2MvYXR0LzIwMjQvMjAyNC0xMS0wNS8xNzMwNzY2ODExLjc0NjgyMS5wbmc=",
+    "付杰": "http://192.168.3.12:6080/att_download?save_path=L2hvbWUvY2MvYXR0LzIwMjQvMjAyNC0xMS0wMS8xNzMwNDI3MjEyLjE3NzI4MTYucG5n",
+    "陈安平": "http://192.168.3.12:6080/att_download?save_path=L2hvbWUvY2MvYXR0LzIwMjQvMjAyNC0xMS0wNS8xNzMwNzY0NzY3LjQ1OTA5OS5wbmc=",
+    "樊琳": "http://192.168.3.12:6080/att_download?save_path=L2hvbWUvY2MvYXR0LzIwMjQvMjAyNC0xMS0wMy8xNzMwNTk4NjI0Ljc4MzI3OTcucG5n",
+    "admin": "http://192.168.3.12:6080/att_download?save_path=L2hvbWUvY2MvYXR0LzIwMjQvMjAyNC0xMi0xOC8xNzM0NDg0MzQ3LjUzNjkzNjMucG5n",
+    "李璐": "http://192.168.3.12:6080/att_download?save_path=L2hvbWUvY2MvYXR0LzIwMjQvMjAyNC0xMi0yMy8xNzM0OTI1MjA4LjQzNDI2NzgucG5n"
 }
+
+sign_user_id = {
+    "刘春敏": "U0392",
+    "付杰": "U0397",
+    "陈安平": "U0368",
+    "樊琳": "U2144",
+    "admin": "17382120012",
+    "李璐": "U1136"
+}
+
+sign_file_path = '/home/gyl/hbot_sign_info/'
