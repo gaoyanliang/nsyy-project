@@ -39,12 +39,14 @@ def call_third_systems_obtain_data(type: str, sql: str, db_source: str):
     return data
 
 
-"""
-根据住院号和登记时间，查询病人医嘱信息
-"""
-
-
 def query_medical_order(patient_id, register_time, db_source):
+    """
+    根据住院号和登记时间，查询病人医嘱信息
+    :param patient_id:
+    :param register_time:
+    :param db_source:
+    :return:
+    """
     data = None
     sql = "select a.*, bm.编码 开嘱科室编码, b.住院号 from 病人医嘱记录 a, 病案主页 b, 部门表 bm " \
           f"where a.病人id=b.病人id and a.主页id=b.主页id and a.开嘱科室id = bm.id " \
@@ -79,13 +81,15 @@ def has_medical_order_been_stopped(doc_advice_id, db_source):
     return False
 
 
-"""
-根据患者住院号查询患者信息
-⚠️ 注意： 查询门诊患者，需要根据 就诊卡号/身份证号 查询
-"""
-
-
 def query_patient_info(patient_type, patient_id, comp_type):
+    """
+    根据患者住院号查询患者信息
+    ⚠️ 注意： 查询门诊患者，需要根据 就诊卡号/身份证号 查询
+    :param patient_type:
+    :param patient_id:
+    :param comp_type:
+    :return:
+    """
     db_source = "nshis" if int(comp_type) == 12 else "kfhis"
     data = {}
     if int(patient_type) == 3:
@@ -126,12 +130,14 @@ def query_patient_info(patient_type, patient_id, comp_type):
     return data
 
 
-"""
-查询生命体征
-"""
-
-
 def query_vital_signs(sick_id, homepage_id, db_source):
+    """
+    查询生命体征
+    :param sick_id:
+    :param homepage_id:
+    :param db_source:
+    :return:
+    """
     data = {}
     if db_source == 'nshis':
         sql = f"""
@@ -166,12 +172,12 @@ def query_vital_signs(sick_id, homepage_id, db_source):
     return data
 
 
-"""
-高压氧治疗登记
-"""
-
-
 def register(json_data):
+    """
+    高压氧治疗登记
+    :param json_data:
+    :return:
+    """
     date_to_compare = datetime.strptime(json_data.get('start_date'), '%Y-%m-%d')
     if date_to_compare.date() > datetime.now().date():
         json_data['execution_status'] = hbot_config.register_status['not_started']
@@ -215,13 +221,13 @@ def register(json_data):
     del db
 
 
-"""
-查询登记记录 0=待执行 1=执行中 2=已完成/已取消
-同时查询登记记录对应的当天的治疗记录的状态
-"""
-
-
 def query_register_record(json_data):
+    """
+    查询登记记录 0=待执行 1=执行中 2=已完成/已取消
+    同时查询登记记录对应的当天的治疗记录的状态
+    :param json_data:
+    :return:
+    """
     query_type = json_data.get('query_type')
     key = json_data.get('key')
     if int(query_type) == 0:
@@ -263,12 +269,12 @@ def query_register_record(json_data):
     return sorted_data
 
 
-"""
-更新登记记录开始时间
-"""
-
-
 def update_register_start_time(json_data):
+    """
+    更新登记记录开始时间
+    :param json_data:
+    :return:
+    """
     rid = json_data.get('id')
     start_time = json_data.get('start_time')
     execution_days = json_data.get('execution_days')
@@ -293,16 +299,16 @@ def update_register_start_time(json_data):
     del db
 
 
-"""
-查询治疗记录, 默认查询当天的治疗记录，还可以按照日期或者 住院号/门诊号 查询
-query_type = 1 查询治疗记录
-query_type = 2 查询知情同意书/仅查签名
-query_type = 3 查询知情同意书签名
-query_type = 4 查询治疗记录签名
-"""
-
-
 def query_treatment_record(json_data):
+    """
+    查询治疗记录, 默认查询当天的治疗记录，还可以按照日期或者 住院号/门诊号 查询
+    query_type = 1 查询治疗记录
+    query_type = 2 查询知情同意书/仅查签名
+    query_type = 3 查询知情同意书签名
+    query_type = 4 查询治疗记录签名
+    :param json_data:
+    :return:
+    """
     register_id = json_data.get('register_id')
     query_type = json_data.get('query_type', 0)
     if int(query_type) == 1:
@@ -364,15 +370,15 @@ def query_treatment_record(json_data):
     return data, total, pending, implemented, canceled
 
 
-"""
-更新登记信息
-1. 签署执行同意书, 进行心理指导
-2. 终止执行
-3. 恢复已取消的登记记录
-"""
-
-
 def update_register_record(json_data):
+    """
+    更新登记信息
+    1. 签署执行同意书, 进行心理指导
+    2. 终止执行
+    3. 恢复已取消的登记记录
+    :param json_data:
+    :return:
+    """
     register_id = json_data.get('register_id')
     patient_id = json_data.get('patient_id')
     start_date = json_data.get('start_date')
@@ -444,12 +450,12 @@ def update_register_record(json_data):
         return
 
 
-"""
-更新治疗记录
-"""
-
-
 def update_treatment_record(json_data):
+    """
+    更新治疗记录
+    :param json_data:
+    :return:
+    """
     tid = json_data.get('id')
     register_id = json_data.get('register_id')
     record_id = json_data.get('record_id')
@@ -548,14 +554,14 @@ def update_treatment_record(json_data):
     del db
 
 
-"""
-更新签名信息
-sign_type = 1 签署知情同意书 & 心理指导
-sign_type = 2 治疗记录签名
-"""
-
-
 def update_sign_info(json_data):
+    """
+    更新签名信息
+    sign_type = 1 签署知情同意书 & 心理指导
+    sign_type = 2 治疗记录签名
+    :param json_data:
+    :return:
+    """
     # todo 待废弃⚠️
     sign_id = json_data.get('sign_id')
     sign_type = json_data.get('sign_type')
@@ -576,20 +582,20 @@ def update_sign_info(json_data):
     del db
 
 
-"""
-高压氧 扣款
-高压氧坐97  躺145.5 急救单独开仓坐194+97  躺194+145.5
-
-对应的扣费次数如下
-
-高压氧坐  1
-高压氧躺  1.5
-急救单独开仓坐  3
-急救单独开仓躺  3.5
-"""
-
-
 def hbot_charge(json_data):
+    """
+    高压氧 扣款
+    高压氧坐97  躺145.5 急救单独开仓坐194+97  躺194+145.5
+
+    对应的扣费次数如下
+
+    高压氧坐  1
+    高压氧躺  1.5
+    急救单独开仓坐  3
+    急救单独开仓躺  3.5
+    :param json_data:
+    :return:
+    """
     rid = json_data.get('rid')
     tid = json_data.get('tid')
     pay_num = json_data.get('pay_num')
@@ -707,14 +713,13 @@ def hbot_charge(json_data):
     del db
 
 
-"""
-定时任务
-1. 如果到达执行时间，修改登记记录的状态
-2. 刷新医嘱
-"""
-
-
 def hbot_run_everyday():
+    """
+    定时任务
+    1. 如果到达执行时间，修改登记记录的状态
+    2. 刷新医嘱
+    :return:
+    """
     db = DbUtil(global_config.DB_HOST, global_config.DB_USERNAME, global_config.DB_PASSWORD,
                 global_config.DB_DATABASE_GYL)
     states = (hbot_config.register_status['not_started'], hbot_config.register_status['in_progress'])
@@ -816,12 +821,12 @@ def write_new_treatment_record(register_id, patient_id, record_date, record_time
         last_rowid = db.execute(insert_sql, need_commit=True)
 
 
-"""
-工作量统计
-"""
-
-
 def data_statistics(json_data):
+    """
+    工作量统计
+    :param json_data:
+    :return:
+    """
     start_date = json_data.get('start_date')
     end_date = json_data.get('end_date')
     db = DbUtil(global_config.DB_HOST, global_config.DB_USERNAME, global_config.DB_PASSWORD,
@@ -941,8 +946,6 @@ def sign_first_evaluation(json_data):
                                  f"where register_id = '{register_id}' "
     db.execute(update_register_record_sql, need_commit=True)
     del db
-
-
 
 
 def save_sign_info(json_data):
