@@ -29,6 +29,10 @@ periodd['3'] = periodd['1'] + periodd['2']
 
 
 def cache_capacity():
+    """
+    系统启动后 需要先缓存排班信息，以及每个诊室的剩余可预约数量
+    :return:
+    """
     db = DbUtil(global_config.DB_HOST, global_config.DB_USERNAME, global_config.DB_PASSWORD,
                 global_config.DB_DATABASE_GYL)
 
@@ -140,12 +144,12 @@ def call_third_systems_obtain_data(url: str, type: str, param: dict):
     return data
 
 
-"""
-线上预约（微信小程序）   
-"""
-
-
 def online_appt(json_data):
+    """
+    线上预约（微信小程序）
+    :param json_data:
+    :return:
+    """
     json_data['type'] = appt_config.APPT_TYPE['online']
     json_data['level'] = appt_config.APPT_URGENCY_LEVEL['green']
     json_data['state'] = appt_config.APPT_STATE['booked']
@@ -153,12 +157,12 @@ def online_appt(json_data):
     create_appt(json_data)
 
 
-"""
-线下预约（现场）
-"""
-
-
 def offline_appt(json_data):
+    """
+    线下预约（现场）
+    :param json_data:
+    :return:
+    """
     json_data['type'] = appt_config.APPT_TYPE['offline']
     json_data['level'] = json_data.get('level') or appt_config.APPT_URGENCY_LEVEL['green']
     json_data['state'] = appt_config.APPT_STATE['booked']
@@ -166,14 +170,12 @@ def offline_appt(json_data):
     create_appt(json_data)
 
 
-"""
-校验是否可以继续预约
-小程序预约和线下预约选择的时间段（上午/下午）不能更改
-自助预约/医嘱预约可以根据容量调整时间段
-"""
-
-
 def check_appointment_quantity(book_info):
+    """
+    校验是否可以继续预约
+    小程序预约和线下预约选择的时间段（上午/下午）不能更改
+    自助预约/医嘱预约可以根据容量调整时间段
+    """
     def find_next_available(date, next_slot, period_list, find_in):
         capdict_am = room_dict[str(book_info['room'])][date]['1'] if room_dict[str(book_info['room'])][date].get(
             '1') else {}
@@ -222,16 +224,18 @@ def check_appointment_quantity(book_info):
     raise Exception("No available period found")
 
 
-"""
-创建预约
-1. 线上小程序预约
-2. 现场 oa 预约
-3. 自助挂号机取号，查询预约记录时，根据挂号信息自动创建
-4. 根据医嘱创建预约
-"""
-
-
 def create_appt(json_data, last_date=None, last_slot=None):
+    """
+    创建预约
+    1. 线上小程序预约
+    2. 现场 oa 预约
+    3. 自助挂号机取号，查询预约记录时，根据挂号信息自动创建
+    4. 根据医嘱创建预约
+    :param json_data:
+    :param last_date:
+    :param last_slot:
+    :return:
+    """
     json_data['create_time'] = str(datetime.now())[:19]
     if 'location_id' not in json_data:
         json_data['location_id'] = json_data['room']
@@ -285,12 +289,14 @@ def create_appt(json_data, last_date=None, last_slot=None):
     return last_rowid, bdate, bslot
 
 
-"""
-根据自助取号记录创建预约
-"""
-
-
 def auto_create_appt_by_auto_reg(id_card_list, medical_card_list):
+    """
+    根据自助取号记录创建预约
+    :param id_card_list:
+    :param medical_card_list:
+    :return:
+    """
+    # 根据身份证号或者就诊卡号查询患者当天的挂号记录
     condition_sql = ''
     if id_card_list and not medical_card_list:
         id_list = ', '.join(f"'{item}'" for item in id_card_list)
@@ -312,7 +318,7 @@ def auto_create_appt_by_auto_reg(id_card_list, medical_card_list):
     if not reg_recordl:
         return
 
-    # 查询当天排班信息
+    # 根据患者挂号记录中的挂号项目创建预约，如果没有匹配上项目，则不创建预约
     db = DbUtil(global_config.DB_HOST, global_config.DB_USERNAME, global_config.DB_PASSWORD,
                 global_config.DB_DATABASE_GYL)
     worktime = (datetime.now().weekday() + 1) % 8
@@ -402,17 +408,17 @@ def auto_create_appt_by_auto_reg(id_card_list, medical_card_list):
             print('根据自助挂号记录创建预约异常: ', e)
 
 
-"""
-查询预约记录
-过滤条件有： 是否完成，openid，id_card_no, name, proj_id, doctor, patient_id
-query_from = 1 oa 所有预约记录查询
-query_from = 2 oa 医生页面预约记录查询
-query_from = 3 oa 分诊页面预约记录查询
-query_from = 4 小程序查询
-"""
-
-
 def query_appt_record(json_data):
+    """
+    查询预约记录
+    过滤条件有： 是否完成，openid，id_card_no, name, proj_id, doctor, patient_id
+    query_from = 1 oa 所有预约记录查询
+    query_from = 2 oa 医生页面预约记录查询
+    query_from = 3 oa 分诊页面预约记录查询
+    query_from = 4 小程序查询
+    :param json_data:
+    :return:
+    """
     # 查询预约记录时，如果患者是在远途自助机或者诊室找医生帮忙取号的，自动创建预约
     # 根据 patient_id 查询自助挂号信息
     query_from = json_data.get('query_from')
@@ -500,12 +506,13 @@ def push_patient(patient_name: str, socket_id: str):
         print(datetime.now(), "Socket Push Error: ", e.__str__())
 
 
-"""
-完成/取消/过号/报道 预约
-"""
-
-
 def operate_appt(appt_id: int, type: int):
+    """
+    完成/取消/过号/报道 预约
+    :param appt_id:
+    :param type:
+    :return:
+    """
     cur_time = str(datetime.now())[:19]
     db = DbUtil(global_config.DB_HOST, global_config.DB_USERNAME, global_config.DB_PASSWORD,
                 global_config.DB_DATABASE_GYL)
@@ -583,12 +590,16 @@ def operate_appt(appt_id: int, type: int):
         update_wait_num(int(record.get('rid')), int(record.get('pid')))
 
 
-"""
-根据医嘱创建预约
-"""
-
-
 def create_appt_by_doctor_advice(patient_id: str, doc_name: str, id_card_no, appt_id, level):
+    """
+    根据医嘱创建预约
+    :param patient_id:
+    :param doc_name:
+    :param id_card_no:
+    :param appt_id:
+    :param level:
+    :return:
+    """
     param = {"type": "his_yizhu_info", 'patient_id': patient_id, 'doc_name': doc_name}
     doctor_advice = call_third_systems_obtain_data('his_info', 'his_yizhu_info', param)
     if not doctor_advice:
@@ -714,12 +725,12 @@ def create_appt_by_doctor_advice(patient_id: str, doc_name: str, id_card_no, app
         del db
 
 
-"""
-更新医嘱
-"""
-
-
 def update_advice(json_data):
+    """
+    更新医嘱
+    :param json_data:
+    :return:
+    """
     father_appt_id = int(json_data.get('appt_id'))
     patient_id = int(json_data.get('patient_id'))
     doc_name = json_data.get('doc_name')
@@ -894,12 +905,12 @@ def update_advice(json_data):
             del db
 
 
-"""
-住院患者医嘱查询
-"""
-
-
 def inpatient_advice(json_data):
+    """
+    住院患者医嘱查询
+    :param json_data:
+    :return:
+    """
     advice_dict = {}
     param = {"type": "his_yizhu_info", 'patient_id': json_data.get('patient_id'),
              'doc_name': json_data.get('doc_name')}
@@ -919,6 +930,11 @@ def inpatient_advice(json_data):
 
 
 def inpatient_advice_create(json_data):
+    """
+    根据住院患者医嘱创建预约
+    :param json_data:
+    :return:
+    """
     advicel = json_data.get('advicel')
     if not advicel:
         return
@@ -993,14 +1009,15 @@ def inpatient_advice_create(json_data):
         raise Exception('根据患者信息查询不到病人信息', ' 病人id = ', advicel[0].get('patient_id'))
 
 
-"""
-预约签到
-1. 第一次签到 （his 取号/ 医嘱项目检查付款状态）
-2. 过号 重新取号
-"""
-
-
 def sign_in(json_data, over_num: bool):
+    """
+    预约签到
+    1. 第一次签到 （his 取号/ 医嘱项目检查付款状态）
+    2. 过号 重新取号
+    :param json_data:
+    :param over_num:
+    :return:
+    """
     db = DbUtil(global_config.DB_HOST, global_config.DB_USERNAME, global_config.DB_PASSWORD,
                 global_config.DB_DATABASE_GYL)
     redis_client = redis.Redis(connection_pool=pool)
@@ -1127,12 +1144,12 @@ def __get_signin_num(appt_proj_id: int):
     return int(num) + 1
 
 
-"""
-获取当前时间段 （上午/下午）
-"""
-
-
 def if_the_current_time_period_is_available(period):
+    """
+    获取当前时间段 （上午/下午）
+    :param period:
+    :return:
+    """
     # 0 全天 1 上午 2 下午
     # 当天时间不超过 11:30 都可预约上午，时间不超过 17:30 都可预约下午
     now = datetime.now()
@@ -1145,12 +1162,12 @@ def if_the_current_time_period_is_available(period):
     return False
 
 
-"""
-呼叫 （通过 socket 实现）
-"""
-
-
 def call(json_data):
+    """
+    呼叫 （通过 socket 实现）
+    :param json_data:
+    :return:
+    """
     try:
         socket_id = json_data.get('socket_id')
         room = ' '.join(list(json_data.get('proj_room')))
@@ -1164,12 +1181,13 @@ def call(json_data):
         print(datetime.now(), 'Call Exception: ', e.__str__())
 
 
-"""
-叫号下一个 
-"""
-
-
 def next_num(id, is_group):
+    """
+    叫号下一个
+    :param id:
+    :param is_group:
+    :return:
+    """
     data_list, doctor, project = query_wait_list({'type': 1, 'wait_id': id})
 
     # 更新列表中第一个为处理中
@@ -1197,12 +1215,12 @@ def next_num(id, is_group):
     return data_list
 
 
-"""
-查询所有预约项目
-"""
-
-
 def query_all_appt_project(type: int):
+    """
+    查询所有预约项目
+    :param type:
+    :return:
+    """
     redis_client = redis.Redis(connection_pool=pool)
     projl = redis_client.hvals(APPT_PROJECTS_KEY)
     projl = [json.loads(proj) for proj in projl]
@@ -1263,14 +1281,14 @@ def query_all_appt_project(type: int):
     return data
 
 
-"""
-查询大厅列表/ 诊室列表
-type=1 诊室
-type=2 大厅
-"""
-
-
 def query_room_list(type: int):
+    """
+    查询大厅列表/ 诊室列表
+    type=1 诊室
+    type=2 大厅
+    :param type:
+    :return:
+    """
     redis_client = redis.Redis(connection_pool=pool)
     room_list = []
     if int(type) == 1:
@@ -1283,15 +1301,14 @@ def query_room_list(type: int):
     return room_list
 
 
-"""
-查询大厅/诊室等待列表 
-type=1 诊室 wait_id 是 rid 房间号
-type=2 大厅 wiat_id 是 pid 项目id
-
-"""
-
-
 def query_wait_list(json_data):
+    """
+    查询大厅/诊室等待列表
+    type=1 诊室 wait_id 是 rid 房间号
+    type=2 大厅 wiat_id 是 pid 项目id
+    :param json_data:
+    :return:
+    """
     db = DbUtil(global_config.DB_HOST, global_config.DB_USERNAME, global_config.DB_PASSWORD,
                 global_config.DB_DATABASE_GYL)
     redis_client = redis.Redis(connection_pool=pool)
@@ -1376,12 +1393,12 @@ def query_wait_list(json_data):
     return result, doctor, proj
 
 
-"""
-更新医嘱付款状态
-"""
-
-
 def update_doctor_advice_pay_state(idl):
+    """
+    更新医嘱付款状态
+    :param idl:
+    :return:
+    """
     db = DbUtil(global_config.DB_HOST, global_config.DB_USERNAME, global_config.DB_PASSWORD,
                 global_config.DB_DATABASE_GYL)
     ids = ", ".join(map(str, idl))
@@ -1390,12 +1407,12 @@ def update_doctor_advice_pay_state(idl):
     del db
 
 
-"""
-查询医嘱
-"""
-
-
 def query_advice_by_father_appt_id(json_data):
+    """
+    查询医嘱
+    :param json_data:
+    :return:
+    """
     father_appt_id = json_data.get('father_appt_id')
     patient_id = json_data.get('patient_id')
     condition_sql = ''
@@ -1419,12 +1436,12 @@ def query_advice_by_father_appt_id(json_data):
     return appts
 
 
-"""
-查询排班信息
-"""
-
-
 def query_sched(rid: int):
+    """
+    查询排班信息
+    :param rid:
+    :return:
+    """
     db = DbUtil(global_config.DB_HOST, global_config.DB_USERNAME, global_config.DB_PASSWORD,
                 global_config.DB_DATABASE_GYL)
     redis_client = redis.Redis(connection_pool=pool)
@@ -1442,12 +1459,11 @@ def query_sched(rid: int):
     return all_sched
 
 
-"""
-查询医生列表
-"""
-
-
 def query_doc():
+    """
+    查询医生列表
+    :return:
+    """
     redis_client = redis.Redis(connection_pool=pool)
     all_doc = redis_client.hgetall(APPT_DOCTORS_KEY)
     data = []
@@ -1456,12 +1472,12 @@ def query_doc():
     return data
 
 
-"""
-更新医生信息
-"""
-
-
 def update_doc(json_data):
+    """
+    更新医生信息
+    :param json_data:
+    :return:
+    """
     redis_client = redis.Redis(connection_pool=pool)
     db = DbUtil(global_config.DB_HOST, global_config.DB_USERNAME, global_config.DB_PASSWORD,
                 global_config.DB_DATABASE_GYL)
@@ -1500,12 +1516,11 @@ def update_doc(json_data):
     del db
 
 
-"""
-查询项目列表
-"""
-
-
 def query_proj():
+    """
+    查询项目列表
+    :return:
+    """
     redis_client = redis.Redis(connection_pool=pool)
     all_proj = redis_client.hgetall(APPT_PROJECTS_KEY)
     data = []
@@ -1514,12 +1529,11 @@ def query_proj():
     return data
 
 
-"""
-坐诊房间列表
-"""
-
-
 def room_list():
+    """
+    坐诊房间列表
+    :return:
+    """
     redis_client = redis.Redis(connection_pool=pool)
     rooml = redis_client.hvals(APPT_ROOMS_KEY)
     parsed_values = []
@@ -1530,13 +1544,13 @@ def room_list():
     return parsed_values
 
 
-"""
-更换医生排班信息
-房间不支持改变， 同一个房间同一天同一个时间段，仅可以做一个项目，且近坐一个医生
-"""
-
-
 def update_sched(json_data):
+    """
+    更换医生排班信息
+    房间不支持改变， 同一个房间同一天同一个时间段，仅可以做一个项目，且近坐一个医生
+    :param json_data:
+    :return:
+    """
     redis_client = redis.Redis(connection_pool=pool)
     db = DbUtil(global_config.DB_HOST, global_config.DB_USERNAME, global_config.DB_PASSWORD,
                 global_config.DB_DATABASE_GYL)
@@ -1589,12 +1603,12 @@ def update_sched(json_data):
     cache_capacity()
 
 
-"""
-检查项目切换房间
-"""
-
-
 def change_room(json_data):
+    """
+    检查项目切换房间
+    :param json_data:
+    :return:
+    """
     change_list = json_data.get('change_list')
     today_str = str(date.today())
     for item in change_list:
@@ -1630,12 +1644,12 @@ def change_room(json_data):
     room_dict[change_to_rid][today_str][str(current_period)][str(current_slot)] -= len(change_id_list)
 
 
-"""
-更新等待列表顺序
-"""
-
-
 def update_wait_list_sort(json_data):
+    """
+    更新等待列表顺序
+    :param json_data:
+    :return:
+    """
     recordl = json_data.get('recordl')
     # 生成批量更新SQL语句
     update_sql = f"UPDATE {database}.appt_record SET sort_num = CASE id "
@@ -1653,12 +1667,14 @@ def update_wait_list_sort(json_data):
     del db
 
 
-"""
-更新调整顺序的原因
-"""
-
-
 def update_sort_info(appt_id, sort_info):
+    """
+    更新调整顺序的原因
+    :param appt_id:
+    :param sort_info:
+    :return:
+    """
+
     # 生成批量更新SQL语句
     update_sql = 'UPDATE {}.appt_record SET sort_info = \'{}\' WHERE id = {} '.format(database, sort_info, appt_id)
     db = DbUtil(global_config.DB_HOST, global_config.DB_USERNAME, global_config.DB_PASSWORD,
@@ -1667,17 +1683,19 @@ def update_sort_info(appt_id, sort_info):
     del db
 
 
-"""
-更新等待人数 （以下几种时机触发）
-1. 新建预约时 自主查询前方等待人数更新
-2. 取消预约 / 完成预约 
-3. 过号时
-4. 调整等待列表顺序时
-5. 签到后
-"""
-
-
 def update_wait_num(rid, pid):
+    """
+    更新等待人数 （以下几种时机触发）
+    1. 新建预约时 自主查询前方等待人数更新
+    2. 取消预约 / 完成预约
+    3. 过号时
+    4. 调整等待列表顺序时
+    5. 签到后
+    :param rid:
+    :param pid:
+    :return:
+    """
+
     # 1. 未签到的等待人数为 （等待中 处理中 过号） 的所有数量
     # 2. 已签到的等待任务树为 所在当前房间等待列表中的位置
     db = DbUtil(global_config.DB_HOST, global_config.DB_USERNAME, global_config.DB_PASSWORD,
@@ -1723,8 +1741,12 @@ def update_wait_num(rid, pid):
     del db
 
 
-# 更新或者插入项目
 def update_or_insert_project(json_data):
+    """
+    新增或更新预约项目
+    :param json_data:
+    :return:
+    """
     db = DbUtil(global_config.DB_HOST, global_config.DB_USERNAME, global_config.DB_PASSWORD,
                 global_config.DB_DATABASE_GYL)
     try:
@@ -1772,13 +1794,14 @@ def update_or_insert_project(json_data):
         push_patient('', socket_id)
 
 
-"""
-退费
-主要针对已签到的预约（钱已经划入 his）
-"""
-
-
 def refund(appt_id: int):
+    """
+    退费
+    主要针对已签到的预约（钱已经划入 his）
+    PS： 执行该退费操作前，需要导诊台在 HIS 中帮患者取消接诊，否则无法完成退款
+    :param appt_id:
+    :return:
+    """
     query_sql = 'select * from  {}.appt_record WHERE id = {} '.format(database, appt_id)
     db = DbUtil(global_config.DB_HOST, global_config.DB_USERNAME, global_config.DB_PASSWORD,
                 global_config.DB_DATABASE_GYL)
@@ -1818,12 +1841,11 @@ def refund(appt_id: int):
     del db
 
 
-"""
-加载预约数据到内存
-"""
-
-
 def load_data_into_cache():
+    """
+    加载预约数据到内存
+    :return:
+    """
     print("开始加载综合预约静态数据到缓存中 - ", datetime.now())
 
     redis_client = redis.Redis(connection_pool=pool)
@@ -1879,15 +1901,15 @@ def load_data_into_cache():
     print("综合预约静态数据加载完成 - ", datetime.now())
 
 
-"""
-每日执行
-1. 作废过期的预约
-2. 缓存当日的签到号码
-3. 缓存近七天的可预约项目数据
-"""
-
-
 def cache_proj_7day_sched(proj):
+    """
+    每日执行
+    1. 作废过期的预约
+    2. 缓存当日的签到号码
+    3. 缓存近七天的可预约项目数据
+    :param proj:
+    :return:
+    """
     redis_client = redis.Redis(connection_pool=pool)
     db = DbUtil(global_config.DB_HOST, global_config.DB_USERNAME, global_config.DB_PASSWORD,
                 global_config.DB_DATABASE_GYL)
