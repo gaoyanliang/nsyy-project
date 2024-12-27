@@ -113,12 +113,11 @@ def delete_cache(key):
     redis_client.hdel(cv_config.RUNNING_CVS_REDIS_KEY, key)
 
 
-"""
-缓存所有站点信息
-"""
-
-
 def cache_all_site_and_timeout():
+    """
+    缓存所有站点信息
+    :return:
+    """
     db = DbUtil(global_config.DB_HOST, global_config.DB_USERNAME, global_config.DB_PASSWORD,
                 global_config.DB_DATABASE_GYL)
     redis_client = redis.Redis(connection_pool=pool)
@@ -149,16 +148,15 @@ def cache_all_site_and_timeout():
     redis_client.set(cv_config.TIMEOUT_REDIS_KEY['total'], timeout_sets.get('total_timeout'))
 
 
-"""
-启动时加载数据
-1. 超时配置
-2. 所有部门信息
-3. 所有未完成的危机值
-4. 缓存所有站点信息 
-"""
-
-
 def pull_running_cv():
+    """
+    启动时加载数据
+    1. 超时配置
+    2. 所有部门信息
+    3. 所有未完成的危机值
+    4. 缓存所有站点信息
+    :return:
+    """
     # 清空危机值相关的缓存, 重新加载数据
     redis_client = redis.Redis(connection_pool=pool)
     keys = redis_client.keys('CV_*')
@@ -209,12 +207,12 @@ def pull_running_cv():
 # 启动时先运行该方法，加载数据
 pull_running_cv()
 
-"""
-查询所有运行中的危机值id列表
-"""
-
 
 def get_running_cvs():
+    """
+    查询所有运行中的危机值id列表
+    :return:
+    """
     redis_client = redis.Redis(connection_pool=pool)
     processing_cvs = redis_client.hkeys(cv_config.RUNNING_CVS_REDIS_KEY) or []
     running_ids = {}
@@ -332,7 +330,13 @@ def get_running_cvs():
 
 
 def create_cv(cvd):
-    # cvd {cv_id_cv_source: cv}
+    """
+    创建危急值记录
+    1. 区分出新增危急值/作废危急值
+    2. 对于新增的危急值，需要根据住院号匹配手工上报的危急值
+    :param cvd:
+    :return:
+    """
     redis_client = redis.Redis(connection_pool=pool)
     running_cvs = redis_client.hkeys(cv_config.RUNNING_CVS_REDIS_KEY)
 
@@ -449,12 +453,15 @@ def manual_cv_feedback(record):
         print(datetime.now(), "合并危急值时，回写数据异常：record = ", record, 'Exception = ', e)
 
 
-"""
-作废危急值
-"""
-
-
 def invalid_crisis_value(cv_ids, cv_source, invalid_info, invalid_remote: bool = False):
+    """
+    作废危急值
+    :param cv_ids:
+    :param cv_source:
+    :param invalid_info:
+    :param invalid_remote:
+    :return:
+    """
     print(datetime.now(), '作废危急值： cv_source=', cv_source, " cv_ids=", cv_ids, invalid_remote)
     # 从内存中移除
     for cv_id in cv_ids:
@@ -477,12 +484,13 @@ def invalid_crisis_value(cv_ids, cv_source, invalid_info, invalid_remote: bool =
     del db
 
 
-"""
-作废远程危机值(主要针对仅需要上报一次的危机值)
-"""
-
-
 def invalid_remote_crisis_value(cv_id, cv_source):
+    """
+    作废远程危机值(主要针对仅需要上报一次的危机值)
+    :param cv_id:
+    :param cv_source:
+    :return:
+    """
     try:
         if int(cv_source) == 2:
             table_name = "inter_lab_resultalert"
@@ -498,12 +506,13 @@ def invalid_remote_crisis_value(cv_id, cv_source):
         print(datetime.now(), '作废远程危机值异常', e)
 
 
-"""
-通过 socket 向危急值上报人员推送消息
-"""
-
-
 def notiaction_alert_man(msg: str, pers_id):
+    """
+    通过 socket 向危急值上报人员推送消息
+    :param msg:
+    :param pers_id:
+    :return:
+    """
     try:
         if not int(pers_id):
             return
@@ -549,18 +558,18 @@ def have_cv_been_reported_recently(patient_name, patient_id):
     return False, ''
 
 
-"""
-手工上报危急值
+def manual_report_cv(json_data):
+    """
+    手工上报危急值
     # 必填字段
     # type 危急值来源 2 3 4 5
     # 上报人信息 alertman 员工号
     # 主治医生 req_docno
     # 科室和病区 dept_id dept_name ward_id ward_name
     # 危急值内容 cv_name cv_result cv_unit cv_ref cv_flag
-"""
-
-
-def manual_report_cv(json_data):
+    :param json_data:
+    :return:
+    """
     redis_client = redis.Redis(connection_pool=pool)
     # 根据员工号查询部门信息
     param = {
@@ -712,12 +721,13 @@ def manual_report_cv(json_data):
     return False, None
 
 
-"""
-系统创建危机值
-"""
-
-
 def create_cv_by_system(json_data, cv_source):
+    """
+    系统创建危机值
+    :param json_data:
+    :param cv_source:
+    :return:
+    """
     redis_client = redis.Redis(connection_pool=pool)
 
     # 判断相同 cv_id cv_source 的危机值是否存在
@@ -874,7 +884,12 @@ def create_cv_by_system(json_data, cv_source):
 
 
 def get_cv_list(json_data):
-    # type =1 未处理, type =2 已处理, type = 3 总流程超时, type = 4 所有状态, type = 5 已作废, type=6 所有存在备注待质控的危急值
+    """
+    查询危机值
+    type =1 未处理, type =2 已处理, type = 3 总流程超时, type = 4 所有状态, type = 5 已作废, type=6 所有存在备注待质控的危急值
+    :param json_data:
+    :return:
+    """
     db = DbUtil(global_config.DB_HOST, global_config.DB_USERNAME, global_config.DB_PASSWORD,
                 global_config.DB_DATABASE_GYL)
 
@@ -970,12 +985,13 @@ def get_cv_list(json_data):
     return cv_list, total
 
 
-"""
-查询处理中的危机值并通知
-"""
-
-
 def query_process_cv_and_notice(dept_id, ward_id):
+    """
+    查询处理中的危机值并通知
+    :param dept_id:
+    :param ward_id:
+    :return:
+    """
     db = DbUtil(global_config.DB_HOST, global_config.DB_USERNAME, global_config.DB_PASSWORD,
                 global_config.DB_DATABASE_GYL)
 
@@ -1010,12 +1026,13 @@ def query_process_cv_and_notice(dept_id, ward_id):
                        msgs) + ' <br> <br> <br> 点击 [确认] 跳转至危急值页面')
 
 
-"""
-推送弹框通知 type = 1 通知护士， type = 2 通知医生
-"""
-
-
 def write_alert_fail_log(fail_ips, fail_log):
+    """
+    推送弹框通知 type = 1 通知护士， type = 2 通知医生
+    :param fail_ips:
+    :param fail_log:
+    :return:
+    """
     redis_client = redis.Redis(connection_pool=pool)
     db = DbUtil(global_config.DB_HOST, global_config.DB_USERNAME, global_config.DB_PASSWORD,
                 global_config.DB_DATABASE_GYL)
@@ -1104,11 +1121,6 @@ def main_alert(dept_id, ward_id, msg):
         print(datetime.now(), f"在执行 alert 时发生错误: {e}")
 
 
-"""
-向医生推送危机值
-"""
-
-
 def push(json_data):
     """
     推送危机值
@@ -1150,11 +1162,6 @@ def push(json_data):
         main_alert(dept_id, None,
                    f"发现新危机值, 护理已确认，请医生及时查看并处理, <br> [患者-主管医生-住院/门诊号-床号] <br> {msg}  <br> <br> <br> 点击 [确认] 跳转至危急值页面")
     del db
-
-
-"""
-确认接收危机值
-"""
 
 
 def confirm_receipt_cv(json_data):
@@ -1222,11 +1229,6 @@ def confirm_receipt_cv(json_data):
     del db
 
 
-"""
-书写护理记录
-"""
-
-
 def nursing_records(json_data):
     """
     护理记录
@@ -1246,12 +1248,12 @@ def nursing_records(json_data):
     del db
 
 
-"""
-医生处理危机值
-"""
-
-
 def doctor_handle_cv(json_data):
+    """
+    医生处理危机值
+    :param json_data:
+    :return:
+    """
     cv_source = json_data.get("cv_source")
     handler_id = json_data.get("handler_id")
     handler_name = json_data.get("handler_name")
@@ -1324,12 +1326,12 @@ def doctor_handle_cv(json_data):
     del db
 
 
-"""
-病历回写
-"""
-
-
 def medical_record_writing_back(json_data):
+    """
+    病历回写
+    :param json_data:
+    :return:
+    """
     try:
         sql = ''
         pat_type = int(json_data.get('pat_type'))
@@ -1395,16 +1397,16 @@ def medical_record_writing_back(json_data):
         print(datetime.now(), "病历回写异常 = ", e)
 
 
-"""
-统计报表
-query_by： 
-- dept        根据科室/病区查询报表
-- alert_dept  根据医技科室查询报表
-- cv_source     根据危急值类型查询报表
-"""
-
-
 def report_form(json_data):
+    """
+    统计报表
+    query_by：
+    - dept        根据科室/病区查询报表
+    - alert_dept  根据医技科室查询报表
+    - cv_source     根据危急值类型查询报表
+    :param json_data:
+    :return:
+    """
     start_time = json_data.get("start_time")
     end_time = json_data.get("end_time")
     patient_type = json_data.get("patient_type")
@@ -1500,12 +1502,12 @@ def report_form(json_data):
     return report
 
 
-"""
-病历模版
-"""
-
-
 def medical_record_template(json_data):
+    """
+    病历模版
+    :param json_data:
+    :return:
+    """
     cv_id = json_data.get('cv_id')
 
     db = DbUtil(global_config.DB_HOST, global_config.DB_USERNAME, global_config.DB_PASSWORD,
@@ -1534,16 +1536,18 @@ def medical_record_template(json_data):
     return templete
 
 
-"""
-数据回传
-"""
-
-
 def data_feedback(cv_id, cv_source, confirmer, timer, confirm_info, type: int):
-    datal = []
-    updatel = []
-    datel = []
-    intl = []
+    """
+    数据回传
+    :param cv_id:
+    :param cv_source:
+    :param confirmer:
+    :param timer:
+    :param confirm_info:
+    :param type:
+    :return:
+    """
+    datal, updatel, datel, intl = [], [], [], []
     if type == 1:
         # 护士确认
         datal = [{"RESULTALERTID": cv_id, "HISCHECKMAN": confirmer, "HISCHECKDT": timer,
