@@ -30,8 +30,17 @@ from email.header import decode_header
 """
 
 
-def send_email(sender: str, recipients: [str], ccs: [str],
-               bccs: [str], subject: str, body: str, attachments, names):
+def send_email(json_data):
+    sender = json_data.get("sender")
+    recipients = json_data.get("recipients")
+    recipients_group = json_data.get("recipients_group") if json_data.get("recipients_group") else []
+    ccs = json_data.get("ccs")
+    bccs = json_data.get("bccs")
+    subject = json_data.get("subject")
+    body = json_data.get("body")
+    attachments = json_data.get("attachments")
+    names = json_data.get("names")
+
     # Create a message container
     msg = MIMEMultipart()
     msg["From"] = sender + ws_config.MAIL_DOMAIN
@@ -39,6 +48,14 @@ def send_email(sender: str, recipients: [str], ccs: [str],
     # 账户拼接 account【Domain】
     for i in range(len(recipients)):
         recipients[i] = recipients[i] + ws_config.MAIL_DOMAIN
+        recipients[i] = recipients[i].lower()
+
+    for i in range(len(recipients_group)):
+        # todo 校验群组是否存在
+        recipients_group[i] = recipients_group[i] + ws_config.MAIL_DOMAIN
+        recipients_group[i] = recipients_group[i].lower()
+
+    recipients = recipients + recipients_group
     msg["To"] = ", ".join(recipients)
 
     if ccs is not None:
@@ -52,10 +69,8 @@ def send_email(sender: str, recipients: [str], ccs: [str],
         msg["Bcc"] = ", ".join(bccs)
         recipients = recipients + bccs
 
-    timer = datetime.now()
-    timer = timer.strftime("%Y-%m-%d %H:%M:%S")
-    msg["Subject"] = subject
-    msg["Date"] = timer
+    timer = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    msg["Subject"], msg["Date"] = subject, timer
 
     # 添加自定义内容 "Delivery-Data" header
     if attachments is not None:
@@ -76,7 +91,6 @@ def send_email(sender: str, recipients: [str], ccs: [str],
 
             # 下载附件
             download_file(filepath, filename)
-
             # 添加附件
             with open(filename, "rb") as file:
             # with open(filename, "rb") as attachment:
@@ -398,7 +412,7 @@ def __read_mail_by_mail_id(mail, email_id, query_body: bool):
             "CC": msg.get("CC"),
             "Bcc": msg.get("Bcc"),
             "ReplyToList": msg.get("ReplyToList"),
-            "Date": msg.get("Date"),
+            "Date": convert_date_format(msg.get("Date")),
             "attachments": attachments,
             "names": names,
             "body": body,
@@ -517,6 +531,8 @@ def delete_mail_account(user_account):
     delete_sql = "DELETE FROM nsyy_gyl.ws_mail_group_members " \
                  "WHERE user_account = %s "
     db.execute(delete_sql, args, need_commit=True)
+
+    del db
 
 
 def reset_user_password(user_account, old_password, new_password, is_default):
@@ -748,7 +764,7 @@ def operate_mail_group(json_data):
 
         if removed_user_list:
             delete_sql = "DELETE FROM nsyy_gyl.ws_mail_group_members " \
-                         f"WHERE mail_group_id = {mail_group_id} and user_account in {tuple(removed_user_list)}  "
+                         f"WHERE mail_group_id = {mail_group_id} and user_account in ({', '.join([repr(item) for item in removed_user_list])})  "
             db.execute(delete_sql, need_commit=True)
 
         del db
@@ -766,7 +782,7 @@ def operate_mail_group(json_data):
             .format(str(user_account))
         user = db.query_one(query_sql)
         if user is None:
-            raise Exception("当前用户没有创建公开群组的权限")
+            raise Exception("当前用户没有创建公开群组的权限, ", user_account)
 
         update_sql = 'UPDATE nsyy_gyl.ws_mail_group SET is_public = %s, timer = %s WHERE name = %s'
         args = (is_public, timer, mail_group_name)
@@ -784,11 +800,32 @@ def operate_mail_group(json_data):
 
         return
     elif operate_type == ws_config.MAIL_OPERATE_DELETE:
-        # 删除群组仅对本人隐藏该群组，但是群组依然存在，群组其他人依旧可以发送邮件
-        update_sql = 'UPDATE nsyy_gyl.ws_mail_group_members SET is_show = 0, timer = %s ' \
-                     'WHERE user_account = %s and mail_group_id = %s '
-        args = (timer, user_account, mail_group_id)
-        db.execute(update_sql, args, need_commit=True)
+        query_sql = f"select * from nsyy_gyl.ws_mail_group where id = {int(mail_group_id)} "
+        mail_group = db.query_one(query_sql)
+        if int(mail_group.get('is_public')) == 1:
+            raise Exception("公开群组暂不支持删除，如果确定要删除，请先修改为私密群组")
+
+        # 只有创建者本人可以修改群组公开性
+        if mail_group.get('user_account') != user_account:
+            raise Exception("不可操作，只有创建者本人可以删除当前群组")
+
+        ssh = SshUtil(ws_config.MAIL_SSH_HOST, ws_config.MAIL_SSH_USERNAME, ws_config.MAIL_SSH_PASSWORD)
+        ssh.execute_shell_command(
+            f"cd /opt/mlmmjadmin/tools; python3 maillist_admin.py delete"
+            f" {mail_group.get('name') + ws_config.MAIL_DOMAIN}")
+        del ssh
+
+        delete_sql = "DELETE FROM nsyy_gyl.ws_mail_group WHERE id = {} ".format(mail_group_id)
+        db.execute(delete_sql, need_commit=True)
+
+        delete_sql = "DELETE FROM nsyy_gyl.ws_mail_group_members WHERE mail_group_id = {} ".format(mail_group_id)
+        db.execute(delete_sql, need_commit=True)
+
+        # # 删除群组仅对本人隐藏该群组，但是群组依然存在，群组其他人依旧可以发送邮件
+        # update_sql = 'UPDATE nsyy_gyl.ws_mail_group_members SET is_show = 0, timer = %s ' \
+        #              'WHERE user_account = %s and mail_group_id = %s '
+        # args = (timer, user_account, mail_group_id)
+        # db.execute(update_sql, args, need_commit=True)
         del db
 
 
@@ -825,4 +862,16 @@ def generate_random_string(length):
     characters = string.ascii_lowercase + string.digits
     # 使用random.choices从字符集中随机选择字符，形成指定长度的字符串
     random_string = ''.join(random.choices(characters, k=length))
-    return 'g' + random_string
+    return 'maillist_' + random_string
+
+
+def convert_date_format(date_str):
+    try:
+        dt = datetime.strptime(date_str, "%a, %d %b %Y %H:%M:%S %z")
+        return dt.strftime("%Y-%m-%d %H:%M:%S")
+    except ValueError:
+        try:
+            dt = datetime.strptime(date_str, "%Y-%m-%d %H:%M:%S")
+            return dt.strftime("%Y-%m-%d %H:%M:%S")
+        except ValueError:
+            return date_str

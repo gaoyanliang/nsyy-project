@@ -18,18 +18,9 @@ mail_router = Blueprint('mail router', __name__, url_prefix='/mail')
 
 @mail_router.route('/send_mail', methods=['POST'])
 def send_email():
-    json_data = json.loads(request.get_data().decode('utf-8'))
-    sender = json_data.get("sender")
-    recipients = json_data.get("recipients")
-    ccs = json_data.get("ccs")
-    bccs = json_data.get("bccs")
-    subject = json_data.get("subject")
-    body = json_data.get("body")
-    attachments = json_data.get("attachments")
-    names = json_data.get("names")
-
     try:
-        mail.send_email(sender, recipients, ccs, bccs, subject, body, attachments, names)
+        json_data = json.loads(request.get_data().decode('utf-8'))
+        mail.send_email(json_data)
     except Exception as e:
         print(datetime.now(), f"mail_router.send_email: {e}")
         print(traceback.print_exc())
