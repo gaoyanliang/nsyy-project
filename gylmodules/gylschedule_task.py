@@ -76,7 +76,7 @@ def handle_timeout_cv():
             else:
                 timeout_record[timeout_key] = [msg]
 
-            if int(value.get('state')) == 1 or int(value.get('state')) == 2:
+            if int(value.get('state')) in (1, 2) and str(value.get('alert_dept_id', '0')) != '144':
                 alert_dept_id = str(value.get('alert_dept_id', 0))
                 if alert_dept_id in first_timeout_record:
                     first_timeout_record[alert_dept_id].append(msg)
