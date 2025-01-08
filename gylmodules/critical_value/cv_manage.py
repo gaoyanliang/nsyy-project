@@ -1,10 +1,34 @@
 from gylmodules import global_config
-from gylmodules.critical_value.critical_value import call_third_systems_obtain_data
 from gylmodules.medical_record_analysis.record_parse import progress_note_parse, cv_record_parse
 from gylmodules.utils.db_utils import DbUtil
 import requests
 import json
 from datetime import datetime
+
+
+def call_third_systems(param: dict):
+    data = []
+    if global_config.run_in_local:
+        try:
+            # 发送 POST 请求，将字符串数据传递给 data 参数
+            response = requests.post("http://192.168.124.53:6080/int_api", json=param)
+            data = response.text
+            data = json.loads(data)
+            data = data.get('data')
+        except Exception as e:
+            data = []
+            print('调用第三方系统方法失败：type = orcl_db_read ' + ' param = ' + str(param) + "   " + e.__str__())
+    else:
+        # 根据住院号/门诊号查询 病人id 主页id
+        from tools import orcl_db_read
+        try:
+            data = orcl_db_read(param)
+        except Exception as e:
+            data = []
+            print('调用第三方系统方法失败：type = orcl_db_read ' + ' param = ' + str(param) + "   " + e.__str__())
+
+    return data
+
 
 """
 校验危急值数量
@@ -109,82 +133,29 @@ def fetch_cv_record():
                 f"and patient_type in (1, 2, 3) " \
                 f"and patient_treat_id not in ('0', '120') and state != 0 order by alertdt"
     cvs = db.query_all(query_sql)
-    # 住院危急值
-    zy_patient = [item for item in cvs if item['patient_type'] == 3]
-    # print('住院危急值患者共 ', len(zy_patient), ' 人')
-    zy_patient_dict = {}
-    for item in zy_patient:
-        if item['patient_treat_id'] not in zy_patient_dict:
-            zy_patient_dict[item['patient_treat_id']] = []
-        zy_patient_dict[item['patient_treat_id']].append(item)
 
-    for patient_treat_id, cv_list in zy_patient_dict.items():
-        records = get_zy_cv_records(patient_treat_id)
-        # print('患者 ', patient_treat_id, ' 出现 ', len(cv_list), '次危急值， 查询到 ', len(records), ' 条记录')
-        # 未找到病历
+    for cv in cvs:
+        if not cv.get('patient_treat_id'):
+            continue
+        try:
+            records = query_cv_medical_record(int(cv['patient_type']), cv.get('patient_treat_id'))
+        except Exception as e:
+            print(datetime.now(), '===> 抓取危急值报告处理记录失败：cv_id = ', cv.get('cv_id'),
+                  cv.get('patient_treat_id'), e)
+            records = []
         if not records:
             continue
-        cv_info_dict = {}
-        for rec in records:
-            info = progress_note_parse.parse_cv_by_str(rec.get('CONTENT'))
-            if info:
-                cv_info_dict.update(info)
-        if not cv_info_dict:
-            continue
-        sorted_dict = dict(sorted(cv_info_dict.items()))
+        record = records[0]
+        for r in records:
+            if cv.get('cv_name') in r[1] and cv.get('cv_result') in r[1]:
+                record = r
 
-        for cv in cv_list:
-            alertdt = cv.get('alertdt')
-            alertdt = alertdt.strftime("%Y%m%d%H%M%S")
-            # print('患者信息: ', cv.get('patient_name'), cv.get('patient_treat_id'), alertdt)
-            # print('危急值信息: ', cv_info_dict)
-            for k, v in sorted_dict.items():
-                if len(k) == 12:
-                    k = k + '00'
-                if alertdt <= k:
-                    # print('update', k, cv.get('id'))
-                    update_sql = "UPDATE nsyy_gyl.cv_info SET record = '{}', record_time = '{}' WHERE id = {}"\
-                        .format(v, k, cv.get('id'))
-                    db.execute(update_sql, need_commit=True)
-                    break
-
-    # 门急诊危急值
-    mz_patient = [item for item in cvs if item['patient_type'] == 1 or item['patient_type'] == 2]
-    mz_patient_dict = {}
-    for item in mz_patient:
-        if item['patient_treat_id'] not in mz_patient_dict:
-            mz_patient_dict[item['patient_treat_id']] = []
-        mz_patient_dict[item['patient_treat_id']].append(item)
-
-    for patient_treat_id, cv_list in mz_patient_dict.items():
-        records = get_mz_cv_records(patient_treat_id)
-        # print('患者 ', patient_treat_id, ' 出现 ', len(cv_list), '次危急值， 查询到 ', len(records), ' 条记录')
-        # 未找到病历
-        if not records:
-            continue
-        cv_info_dict = {}
-        for rec in records:
-            info = cv_record_parse.parse_cv_by_str(rec.get('CONTENT'))
-            if info:
-                cv_info_dict.update(info)
-        if not cv_info_dict:
-            continue
-        sorted_dict = dict(sorted(cv_info_dict.items()))
-
-        for cv in cv_list:
-            alertdt = cv.get('alertdt')
-            alertdt = alertdt.strftime("%Y%m%d%H%M%S")
-            # print('患者信息: ', cv.get('patient_name'), cv.get('patient_treat_id'), alertdt)
-            # print('危急值信息: ', cv_info_dict)
-            for k, v in sorted_dict.items():
-                if len(k) == 12:
-                    k = k + '00'
-                if alertdt <= k:
-                    # print('update', k, cv.get('id'))
-                    update_sql = "UPDATE nsyy_gyl.cv_info SET record = '{}', record_time = '{}' WHERE id = {}"\
-                        .format(v, k, cv.get('id'))
-                    db.execute(update_sql, need_commit=True)
-                    break
+        # 解析日期字符串
+        date_object = datetime.strptime(record[0], "%a, %d %b %Y %H:%M:%S %Z")
+        record_time = date_object.strftime("%Y-%m-%d %H:%M:%S")
+        update_sql = "UPDATE nsyy_gyl.cv_info SET record = '{}', record_time = '{}' WHERE id = {}" \
+            .format(record[1], record_time, cv.get('id'))
+        db.execute(update_sql, need_commit=True)
 
     print(datetime.now(), '===> End 抓取并解析危急值报告处理记录完成')
     del db
@@ -192,69 +163,76 @@ def fetch_cv_record():
 
 # # =========================  查询病历
 
+def query_cv_medical_record(patient_type, patient_id):
+    sql = f"""
+        SELECT t2.bingrenid AS 病人ID, t.xingming AS 姓名, t.zhuyuanhao AS 住院号, t.zhuyuancs AS 主页id, 
+        t2.bingrenzyid AS 病人住院ID, t2.binglimc AS 文档名称, t2.chuangjiansj AS "创建时间", t2.jilusj AS 编辑时间,
+        t3.wenjiannr AS "CONTENT" FROM df_bingli.ws_binglijl t2 JOIN df_bingli.ws_binglijlnr t3
+        ON t2.binglijlid = t3.binglijlid LEFT JOIN df_jj_zhuyuan.zy_bingrenxx t ON t2.bingrenzyid = t.bingrenzyid
+        WHERE t2.binglimc = '危急值报告处置记录' AND t2.zuofeibz = 0 AND t2.menzhenzybz = 2
+        AND t.zhuyuanhao = '{patient_id}' AND t2.jilusj >= sysdate - 3 order by t2.chuangjiansj desc
+    """
+    if patient_type != 3:
+        sql = f"""
+            SELECT t2.bingrenid AS 病人ID, t.xingming AS 姓名, t2.jiuzhenid AS 就诊ID, t2.binglimc AS 文档名称, 
+            t2.chuangjiansj AS "创建时间", t2.jilusj AS 编辑时间, t3.wenjiannr AS "CONTENT", 
+            t.jiuzhenkh, a.jiuzhenkh, b.jiuzhenkh FROM df_bingli.ws_binglijl t2 
+            JOIN df_bingli.ws_binglijlnr t3 ON t2.binglijlid = t3.binglijlid
+            LEFT JOIN df_bingrenzsy.gy_bingrenxx t ON t2.bingrenid = t.bingrenid LEFT JOIN df_lc_menzhen.zj_jiuzhenxx a 
+            ON t2.jiuzhenid = a.jiuzhenid LEFT JOIN df_jj_menzhen.mz_guahao b 
+            ON a.guahaoid = b.guahaoid WHERE t2.binglimc = '危急值报告处置记录'
+            AND t2.zuofeibz = 0 AND t2.menzhenzybz = 1
+            AND (a.jiuzhenkh = '{patient_id}' or a.bingrenid = '{patient_id}' or a.jiuzhenid = '{patient_id}')
+        """
+    data = call_new_his(sql, ['CONTENT'])
+    if not data:
+        return []
+    ret_data = []
+    for d in data:
+        sentence = parse_xml_to_sentence(d.get('CONTENT'))
+        ret_data.append((d.get('编辑时间'), sentence))
 
-def get_zy_cv_records(patient_treat_id):
-    return call_third_systems({
-        "type": "orcl_db_read", "db_source": "nsbingli",
-        "randstr": "XPFDFZDF7193CIONS1PD7XCJ3AD4ORRC", "clob": ['CONTENT'],
-        "sql": f"""
-                    select * from (select * from (Select b.病人id, g.姓名, g.住院号, b.主页id,
-                                           t.title      文档名称,
-                                           t.creat_time 创建时间,
-                                           t.edit_time  编辑时间,
-                                           t.content.getclobval() content
-                                      From Bz_Doc_Log t
-                                      left join Bz_Act_Log a  on a.Id = t.Actlog_Id
-                                      left join 病人变动记录@HISINTERFACE b on a.extend_tag = 'BD_' || to_char(b.id)
-                                      join 病案主页@HISINTERFACE g on b.病人ID = g.病人ID and b.主页ID = g.主页ID
-                                     where t.title like '%病程记录%') order by 创建时间)
-                     where 编辑时间 >= sysdate - 3 and 住院号 = {patient_treat_id}
-                """
-    })
-
-
-def get_mz_cv_records(patient_treat_id):
-    return call_third_systems({
-        "type": "orcl_db_read", "db_source": "nsbingli",
-        "randstr": "XPFDFZDF7193CIONS1PD7XCJ3AD4ORRC", "clob": ['CONTENT'],
-        "sql": f"""
-                    Select b.病人id,  b.姓名, b.门诊号, a.extend_tag,
-                               t.title      文档名称,
-                               t.creat_time 创建时间,
-                               t.edit_time  编辑时间,
-                               t.content.getclobval() content
-                          From Bz_Doc_Log t
-                          join Bz_Act_Log a on a.Id = t.Actlog_Id
-                          join 病人挂号记录@HISINTERFACE b on a.extend_tag = 'MZ_' || to_char(b.id)
-                         where t.title like '%危急值报告处理记录%' and t.edit_time >= sysdate - 3 and 门诊号 = {patient_treat_id}
-                """
-    })
+    return ret_data
 
 
-def call_third_systems(param: dict):
-    data = []
+def call_new_his(sql: str, clobl: list = None):
+    param = {"key": "o4YSo4nmde9HbeUPWY_FTp38mB1c", "sys": "newzt", "sql": sql}
+    if clobl:
+        param['clobl'] = clobl
+
+    query_oracle_url = "http://192.168.3.12:6080/oracle_sql"
     if global_config.run_in_local:
-        try:
-            # 发送 POST 请求，将字符串数据传递给 data 参数
-            response = requests.post("http://192.168.124.53:6080/int_api", json=param)
-            data = response.text
-            data = json.loads(data)
-            data = data.get('data')
-        except Exception as e:
-            data = []
-            print('调用第三方系统方法失败：type = orcl_db_read ' + ' param = ' + str(param) + "   " + e.__str__())
-    else:
-        # 根据住院号/门诊号查询 病人id 主页id
-        from tools import orcl_db_read
-        try:
-            data = orcl_db_read(param)
-        except Exception as e:
-            data = []
-            print('调用第三方系统方法失败：type = orcl_db_read ' + ' param = ' + str(param) + "   " + e.__str__())
+        query_oracle_url = "http://192.168.124.53:6080/oracle_sql"
 
+    data = []
+    try:
+        response = requests.post(query_oracle_url, timeout=10, json=param)
+        data = json.loads(response.text)
+        data = data.get('data')
+    except Exception as e:
+        print('调用新 HIS 查询数据失败：' + str(param) + e.__str__())
     return data
 
 
+def parse_xml_to_sentence(xml_string):
+    import xml.etree.ElementTree as ET
+    root = ET.fromstring(xml_string)
+
+    # 提取XML中的关键信息
+    patient_info = {
+        'name': root.find('.//node[@name="患者姓名"]').text,
+        'critical_value_nr': root.find('.//node[@name="报告内容"]').text,
+        'critical_value_advice': root.find('.//node[@name="危急值处理医嘱"]').text,
+        'communication_situation': root.find('.//node[@name="沟通情况"]').text
+    }
+    # 拼接成一句话
+    sentence = (
+        f"患者 {patient_info['name']}，"
+        f"危急值内容: {patient_info['critical_value_nr']}，"
+        f"沟通情况为: {patient_info['communication_situation']}，"
+        f"危急值处理医嘱: {patient_info['critical_value_advice']}"
+    )
+    return sentence
 
 
 

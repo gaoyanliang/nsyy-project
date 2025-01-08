@@ -541,3 +541,67 @@ def test():
     return jsonify({
         'code': 20000,
     })
+
+
+@cv.route('/manual_send_to_his', methods=['POST', 'GET'])
+def manual_send_to_his():
+    try:
+        json_data = json.loads(request.get_data().decode('utf-8'))
+        critical_value.manual_send_to_his(json_data.get('cv_id'), int(json_data.get('cv_source')))
+    except Exception as e:
+        return jsonify({
+            'code': 50000,
+            'res': e.__str__(),
+        })
+
+    return jsonify({
+        'code': 20000
+    })
+
+
+@cv.route('/manual_send_to_his_invalid', methods=['POST', 'GET'])
+def manual_send_to_his_invalid():
+    try:
+        json_data = json.loads(request.get_data().decode('utf-8'))
+        critical_value.manual_send_to_his_invalid(json_data.get('cv_id'), json_data.get('invalid_time'))
+    except Exception as e:
+        return jsonify({
+            'code': 50000,
+            'res': e.__str__(),
+        })
+
+    return jsonify({
+        'code': 20000
+    })
+
+
+
+@cv.route('/testt', methods=['POST', 'GET'])
+def tesssssst():
+    """
+    todo 测试临时接口
+    :return:
+    """
+    try:
+        json_data = json.loads(request.get_data().decode('utf-8'))
+        if int(json_data.get('type', 0)) == 0:
+            data = critical_value.his_dept1(json_data)
+        else:
+            data = critical_value.his_dept_pers1(json_data.get('pers_no'))
+    except Exception as e:
+        return jsonify({
+            'code': 50000,
+            'res': e.__str__(),
+            'data': []
+        })
+
+    return jsonify({
+        'code': 20000,
+        'data': data
+    })
+
+
+
+
+
+

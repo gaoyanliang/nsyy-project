@@ -25,6 +25,54 @@ pool = redis.ConnectionPool(host=cv_config.CV_REDIS_HOST, port=cv_config.CV_REDI
 scheduler = BackgroundScheduler()
 cv_id_lock = threading.Lock()
 
+
+
+# 内部调用标准功能
+def his_dept_pers1(pers_no):
+    """
+    todo his 切换期间临时使用  将人员表和部门表自己维护
+    :param pers_no:
+    :return:
+    """
+    db = DbUtil(global_config.DB_HOST, global_config.DB_USERNAME, global_config.DB_PASSWORD,
+                global_config.DB_DATABASE_GYL)
+    query_sql = f"select a.姓名 as 'PERS_NAME', a.编号 as 'EMP_NUB', a.ID as 'PERS_ID', b.缺省, c.id as 'HIS_DEPT_ID', c.名称 as 'DEPT_NAME' from " \
+          f"nsyy_gyl.人员表 a left join nsyy_gyl.部门人员 b on a.id=b.人员id left join nsyy_gyl.部门表 c on b.部门id=c.id where a.编号='{pers_no}' "
+    pers_list = db.query_all(query_sql)
+    del db
+
+    if not pers_list:
+        return []
+
+    # 有效连接，重启刷新
+    redi_f = redis.StrictRedis(host="127.0.0.1", port=6379, db=1, decode_responses=True)
+    for i in pers_list:
+        emp_no = "U" + "0"*(5-len(i['EMP_NUB'])) + i['EMP_NUB']
+        i['oa_pers_id'] = redi_f.hget('hr_pers_main', emp_no)
+    redi_f.close()
+
+    return pers_list
+
+
+# 内部调用标准功能
+def his_dept1(jdata):
+    """
+    todo his 切换期间临时使用  部门表信息自己维护
+    :param jdata:
+    :return:
+    """
+    db = DbUtil(global_config.DB_HOST, global_config.DB_USERNAME, global_config.DB_PASSWORD,
+                global_config.DB_DATABASE_GYL)
+    rs = ""
+    if jdata.get('dept_type'): rs += f" and dept_type='{jdata['dept_type']}'"
+    if jdata.get('his_id'): rs += f" and ori_id='{jdata['his_id']}'"
+    query_sql = f"select dept_id, dept_name, dept_code, ori_id as his_dept_id, dept_mng_name, dept_mng " \
+                f"from hr_dept where dept_source=3 and comp_id=12 {rs}"
+    dff = db.query_all(query_sql)
+    del db
+    return dff
+
+
 """
 调用第三方系统获取数据
 """
@@ -50,19 +98,21 @@ def call_third_systems_obtain_data(type: str, param: dict):
             orcl_db_update(param)
         elif type == 'get_dept_info_by_emp_num':
             # 根据员工号，查询科室信息
-            from tools import his_dept_pers
-            data = his_dept_pers(param)
+            # from tools import his_dept_pers
+            # data = his_dept_pers(param)
+            data = his_dept_pers1(param.get('pers_no'))
         elif type == 'cache_all_dept_info':
-            from tools import his_dept
-            data = his_dept(param)
-        elif type == 'orcl_db_read':
-            # 根据住院号/门诊号查询 病人id 主页id
-            from tools import orcl_db_read
-            data = orcl_db_read(param)
-        elif type == 'his_procedure':
-            # 危机值病历回写
-            from tools import his_procedure
-            data = his_procedure(param)
+            # from tools import his_dept
+            # data = his_dept(param)
+            data = his_dept1(param)
+        # elif type == 'orcl_db_read':
+        #     # 根据住院号/门诊号查询 病人id 主页id
+        #     from tools import orcl_db_read
+        #     data = orcl_db_read(param)
+        # elif type == 'his_procedure':
+        #     # 危机值病历回写
+        #     from tools import his_procedure
+        #     data = his_procedure(param)
         elif type == 'send_wx_msg':
             # 向企业微信推送消息
             from tools import send_wx_msg
@@ -84,7 +134,30 @@ def call_third_systems_obtain_data(type: str, param: dict):
         if len(data) > 0:
             for d in data:
                 redis_client.hset(cv_config.DEPT_INFO_REDIS_KEY, d.get('his_dept_id'), json.dumps(d, default=str))
-                redis_client.hset(cv_config.DEPT_INFO_REDIS_KEY, d.get('dept_code'), json.dumps(d, default=str))
+                if not redis_client.hexists(cv_config.DEPT_INFO_REDIS_KEY, d.get('dept_code')):
+                    redis_client.hset(cv_config.DEPT_INFO_REDIS_KEY, d.get('dept_code'), json.dumps(d, default=str))
+
+    return data
+
+
+"""
+调用新 his 查询数据
+"""
+
+
+def call_new_his(sql: str):
+    param = {"key": "o4YSo4nmde9HbeUPWY_FTp38mB1c", "sys": "newzt", "sql": sql}
+    query_oracle_url = "http://192.168.3.12:6080/oracle_sql"
+    if global_config.run_in_local:
+        query_oracle_url = "http://192.168.124.53:6080/oracle_sql"
+
+    data = []
+    try:
+        response = requests.post(query_oracle_url, timeout=10, json=param)
+        data = json.loads(response.text)
+        data = data.get('data')
+    except Exception as e:
+        print('调用新 HIS 查询数据失败：' + str(param) + e.__str__())
 
     return data
 
@@ -110,7 +183,7 @@ def read_cache(key):
 
 def delete_cache(key):
     redis_client = redis.Redis(connection_pool=pool)
-    redis_client.hdel(cv_config.RUNNING_CVS_REDIS_KEY, key)
+    return redis_client.hdel(cv_config.RUNNING_CVS_REDIS_KEY, key)
 
 
 def cache_all_site_and_timeout():
@@ -129,11 +202,15 @@ def cache_all_site_and_timeout():
         if site.get('site_dept_id'):
             dept_idl = str(site.get('site_dept_id')).split(',')
             for dept_id in dept_idl:
+                if dept_id == '-1':
+                    continue
                 key = cv_config.CV_SITES_REDIS_KEY[2].format(str(dept_id))
                 redis_client.sadd(key, site.get('site_ip'))
         if site.get('site_ward_id'):
             ward_idl = str(site.get('site_ward_id')).split(',')
             for ward_id in ward_idl:
+                if ward_id == '-1':
+                    continue
                 key = cv_config.CV_SITES_REDIS_KEY[1].format(str(ward_id))
                 redis_client.sadd(key, site.get('site_ip'))
 
@@ -352,11 +429,6 @@ def create_cv(cvd):
             continue
         new_idl.append(key)
 
-    # # 作废列表不能包含手工上报的
-    # filtered_data = [item for item in running_cvs if not item.endswith(f'_{cv_config.CV_SOURCE_MANUAL}')]
-    # del_idl = list(set(filtered_data) - set(new_cvs))
-    # new_idl = list(set(new_cvs) - set(filtered_data))
-
     # 作废危机值
     cv_idd = {}
     for key in del_idl:
@@ -435,20 +507,11 @@ def manual_cv_feedback(record):
             handle_doc = record.get('handle_doctor_name')
             handle_time = record.get('handle_time').strftime("%Y-%m-%d %H:%M:%S")
             method = record.get('method') if record.get('method') else '/'
-            param = {
-                "pat_no": pat_no,
-                "pat_type": pat_type,
-                "record": record,
-                "handler_name": handle_doc,
-                "timer": handle_time,
-                "method": method,
-                "analysis": record.get('analysis') if record.get('analysis') else ''
-            }
-            # 1. 回写病历
-            medical_record_writing_back(param)
-
             # 2. 回写数据
             data_feedback(record.get('cv_id'), int(record.get('cv_source')), handle_doc, handle_time, method, 3)
+
+            # 3. 发送到 his
+            send_to_his(record)
     except Exception as e:
         print(datetime.now(), "合并危急值时，回写数据异常：record = ", record, 'Exception = ', e)
 
@@ -462,19 +525,26 @@ def invalid_crisis_value(cv_ids, cv_source, invalid_info, invalid_remote: bool =
     :param invalid_remote:
     :return:
     """
-    print(datetime.now(), '作废危急值： cv_source=', cv_source, " cv_ids=", cv_ids, invalid_remote)
     # 从内存中移除
+    del_keys = []
     for cv_id in cv_ids:
         key = cv_id + '_' + str(cv_source)
-        delete_cache(key)
+        ret = delete_cache(key)
+        if ret == 0:
+            continue
+        del_keys.append(cv_id)
         if invalid_remote and not global_config.run_in_local:
             invalid_remote_crisis_value(cv_id, cv_source)
 
+    if not del_keys:
+        return
+
+    print(datetime.now(), '作废危急值： cv_source=', cv_source, " cv_ids=", del_keys, invalid_remote)
     db = DbUtil(global_config.DB_HOST, global_config.DB_USERNAME, global_config.DB_PASSWORD,
                 global_config.DB_DATABASE_GYL)
     # 更新危急值状态未作废
-    cv_ids = [f"'{item}'" for item in cv_ids]
-    ids = ','.join(cv_ids)
+    cv_ids = [f"'{item}'" for item in del_keys]
+    ids = ','.join(del_keys)
     update_sql = f"UPDATE nsyy_gyl.cv_info SET state = {cv_config.INVALID_STATE}, " \
                  f"invalid_person = '{invalid_info.get('invalid_person')}', " \
                  f"invalid_time = '{invalid_info.get('invalid_time')}', " \
@@ -482,6 +552,13 @@ def invalid_crisis_value(cv_ids, cv_source, invalid_info, invalid_remote: bool =
                  f" WHERE cv_id in ({ids}) and cv_source = {cv_source} and state != 0"
     db.execute(update_sql, need_commit=True)
     del db
+
+    for cv_id in del_keys:
+        try:
+            send_to_his_invalid(cv_id, invalid_info.get('invalid_time'))
+        except Exception as e:
+            print(datetime.now(), 'send_to_his_invalid 作废危急值同步 his 失败 cv_id = ',
+                  cv_id, invalid_info.get('invalid_time'), e)
 
 
 def invalid_remote_crisis_value(cv_id, cv_source):
@@ -590,39 +667,20 @@ def manual_report_cv(json_data):
     patient_treat_id = json_data.get('patient_treat_id')
     if patient_treat_id:
         if int(json_data['patient_type']) == 1:
-            # 门诊
             sql = f"""
-                SELECT 姓名, 年龄,
-                   CASE 
-                       WHEN 性别 = '男' THEN 1 
-                       WHEN 性别 = '女' THEN 2 
-                       ELSE NULL 
-                   END AS 性别, 
-                   接收时间, 执行部门ID as 入院科室ID 
-                FROM 病人挂号记录 
-                WHERE 门诊号 = '{patient_treat_id}' 
-                ORDER BY 接收时间 DESC
+            	SELECT xingming 姓名, nianling 年龄, xingbiedm 性别, jiuzhenrq 接收时间, guahaoksid "入院科室ID",
+            	guahaoid "挂号ID", jiuzhenid "就诊ID", jiuzhenkh 就诊卡号 FROM df_lc_menzhen.zj_jiuzhenxx 
+            	WHERE jiuzhenkh = '{patient_treat_id}' or bingrenid = '{patient_treat_id}' ORDER BY jiuzhenrq DESC
             """
         else:
             sql = f"""
-                SELECT 入院病床, 姓名, 年龄,
-                   CASE 
-                       WHEN 性别 = '男' THEN 1 
-                       WHEN 性别 = '女' THEN 2 
-                       ELSE NULL 
-                   END AS 性别, 
-                   入院日期, 出院日期, 入院病区ID, 当前病区ID, 入院科室ID, 出院科室ID
-                FROM 病案主页 
-                WHERE 住院号 = '{patient_treat_id}' 
-                ORDER BY 入院日期 DESC
+                SELECT t2.chuangweibm 入院病床, t.xingming 姓名, t.nianling 年龄, t.xingbiedm 性别, t.bingrenid "病人ID", t.zhuyuanhao 住院号, 
+                t.ruyuanrq 入院日期, t.chuyuanrq 出院日期, t.ruyuanbqid "入院病区ID", t.ruyuanksid "入院科室ID", t.dangqianksid "当前科室ID", 
+                t.dangqianbqid "当前病区ID", case when t.chuyuanrq IS NULL then null else t.dangqianksid end "出院科室ID" 
+                FROM df_jj_zhuyuan.zy_bingrenxx t left join DF_ZHUSHUJU.GY_CHUANGWEI t2 on t.ruyuancwid = t2.chuangweiid
+                WHERE t.zhuyuanhao = '{patient_treat_id}' ORDER BY t.ruyuanrq DESC
             """
-        param = {
-            "type": "orcl_db_read",
-            "db_source": "nshis",
-            "randstr": "XPFDFZDF7193CIONS1PD7XCJ3AD4ORRC",
-            "sql": sql
-        }
-        data = call_third_systems_obtain_data('orcl_db_read', param)
+        data = call_new_his(sql)
         if data and data[0]:
             json_data['patient_type'] = cv_config.PATIENT_TYPE_HOSPITALIZATION if not json_data.get(
                 'patient_type') else json_data.get('patient_type')
@@ -631,7 +689,7 @@ def manual_report_cv(json_data):
             json_data['patient_age'] = data[0].get('年龄')
             json_data['patient_bed_num'] = data[0].get('入院病床', 0)
             # 判断科室/病区和 最新的科室/病区是否一致
-            latest_dept = data[0].get('出院科室ID') if data[0].get('出院科室ID') else data[0].get('入院科室ID')
+            latest_dept = data[0].get('当前科室ID') if data[0].get('当前科室ID') else data[0].get('入院科室ID')
             if latest_dept:
                 dept = int(json_data.get('dept_id', 0))
                 if latest_dept != dept:
@@ -682,6 +740,8 @@ def manual_report_cv(json_data):
     json_data['doctor_handle_timeout'] = redis_client.get(cv_config.TIMEOUT_REDIS_KEY['doctor_handle']) or 120
     json_data['total_timeout'] = redis_client.get(cv_config.TIMEOUT_REDIS_KEY['total']) or 600
 
+    # 手工上报 报告时间 = 上报时间
+    json_data['baogaosj'] = json_data.get('alertdt')
     db = DbUtil(global_config.DB_HOST, global_config.DB_USERNAME, global_config.DB_PASSWORD,
                 global_config.DB_DATABASE_GYL)
     # 插入危机值
@@ -790,17 +850,16 @@ def create_cv_by_system(json_data, cv_source):
             cvd['dept_id'] = dept_info.get('his_dept_id')
 
     if cvd['patient_treat_id']:
-        sql = f"SELECT * FROM 病案主页 WHERE 住院号 = '{cvd['patient_treat_id']}' ORDER BY 主页ID DESC"
-        param = {
-            "type": "orcl_db_read",
-            "db_source": "nshis",
-            "randstr": "XPFDFZDF7193CIONS1PD7XCJ3AD4ORRC",
-            "sql": sql
-        }
-        data = call_third_systems_obtain_data('orcl_db_read', param)
+        sql = f"""
+            SELECT bingrenid "病人ID", zhuyuanhao 住院号, ruyuanrq 入院日期, chuyuanrq 出院日期, xingming 姓名, nianling 年龄,
+             ruyuanbqid "入院病区ID", ruyuanksid "入院科室ID", dangqianksid "当前科室ID", dangqianbqid "当前病区ID", 
+            case when chuyuanrq IS NULL then null else dangqianksid end  "出院科室ID" 
+            FROM df_jj_zhuyuan.zy_bingrenxx WHERE zhuyuanhao = '{cvd['patient_treat_id']}' ORDER BY ruyuanrq DESC
+        """
+        data = call_new_his(sql)
         if data and data[0]:
             # 判断科室/病区和 最新的科室/病区是否一致
-            latest_dept = data[0].get('出院科室ID') if data[0].get('出院科室ID') else data[0].get('入院科室ID')
+            latest_dept = data[0].get('当前科室ID') if data[0].get('当前科室ID') else data[0].get('入院科室ID')
             if latest_dept:
                 dept = cvd.get('dept_id') if cvd.get('dept_id') else 0
                 if latest_dept != dept:
@@ -841,11 +900,14 @@ def create_cv_by_system(json_data, cv_source):
     cvd['total_timeout'] = redis_client.get(cv_config.TIMEOUT_REDIS_KEY['total']) or 600
 
     if json_data.get('INSTRNA'):
-        cvd['instrna'] = json_data.get('INSTRNA')
-        if json_data.get('REPORTID') and (
-                cvd['instrna'].__contains__('血气仪') or cvd['instrna'].__contains__('荧光仪')):
-            cvd['report_id'] = json_data.get('REPORTID')
-
+        cvd['instrna'] = json_data.get('INSTRNA', '')
+    if json_data.get('REPORTID'):
+        cvd['report_id'] = json_data.get('RESULTID', '0') if int(cv_source) == 3 else json_data.get('REPORTID', '0')
+        baogaosj = query_baogao_sj(1 if int(cv_source) == 2 else 2, cvd.get('report_id'))
+        if baogaosj:
+            cvd['baogaosj'] = baogaosj
+    if json_data.get('RPT_ITEMID'):
+        cvd['rpt_item_id'] = json_data.get('RPT_ITEMID', '0')
     db = DbUtil(global_config.DB_HOST, global_config.DB_USERNAME, global_config.DB_PASSWORD,
                 global_config.DB_DATABASE_GYL)
     # 插入危机值
@@ -1296,14 +1358,6 @@ def doctor_handle_cv(json_data):
             delete_cache(key)
 
             try:
-                # 病历回写
-                pat_no = record.get('patient_treat_id')
-                pat_type = int(record.get('patient_type'))
-                medical_record_writing_back({
-                    "pat_no": pat_no, "pat_type": pat_type, "record": record,
-                    "handler_name": handler_name, "timer": timer, "method": method, "analysis": ''
-                })
-
                 if not record.get('nurse_recv_id'):
                     # 如果护士没有接收，由医生接收，回传接收数据
                     data_feedback(cv_id, int(cv_source), handler_name, timer, '已确认', 2)
@@ -1321,80 +1375,85 @@ def doctor_handle_cv(json_data):
                 if record.get('alertman_pers_id'):
                     msg = '患者 {} 的危急值，医生 {} 已处理'.format(record.get('patient_name', 'unknown'), handler_name)
                     notiaction_alert_man(msg, int(record.get('alertman_pers_id')))
+
+                # 处理完成以后 同步到 his
+                query_sql = f'select * from nsyy_gyl.cv_info where cv_id = \'{cv_id}\' and cv_source = {cv_source}'
+                record = db.query_one(query_sql)
+                send_to_his(record)
             except Exception as e:
                 print(datetime.now(), f'数据回写失败，错误信息：{e}')
     del db
 
 
-def medical_record_writing_back(json_data):
-    """
-    病历回写
-    :param json_data:
-    :return:
-    """
-    try:
-        sql = ''
-        pat_type = int(json_data.get('pat_type'))
-        pat_no = int(json_data.get('pat_no'))
-        if pat_type in (1, 2):
-            # 门诊/急诊
-            sql = f'select 病人ID as pid, NO as hid from 病人挂号记录 where 门诊号 = \'{pat_no}\' order by 登记时间 desc'
-        elif pat_type == 3:
-            # 住院
-            sql = f'select 病人id as pid, 主页id as hid from 病案主页 where 住院号 = \'{pat_no}\' order by 主页id desc '
-
-        param = {
-            "type": "orcl_db_read",
-            "db_source": "nshis",
-            "randstr": "XPFDFZDF7193CIONS1PD7XCJ3AD4ORRC",
-            "sql": sql
-        }
-        data = call_third_systems_obtain_data('orcl_db_read', param)
-        if data:
-            record = json_data.get('record')
-            body = ''
-            recv_time = record.get('time').strftime("%Y-%m-%d %H:%M:%S")
-            body = body + "于 " + recv_time + "接收到 " + str(record.get('alert_dept_name')) \
-                   + " 推送的危机值: [" + str(record.get('cv_name')) + "]"
-            body = body + " " + str(record.get('cv_result'))
-            if record.get('cv_unit'):
-                body = body + " " + record.get('cv_unit')
-
-            if record.get('nurse_recv_name') and record.get('nurse_recv_time'):
-                body = body + "护士 " + record.get('nurse_recv_name') + " 于 " + record.get('nurse_recv_time').strftime(
-                    "%Y-%m-%d %H:%M:%S") + "接收了危机值"
-
-            body = body + " 医生 " + json_data.get('handler_name') + " " + json_data.get('timer') + "处理了该危机值"
-            if json_data.get('analysis'):
-                body = body + " 原因分析: " + json_data.get('analysis')
-            if json_data.get('method'):
-                body = body + " 处理方法: " + json_data.get('method')
-            pid = data[0].get('PID', 0)
-            hid = data[0].get('HID', 0)
-
-            # 转换审核时间
-            dt = datetime.strptime(json_data.get('timer'), "%Y-%m-%d %H:%M:%S")
-            review_time = dt.strftime("%Y.%m.%d %H:%M:%S")
-            param = {
-                "type": "his_procedure",
-                "procedure": "jk_p_Pat_List",
-                "病人id": pid,
-                "主页id": hid,
-                "内容": body,
-                "分类": "3",
-                "记录人": json_data.get('handler_name'),
-                "审核时间": review_time,
-                "医嘱ID": "",
-                "医嘱名称": record.get('cv_name'),
-                "分类名": "危机值记录",
-                "标签说明": record.get('cv_name'),
-                "randstr": "XPFDFZDF7193CIONS1PD7XCJ3AD4ORRC"
-            }
-            call_third_systems_obtain_data('his_procedure', param)
-        else:
-            print(datetime.now(), '未找到病人信息，无法回写病历数据 pat_no = ', pat_no)
-    except Exception as e:
-        print(datetime.now(), "病历回写异常 = ", e)
+# def medical_record_writing_back(json_data):
+#     """
+#     病历回写 todo 待废弃
+#     :param json_data:
+#     :return:
+#     """
+#     try:
+#         sql = ''
+#         pat_type = int(json_data.get('pat_type'))
+#         pat_no = int(json_data.get('pat_no'))
+#         if pat_type in (1, 2):
+#             # 门诊/急诊
+#             sql = f'select 病人ID as pid, NO as hid from 病人挂号记录 where 门诊号 = \'{pat_no}\' order by 登记时间 desc'
+#         elif pat_type == 3:
+#             # 住院
+#             sql = f'select 病人id as pid, 主页id as hid from 病案主页 where 住院号 = \'{pat_no}\' order by 主页id desc '
+#
+#         param = {
+#             "type": "orcl_db_read",
+#             "db_source": "nshis",
+#             "randstr": "XPFDFZDF7193CIONS1PD7XCJ3AD4ORRC",
+#             "sql": sql
+#         }
+#         data = call_third_systems_obtain_data('orcl_db_read', param)
+#         if data:
+#             record = json_data.get('record')
+#             body = ''
+#             recv_time = record.get('time').strftime("%Y-%m-%d %H:%M:%S")
+#             body = body + "于 " + recv_time + "接收到 " + str(record.get('alert_dept_name')) \
+#                    + " 推送的危机值: [" + str(record.get('cv_name')) + "]"
+#             body = body + " " + str(record.get('cv_result'))
+#             if record.get('cv_unit'):
+#                 body = body + " " + record.get('cv_unit')
+#
+#             if record.get('nurse_recv_name') and record.get('nurse_recv_time'):
+#                 body = body + "护士 " + record.get('nurse_recv_name') + " 于 " + record.get('nurse_recv_time').strftime(
+#                     "%Y-%m-%d %H:%M:%S") + "接收了危机值"
+#
+#             body = body + " 医生 " + json_data.get('handler_name') + " " + json_data.get('timer') + "处理了该危机值"
+#             if json_data.get('analysis'):
+#                 body = body + " 原因分析: " + json_data.get('analysis')
+#             if json_data.get('method'):
+#                 body = body + " 处理方法: " + json_data.get('method')
+#             pid = data[0].get('PID', 0)
+#             hid = data[0].get('HID', 0)
+#
+#             # 转换审核时间
+#             dt = datetime.strptime(json_data.get('timer'), "%Y-%m-%d %H:%M:%S")
+#             review_time = dt.strftime("%Y.%m.%d %H:%M:%S")
+#             param = {
+#                 "type": "his_procedure",
+#                 "procedure": "jk_p_Pat_List",
+#                 "病人id": pid,
+#                 "主页id": hid,
+#                 "内容": body,
+#                 "分类": "3",
+#                 "记录人": json_data.get('handler_name'),
+#                 "审核时间": review_time,
+#                 "医嘱ID": "",
+#                 "医嘱名称": record.get('cv_name'),
+#                 "分类名": "危机值记录",
+#                 "标签说明": record.get('cv_name'),
+#                 "randstr": "XPFDFZDF7193CIONS1PD7XCJ3AD4ORRC"
+#             }
+#             call_third_systems_obtain_data('his_procedure', param)
+#         else:
+#             print(datetime.now(), '未找到病人信息，无法回写病历数据 pat_no = ', pat_no)
+#     except Exception as e:
+#         print(datetime.now(), "病历回写异常 = ", e)
 
 
 def report_form(json_data):
@@ -1468,9 +1527,11 @@ def report_form(json_data):
                     f'SUM(CASE WHEN (handle_time IS NULL and state != 0) THEN 1 ELSE 0 END) AS handled_undo_count, ' \
                     f'SUM(CASE WHEN {handle_condition_sql} and state != 0 THEN 1 ELSE 0 END) AS handled_timeout_count, ' \
                     f'SUM(CASE WHEN state = 0 THEN 1 ELSE 0 END) AS invalid_count, ' \
+                    f'SUM(IF(TIMESTAMPDIFF(MINUTE, IFNULL(baogaosj, alertdt), alertdt) <= 10, 1,0) )  AS timely_reports, ' \
                     f'ROUND((SUM(CASE WHEN (state = 9 or state = 0) THEN 1 ELSE 0 END) / COUNT(*)) * 100, 2) AS handling_rate, ' \
                     f'ROUND((SUM(CASE WHEN state = 0 THEN 1 ELSE 0 END) / COUNT(*)) * 100, 2) AS invalid_rate, ' \
-                    f'ROUND((SUM(CASE WHEN ({handle_condition_sql} and state != 0) THEN 1 ELSE 0 END) / COUNT(*)) * 100, 2) AS handling_timeout_rate ' \
+                    f'ROUND((SUM(CASE WHEN ({handle_condition_sql} and state != 0) THEN 1 ELSE 0 END) / COUNT(*)) * 100, 2) AS handling_timeout_rate,  ' \
+                    f'ROUND( (SUM(IF(TIMESTAMPDIFF(MINUTE, IFNULL(baogaosj, alertdt), alertdt) <= 10, 1,0) ) / COUNT(*)) * 100, 2) AS timely_report_rate ' \
                     f'FROM nsyy_gyl.cv_info {time_condition} GROUP BY alert_dept_name '
     elif query_by == 'cv_source':
         # 根据危急值类型查询
@@ -1801,3 +1862,213 @@ def query_cv_template(key):
                 or key in str(item.get("cv_source", ""))]
 
     return all_template
+
+
+def safe_post(data, method_name, timeout=10):
+    try:
+        data = data.strip()
+        if isinstance(data, str):
+            data = data.encode('utf-8')
+        headers = {"Content-Type": "application/xml", "Methodname": method_name}
+        response = requests.post("http://192.168.9.23:6000/WEIJZ", timeout=timeout, headers=headers, data=data)
+        response.raise_for_status()  # 如果响应状态码不是 2xx，会抛出异常
+        data = response.text
+        print(datetime.now(), 'safe post ret ', data)
+    except Exception as e:
+        print(datetime.now(), '危急值同步 his 异常 ' + e.__str__())
+
+
+def send_to_his(cv_record):
+    cv_source = int(cv_record.get('cv_source'))
+    if cv_source in (5, 10):
+        # todo 血糖危急值的 检查单暂时查不到
+        # 手工上报的 信息不全 暂不回传
+        return
+
+    patient_treat_id = cv_record.get('patient_treat_id', 'unknown')
+    sql = f"""
+        select xingming 姓名, xingbiemc 性别, nianling 年龄, 
+        bingrenzyid	病人住院ID, zhuyuanhao 住院号, binganhao 病案号, bingrenid 病人ID, dangqiancwbm 当前床位编码, 
+        dangqianksid 当前科室, dangqianksmc 当前科室名称, dangqianbqid 当前病区, dangqianbqmc 当前病区名称 
+        from df_jj_zhuyuan.zy_bingrenxx where zhuyuanhao = '{patient_treat_id}' or jiuzhenkh = '{patient_treat_id}' 
+        or bingrenid = '{patient_treat_id}' ORDER BY jiandangrq DESC
+    """
+    patient_data = call_new_his(sql)
+    if not patient_data:
+        print(datetime.now(), '未查询到病人信息 cv_id = ', cv_record.get('cv_id'), 'patient_treat_id = ', patient_treat_id)
+        return
+
+    report_id = cv_record.get('report_id')
+    if not report_id:
+        print(datetime.now(), '未查询到报告单 cv_id = ', cv_record.get('cv_id'), 'report_id = ', report_id)
+        return
+    if cv_source == 2:
+        sql = f"""
+            SELECT DISTINCT t1.shenqingdid, t.kaidanys, t.kaidanksmc, t.kaidanks, t.kaidanysxm, t.kaidanrq, t1.tiaomahao, t1.shenhesj 报告时间, t1.zhixingsj 执行时间 
+            FROM (SELECT x.shenqingdid, a.jianyanzt, a.jiluid, a.bingrenzyid, a.tiaomahao, a.yangbenhao, a.shenhesj, a.zhixingsj
+            FROM (SELECT a.shenqingdid, a.jianyanzt, a.jiluid, a.bingrenzyid, a.tiaomahao, a.yangbenhao, a.shenhesj, a.zhixingsj,  
+                     CASE 
+                         WHEN TRIM(a.shenqingdid) IS NOT NULL THEN 
+                             '<root><item>' || REPLACE(TRIM(a.shenqingdid), ',', '</item><item>') || '</item></root>'
+                         ELSE NULL
+                     END AS xml_data
+                    FROM df_cdr.yj_jianyanbg a ) a,
+            XMLTABLE(
+             '/root/item'
+             PASSING XMLTYPE(a.xml_data)
+             COLUMNS shenqingdid VARCHAR2(100) PATH '.'
+            ) x
+                WHERE a.jianyanzt = 1 
+            ) t1
+            JOIN df_cdr.yj_jianyanbgmx t2 ON t1.jiluid = t2.jiluid
+            JOIN df_shenqingdan.yj_jianyansqd t ON t1.shenqingdid = t.jianyansqdid
+            WHERE t.jianyanxmid = t2.jianyanxmid AND t1.yangbenhao = '{report_id}'
+        """
+    else:
+        sql = f"""
+            select shenqingdanid, kaidanren, kaidanksmc, kaidanks, kaidanrenxm, kaidanrq,
+            baogaodanid, baogaosj 报告时间, jianchasj 执行时间
+            from df_cdr.yj_jianchabg where baogaodanid = '{report_id}'
+        """
+    shenqing_data = call_new_his(sql)
+    if not shenqing_data:
+        print(datetime.now(), '未查询到申请单 cv_id = ', cv_record.get('cv_id'), 'report_id = ', report_id)
+        return
+
+    create_time = cv_record.get('time').strftime("%Y-%m-%d %H:%M:%S")
+    leixing = '1' if int(cv_record.get('cv_source')) == 2 else '2'
+    patient_type = int(cv_record.get('patient_type', 3)) # 1=门诊,2=急诊,3=住院,4=体检
+    # 通过映射关系获取 menzhenzybz，默认为 '1'（门诊）
+    menzhenzybz = cv_config.patient_type_map.get(patient_type, '2')
+
+    alertdt = cv_record.get('alertdt').strftime("%Y-%m-%d %H:%M:%S")
+    handle_time = cv_record.get('handle_time').strftime("%Y-%m-%d %H:%M:%S")
+    nurse_recv_time = cv_record.get('nurse_recv_time').strftime("%Y-%m-%d %H:%M:%S") if cv_record.get('nurse_recv_time') else '0'
+    baogaosj = datetime.strptime(shenqing_data[0].get('报告时间'), "%a, %d %b %Y %H:%M:%S GMT").strftime("%Y-%m-%d %H:%M:%S") if shenqing_data[0].get('报告时间') else '0'
+    zhixingsj = datetime.strptime(shenqing_data[0].get('执行时间'), "%a, %d %b %Y %H:%M:%S GMT").strftime("%Y-%m-%d %H:%M:%S") if shenqing_data[0].get('执行时间') else '0'
+    kaidanrq = datetime.strptime(shenqing_data[0].get('KAIDANRQ'), "%a, %d %b %Y %H:%M:%S GMT").strftime("%Y-%m-%d %H:%M:%S") if shenqing_data[0].get('KAIDANRQ') else '0'
+
+    cv_result = cv_record.get('cv_result') if cv_record.get('cv_result') else '0'
+    cv_result = cv_result.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;")
+    rand_str = random_string()
+    his_sync_data = cv_config.HIS_SYNCHRONIZE_DATA \
+        .replace('{msg_id}', str(cv_record.get('cv_id')) + "_" + rand_str) \
+        .replace('{event_id}', str(cv_record.get('cv_id')) + "_" + rand_str) \
+        .replace('{creat_time}', datetime.now().strftime("%Y-%m-%d %H:%M:%S")) \
+        .replace('{weijizhiwbid}', str(cv_record.get('cv_id'))) \
+        .replace('{weijizhiid}', str(cv_record.get('cv_id'))) \
+        .replace('{bingrenid}', str(patient_data[0].get('病人ID')) if patient_data[0].get('病人ID') else '0') \
+        .replace('{leixing}', str(leixing)) \
+        .replace('{bingrenzyid}', str(patient_data[0].get('病人住院ID')) if patient_data[0].get('病人住院ID') else '0') \
+        .replace('{menzhenzybz}', menzhenzybz) \
+        .replace('{bingrenxm}', str(patient_data[0].get('姓名')) if patient_data[0].get('姓名') else '0') \
+        .replace('{zhuyuanhao}', str(patient_data[0].get('住院号')) if patient_data[0].get('住院号') else '0') \
+        .replace('{xingbie}', str(patient_data[0].get('性别')) if patient_data[0].get('性别') else '0') \
+        .replace('{nianling}', str(patient_data[0].get('年龄')) if patient_data[0].get('年龄') else '0') \
+        .replace('{bingqumc}', patient_data[0].get('当前病区名称') if patient_data[0].get('当前病区名称') else '0') \
+        .replace('{bingquid}', str(patient_data[0].get('当前病区')) if patient_data[0].get('当前病区') else '0') \
+        .replace('{chuangweihao}',
+                 str(patient_data[0].get('当前床位编码')) if patient_data[0].get('当前床位编码') else '0') \
+        .replace('{keshimc}', str(patient_data[0].get('当前科室名称')) if patient_data[0].get('当前科室名称') else '0') \
+        .replace('{keshiid}', str(patient_data[0].get('当前科室')) if patient_data[0].get('当前科室') else '0') \
+        .replace('{chuangjiansj}', create_time) \
+        .replace('{weijizhinr}', cv_record.get('cv_name') if cv_record.get('cv_name') else '0') \
+        .replace('{jianyanjg}', cv_result) \
+        .replace('{dangwei}', cv_record.get('cv_unit') if cv_record.get('cv_unit') else '0') \
+        .replace('{cankaofw}', cv_record.get('cv_ref') if cv_record.get('cv_ref') else '0') \
+        .replace('{jianchaxmmc}', cv_record.get('cv_name') if cv_record.get('cv_name') else '0') \
+        .replace('{fasongsj}', alertdt) \
+        .replace('{fasongrenxm}', cv_record.get('alertman_name') if cv_record.get('alertman_name') else '0') \
+        .replace('{fasongren}', cv_record.get('alertman') if cv_record.get('alertman_name') else '0') \
+        .replace('{zuofeisj}', cv_record.get('invalid_time') if cv_record.get('invalid_time') else '0') \
+        .replace('{zuofeiren}', cv_record.get('invalid_person') if cv_record.get('invalid_person') else '0') \
+        .replace('{huifuysid}', str(cv_record.get('handle_doctor_id')) if cv_record.get('handle_doctor_id') else '0') \
+        .replace('{huifuysxm}', cv_record.get('handle_doctor_name') if cv_record.get('handle_doctor_name') else '0') \
+        .replace('{yishenghfsj}', handle_time) \
+        .replace('{yishengclnr}', cv_record.get('method') if cv_record.get('method') else '0') \
+        .replace('{huifuhsid}', str(cv_record.get('nurse_recv_id')) if cv_record.get('nurse_recv_id') else '0') \
+        .replace('{huifuhsxm}', cv_record.get('nurse_recv_name') if cv_record.get('nurse_recv_name') else '0') \
+        .replace('{hushihfsj}', nurse_recv_time) \
+        .replace('{hushiclnr}', cv_record.get('nurse_recv_info') if cv_record.get('nurse_recv_info') else '0') \
+        .replace('{jieshouhsid}', str(cv_record.get('nurse_recv_id')) if cv_record.get('nurse_recv_id') else '0') \
+        .replace('{jieshouhsxm}', cv_record.get('nurse_recv_name') if cv_record.get('nurse_recv_name') else '0') \
+        .replace('{jieshousj}', nurse_recv_time) \
+        .replace('{tongzhiyssj}', alertdt) \
+        .replace('{tongzhiysxm}', cv_record.get('handle_doctor_name') if cv_record.get('handle_doctor_name') else '0') \
+        .replace('{tongzhiysid}', str(cv_record.get('handle_doctor_id')) if cv_record.get('handle_doctor_id') else '0') \
+        .replace('{baogaodanid}', shenqing_data[0].get('BAOGAODANID') if shenqing_data[0].get('BAOGAODANID') else '0') \
+        .replace('{baogaosj}', baogaosj) \
+        .replace('{jianyantmh}', shenqing_data[0].get('TIAOMAHAO') if shenqing_data[0].get('TIAOMAHAO') else '0') \
+        .replace('{zhixingsj}', zhixingsj) \
+        .replace('{shenqingdanid}', shenqing_data[0].get('SHENQINGDID') if shenqing_data[0].get('SHENQINGDID') else '0') \
+        .replace('{kaidanren}', shenqing_data[0].get('KAIDANREN') if shenqing_data[0].get('KAIDANREN') else '0') \
+        .replace('{kaidanksmc}', shenqing_data[0].get('KAIDANKSMC') if shenqing_data[0].get('KAIDANKSMC') else '0') \
+        .replace('{kaidanks}', shenqing_data[0].get('KAIDANKS') if shenqing_data[0].get('KAIDANKS') else '0') \
+        .replace('{kaidanrenxm}', shenqing_data[0].get('KAIDANRENXM') if shenqing_data[0].get('KAIDANRENXM') else '0') \
+        .replace('{kaidanrq}', kaidanrq)
+
+    # print(his_sync_data)
+    safe_post(his_sync_data, 'WeiJZInfoAdd')
+
+
+def send_to_his_invalid(cv_id, invalid_time):
+    msg_id = str(cv_id) + "_" + random_string()
+    his_invalid_data = f"""
+        <message>
+            <request>
+                <msg_id>{msg_id}</msg_id>
+                <event_id>{msg_id}</event_id>
+                <creat_time>{invalid_time}</creat_time>
+                <sender>WEIJIZHI</sender>
+                <receiver>HIS</receiver>
+            </request>
+            <body>
+                <weijizhiid>{cv_id}</weijizhiid>
+            </body>
+        </message>
+    """
+    # print(his_invalid_data)
+    safe_post(his_invalid_data, 'WeiJZCancel')
+
+
+def manual_send_to_his(cv_id, cv_source):
+    db = DbUtil(global_config.DB_HOST, global_config.DB_USERNAME, global_config.DB_PASSWORD,
+                global_config.DB_DATABASE_GYL)
+    query_sql = f"select * from nsyy_gyl.cv_info where cv_id = '{cv_id}' and cv_source = {cv_source} "
+    record = db.query_one(query_sql)
+    del db
+    send_to_his(record)
+
+
+def manual_send_to_his_invalid(cv_id, invalid_time):
+    send_to_his_invalid(cv_id, invalid_time)
+
+
+def random_string(length=3):
+    """生成一个包含大小写字母和数字的随机字符串。
+    """
+    import random
+    import string
+    characters = string.ascii_letters + string.digits
+    random_string = ''.join(random.choices(characters, k=length))
+    return random_string
+
+
+def query_baogao_sj(type, report_id):
+    """
+    查询危急值报告时间
+    :param type: 1 检验 2 检查
+    :return:
+    """
+    if int(type) == 1:
+        sql = f"select shenhesj 报告时间 from df_cdr.yj_jianyanbg where baogaodanid = '{report_id}'"
+    else:
+        sql = f"select baogaosj 报告时间 from df_cdr.yj_jianchabg where baogaodanid = '{report_id}'"
+
+    data = call_new_his(sql)
+    if not data:
+        print(datetime.now(), '未查询到报告时间 report_id = ', report_id)
+        return ''
+    baogaosj = datetime.strptime(data[0].get('报告时间'), "%a, %d %b %Y %H:%M:%S GMT").strftime(
+        "%Y-%m-%d %H:%M:%S") if data[0].get('报告时间') else '0'
+    return baogaosj

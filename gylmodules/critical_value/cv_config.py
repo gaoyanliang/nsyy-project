@@ -61,3 +61,87 @@ CV_TEMPLATE_REDIS_KEY = 'CV_TEMPLATE'
 
 # ip站点 自动启动危急值程序失败
 ALERT_FAIL_IPS_REDIS_KEY = 'CV_ALERT_FAIL_IPS'
+
+
+patient_type_map = {
+    1: '1',  # 门诊
+    2: '0',  # 急诊
+    3: '2',  # 住院
+    4: '1',  # 体检（默认和门诊相同）
+}
+
+
+HIS_SYNCHRONIZE_DATA = """
+<message>
+    <request>
+        <msg_id>{msg_id}</msg_id>
+        <event_id>{event_id}</event_id>
+        <creat_time>{creat_time}</creat_time>
+        <sender>WEIJIZHI</sender>
+        <receiver>HIS</receiver>
+    </request>
+    <body>
+        <weijizhiwbid>{weijizhiwbid}</weijizhiwbid>
+        <weijizhiid>{weijizhiid}</weijizhiid>
+        <bingrenid>{bingrenid}</bingrenid>
+        <leixing>{leixing}</leixing>
+        <bingrenzyid>{bingrenzyid}</bingrenzyid>
+        <menzhenzybz>{menzhenzybz}</menzhenzybz>
+        <bingrenxm>{bingrenxm}</bingrenxm>
+        <zhuyuanhao>{zhuyuanhao}</zhuyuanhao>
+        <xingbie>{xingbie}</xingbie>
+        <nianling>{nianling}</nianling>
+        <bingqumc>{bingqumc}</bingqumc>
+        <bingquid>{bingquid}</bingquid>
+        <chuangweihao>{chuangweihao}</chuangweihao>
+        <keshimc>{keshimc}</keshimc>
+        <keshiid>{keshiid}</keshiid>
+        <chuangjiansj>{chuangjiansj}</chuangjiansj>
+        <weijizhinr>{weijizhinr}</weijizhinr>
+        <jianyanjg>{jianyanjg}</jianyanjg>
+        <dangwei>{dangwei}</dangwei>
+        <cankaofw>{cankaofw}</cankaofw>
+        <jianchaxmmc>{jianchaxmmc}</jianchaxmmc>
+        <fasongsj>{fasongsj}</fasongsj>
+        <fasongrenxm>{fasongrenxm}</fasongrenxm>
+        <fasongren>{fasongren}</fasongren>
+        <zuofeibz>0</zuofeibz>
+        <zuofeisj>{zuofeisj}</zuofeisj>
+        <zuofeiren>{zuofeiren}</zuofeiren>
+        <huifuysid>{huifuysid}</huifuysid>
+        <huifuysxm>{huifuysxm}</huifuysxm>
+        <yishenghfsj>{yishenghfsj}</yishenghfsj>
+        <yishengclfs>1</yishengclfs>
+        <yishengclnr>{yishengclnr}</yishengclnr>
+        <huifuhsid>{huifuhsid}</huifuhsid>
+        <huifuhsxm>{huifuhsxm}</huifuhsxm>
+        <hushihfsj>{hushihfsj}</hushihfsj>
+        <hushiclnr>{hushiclnr}</hushiclnr>
+        <hushiclbz>1</hushiclbz>
+        <jieshouhsid>{jieshouhsid}</jieshouhsid>
+        <jieshouhsxm>{jieshouhsxm}</jieshouhsxm>
+        <jieshousj>{jieshousj}</jieshousj>
+        <tongzhiyssj>{tongzhiyssj}</tongzhiyssj>
+        <tongzhiysxm>{tongzhiysxm}</tongzhiysxm>
+        <tongzhiysid>{tongzhiysid}</tongzhiysid>
+        <baogaodanid>{baogaodanid}</baogaodanid>
+        <baogaosj>{baogaosj}</baogaosj>
+        <jianyantmh>{jianyantmh}</jianyantmh>
+        <zhixingsj>{zhixingsj}</zhixingsj>
+        <shenqingdanid>{shenqingdanid}</shenqingdanid>
+        <kaidanren>{kaidanren}</kaidanren>
+        <kaidanksmc>{kaidanksmc}</kaidanksmc>
+        <kaidanks>{kaidanks}</kaidanks>
+        <kaidanrenxm>{kaidanrenxm}</kaidanrenxm>
+        <kaidanrq>{kaidanrq}</kaidanrq>
+        <yuanquid>1</yuanquid>
+    </body>
+</message>
+"""
+
+
+
+
+
+
+
