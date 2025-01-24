@@ -1,5 +1,4 @@
 import json
-import time
 from operator import itemgetter
 
 import requests
@@ -19,16 +18,24 @@ def call_third_systems_obtain_data(url: str, type: str, param: dict):
     :return:
     """
     data = []
-    try:
-        if global_config.run_in_local:
-            response = requests.post(f"http://192.168.124.53:6080/{url}", timeout=10, json=param)
+    if global_config.run_in_local:
+        try:
+            # response = requests.post(f"http://192.168.3.12:6080/{url}", timeout=3, json=param)
+            response = requests.post(f"http://192.168.124.53:6080/{url}", timeout=3, json=param)
+            data = json.loads(response.text)
+            if type != 'his_pers_reg':
+                data = data.get('data')
+        except Exception as e:
+            print('调用第三方系统方法失败：type = ' + type + ' param = ' + str(param) + "   " + e.__str__())
+    else:
+        if type == 'orcl_db_read':
+            from tools import orcl_db_read
+            data = orcl_db_read(param)
+        elif type == 'his_pers_reg':
+            from tools import his_pers_reg
+            data = his_pers_reg(param)
         else:
-            response = requests.post(f"http://127.0.0.1:6080/{url}", timeout=10, json=param)
-        data = json.loads(response.text)
-        if type != 'his_pers_reg':
-            data = data.get('data')
-    except Exception as e:
-        print('调用第三方系统方法失败：type = ' + type + ' param = ' + str(param) + "   " + e.__str__())
+            print('call_third_systems_obtain_data 不支持 ', type)
     return data
 
 
@@ -41,7 +48,7 @@ def call_new_his(sql: str, clobl: list = None):
     param = {"key": "o4YSo4nmde9HbeUPWY_FTp38mB1c", "sys": "newzt", "sql": sql}
     if clobl:
         param['clobl'] = clobl
-    query_oracle_url = "http://127.0.0.1:6080/oracle_sql"
+    query_oracle_url = "http://192.168.3.12:6080/oracle_sql"
     if global_config.run_in_local:
         query_oracle_url = "http://192.168.124.53:6080/oracle_sql"
 
@@ -82,7 +89,7 @@ def query_patient_info(card_no):
         data = history_record
     else:
         sql = f"""
-           SELECT brxx.SHENFENZH 身份证号, brxx.JIUZHENKH 就诊卡号, brxx.CHUSHENGRQ 出生日期, brxx.LIANXIRDH 联系人电话, brxx.LIANXIREN 联系人,
+           SELECT brxx.SHENFENZH 身份证号, brxx.JIUZHENKH 就诊卡号, brxx.CHUSHENGRQ 出生日期, brxx.LIANXIRDH 联系人电话, 
     brxx.XIANZHUZHIDH 现住址电话, brxx.BINGRENID 病人ID, brxx.XINGMING 姓名, brxx.XINGBIEMC 性别, brxx.XINGBIEDM 性别代码, 
     brxx.HUNYINMC 婚姻, brxx.ZHIYEMC 职业, brxx.HUKOUDZ 户口地址, brxx.XIANZHUZHI 现住址, brxx.GONGZUODW 工作单位, 
     brxx.MINZUMC 民族 FROM df_bingrenzsy.gy_bingrenxx brxx WHERE brxx.JIUZHENKH = '{card_no}'  
@@ -103,8 +110,7 @@ def query_patient_info(card_no):
             "marital_status": patient_infos[0].get('婚姻'), "occupation": patient_infos[0].get('职业'),
             "home_address": patient_infos[0].get('现住址'), "work_unit": patient_infos[0].get('工作单位'),
             "nation": patient_infos[0].get('民族'), "visit_time": datetime.now().strftime('%Y-%m-%d %H:%M:%S'),
-            "card_no": card_no, "allergy_history": "", "contact_name": patient_infos[0].get('联系人'),
-            "contact_phone": patient_infos[0].get('联系人电话'),
+            "card_no": card_no, "allergy_history": "",
             "medical_card_no": patient_infos[0].get('就诊卡号'), "id_card_no": patient_infos[0].get('身份证号')
         }
         if data.get('id_card_no') and len(data.get('id_card_no')) == 18:
@@ -264,10 +270,10 @@ def submit_survey_record(json_data):
         surveys_record.pop('id')
         surveys_record['visit_time'] = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
     if not surveys_record.get('doctor_id') or not surveys_record.get('doctor_name'):
-        surveys_record.pop('doctor_id') if 'doctor_id' in surveys_record else None
-        surveys_record.pop('doctor_name') if 'doctor_name' in surveys_record else None
-        surveys_record.pop('dept_id') if 'dept_id' in surveys_record else None
-        surveys_record.pop('dept_name') if 'dept_name' in surveys_record else None
+        surveys_record.pop('doctor_id')
+        surveys_record.pop('doctor_name')
+        surveys_record.pop('dept_id')
+        surveys_record.pop('dept_name')
     surveys_record['treatment_advice'] = ''
     surveys_record['initial_impression'] = ''
     surveys_record['status'] = 1
@@ -469,6 +475,7 @@ def query_question_survey_by_patient_id(patient_id):
 def query_test_result(card_no, visit_date):
     """
     查询检查项目结果
+    检查项目 涉及到两个数据库，其中有一个字段（影像所见）在两个数据库中定义的类型不同，导致关联查询出错，所以拆分成两个 sql
     :param card_no:
     :param visit_date:
     :return:
@@ -494,60 +501,46 @@ def query_examination_result(card_no, visit_date):
     :param visit_date:
     :return:
     """
-    # sql = f"""
-    #        SELECT NULL AS "outpatient_num", brxx.shenfenzh AS "id_card_no", jz.guahaoid AS 挂号ID,
-    #        mzyz.yizhuid AS "doc_advice_id", jy.jianchamd AS "item_name", jymx.zhongwenmc AS "item_sub_name",
-    #        jymx.jianyanjg AS "item_sub_result", jymx.cankaofw AS "item_sub_refer", jymx.dangwei AS "item_sub_unit",
-    #        jymx.yichangbz, jymx.jianyanxmid AS "item_sub_id", mzyz.yizhuid || jymx.shiyanxmid AS "unique_key",
-    #             CASE
-    #                 WHEN jymx.yichangbz = 'L' THEN '低'
-    #                 WHEN jymx.yichangbz = 'H' THEN '高'
-    #                 WHEN jymx.yichangbz = 'E' THEN '阳性'
-    #                 WHEN jymx.yichangbz = 'D' THEN '阴性'
-    #                 ELSE '正常'
-    #             END AS "item_sub_flag"
-    #         FROM df_lc_menzhen.mz_yizhu mzyz JOIN df_lc_menzhen.zj_jiuzhenxx jz ON mzyz.jiuzhenid = jz.jiuzhenid
-    #         JOIN df_bingrenzsy.gy_bingrenxx brxx ON mzyz.bingrenid = brxx.bingrenid
-    #         JOIN df_shenqingdan.yj_jianyansqd jysqd ON mzyz.yizhuid = jysqd.yizhubh
-    #         JOIN (SELECT jiluid, jianyanzt, bingrenid,
-    #                 REGEXP_SUBSTR(shenqingdid, '[^,]+', 1, LEVEL) AS shenqingdanid,
-    #                 REGEXP_SUBSTR(jianyanxmid, '[^+]+', 1, LEVEL) AS jianyanxmid, jianchamd
-    #             FROM df_cdr.yj_jianyanbg WHERE menzhenzybz = '1'
-    #             CONNECT BY LEVEL <= REGEXP_COUNT(shenqingdid, ',') + 1 AND PRIOR jiluid = jiluid AND PRIOR DBMS_RANDOM.VALUE IS NOT NULL
-    #         ) jy ON jy.bingrenid=brxx.bingrenid  and jysqd.jianyansqdid = jy.shenqingdanid
-    #         LEFT JOIN df_cdr.yj_jianyanbgmx jymx ON jy.jiluid = jymx.jiluid  AND jy.jianyanxmid = jymx.jianyanxmid
-    #         WHERE (brxx.shenfenzh = '{card_no}' or brxx.jiuzhenkh='{card_no}')
-    #         AND jz.xitongsj >= to_date('{visit_date}','yyyy-mm-dd') and jy.jianyanzt = 1
-    #     """
-
     sql = f"""
-        select NULL AS "outpatient_num", a.shenfenzh AS "id_card_no", a.guahaoid AS 挂号ID, 
-        a.yzid AS "doc_advice_id", a.jianchamd AS "item_name", jymx.zhongwenmc AS "item_sub_name",
-        jymx.jianyanjg AS "item_sub_result", jymx.cankaofw AS "item_sub_refer", jymx.dangwei AS "item_sub_unit",
-        jymx.yichangbz, jymx.jianyanxmid AS "item_sub_id", a.jiuzhenid || '-' ||  jymx.shiyanxmid AS "unique_key",
-        CASE
-            WHEN jymx.yichangbz = 'L' THEN '低'
-            WHEN jymx.yichangbz = 'H' THEN '高'
-            WHEN jymx.yichangbz = 'E' THEN '阳性'
-            WHEN jymx.yichangbz = 'D' THEN '阴性'  
-            ELSE '正常'
-        END AS "item_sub_flag"
-        from (SELECT distinct brxx.shenfenzh, jz.guahaoid, jy.jianchamd, jy.jiluid, jz.jiuzhenid, yz1.yzid
-                FROM df_lc_menzhen.mz_yizhu mzyz
-                JOIN df_lc_menzhen.zj_jiuzhenxx jz ON mzyz.jiuzhenid = jz.jiuzhenid
-                JOIN df_bingrenzsy.gy_bingrenxx brxx ON mzyz.bingrenid = brxx.bingrenid
-                JOIN df_shenqingdan.yj_jianyansqd jysqd ON mzyz.yizhuid = jysqd.yizhubh 
-                JOIN  (SELECT jiluid, jianyanzt, bingrenid, yizhuid, shenqingdid, jianyanxmid, jianchamd
-                        FROM  df_cdr.yj_jianyanbg WHERE menzhenzybz = '1') jy  
-                ON jy.bingrenid=brxx.bingrenid and instr(jy.shenqingdid,jysqd.jianyansqdid) > 0 
-                JOIN ( select LISTAGG(yz.yizhuid, '+') WITHIN GROUP (ORDER BY yz.yizhuid) as yzid,jy2.jiluid,yz.bingrenid 
-                       from df_lc_menzhen.mz_yizhu yz  join df_shenqingdan.yj_jianyansqd sqd ON yz.yizhuid =sqd.yizhubh
-                      join df_cdr.yj_jianyanbg jy2 on jy2.bingrenid=yz.bingrenid and  instr(jy2.shenqingdid,sqd.jianyansqdid)>0  
-                      group by yz.bingrenid,jy2.jiluid) yz1 on yz1.bingrenid = mzyz.bingrenid and yz1.jiluid=jy.jiluid
-                      WHERE (brxx.shenfenzh = '{card_no}' or brxx.jiuzhenkh='{card_no}') 
-                      AND jz.xitongsj >= to_date('{visit_date}','yyyy-mm-dd') and jy.jianyanzt = 1) a
-                LEFT JOIN df_cdr.yj_jianyanbgmx jymx ON a.jiluid = jymx.jiluid  
-    """
+               SELECT 
+                   NULL AS outpatient_num,
+                   brxx.shenfenzh AS "id_card_no",
+                   jz.guahaoid AS 挂号ID,
+                   mzyz.yizhuid AS "doc_advice_id",
+                   jy.jianchamd AS "item_name",
+                   jymx.zhongwenmc AS "item_sub_name",
+                   jymx.jianyanjg AS "item_sub_result",
+                   jymx.cankaofw AS "item_sub_refer",
+                   jymx.dangwei AS "item_sub_unit",
+                   jymx.yichangbz,
+                   jymx.jianyanxmid AS "item_sub_id",
+                   mzyz.yizhuid || jymx.shiyanxmid AS "unique_key",
+                   CASE
+                       WHEN jymx.yichangbz = 'L' THEN '低'
+                       WHEN jymx.yichangbz = 'H' THEN '高'
+                       WHEN jymx.yichangbz = 'E' THEN '阳性'
+                       WHEN jymx.yichangbz = 'D' THEN '阴性'  
+                       ELSE '正常'
+                   END AS "item_sub_flag"
+               FROM df_lc_menzhen.mz_yizhu mzyz
+               JOIN df_lc_menzhen.zj_jiuzhenxx jz ON mzyz.jiuzhenid = jz.jiuzhenid
+               JOIN df_bingrenzsy.gy_bingrenxx brxx ON mzyz.bingrenid = brxx.bingrenid
+               JOIN df_shenqingdan.yj_jianyansqd jysqd ON mzyz.yizhuid = jysqd.yizhubh
+               JOIN (
+                   SELECT 
+                       jiluid,
+                       jianyanzt,
+                       REGEXP_SUBSTR(shenqingdid, '[^,]+', 1, LEVEL) AS shenqingdanid,
+                       REGEXP_SUBSTR(jianyanxmid, '[^+]+', 1, LEVEL) AS jianyanxmid,
+                       jianchamd
+                   FROM df_cdr.yj_jianyanbg 
+                   WHERE menzhenzybz = '1' 
+                   CONNECT BY LEVEL <= REGEXP_COUNT(shenqingdid, ',') + 1 AND PRIOR jiluid = jiluid AND PRIOR DBMS_RANDOM.VALUE IS NOT NULL
+               ) jy ON jysqd.jianyansqdid = jy.shenqingdanid 
+               LEFT JOIN df_cdr.yj_jianyanbgmx jymx ON jy.jiluid = jymx.jiluid  AND jy.jianyanxmid = jymx.jianyanxmid
+               WHERE  jy.jianyanzt = 1 AND jz.xitongsj >= to_date('{visit_date}','yyyy-mm-dd') 
+               and (jz.jiuzhenkh = '{card_no}' or brxx.shenfenzh = '{card_no}')           
+           """
 
     examination_results = call_new_his(sql)
     return examination_results
@@ -589,7 +582,6 @@ def query_outpatient_medical_record(re_id):
     :param re_id:
     :return:
     """
-    start_time = time.time()
     db = DbUtil(global_config.DB_HOST, global_config.DB_USERNAME, global_config.DB_PASSWORD,
                 global_config.DB_DATABASE_GYL)
 
@@ -599,70 +591,52 @@ def query_outpatient_medical_record(re_id):
     if not survey_record:
         raise Exception('问卷记录不存在')
     survey_record['visit_time'] = survey_record['visit_time'].strftime('%Y-%m-%d %H:%M:%S')
-
     # 查询问卷问题 & 答案， 然后组装数据
     query_sql = f"select a.id, a.su_id, a.qu_id, a.order_by_id,a.visibility, b.qu_title, b.qu_note, b.qu_tag, " \
                 f"b.qu_tag_name, b.qu_type, b.qu_answer, b.pre_qu_id,b.pre_qu_answer, b.medical_record_field, " \
                 f"b.keywords, b.create_date, coalesce(a.qu_default_value, b.qu_default_value) qu_default_value, " \
                 f"coalesce(a.qu_units, b.qu_units) qu_units, coalesce(a.step_size, b.step_size) step_size, " \
-                f"coalesce(a.ans_prefix, b.ans_prefix) ans_prefix, coalesce(a.ans_suffix, b.ans_suffix) ans_suffix, " \
-                f"c.re_id, c.answer, c.qu_unit, c.other_answer, c.need_confirm from nsyy_gyl.sq_surveys_question_association a " \
-                f"join nsyy_gyl.sq_questions b on a.qu_id = b.id left join nsyy_gyl.sq_surveys_answer c " \
-                f"on c.qu_id = b.id where a.su_id = {int(survey_record.get('su_id'))} " \
-                f"and a.visibility = 1 and c.re_id = {int(re_id)} order by a.order_by_id"
+                f"coalesce(a.ans_prefix, b.ans_prefix) ans_prefix, coalesce(a.ans_suffix, b.ans_suffix) ans_suffix " \
+                f"from nsyy_gyl.sq_surveys_question_association a join nsyy_gyl.sq_questions b on a.qu_id = b.id " \
+                f"where a.su_id = {int(survey_record.get('su_id'))} order by a.order_by_id"
+    qanswer_list = db.query_all(query_sql)
+    question_list = db.query_all(query_sql)
+
+    query_sql = f"select * from nsyy_gyl.sq_surveys_answer where re_id = {int(re_id)} "
     answer_list = db.query_all(query_sql)
-
-    query_sql = f"select * from nsyy_gyl.sq_surveys_detail where re_id = {int(re_id)} "
-    survey_detail = db.query_one(query_sql)
-
-    print('查询问卷耗时：', time.time() - start_time)
-    # query_sql = f"select a.*, b.* from nsyy_gyl.sq_surveys_answer a join nsyy_gyl.sq_questions b " \
-    #             f"on a.qu_id = b.id where a.re_id = {int(re_id)} "
-    # answer_list = db.query_all(query_sql)
     for item in answer_list:
         item['answer'] = json.loads(item.get('answer'))
-        item['qu_answer'] = json.loads(item.get('qu_answer')) \
-            if item.get('qu_answer') and item.get('qu_answer').__contains__('[') else item.get('qu_answer')
-        item['qu_units'] = json.loads(item.get('qu_units')) \
-            if item.get('qu_units') and item.get('qu_units').__contains__('[') else item.get('qu_units')
+        answer_dict = {item['qu_id']: item for item in answer_list}
     del db
+    medical_data = assembly_data(question_list, answer_dict)
 
-    # medical_data = assembly_data(question_list, answer_dict)
-    # medical_data = {}
-    # 查询 检查/检验 结果，拼装辅助检查, 辅助检查结果
+    # 查询 检查/检验 结果
     visit_time = datetime.strptime(survey_record.get('visit_time'), '%Y-%m-%d %H:%M:%S').strftime('%Y-%m-%d')
     test_results = query_test_result(survey_record.get('card_no'), visit_time)
-    print('检查结果耗时：', time.time() - start_time)
     examination_result = query_examination_result(survey_record.get('card_no'), visit_time)
-    print('检验结果耗时：', time.time() - start_time)
+    # 收集辅助检查, 收集辅助检查结果
+    auxiliary_examination, auxiliary_examination_result = [], []
 
-    if not survey_detail:
-        survey_detail = {}
-    survey_detail['test_results'] = test_results
-    survey_detail['examination_result'] = examination_result
+    # 检验需要根据 检验项目名称 进行分组
+    examination_result.sort(key=itemgetter('item_name'))
+    for key, group in groupby(examination_result, key=lambda x: x['item_name']):
+        auxiliary_examination.append(key)
+        ret = []
+        for item in group:
+            ret.append(f"{item.get('item_sub_name')} {item.get('item_sub_result')} ({item.get('item_sub_unit')})")
+        ret = key + ": " + ", ".join(ret)
+        auxiliary_examination_result.append(ret)
 
-    # auxiliary_examination, auxiliary_examination_result = [], []
-    # # 检验需要根据 检验项目名称 进行分组
-    # examination_result.sort(key=itemgetter('item_name'))
-    # for key, group in groupby(examination_result, key=lambda x: x['item_name']):
-    #     auxiliary_examination.append(key)
-    #     ret = []
-    #     for item in group:
-    #         ret.append(f"{item.get('item_sub_name')} {item.get('item_sub_result')} ({item.get('item_sub_unit')})")
-    #     ret = key + ": " + ", ".join(ret)
-    #     auxiliary_examination_result.append(ret)
-    #
-    # for item in test_results:
-    #     auxiliary_examination.append(item['item_name'])
-    #     auxiliary_examination_result.append(item.get('item_result'))
-    # medical_data[5] = '、'.join(auxiliary_examination)
-    # medical_data[6] = '、'.join(auxiliary_examination_result)
+    for item in test_results:
+        auxiliary_examination.append(item['item_name'])
+        auxiliary_examination_result.append(item.get('item_result'))
 
-    # todo 初步印象 治疗意见 应该是医生自己写的？？
-    # 查询诊断（初步印象）
-    survey_detail['his_zhenduan'] = query_zhen_duan(survey_record.get('sick_id'), visit_time)
-    print('查询诊断耗时：', time.time() - start_time)
-    return survey_record, survey_detail, answer_list
+    medical_data[5] = '、'.join(auxiliary_examination)
+    medical_data[6] = '、'.join(auxiliary_examination_result)
+    medical_data[7] = query_zhen_duan(survey_record.get('sick_id'), visit_time)
+    medical_data[8] = survey_record.get('treatment_advice', '')
+
+    return survey_record, medical_data
 
 
 def assembly_data(question_list, answer_dict):

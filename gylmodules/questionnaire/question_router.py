@@ -195,7 +195,8 @@ def view_medical_records():
     json_data = {}
     try:
         json_data = json.loads(request.get_data().decode('utf-8'))
-        patient_info, medical_data = sq_server.query_outpatient_medical_record(json_data.get('re_id'))
+        patient_info, medical_data, answer_list = sq_server.query_outpatient_medical_record(json_data.get('re_id'))
+        # patient_info, medical_data = sq_server.query_outpatient_medical_record(json_data.get('re_id'))
     except Exception as e:
         print(datetime.now(), "view_medical_records exception, param: ", json_data, e)
         return jsonify({
@@ -205,9 +206,14 @@ def view_medical_records():
     return jsonify({
         'code': 20000,
         'res': 'view medical records successes',
+        # 'data': {
+        #     "patient_info": patient_info,
+        #     "medical_data": medical_data
+        # }
         'data': {
             "patient_info": patient_info,
-            "medical_data": medical_data
+            "medical_data": medical_data,
+            "answer_list": answer_list
         }
     })
 
@@ -283,20 +289,60 @@ def query_question_survey_byid():
     })
 
 
-@question.route('/submit_treatment_advice', methods=['POST', 'GET'])
-def submit_treatment_advice():
+@question.route('/submit_medical_record', methods=['POST', 'GET'])
+def submit_medical_record():
     json_data = {}
     try:
         json_data = json.loads(request.get_data().decode('utf-8'))
-        question_surveys = sq_server.submit_treatment_advice(json_data)
+        question_surveys = sq_server.submit_medical_record(json_data)
     except Exception as e:
-        print(datetime.now(), "submit_treatment_advice exception, param: ", json_data, e)
+        print(datetime.now(), "submit_medical_record exception, param: ", json_data, e)
         return jsonify({
             'code': 50000,
-            'res': "治疗意见提交异常: " + e.__str__()
+            'res': "病历提交异常: " + e.__str__()
         })
     return jsonify({
         'code': 20000,
-        'res': 'submit treatment advice successes'
+        'res': 'submit medical record successes'
     })
+
+
+@question.route('/patient_quest_details', methods=['POST', 'GET'])
+def patient_quest_details():
+    json_data = {}
+    try:
+        json_data = json.loads(request.get_data().decode('utf-8'))
+        ques_dtl = sq_server.patient_quest_details(json_data)
+    except Exception as e:
+        print(datetime.now(), "patient_quest_details exception, param: ", json_data, e)
+        return jsonify({
+            'code': 50000,
+            'res': "患者门诊问卷详情查询异常: " + e.__str__()
+        })
+    return jsonify(ques_dtl)
+
+
+
+@question.route('/testttt', methods=['POST', 'GET'])
+def testttt():
+    try:
+        par = {
+            "type": "his_pers_reg",
+            "randstr": "XPFDFZDF7193CIONS1PD7XCJ3AD4ORRC",
+            "pers_name": "高彦良",
+            "pers_mobile": "13027751873",
+            "pers_id_no": "411324199605164530",
+            "pers_id_type": 1
+        }
+        from tools import his_pers_reg
+        data = his_pers_reg(par)
+        print('创建患者信息返回: ', data)
+    except Exception as e:
+        print(datetime.now(), "testttt, param: ", par, e)
+        return jsonify({
+            'code': 50000,
+            'res': f"患者门诊问卷详情查询异常: {e}"
+        })
+    return jsonify(data)
+
 
