@@ -200,7 +200,7 @@ def call_new_his(sql: str, clobl: list = None):
     if clobl:
         param['clobl'] = clobl
 
-    query_oracle_url = "http://192.168.3.12:6080/oracle_sql"
+    query_oracle_url = "http://127.0.0.1:6080/oracle_sql"
     if global_config.run_in_local:
         query_oracle_url = "http://192.168.124.53:6080/oracle_sql"
 
@@ -210,7 +210,7 @@ def call_new_his(sql: str, clobl: list = None):
         data = json.loads(response.text)
         data = data.get('data')
     except Exception as e:
-        print('调用新 HIS 查询数据失败：' + str(param) + e.__str__())
+        print(datetime.now(), '危急值管理 调用新 HIS 查询数据失败：' + str(param) + e.__str__())
     return data
 
 

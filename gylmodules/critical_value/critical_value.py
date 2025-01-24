@@ -147,7 +147,7 @@ def call_third_systems_obtain_data(type: str, param: dict):
 
 def call_new_his(sql: str):
     param = {"key": "o4YSo4nmde9HbeUPWY_FTp38mB1c", "sys": "newzt", "sql": sql}
-    query_oracle_url = "http://192.168.3.12:6080/oracle_sql"
+    query_oracle_url = "http://127.0.0.1:6080/oracle_sql"
     if global_config.run_in_local:
         query_oracle_url = "http://192.168.124.53:6080/oracle_sql"
 
@@ -157,7 +157,7 @@ def call_new_his(sql: str):
         data = json.loads(response.text)
         data = data.get('data')
     except Exception as e:
-        print('调用新 HIS 查询数据失败：' + str(param) + e.__str__())
+        print(datetime.now(), '危急值 调用新 HIS 查询数据失败：' + str(param) + e.__str__())
 
     return data
 
@@ -544,7 +544,7 @@ def invalid_crisis_value(cv_ids, cv_source, invalid_info, invalid_remote: bool =
                 global_config.DB_DATABASE_GYL)
     # 更新危急值状态未作废
     cv_ids = [f"'{item}'" for item in del_keys]
-    ids = ','.join(del_keys)
+    ids = ','.join(cv_ids)
     update_sql = f"UPDATE nsyy_gyl.cv_info SET state = {cv_config.INVALID_STATE}, " \
                  f"invalid_person = '{invalid_info.get('invalid_person')}', " \
                  f"invalid_time = '{invalid_info.get('invalid_time')}', " \
@@ -908,6 +908,8 @@ def create_cv_by_system(json_data, cv_source):
             cvd['baogaosj'] = baogaosj
     if json_data.get('RPT_ITEMID'):
         cvd['rpt_item_id'] = json_data.get('RPT_ITEMID', '0')
+    if json_data.get('SPECIMEN_NAME'):
+        cvd['specimen_name'] = json_data.get('SPECIMEN_NAME', '')
     db = DbUtil(global_config.DB_HOST, global_config.DB_USERNAME, global_config.DB_PASSWORD,
                 global_config.DB_DATABASE_GYL)
     # 插入危机值
