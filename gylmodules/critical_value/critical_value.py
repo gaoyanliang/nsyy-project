@@ -100,7 +100,12 @@ def call_third_systems_obtain_data(type: str, param: dict):
             # 根据员工号，查询科室信息
             # from tools import his_dept_pers
             # data = his_dept_pers(param)
-            data = his_dept_pers1(param.get('pers_no'))
+            try:
+                data = his_dept_pers1(param.get('pers_no'))
+            except Exception as e:
+                data = []
+                print(datetime.now(),
+                      '根据员工号，查询科室信息： param = ' + str(param) + "   " + e.__str__())
         elif type == 'cache_all_dept_info':
             # from tools import his_dept
             # data = his_dept(param)
@@ -122,8 +127,12 @@ def call_third_systems_obtain_data(type: str, param: dict):
         # 使用列表推导式提取 "缺省" 值为 1 的元素
         if data and len(data) > 0:
             result = [item for item in data if item.get("缺省") == 1]
-            return result[0].get('HIS_DEPT_ID'), result[0].get('DEPT_NAME'), \
-                result[0].get('PERS_NAME'), result[0].get('oa_pers_id')
+            if result:
+                return result[0].get('HIS_DEPT_ID'), result[0].get('DEPT_NAME'), \
+                    result[0].get('PERS_NAME'), result[0].get('oa_pers_id')
+            print(datetime.now(), '不存在缺省部门 ', str(param))
+            return data[0].get('HIS_DEPT_ID'), data[0].get('DEPT_NAME'), \
+                data[0].get('PERS_NAME'), data[0].get('oa_pers_id')
         else:
             print(datetime.now(), '根据员工号抓取部门信息失败 ', str(param))
             return -1, 'unknow', 'unkonw', -1
@@ -502,8 +511,8 @@ def manual_cv_feedback(record):
         if int(record.get('state')) == cv_config.DOCTOR_HANDLE_STATE:
             # 如果危机值已经处理，回写数据（有可能手工上报时没有正确填写住院号，导致数据回写失败，如果不再次回写，会一直抓取该条危急值）
             # 病历回写
-            pat_no = record.get('patient_treat_id')
-            pat_type = int(record.get('patient_type'))
+            # pat_no = record.get('patient_treat_id')
+            # pat_type = int(record.get('patient_type'))
             handle_doc = record.get('handle_doctor_name')
             handle_time = record.get('handle_time').strftime("%Y-%m-%d %H:%M:%S")
             method = record.get('method') if record.get('method') else '/'
@@ -825,13 +834,19 @@ def create_cv_by_system(json_data, cv_source):
         cvd['alertman_pers_id'] = 0
 
     # 解析危机值病人信息
-    cvd['patient_type'] = json_data.get('PAT_TYPECODE')
+    cvd['patient_type'] = json_data.get('PAT_TYPECODE') if str(json_data.get('PAT_TYPECODE')).isdigit() else 0
     cvd['patient_treat_id'] = json_data.get('PAT_NO')
     cvd['patient_name'] = json_data.get('PAT_NAME')
     cvd['patient_gender'] = json_data.get('PAT_SEX')
     cvd['patient_age'] = json_data.get('PAT_AGESTR')
     cvd['patient_bed_num'] = json_data.get('REQ_BEDNO')
     cvd['req_docno'] = json_data.get('REQ_DOCNO')
+    if str(cvd['req_docno']).isdigit():
+        _, _, name, _ = call_third_systems_obtain_data('get_dept_info_by_emp_num', {
+            "type": "his_dept_pers", "pers_no": str(cvd['req_docno']), "comp_id": 12,
+            "randstr": "XPFDFZDF7193CIONS1PD7XCJ3AD4ORRC"})
+        cvd['req_docno'] = name if name != 'unkonw' else json_data.get('REQ_DOCNO')
+
     if json_data.get('REQ_WARDNO'):
         cvd['ward_id'] = json_data.get('REQ_WARDNO')
 
