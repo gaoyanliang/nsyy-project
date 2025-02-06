@@ -481,7 +481,7 @@ def query_test_result(card_no, visit_date):
         JOIN df_bingrenzsy.gy_bingrenxx brxx ON mzyz.bingrenid = brxx.bingrenid
         JOIN df_cdr.yj_jianchabg jc ON mzyz.yizhuid = jc.yizhuid
         WHERE (brxx.shenfenzh = '{card_no}' OR brxx.jiuzhenkh = '{card_no}') 
-        AND jz.xitongsj >= to_date('{visit_date}','yyyy-mm-dd')
+        AND jz.xitongsj >= to_date('{visit_date}','yyyy-mm-dd') and jc.zuofeibz = 0
     """
     test_results = call_new_his(sql, ['img_result'])
     return test_results
