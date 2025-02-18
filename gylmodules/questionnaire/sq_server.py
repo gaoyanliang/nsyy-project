@@ -885,7 +885,7 @@ def patient_quest_details(json_data):
         "patient_id": patient_id,
         "ques_date": ques_date,
         "ReturnCode": 1,
-        "ReturnMessage": "未查询到患者当天的问卷记录",
+        "ReturnMessage": "",
         "ques_dtl": ques_dtl
     }
 
