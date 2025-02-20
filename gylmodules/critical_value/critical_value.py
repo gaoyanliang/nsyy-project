@@ -3,7 +3,8 @@ import redis
 import json
 import threading
 import requests
-from aiohttp import ClientTimeout
+import aioredis
+from ping3 import ping as sync_ping
 from suds.client import Client
 from contextlib import suppress
 
@@ -24,8 +25,8 @@ pool = redis.ConnectionPool(host=cv_config.CV_REDIS_HOST, port=cv_config.CV_REDI
 
 scheduler = BackgroundScheduler()
 cv_id_lock = threading.Lock()
-
-
+# 全局并发控制
+SEMAPHORE = asyncio.Semaphore(100)
 
 # 内部调用标准功能
 def his_dept_pers1(pers_no):
@@ -110,14 +111,6 @@ def call_third_systems_obtain_data(type: str, param: dict):
             # from tools import his_dept
             # data = his_dept(param)
             data = his_dept1(param)
-        # elif type == 'orcl_db_read':
-        #     # 根据住院号/门诊号查询 病人id 主页id
-        #     from tools import orcl_db_read
-        #     data = orcl_db_read(param)
-        # elif type == 'his_procedure':
-        #     # 危机值病历回写
-        #     from tools import his_procedure
-        #     data = his_procedure(param)
         elif type == 'send_wx_msg':
             # 向企业微信推送消息
             from tools import send_wx_msg
@@ -502,7 +495,7 @@ def create_cv(cvd):
                     continue
             create_cv_by_system(cv_data, int(cv_source))
         except Exception as e:
-            print(datetime.now(), "新增危急值异常：cv_data = ", cv_data, ' key = ', key, 'Exception = ', e.__str__())
+            print(datetime.now(), "新增危急值异常：key = ", key,  e.__str__())
     del db
 
 
@@ -510,15 +503,11 @@ def manual_cv_feedback(record):
     try:
         if int(record.get('state')) == cv_config.DOCTOR_HANDLE_STATE:
             # 如果危机值已经处理，回写数据（有可能手工上报时没有正确填写住院号，导致数据回写失败，如果不再次回写，会一直抓取该条危急值）
-            # 病历回写
-            # pat_no = record.get('patient_treat_id')
-            # pat_type = int(record.get('patient_type'))
             handle_doc = record.get('handle_doctor_name')
             handle_time = record.get('handle_time').strftime("%Y-%m-%d %H:%M:%S")
             method = record.get('method') if record.get('method') else '/'
             # 2. 回写数据
             data_feedback(record.get('cv_id'), int(record.get('cv_source')), handle_doc, handle_time, method, 3)
-
             # 3. 发送到 his
             send_to_his(record)
     except Exception as e:
@@ -545,14 +534,14 @@ def invalid_crisis_value(cv_ids, cv_source, invalid_info, invalid_remote: bool =
         if invalid_remote and not global_config.run_in_local:
             invalid_remote_crisis_value(cv_id, cv_source)
 
-    if not del_keys:
+    if not del_keys and not invalid_remote:
         return
 
-    print(datetime.now(), '作废危急值： cv_source=', cv_source, " cv_ids=", del_keys, invalid_remote)
+    print(datetime.now(), '作废危急值： cv_source=', cv_source, " cv_ids=", del_keys if del_keys else cv_ids, invalid_remote)
     db = DbUtil(global_config.DB_HOST, global_config.DB_USERNAME, global_config.DB_PASSWORD,
                 global_config.DB_DATABASE_GYL)
     # 更新危急值状态未作废
-    cv_ids = [f"'{item}'" for item in del_keys]
+    cv_ids = [f"'{item}'" for item in cv_ids]
     ids = ','.join(cv_ids)
     update_sql = f"UPDATE nsyy_gyl.cv_info SET state = {cv_config.INVALID_STATE}, " \
                  f"invalid_person = '{invalid_info.get('invalid_person')}', " \
@@ -578,10 +567,9 @@ def invalid_remote_crisis_value(cv_id, cv_source):
     :return:
     """
     try:
+        table_name = "NS_EXT.PACS危急值上报表"
         if int(cv_source) == 2:
             table_name = "inter_lab_resultalert"
-        else:
-            table_name = "NS_EXT.PACS危急值上报表"
         param = {
             "type": "orcl_db_update", "db_source": "ztorcl", "randstr": "XPFDFZDF7193CIONS1PD7XCJ3AD4ORRC",
             "table_name": table_name, "datal": [{"RESULTALERTID": cv_id, "VALIDFLAG": "0"}],
@@ -603,13 +591,9 @@ def notiaction_alert_man(msg: str, pers_id):
         if not int(pers_id):
             return
 
-        data = {'msg_list': [{'socket_data': {
-            "type": 400,
-            "data": {
-                "title": "危急值上报反馈",
-                "context": msg
-            }},
-            'pers_id': int(pers_id)}]}
+        data = {'msg_list': [{'socket_data': {"type": 400,
+                "data": {"title": "危急值上报反馈", "context": msg}},
+                'pers_id': int(pers_id)}]}
         headers = {'Content-Type': 'application/json'}
         response = requests.post(global_config.socket_push_url, data=json.dumps(data), headers=headers)
         # print("Socket Push Status: ", response.status_code, "Response: ", response.text, "socket_data: ", data, "user_id: ", pers_id)
@@ -657,16 +641,16 @@ def manual_report_cv(json_data):
     :return:
     """
     redis_client = redis.Redis(connection_pool=pool)
-    # 根据员工号查询部门信息
-    param = {
-        "type": "his_dept_pers",
-        "pers_no": json_data['alertman'],
-        "comp_id": 12,
-        "randstr": "XPFDFZDF7193CIONS1PD7XCJ3AD4ORRC"
-    }
-    json_data['alert_dept_id'], json_data['alert_dept_name'], \
-        json_data['alertman_name'], json_data['alertman_pers_id'] = \
-        call_third_systems_obtain_data('get_dept_info_by_emp_num', param)
+    if json_data['alertman'] == '0':
+        json_data['alert_dept_id'], json_data['alert_dept_name'], \
+            json_data['alertman_name'], json_data['alertman_pers_id'] = -1, 'unknow', 'unkonw', -1
+    else:
+        # 根据员工号查询部门信息
+        param = {"type": "his_dept_pers", "pers_no": json_data['alertman'], "comp_id": 12,
+                 "randstr": "XPFDFZDF7193CIONS1PD7XCJ3AD4ORRC"}
+        json_data['alert_dept_id'], json_data['alert_dept_name'], \
+            json_data['alertman_name'], json_data['alertman_pers_id'] = \
+            call_third_systems_obtain_data('get_dept_info_by_emp_num', param)
     if not json_data.get('alertman_pers_id'):
         json_data['alertman_pers_id'] = 0
 
@@ -750,7 +734,7 @@ def manual_report_cv(json_data):
     json_data['total_timeout'] = redis_client.get(cv_config.TIMEOUT_REDIS_KEY['total']) or 600
 
     # 手工上报 报告时间 = 上报时间
-    json_data['baogaosj'] = json_data.get('alertdt')
+    json_data['jianchasj'] = json_data.get('alertdt')
     db = DbUtil(global_config.DB_HOST, global_config.DB_USERNAME, global_config.DB_PASSWORD,
                 global_config.DB_DATABASE_GYL)
     # 插入危机值
@@ -807,10 +791,10 @@ def create_cv_by_system(json_data, cv_source):
     if cvd['dept_id'] and not cvd['dept_id'].isdigit():
         # print('当前危机值病人科室不是数字，跳过。 ' + str(json_data))
         return
-    # 如果是社区门诊/康复中医院，跳过(不是总院的科室，不处理)
+    # 如果是康复中医院，跳过(不是总院的科室，不处理)
+    # 社区门诊需要处理 联系人 吴主任 13333671269
     if cvd['dept_id'] and cvd['dept_id'].isdigit() and \
-            (int(cvd['dept_id']) == 462 or int(cvd['dept_id']) == 1000760 or
-             str(cvd['dept_id']) == '0812' or str(cvd['dept_id']) == '08012'):
+            (int(cvd['dept_id']) == 1000760 or str(cvd['dept_id']) == '0812'):
         return
 
     # 解析危机值上报信息
@@ -820,15 +804,15 @@ def create_cv_by_system(json_data, cv_source):
     cvd['alertdt'] = json_data.get('ALERTDT')
     cvd['time'] = str(datetime.now())[:19]
     cvd['state'] = cv_config.CREATED_STATE
-    # 根据员工号查询部门信息
-    param = {
-        "type": "his_dept_pers",
-        "pers_no": cvd['alertman'],
-        "comp_id": 12,
-        "randstr": "XPFDFZDF7193CIONS1PD7XCJ3AD4ORRC"
-    }
-    cvd['alert_dept_id'], cvd['alert_dept_name'], cvd['alertman_name'], cvd['alertman_pers_id'] = \
-        call_third_systems_obtain_data('get_dept_info_by_emp_num', param)
+
+    if cvd['alertman'] == '0':
+        cvd['alert_dept_id'], cvd['alert_dept_name'], cvd['alertman_name'], cvd['alertman_pers_id']\
+            = -1, 'unknow', 'unkonw', -1
+    else:
+        param = {"type": "his_dept_pers", "pers_no": cvd['alertman'], "comp_id": 12,
+                 "randstr": "XPFDFZDF7193CIONS1PD7XCJ3AD4ORRC"}
+        cvd['alert_dept_id'], cvd['alert_dept_name'], cvd['alertman_name'], cvd['alertman_pers_id'] = \
+            call_third_systems_obtain_data('get_dept_info_by_emp_num', param)
 
     if not cvd.get('alertman_pers_id'):
         cvd['alertman_pers_id'] = 0
@@ -841,7 +825,7 @@ def create_cv_by_system(json_data, cv_source):
     cvd['patient_age'] = json_data.get('PAT_AGESTR')
     cvd['patient_bed_num'] = json_data.get('REQ_BEDNO')
     cvd['req_docno'] = json_data.get('REQ_DOCNO')
-    if str(cvd['req_docno']).isdigit():
+    if str(cvd['req_docno']).isdigit() and str(cvd['req_docno']) != '0':
         _, _, name, _ = call_third_systems_obtain_data('get_dept_info_by_emp_num', {
             "type": "his_dept_pers", "pers_no": str(cvd['req_docno']), "comp_id": 12,
             "randstr": "XPFDFZDF7193CIONS1PD7XCJ3AD4ORRC"})
@@ -916,11 +900,10 @@ def create_cv_by_system(json_data, cv_source):
 
     if json_data.get('INSTRNA'):
         cvd['instrna'] = json_data.get('INSTRNA', '')
-    if json_data.get('REPORTID'):
+    if json_data.get('REPORTID') or json_data.get('RESULTID'):
         cvd['report_id'] = json_data.get('RESULTID', '0') if int(cv_source) == 3 else json_data.get('REPORTID', '0')
-        baogaosj = query_baogao_sj(1 if int(cv_source) == 2 else 2, cvd.get('report_id'))
-        if baogaosj:
-            cvd['baogaosj'] = baogaosj
+    if int(cv_source) != 3 or (int(cv_source) == 3 and '床旁' in cvd['cv_name']):
+        cvd['jianchasj'] = cvd['alertdt']
     if json_data.get('RPT_ITEMID'):
         cvd['rpt_item_id'] = json_data.get('RPT_ITEMID', '0')
     if json_data.get('SPECIMEN_NAME'):
@@ -1402,77 +1385,6 @@ def doctor_handle_cv(json_data):
     del db
 
 
-# def medical_record_writing_back(json_data):
-#     """
-#     病历回写 todo 待废弃
-#     :param json_data:
-#     :return:
-#     """
-#     try:
-#         sql = ''
-#         pat_type = int(json_data.get('pat_type'))
-#         pat_no = int(json_data.get('pat_no'))
-#         if pat_type in (1, 2):
-#             # 门诊/急诊
-#             sql = f'select 病人ID as pid, NO as hid from 病人挂号记录 where 门诊号 = \'{pat_no}\' order by 登记时间 desc'
-#         elif pat_type == 3:
-#             # 住院
-#             sql = f'select 病人id as pid, 主页id as hid from 病案主页 where 住院号 = \'{pat_no}\' order by 主页id desc '
-#
-#         param = {
-#             "type": "orcl_db_read",
-#             "db_source": "nshis",
-#             "randstr": "XPFDFZDF7193CIONS1PD7XCJ3AD4ORRC",
-#             "sql": sql
-#         }
-#         data = call_third_systems_obtain_data('orcl_db_read', param)
-#         if data:
-#             record = json_data.get('record')
-#             body = ''
-#             recv_time = record.get('time').strftime("%Y-%m-%d %H:%M:%S")
-#             body = body + "于 " + recv_time + "接收到 " + str(record.get('alert_dept_name')) \
-#                    + " 推送的危机值: [" + str(record.get('cv_name')) + "]"
-#             body = body + " " + str(record.get('cv_result'))
-#             if record.get('cv_unit'):
-#                 body = body + " " + record.get('cv_unit')
-#
-#             if record.get('nurse_recv_name') and record.get('nurse_recv_time'):
-#                 body = body + "护士 " + record.get('nurse_recv_name') + " 于 " + record.get('nurse_recv_time').strftime(
-#                     "%Y-%m-%d %H:%M:%S") + "接收了危机值"
-#
-#             body = body + " 医生 " + json_data.get('handler_name') + " " + json_data.get('timer') + "处理了该危机值"
-#             if json_data.get('analysis'):
-#                 body = body + " 原因分析: " + json_data.get('analysis')
-#             if json_data.get('method'):
-#                 body = body + " 处理方法: " + json_data.get('method')
-#             pid = data[0].get('PID', 0)
-#             hid = data[0].get('HID', 0)
-#
-#             # 转换审核时间
-#             dt = datetime.strptime(json_data.get('timer'), "%Y-%m-%d %H:%M:%S")
-#             review_time = dt.strftime("%Y.%m.%d %H:%M:%S")
-#             param = {
-#                 "type": "his_procedure",
-#                 "procedure": "jk_p_Pat_List",
-#                 "病人id": pid,
-#                 "主页id": hid,
-#                 "内容": body,
-#                 "分类": "3",
-#                 "记录人": json_data.get('handler_name'),
-#                 "审核时间": review_time,
-#                 "医嘱ID": "",
-#                 "医嘱名称": record.get('cv_name'),
-#                 "分类名": "危机值记录",
-#                 "标签说明": record.get('cv_name'),
-#                 "randstr": "XPFDFZDF7193CIONS1PD7XCJ3AD4ORRC"
-#             }
-#             call_third_systems_obtain_data('his_procedure', param)
-#         else:
-#             print(datetime.now(), '未找到病人信息，无法回写病历数据 pat_no = ', pat_no)
-#     except Exception as e:
-#         print(datetime.now(), "病历回写异常 = ", e)
-
-
 def report_form(json_data):
     """
     统计报表
@@ -1544,11 +1456,11 @@ def report_form(json_data):
                     f'SUM(CASE WHEN (handle_time IS NULL and state != 0) THEN 1 ELSE 0 END) AS handled_undo_count, ' \
                     f'SUM(CASE WHEN {handle_condition_sql} and state != 0 THEN 1 ELSE 0 END) AS handled_timeout_count, ' \
                     f'SUM(CASE WHEN state = 0 THEN 1 ELSE 0 END) AS invalid_count, ' \
-                    f'SUM(IF(TIMESTAMPDIFF(MINUTE, IFNULL(baogaosj, alertdt), alertdt) <= 10, 1,0) )  AS timely_reports, ' \
+                    f'SUM(IF(TIMESTAMPDIFF(MINUTE, IFNULL(jianchasj, alertdt), alertdt) <= 10, 1,0) )  AS timely_reports, ' \
                     f'ROUND((SUM(CASE WHEN (state = 9 or state = 0) THEN 1 ELSE 0 END) / COUNT(*)) * 100, 2) AS handling_rate, ' \
                     f'ROUND((SUM(CASE WHEN state = 0 THEN 1 ELSE 0 END) / COUNT(*)) * 100, 2) AS invalid_rate, ' \
                     f'ROUND((SUM(CASE WHEN ({handle_condition_sql} and state != 0) THEN 1 ELSE 0 END) / COUNT(*)) * 100, 2) AS handling_timeout_rate,  ' \
-                    f'ROUND( (SUM(IF(TIMESTAMPDIFF(MINUTE, IFNULL(baogaosj, alertdt), alertdt) <= 10, 1,0) ) / COUNT(*)) * 100, 2) AS timely_report_rate ' \
+                    f'ROUND( (SUM(IF(TIMESTAMPDIFF(MINUTE, IFNULL(jianchasj, alertdt), alertdt) <= 10, 1,0) ) / COUNT(*)) * 100, 2) AS timely_report_rate ' \
                     f'FROM nsyy_gyl.cv_info {time_condition} GROUP BY alert_dept_name '
     elif query_by == 'cv_source':
         # 根据危急值类型查询
@@ -1890,7 +1802,7 @@ def safe_post(data, method_name, timeout=10):
         response = requests.post("http://192.168.9.23:6000/WEIJZ", timeout=timeout, headers=headers, data=data)
         response.raise_for_status()  # 如果响应状态码不是 2xx，会抛出异常
         data = response.text
-        print(datetime.now(), 'safe post ret ', data)
+        # print(datetime.now(), 'safe post ret ', data)
     except Exception as e:
         print(datetime.now(), '危急值同步 his 异常 ' + e.__str__())
 
@@ -1953,7 +1865,7 @@ def send_to_his(cv_record):
         return
 
     create_time = cv_record.get('time').strftime("%Y-%m-%d %H:%M:%S")
-    leixing = '1' if int(cv_record.get('cv_source')) == 2 else '2'
+    leixing = '1' if int(cv_record.get('cv_source')) in (2, 5) else '2'
     patient_type = int(cv_record.get('patient_type', 3)) # 1=门诊,2=急诊,3=住院,4=体检
     # 通过映射关系获取 menzhenzybz，默认为 '1'（门诊）
     menzhenzybz = cv_config.patient_type_map.get(patient_type, '2')
@@ -2071,21 +1983,129 @@ def random_string(length=3):
     return random_string
 
 
-def query_baogao_sj(type, report_id):
+def query_baogao_sj():
     """
-    查询危急值报告时间
-    :param type: 1 检验 2 检查
+    查询 pacs CT 最后一张胶片的采集时间， 超声 报告时间
+    :param
     :return:
     """
-    if int(type) == 1:
-        sql = f"select shenhesj 报告时间 from df_cdr.yj_jianyanbg where baogaodanid = '{report_id}'"
-    else:
-        sql = f"select baogaosj 报告时间 from df_cdr.yj_jianchabg where baogaodanid = '{report_id}'"
+    db = DbUtil(global_config.DB_HOST, global_config.DB_USERNAME, global_config.DB_PASSWORD,
+                global_config.DB_DATABASE_GYL)
+    query_sql = "select id, report_id, patient_name from nsyy_gyl.cv_info where report_id is not null " \
+                "and cv_source = 3 and jianchasj is null and alertdt >= CURDATE() - INTERVAL 7 DAY "
+    records = db.query_all(query_sql)
 
-    data = call_new_his(sql)
-    if not data:
-        print(datetime.now(), '未查询到报告时间 report_id = ', report_id)
-        return ''
-    baogaosj = datetime.strptime(data[0].get('报告时间'), "%a, %d %b %Y %H:%M:%S GMT").strftime(
-        "%Y-%m-%d %H:%M:%S") if data[0].get('报告时间') else '0'
-    return baogaosj
+    for record in records:
+        report_id = record.get('report_id')
+        patient_name = record.get('patient_name')
+        baogaosj = ''
+        try:
+            path, port, baogaosj = query_sql_server(report_id, patient_name)
+            if port == 211:
+                baogaosj = fetch_acquisitionDateTime(path)
+        except Exception as e:
+            baogaosj = ''
+            pass
+        if baogaosj:
+            update_sql = f"update nsyy_gyl.cv_info set jianchasj = '{baogaosj}' where id = {record.get('id')}"
+            db.execute(update_sql, need_commit=True)
+    del db
+
+
+def query_sql_server(report_id, patient_name):
+    import re
+    import pyodbc
+    # 创建连接字符串
+    server = '192.168.3.53'  # SQL Server 地址
+    database = 'VisionCenter'  # 数据库名称
+    username = 'sa'  # 数据库用户名
+    password = 'NYS@intechhosun'  # 数据库密码
+
+    # 创建连接字符串
+    conn_str = f'DRIVER={{ODBC Driver 17 for SQL Server}};SERVER={server};' \
+               f'PORT=1433;DATABASE={database};UID={username};PWD={password}'
+    conn, cursor = None, None  # 在函数开始时将 cursor 设置为 None
+    path = ''
+    port = 211
+    baogaosj = ''
+    try:
+        # 连接到 SQL Server
+        conn = pyodbc.connect(conn_str)
+        cursor = conn.cursor()
+        query = f"SELECT 图像路, 报告时间 FROM V_HISReport WHERE 报告号 = '{report_id}' and 姓名 = '{patient_name}' "
+        cursor.execute(query)
+        rows = cursor.fetchall()
+        if not rows:
+            print(datetime.now(), f"根据报告号和姓名未查询到图像路径: ", report_id, patient_name)
+            return ''
+        ftp_path = rows[0][0]
+        baogaosj = rows[0][1]
+        if '213' in ftp_path:
+            port = 213
+        # 使用正则表达式匹配 URL 中的路径部分
+        match = re.search(r"ftp://[^:/]+(?::\d+)?(/.*)", ftp_path)
+        if match:
+            path = match.group(1)  # 返回匹配到的路径部分
+    except Exception as e:
+        print(datetime.now(), f"Error 根据报告号和姓名查询图像路径失败: ", report_id, patient_name, f'{e}')
+    finally:
+        # 确保 cursor 被正确关闭
+        if cursor:
+            cursor.close()
+        if conn:
+            conn.close()
+
+    return path, port, baogaosj
+
+
+def fetch_acquisitionDateTime(ftp_path):
+    from ftplib import FTP
+    import pydicom
+    import os
+
+    ftp = None
+    dt = None
+    try:
+        # 连接到 FTP 服务器
+        ftp = FTP(timeout=3)
+        ftp.connect("192.168.3.54", 211)
+        ftp.login('baogao', '1qaz2wsX')
+        ftp.cwd(ftp_path)
+
+        files = ftp.nlst('*.dcm')
+        if not files:
+            return ''
+        files.sort()  # 排序文件名
+
+        last_file = files[-1]
+        with open(last_file, 'wb') as local_file:
+            ftp.retrbinary('RETR ' + last_file, local_file.write)
+
+        ds = pydicom.dcmread(last_file)
+        acquisition_date = ds.get('AcquisitionDate', None) if 'AcquisitionDate' in ds else ds.get('ContentDate', None)
+        acquisition_time = ds.get('AcquisitionTime', None) if 'AcquisitionTime' in ds else ds.get('ContentTime', None)
+
+        # 删除下载的文件
+        os.remove(last_file)
+
+        # 超声图像 有一部分没有时间
+        if acquisition_date and acquisition_time:
+            try:
+                # 截取掉秒数后的小数点和微秒部分
+                acquisition_time = acquisition_time.split('.')[0]  # 如果有小数点，只保留整数部分
+                dt = datetime.strptime(f"{acquisition_date}{acquisition_time}", '%Y%m%d%H%M%S')
+                return f"{dt}"
+            except ValueError:
+                print(datetime.now(), f"无法解析时间格式: {acquisition_date}, {acquisition_time}")
+        else:
+            print(datetime.now(), f"未找到采集时间标签。")
+    except Exception as e:
+        print(datetime.now(), f"dcm图像解析错误: {str(e)}")
+    finally:
+        # 退出 FTP
+        ftp.quit()
+    return ''
+
+
+
+
