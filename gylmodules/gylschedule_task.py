@@ -1,5 +1,9 @@
+import concurrent.futures
 import json
+import time
+from collections import defaultdict
 from datetime import datetime, timedelta
+
 import redis
 import requests
 from apscheduler.executors.pool import ThreadPoolExecutor
@@ -8,9 +12,10 @@ import asyncio
 
 from gylmodules import global_config
 from gylmodules.composite_appointment.ca_server import run_everyday
+from gylmodules.composite_appointment.update_doc_scheduling import do_update, update_today_doc_info
 from gylmodules.critical_value import cv_config
 from gylmodules.critical_value.critical_value import write_cache, \
-    call_third_systems_obtain_data, notiaction_alert_man, alert
+    call_third_systems_obtain_data, notiaction_alert_man, alert, query_baogao_sj
 from apscheduler.schedulers.background import BackgroundScheduler
 
 from gylmodules.critical_value.cv_manage import fetch_cv_record
@@ -52,81 +57,125 @@ timeout_d = {1: {'check_time': 'time', 'timeout_filed': 'doctor_recv_timeout',
 
 
 def handle_timeout_cv():
+    # 初始化时间和 Redis 连接
     cur_time = datetime.now()
     redis_client = redis.Redis(connection_pool=pool)
+
+    # 批量获取并处理数据
     values = redis_client.hvals(cv_config.RUNNING_CVS_REDIS_KEY)
+    timeout_records = defaultdict(list)
+    first_timeout_records = defaultdict(list)
+    alert_messages = []
+    redis_updates = {}
+    timeout_updates = []
 
-    # 存储所有超时记录
-    timeout_record = {}
-    first_timeout_record = {}
-    for value in values:
-        value = json.loads(value)
-        if value.get('state') not in (1, 2, 4, 5, 7):
-            continue
-        needd = timeout_d[value['state']]
-        check_time = value[needd['check_time']]
-        check_time = datetime.strptime(check_time, "%Y-%m-%d %H:%M:%S")
-        if (cur_time - check_time).seconds > value.get(needd['timeout_filed'], 600):
-            msg = '[{} - {} - {} - {}]'.format(value.get('patient_name', 'unknown'), value.get('req_docno', 'unknown'),
-                                               value.get('patient_treat_id', '0'), value.get('patient_bed_num', '0'))
+    try:
+        # 预处理配置字典
+        state_processors = {
+            state: timeout_d[state]
+            for state in (1, 2, 4, 5, 7)
+        }
 
-            timeout_key = (value.get('dept_id'), value.get('ward_id'))
-            if timeout_key in timeout_record:
-                timeout_record[timeout_key].append(msg)
-            else:
-                timeout_record[timeout_key] = [msg]
+        for value_bytes in values:
+            value = json.loads(value_bytes)
+            state = int(value.get('state'))
 
-            if int(value.get('state')) in (1, 2) and str(value.get('alert_dept_id', '0')) != '144':
-                alert_dept_id = str(value.get('alert_dept_id', 0))
-                if alert_dept_id in first_timeout_record:
-                    first_timeout_record[alert_dept_id].append(msg)
-                else:
-                    first_timeout_record[alert_dept_id] = [msg]
+            # 跳过不需要处理的状态
+            if state not in state_processors:
+                continue
 
-            # socket   通知上报人
+            processor = state_processors[state]
+            check_time_str = value.get(processor['check_time'])
+            if not check_time_str:
+                continue
+
+            check_time = datetime.strptime(check_time_str, "%Y-%m-%d %H:%M:%S")
+            timeout = value.get(processor['timeout_filed'], 600)
+            if (cur_time - check_time).seconds <= timeout:
+                continue
+
+            # 信息提取优化
+            patient_info = {
+                'name': value.get('patient_name', 'unknown'),
+                'docno': value.get('req_docno', 'unknown'),
+                'treat_id': value.get('patient_treat_id', '0'),
+                'bed_num': value.get('patient_bed_num', '0')
+            }
+            msg = f"[{patient_info['name']} - " \
+                  f"{patient_info['docno']} - " \
+                  f"{patient_info['treat_id']} - " \
+                  f"{patient_info['bed_num']}]"
+
+            # 记录超时信息
+            dept_ward_key = (value.get('dept_id'), value.get('ward_id'))
+            timeout_records[dept_ward_key].append(msg)
+
+            # 特殊科室处理
+            if state in (1, 2) and str(value.get('alert_dept_id', '0')) != '144':
+                alert_dept = str(value.get('alert_dept_id', '0'))
+                first_timeout_records[alert_dept].append(msg)
+
+            # 报警信息收集
             if value.get('alertman_pers_id'):
-                msg = '患者 {} 的危急值，超时未处理，请通知相关人员处理'.format(value.get('patient_name'))
-                notiaction_alert_man(msg, int(value['alertman_pers_id']))
+                msg = f"患者 {patient_info['name']} 的危急值，超时未处理，请通知相关人员处理"
+                alert_messages.append((msg, int(value.get('alertman_pers_id'))))
 
             # 更新超时状态
-            if value[needd['timeout_flag']] == 0:
-                # 修改数据库状态
-                db = DbUtil(global_config.DB_HOST, global_config.DB_USERNAME, global_config.DB_PASSWORD,
-                            global_config.DB_DATABASE_GYL)
-
-                # 新建状态超时后，默认通知护士
-                update_state_sql = ''
-                if int(value.get('state')) == 1:
-                    update_state_sql = ', state = 2'
-                    value['state'] = cv_config.NOTIFICATION_NURSE_STATE
-
-                update_field = needd['timeout_flag']
+            if value.get(processor['timeout_flag']) == 0:
                 cv_id = value.get('cv_id')
                 cv_source = value.get('cv_source')
-                update_sql = f'UPDATE nsyy_gyl.cv_info SET {update_field} = 1 {update_state_sql} ' \
-                             f'WHERE cv_id = \'{cv_id}\' and cv_source = {cv_source} and state != 0'
+                update_sql = f"""
+                    UPDATE nsyy_gyl.cv_info SET {processor['timeout_flag']} = 1 {', state = 2' if state == 1 else ''}
+                    WHERE cv_id = '{cv_id}' and cv_source = {cv_source} and state != 0
+                """
+                timeout_updates.append(update_sql)
+
+                # Redis 更新缓存
+                value[processor['timeout_flag']] = 1
+                redis_updates[f"{cv_id}_{cv_source}"] = json.dumps(value, default=str)
+
+        # 批量处理数据库更新
+        if timeout_updates:
+            db = DbUtil(global_config.DB_HOST, global_config.DB_USERNAME, global_config.DB_PASSWORD,
+                        global_config.DB_DATABASE_GYL)
+            for update_sql in timeout_updates:
                 db.execute(update_sql, need_commit=True)
-                del db
+            del db
 
-                # 更新 redis 状态
-                value[needd['timeout_flag']] = 1
-                key = str(cv_id) + '_' + str(cv_source)
-                write_cache(key, value)
+        # 批量更新 Redis
+        if redis_updates:
+            with redis_client.pipeline() as pipe:
+                for key, val in redis_updates.items():
+                    pipe.hset(cv_config.RUNNING_CVS_REDIS_KEY, key, val)
+                pipe.execute()
 
+    except Exception as e:
+        print(datetime.now(), e)
+
+    # 使用 ThreadPoolExecutor 来并行执行
+    with concurrent.futures.ThreadPoolExecutor() as executor:
+        futures = [executor.submit(notiaction_alert_man, msg, pers_id) for msg, pers_id in alert_messages]
+        for future in concurrent.futures.as_completed(futures):
+            try:
+                future.result()  # 如果任务抛出异常会在此处被捕获
+            except Exception as e:
+                print(f"Error during notification: {e}")
+
+    # 构建报警列表
     alert_list = []
-    if timeout_record:
-        for ids, msgs in timeout_record.items():
-            alert_list.append((ids[0], ids[1],
-                               f'超时危急值，请及时处理 <br> [患者-主管医生-住院/门诊号-床号] <br> ' + ' <br> '.join(
-                                   msgs)
-                               + ' <br> <br> <br> 点击 [确认] 跳转至危急值页面'))
-    # 通知医技科室
-    if first_timeout_record:
-        for alert_dept_id, msgs in first_timeout_record.items():
-            alert_list.append((alert_dept_id, None,
-                               f'超时危急值，请及通知科室处理 <br> [患者-主管医生-住院/门诊号-床号] <br> ' + ' <br> '.join(
-                                   msgs)
-                               + ' <br> <br> <br> 点击 [确认] 跳转至危急值页面'))
+    for (dept, ward), msgs in timeout_records.items():
+        alert_list.append((
+            dept, ward,
+            f"超时危急值，请及时处理<br>[患者-主管医生-住院/门诊号-床号]<br>" +
+            "<br>".join(msgs) + "<br><br><br>点击 [确认] 跳转至危急值页面"
+        ))
+
+    for dept, msgs in first_timeout_records.items():
+        alert_list.append((
+            dept, None,
+            f"超时危急值，请及时通知科室处理<br>[患者-主管医生-住院/门诊号-床号]<br>" +
+            "<br>".join(msgs) + "<br><br><br>点击 [确认] 跳转至危急值页面"
+        ))
 
     if alert_list:
         asyncio.run(run_alert(alert_list))
@@ -221,7 +270,8 @@ def re_alert_fail_ip_log():
                     redis_client.srem(cv_config.ALERT_FAIL_IPS_REDIS_KEY, ip['ip'])
                     db.execute(f"delete from nsyy_gyl.alert_fail_log where ip = '{ip['ip']}' ", need_commit=True)
             except Exception as e:
-                print(datetime.now(), f" {url} 调用失败，危急值程序依旧未正常运行", e.__str__())
+                # print(datetime.now(), f" {url} 调用失败，危急值程序依旧未正常运行", e.__str__())
+                pass
     del db
 
 
@@ -232,7 +282,9 @@ def schedule_task():
     print('1. 危急值模块定时任务')
     if global_config.schedule_task['cv_timeout']:
         print("1.1 危机值超时管理 ", datetime.now())
-        gylmodule_scheduler.add_job(handle_timeout_cv, trigger='interval', seconds=35, coalesce=True, id='cv_timeout')
+        gylmodule_scheduler.add_job(handle_timeout_cv, trigger='interval', seconds=40, coalesce=True, id='cv_timeout')
+
+        gylmodule_scheduler.add_job(query_baogao_sj, trigger='interval', seconds=5*60*60, id='query_baogao_sj')
 
         print("1.2 ip 地址是否可用校验", datetime.now())
         gylmodule_scheduler.add_job(re_alert_fail_ip_log, 'cron', hour=2, minute=20, id='re_alert_fail_ip_log')
@@ -250,8 +302,10 @@ def schedule_task():
     if global_config.schedule_task['appt_daily']:
         run_time = datetime.now() + timedelta(seconds=20)
         gylmodule_scheduler.add_job(run_everyday, trigger='date', run_date=run_time)
-        gylmodule_scheduler.add_job(run_everyday, 'cron', hour=1, minute=20, id='appt_daily')
-        gylmodule_scheduler.add_job(update_appt_capacity, 'cron', hour=1, minute=10, id='update_appt_capacity')
+        gylmodule_scheduler.add_job(update_today_doc_info, 'cron', hour=6, minute=10, id='update_today_doc_info')
+        gylmodule_scheduler.add_job(run_everyday, 'cron', hour=1, minute=30, id='appt_daily')
+        gylmodule_scheduler.add_job(update_appt_capacity, 'cron', hour=1, minute=45, id='update_appt_capacity')
+        gylmodule_scheduler.add_job(do_update, trigger='interval', seconds=60*5, coalesce=True, id='do_update_doc')
 
     print("3. 定时任务状态 ", datetime.now())
     gylmodule_scheduler.add_job(task_state, trigger='interval', seconds=6*60*60, id='sched_state')
