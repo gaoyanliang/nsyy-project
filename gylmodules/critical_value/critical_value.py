@@ -3,7 +3,7 @@ import redis
 import json
 import threading
 import requests
-import aioredis
+from aiohttp import ClientTimeout
 from ping3 import ping as sync_ping
 from suds.client import Client
 from contextlib import suppress
@@ -18,15 +18,13 @@ from gylmodules.critical_value import cv_config
 from gylmodules.utils.db_utils import DbUtil
 import asyncio
 import aiohttp
-from ping3 import ping
 
 pool = redis.ConnectionPool(host=cv_config.CV_REDIS_HOST, port=cv_config.CV_REDIS_PORT,
                             db=cv_config.CV_REDIS_DB, decode_responses=True)
 
 scheduler = BackgroundScheduler()
 cv_id_lock = threading.Lock()
-# 全局并发控制
-SEMAPHORE = asyncio.Semaphore(100)
+
 
 # 内部调用标准功能
 def his_dept_pers1(pers_no):
@@ -702,7 +700,7 @@ def manual_report_cv(json_data):
             print(patient_treat_id, "住院号/门诊号异常，未查到病人信息, param: ", json_data)
             raise Exception(patient_treat_id, "住院号/门诊号异常，未查到病人信息")
     else:
-        print(datetime.now(), patient_treat_id, '未填写病人住院号/门诊号, 使用默认数据 120, param: ', json_data)
+        # print(datetime.now(), patient_treat_id, '未填写病人住院号/门诊号, 使用默认数据 120, param: ', json_data)
         json_data['patient_treat_id'] = int(cv_config.cv_manual_default_treat_id)
         json_data['patient_type'] = cv_config.PATIENT_TYPE_OTHER
 
@@ -1118,6 +1116,14 @@ def write_alert_fail_log(fail_ips, fail_log):
         pass
 
 
+async def async_ping(ip):
+    loop = asyncio.get_event_loop()
+    try:
+        return await loop.run_in_executor(None, lambda: sync_ping(ip, timeout=1))
+    except Exception:
+        return None
+
+
 async def call_remote_auto_start_script(ip, url, payload):
     try:
         timeout = ClientTimeout(total=3)  # 设置总超时时间为3秒
@@ -1149,23 +1155,22 @@ async def alert(dept_id, ward_id, msg):
     ward_sites = set()
     if ward_id is not None and ward_id != '' and int(ward_id):
         ward_sites = redis_client.smembers(cv_config.CV_SITES_REDIS_KEY[1].format(str(ward_id)))
-    merged_set = dept_sites.union(ward_sites)
+    merged_ips = dept_sites.union(ward_sites)
+    if not merged_ips:
+        return
 
-    if merged_set:
-        popup_tasks = []
-        for ip in merged_set:
-            try:
-                # ping 不通直接跳过
-                response_time = ping(ip)
-                if response_time is None:
-                    continue
-            except Exception:
-                continue
-            url = f'http://{ip}:8085/opera_wiki'
-            popup_tasks.append(asyncio.create_task(send_request(ip, url, {'type': 'popup', 'wiki_info': msg})))
+    ips = [ip.decode() if isinstance(ip, bytes) else ip for ip in merged_ips]
+    ping_tasks = [async_ping(ip) for ip in ips]
+    ping_results = await asyncio.gather(*ping_tasks)
+    reachable_ips = [ip for ip, ok in zip(ips, ping_results) if ok]
 
-        if popup_tasks:
-            await asyncio.wait(popup_tasks)
+    send_tasks = [
+        send_request(ip, f'http://{ip}:8085/opera_wiki', {'type': 'popup', 'wiki_info': msg})
+        for ip in reachable_ips
+    ]
+
+    if send_tasks:
+        await asyncio.gather(*send_tasks, return_exceptions=True)
 
 
 def main_alert(dept_id, ward_id, msg):
