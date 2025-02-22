@@ -2037,7 +2037,7 @@ def query_sql_server(report_id, patient_name):
         # 连接到 SQL Server
         conn = pyodbc.connect(conn_str)
         cursor = conn.cursor()
-        query = f"SELECT 图像路, 报告时间 FROM V_HISReport WHERE 报告号 = '{report_id}' and 姓名 = '{patient_name}' "
+        query = f"SELECT 图像路, 审核时间 FROM V_HISReport WHERE 报告号 = '{report_id}' and 姓名 = '{patient_name}' "
         cursor.execute(query)
         rows = cursor.fetchall()
         if not rows:
