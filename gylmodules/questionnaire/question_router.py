@@ -114,7 +114,7 @@ def submit_survey_record():
     json_data = {}
     try:
         json_data = json.loads(request.get_data().decode('utf-8'))
-        questions = sq_server.submit_survey_record(json_data)
+        re_id = sq_server.submit_survey_record(json_data)
     except Exception as e:
         print(datetime.now(), "submit_survey_record exception, param: ", json_data, e)
         return jsonify({
@@ -124,6 +124,7 @@ def submit_survey_record():
     return jsonify({
         'code': 20000,
         'res': 'submit_survey_record successes',
+        'data': re_id
     })
 
 

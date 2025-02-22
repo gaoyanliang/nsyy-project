@@ -1,6 +1,8 @@
 import json
+import re
 import time
 from operator import itemgetter
+from concurrent.futures import ThreadPoolExecutor
 
 import requests
 
@@ -298,6 +300,7 @@ def submit_survey_record(json_data):
         del db
         raise Exception("问卷记录答案列表入库失败! ", insert_sql, str(args))
     del db
+    return re_id
 
 
 def update_survey_record(json_data):
@@ -494,32 +497,6 @@ def query_examination_result(card_no, visit_date):
     :param visit_date:
     :return:
     """
-    # sql = f"""
-    #        SELECT NULL AS "outpatient_num", brxx.shenfenzh AS "id_card_no", jz.guahaoid AS 挂号ID,
-    #        mzyz.yizhuid AS "doc_advice_id", jy.jianchamd AS "item_name", jymx.zhongwenmc AS "item_sub_name",
-    #        jymx.jianyanjg AS "item_sub_result", jymx.cankaofw AS "item_sub_refer", jymx.dangwei AS "item_sub_unit",
-    #        jymx.yichangbz, jymx.jianyanxmid AS "item_sub_id", mzyz.yizhuid || jymx.shiyanxmid AS "unique_key",
-    #             CASE
-    #                 WHEN jymx.yichangbz = 'L' THEN '低'
-    #                 WHEN jymx.yichangbz = 'H' THEN '高'
-    #                 WHEN jymx.yichangbz = 'E' THEN '阳性'
-    #                 WHEN jymx.yichangbz = 'D' THEN '阴性'
-    #                 ELSE '正常'
-    #             END AS "item_sub_flag"
-    #         FROM df_lc_menzhen.mz_yizhu mzyz JOIN df_lc_menzhen.zj_jiuzhenxx jz ON mzyz.jiuzhenid = jz.jiuzhenid
-    #         JOIN df_bingrenzsy.gy_bingrenxx brxx ON mzyz.bingrenid = brxx.bingrenid
-    #         JOIN df_shenqingdan.yj_jianyansqd jysqd ON mzyz.yizhuid = jysqd.yizhubh
-    #         JOIN (SELECT jiluid, jianyanzt, bingrenid,
-    #                 REGEXP_SUBSTR(shenqingdid, '[^,]+', 1, LEVEL) AS shenqingdanid,
-    #                 REGEXP_SUBSTR(jianyanxmid, '[^+]+', 1, LEVEL) AS jianyanxmid, jianchamd
-    #             FROM df_cdr.yj_jianyanbg WHERE menzhenzybz = '1'
-    #             CONNECT BY LEVEL <= REGEXP_COUNT(shenqingdid, ',') + 1 AND PRIOR jiluid = jiluid AND PRIOR DBMS_RANDOM.VALUE IS NOT NULL
-    #         ) jy ON jy.bingrenid=brxx.bingrenid  and jysqd.jianyansqdid = jy.shenqingdanid
-    #         LEFT JOIN df_cdr.yj_jianyanbgmx jymx ON jy.jiluid = jymx.jiluid  AND jy.jianyanxmid = jymx.jianyanxmid
-    #         WHERE (brxx.shenfenzh = '{card_no}' or brxx.jiuzhenkh='{card_no}')
-    #         AND jz.xitongsj >= to_date('{visit_date}','yyyy-mm-dd') and jy.jianyanzt = 1
-    #     """
-
     sql = f"""
         select NULL AS "outpatient_num", a.shenfenzh AS "id_card_no", a.guahaoid AS 挂号ID, 
         a.yzid AS "doc_advice_id", a.jianchamd AS "item_name", jymx.zhongwenmc AS "item_sub_name",
@@ -551,6 +528,19 @@ def query_examination_result(card_no, visit_date):
 
     examination_results = call_new_his(sql)
     return examination_results
+
+
+def query_zhen_duan(sick_id, visit_time):
+    sql = f"""
+        SELECT brxx.zhenduanmc 名称 FROM df_lc_menzhen.zj_zhenduan brxx WHERE brxx.bingrenid = '{sick_id}' and
+        TRUNC(brxx.chuangjiansj) >= to_date('{visit_time}', 'yyyy-mm-dd') 
+        and TRUNC(brxx.chuangjiansj) < to_date('{visit_time}', 'yyyy-mm-dd') + 1 order by brxx.chuangjiansj desc
+    """
+    zhenduans = call_new_his(sql)
+    if not zhenduans:
+        return ""
+
+    return ", ".join([i.get('名称') for i in zhenduans])
 
 
 def query_report(json_data):
@@ -615,10 +605,6 @@ def query_outpatient_medical_record(re_id):
     query_sql = f"select * from nsyy_gyl.sq_surveys_detail where re_id = {int(re_id)} "
     survey_detail = db.query_one(query_sql)
 
-    print('查询问卷耗时：', time.time() - start_time)
-    # query_sql = f"select a.*, b.* from nsyy_gyl.sq_surveys_answer a join nsyy_gyl.sq_questions b " \
-    #             f"on a.qu_id = b.id where a.re_id = {int(re_id)} "
-    # answer_list = db.query_all(query_sql)
     for item in answer_list:
         item['answer'] = json.loads(item.get('answer'))
         item['qu_answer'] = json.loads(item.get('qu_answer')) \
@@ -627,41 +613,20 @@ def query_outpatient_medical_record(re_id):
             if item.get('qu_units') and item.get('qu_units').__contains__('[') else item.get('qu_units')
     del db
 
-    # medical_data = assembly_data(question_list, answer_dict)
-    # medical_data = {}
     # 查询 检查/检验 结果，拼装辅助检查, 辅助检查结果
     visit_time = datetime.strptime(survey_record.get('visit_time'), '%Y-%m-%d %H:%M:%S').strftime('%Y-%m-%d')
-    test_results = query_test_result(survey_record.get('card_no'), visit_time)
-    print('检查结果耗时：', time.time() - start_time)
-    examination_result = query_examination_result(survey_record.get('card_no'), visit_time)
-    print('检验结果耗时：', time.time() - start_time)
+    test_results, examination_result, zhenduan = \
+        query_data(survey_record.get('card_no'), visit_time, survey_record.get('sick_id'))
+    print(datetime.now(), '检验结果耗时：', time.time() - start_time)
 
     if not survey_detail:
         survey_detail = {}
     survey_detail['test_results'] = test_results
     survey_detail['examination_result'] = examination_result
 
-    # auxiliary_examination, auxiliary_examination_result = [], []
-    # # 检验需要根据 检验项目名称 进行分组
-    # examination_result.sort(key=itemgetter('item_name'))
-    # for key, group in groupby(examination_result, key=lambda x: x['item_name']):
-    #     auxiliary_examination.append(key)
-    #     ret = []
-    #     for item in group:
-    #         ret.append(f"{item.get('item_sub_name')} {item.get('item_sub_result')} ({item.get('item_sub_unit')})")
-    #     ret = key + ": " + ", ".join(ret)
-    #     auxiliary_examination_result.append(ret)
-    #
-    # for item in test_results:
-    #     auxiliary_examination.append(item['item_name'])
-    #     auxiliary_examination_result.append(item.get('item_result'))
-    # medical_data[5] = '、'.join(auxiliary_examination)
-    # medical_data[6] = '、'.join(auxiliary_examination_result)
-
     # todo 初步印象 治疗意见 应该是医生自己写的？？
     # 查询诊断（初步印象）
-    survey_detail['his_zhenduan'] = query_zhen_duan(survey_record.get('sick_id'), visit_time)
-    print('查询诊断耗时：', time.time() - start_time)
+    survey_detail['his_zhenduan'] = zhenduan
     return survey_record, survey_detail, answer_list
 
 
@@ -780,6 +745,8 @@ def submit_medical_record(json_data):
     re_id = json_data.get('re_id')
     sick_id = json_data.get('sick_id')
     visit_date = json_data.get('visit_date')
+    ques_title = json_data.get('ques_title', "")
+    visit_time = json_data.get('visit_time', "")
     zhusu = json_data.get('zhusu', '')
     zhusu_remark = json_data.get('zhusu_remark', '')
     xianbingshi = json_data.get('xianbingshi', '')
@@ -790,25 +757,36 @@ def submit_medical_record(json_data):
     tigejiancha_remark = json_data.get('tigejiancha_remark', '')
     zhuankejiancha = json_data.get('zhuankejiancha', '')
     zhuankejiancha_remark = json_data.get('zhuankejiancha_remark', '')
-    fuzhujiancha = json_data.get('fuzhujiancha', '')
+    test_results = json_data.get('fuzhujiancha', '')
     fuzhujiancha_remark = json_data.get('fuzhujiancha_remark', '')
-    fuzhujiancha_ret = json_data.get('fuzhujiancha_ret', '')
+    examination_result = json_data.get('fuzhujiancha_ret', '')
     fuzhujiancha_ret_remark = json_data.get('fuzhujiancha_ret_remark', '')
     chubuzhenduan = json_data.get('chubuzhenduan', '')
     yijian = json_data.get('yijian', '')
 
-    args = (re_id, sick_id, visit_date, zhusu, zhusu_remark, xianbingshi, xianbingshi_remark, jiwangshi,
-            jiwangshi_remark, tigejiancha, tigejiancha_remark, zhuankejiancha, zhuankejiancha_remark,
-            fuzhujiancha, fuzhujiancha_remark, fuzhujiancha_ret, fuzhujiancha_ret_remark, chubuzhenduan, yijian)
+    fuzhujiancha = test_results
+    if test_results and type(test_results) == list:
+        fuzhujiancha = ""
+        for d in test_results:
+            fuzhujiancha += f"{d['item_name']}：{d['item_result']} \n"
+    fuzhujiancha_ret = examination_result
+    if examination_result and type(examination_result) == list:
+        fuzhujiancha_ret = ""
+        for d in examination_result:
+            fuzhujiancha_ret += f"{d['item_sub_name']}：{d['item_sub_result']} {d['item_sub_unit']} {d['item_sub_flag']} \n"
+
+    args = (re_id, sick_id, ques_title, visit_date, zhusu, zhusu_remark, xianbingshi, xianbingshi_remark, jiwangshi,
+            jiwangshi_remark, tigejiancha, tigejiancha_remark, zhuankejiancha, zhuankejiancha_remark, fuzhujiancha,
+            fuzhujiancha_remark, fuzhujiancha_ret, fuzhujiancha_ret_remark, chubuzhenduan, yijian, visit_time)
     db = DbUtil(global_config.DB_HOST, global_config.DB_USERNAME, global_config.DB_PASSWORD,
                 global_config.DB_DATABASE_GYL)
     insert_sql = """
-            INSERT INTO nsyy_gyl.sq_surveys_detail (re_id, sick_id, visit_date, zhusu, zhusu_remark,
+            INSERT INTO nsyy_gyl.sq_surveys_detail (re_id, sick_id, ques_title, visit_date, zhusu, zhusu_remark,
             xianbingshi, xianbingshi_remark, jiwangshi, jiwangshi_remark, tigejiancha, tigejiancha_remark,
             zhuankejiancha, zhuankejiancha_remark, fuzhujiancha, fuzhujiancha_remark, fuzhujiancha_ret, 
-            fuzhujiancha_ret_remark, chubuzhenduan, yijian) 
-            VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s) 
-            ON DUPLICATE KEY UPDATE re_id = VALUES(re_id), sick_id = VALUES(sick_id), 
+            fuzhujiancha_ret_remark, chubuzhenduan, yijian, visit_time) 
+            VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s) 
+            ON DUPLICATE KEY UPDATE re_id = VALUES(re_id), sick_id = VALUES(sick_id), ques_title = VALUES(ques_title), 
             visit_date = VALUES(visit_date), zhusu = VALUES(zhusu), zhusu_remark = VALUES(zhusu_remark), 
             xianbingshi = VALUES(xianbingshi), xianbingshi_remark = VALUES(xianbingshi_remark), 
             jiwangshi = VALUES(jiwangshi), jiwangshi_remark = VALUES(jiwangshi_remark), 
@@ -816,7 +794,7 @@ def submit_medical_record(json_data):
             zhuankejiancha = VALUES(zhuankejiancha), zhuankejiancha_remark = VALUES(zhuankejiancha_remark), 
             fuzhujiancha = VALUES(fuzhujiancha), fuzhujiancha_remark = VALUES(fuzhujiancha_remark), 
             fuzhujiancha_ret = VALUES(fuzhujiancha_ret), fuzhujiancha_ret_remark = VALUES(fuzhujiancha_ret_remark), 
-            chubuzhenduan = VALUES(chubuzhenduan), yijian = VALUES(yijian) 
+            chubuzhenduan = VALUES(chubuzhenduan), yijian = VALUES(yijian), visit_time = VALUES(visit_time) 
     """
     last_rowid = db.execute(insert_sql, args, need_commit=True)
     if last_rowid == -1:
@@ -825,25 +803,13 @@ def submit_medical_record(json_data):
     del db
 
 
-def query_zhen_duan(sick_id, visit_time):
-    sql = f"""
-    SELECT brxx.zhenduanmc 名称 FROM df_lc_menzhen.zj_zhenduan brxx WHERE brxx.bingrenid = '{sick_id}' and
-    TRUNC(brxx.chuangjiansj) >= to_date('{visit_time}', 'yyyy-mm-dd') 
-    and TRUNC(brxx.chuangjiansj) < to_date('{visit_time}', 'yyyy-mm-dd') + 1 order by brxx.chuangjiansj desc
-    """
-    zhenduans = call_new_his(sql)
-    if not zhenduans:
-        return ""
-
-    return ", ".join([i.get('名称') for i in zhenduans])
-
-
 def patient_quest_details(json_data):
     """
     查询患者门诊问卷详情（根据病人 ID + 就诊日期（yyyy-mm-dd）查询）
     :param json_data:
     :return:
     """
+    start_time = time.time()
     patient_id = json_data.get('patient_id')
     ques_date = json_data.get('ques_date')
 
@@ -852,35 +818,67 @@ def patient_quest_details(json_data):
     db = DbUtil(global_config.DB_HOST, global_config.DB_USERNAME, global_config.DB_PASSWORD,
                 global_config.DB_DATABASE_GYL)
     records = db.query_all(query_sql)
-    del db
 
     if not records:
-        return {
-            "patient_id": patient_id,
-            "ques_date": ques_date,
-            "ReturnCode": 1,
-            "ReturnMessage": "未查询到患者当天的问卷记录",
-            "ques_dtl": []
-        }
+        del db
+        return {"patient_id": patient_id, "ques_date": ques_date, "ReturnCode": 1,
+                "ReturnMessage": "未查询到患者当天的问卷记录", "ques_dtl": []}
+
+    query_sql = f"select * from nsyy_gyl.sq_surveys_detail WHERE sick_id = '{patient_id}' " \
+                f"and visit_date = '{ques_date}'"
+    surveys_details = db.query_all(query_sql)
 
     ques_dtl = []
-    for record in records:
-        medical_data, answer_dict = query_and_assembly_data(record.get('id'))
-        ques = {"ques_time": record.get('visit_time').strftime('%Y-%m-%d %H:%M:%S'),
-                'ques_title': record.get('title', '未知') + '问卷', 'ZhuSu': medical_data.get(1, ""),
-                'XianBingShi': medical_data.get(2, ""), 'JiWangShi': medical_data.get(3, ""),
-                'FuZhuJianCha': medical_data.get(5, ""), 'FuZhuJianChaJieGuo': medical_data.get(6, ""),
-                'ZhuanKeJianCha': '', 'ZhenDuan': medical_data.get('zhenduan', ''), 'TiGe_JianCha': [{
-                'TiWen': answer_dict.get(192).get('answer') if answer_dict.get(192) else 0,
-                'XinLv': answer_dict.get(193).get('answer') if answer_dict.get(193) else 0,
-                'HuXi': answer_dict.get(194).get('answer') if answer_dict.get(194) else 0,
-                'GaoYa': answer_dict.get(195).get('answer')[0] if answer_dict.get(195) else 0,
-                'DiYa': answer_dict.get(195).get('answer')[1] if answer_dict.get(195) else 0,
-                'ShenGao': answer_dict.get(196).get('answer') if answer_dict.get(196) else 0,
-                'TiZhong': answer_dict.get(197).get('answer') if answer_dict.get(197) else 0,
-            }]}
-        ques_dtl.append(ques)
+    if surveys_details:
+        for d in surveys_details:
+            health_data = extract_health_data(d.get('tigejiancha', ''))
+            ques = {"ques_time": d.get('visit_time').strftime('%Y-%m-%d %H:%M:%S'),
+                    'ques_title': d.get('ques_title', '未知') + '问卷',
+                    'ZhuSu': d.get("zhusu", "") + d.get("zhusu_remark", ""),
+                    'XianBingShi': d.get("xianbingshi", "") + d.get("xianbingshi_remark", ""),
+                    'JiWangShi': d.get("jiwangshi", "") + d.get("jiwangshi_remark", ""),
+                    'FuZhuJianCha': d.get('fuzhujiancha', ""), 'FuZhuJianChaJieGuo': d.get('fuzhujiancha_ret', ""),
+                    'ZhuanKeJianCha': '', 'ZhenDuan': d.get('chubuzhenduan', ''), 'TiGe_JianCha': [health_data]}
 
+            if not ques.get('FuZhuJianCha') or not ques.get('FuZhuJianChaJieGuo') or not ques.get('ZhenDuan'):
+                test_results, examination_result, zhenduan = \
+                    query_data(records[0].get('card_no'), d.get('visit_date'), d.get('sick_id'))
+                test_data = ""
+                if test_results:
+                    for t in test_results:
+                        test_data += f"{t['item_name']}：{t['item_result']} \n"
+                exam_data = ""
+                if examination_result:
+                    for e in examination_result:
+                        exam_data += f"{e['item_sub_name']}：{e['item_sub_result']} {e['item_sub_unit']} {e['item_sub_flag']} \n"
+
+                update_sql = f"UPDATE nsyy_gyl.sq_surveys_detail SET fuzhujiancha = '{test_data}',  " \
+                             f"fuzhujiancha_ret = '{exam_data}', chubuzhenduan = '{zhenduan}' WHERE id = {d.get('id')}"
+                db.execute(update_sql, need_commit=True)
+                ques['FuZhuJianCha'] = test_data
+                ques['FuZhuJianChaJieGuo'] = exam_data
+                ques['ZhenDuan'] = zhenduan
+
+            ques_dtl.append(ques)
+    else:
+        for record in records:
+            medical_data, answer_dict = query_and_assembly_data(record.get('id'))
+            ques = {"ques_time": record.get('visit_time').strftime('%Y-%m-%d %H:%M:%S'),
+                    'ques_title': record.get('title', '未知') + '问卷', 'ZhuSu': medical_data.get(1, ""),
+                    'XianBingShi': medical_data.get(2, ""), 'JiWangShi': medical_data.get(3, ""),
+                    'FuZhuJianCha': medical_data.get(5, ""), 'FuZhuJianChaJieGuo': medical_data.get(6, ""),
+                    'ZhuanKeJianCha': '', 'ZhenDuan': medical_data.get('zhenduan', ''), 'TiGe_JianCha': [{
+                    'TiWen': answer_dict.get(192).get('answer') if answer_dict.get(192) else 0,
+                    'XinLv': answer_dict.get(193).get('answer') if answer_dict.get(193) else 0,
+                    'HuXi': answer_dict.get(194).get('answer') if answer_dict.get(194) else 0,
+                    'GaoYa': answer_dict.get(195).get('answer')[0] if answer_dict.get(195) else 0,
+                    'DiYa': answer_dict.get(195).get('answer')[1] if answer_dict.get(195) else 0,
+                    'ShenGao': answer_dict.get(196).get('answer') if answer_dict.get(196) else 0,
+                    'TiZhong': answer_dict.get(197).get('answer') if answer_dict.get(197) else 0,
+                }]}
+            ques_dtl.append(ques)
+
+    del db
     return {
         "patient_id": patient_id,
         "ques_date": ques_date,
@@ -921,8 +919,8 @@ def query_and_assembly_data(re_id):
     medical_data = assembly_data(question_list, answer_dict)
     # 查询 检查/检验 结果，拼装辅助检查, 辅助检查结果
     visit_time = datetime.strptime(survey_record.get('visit_time'), '%Y-%m-%d %H:%M:%S').strftime('%Y-%m-%d')
-    test_results = query_test_result(survey_record.get('card_no'), visit_time)
-    examination_result = query_examination_result(survey_record.get('card_no'), visit_time)
+    test_results, examination_result, zhenduan = \
+        query_data(survey_record.get('card_no'), visit_time, survey_record.get('sick_id'))
     auxiliary_examination, auxiliary_examination_result = [], []
     # 检验需要根据 检验项目名称 进行分组
     examination_result.sort(key=itemgetter('item_name'))
@@ -941,5 +939,56 @@ def query_and_assembly_data(re_id):
     medical_data[6] = '、'.join(auxiliary_examination_result)
 
     # 查询诊断（初步印象）
-    medical_data['zhenduan'] = query_zhen_duan(survey_record.get('sick_id'), visit_time)
+    medical_data['zhenduan'] = zhenduan
     return medical_data, answer_dict
+
+
+def extract_health_data(text):
+    # 定义正则表达式来匹配各项数据
+    # "体温36.2°C，脉搏85次/分，呼吸20次/分，血压124/77mmHg，身高165CM，体重80公斤，神志清醒，步态正常，自动体位，精神正常。"
+    patterns = {
+        "TiWen": r"体温([\d.]+)°C",  # 匹配体温
+        "XinLv": r"脉搏([\d]+)次/分",  # 匹配心率
+        "HuXi": r"呼吸([\d]+)次/分",  # 匹配呼吸
+        "XueYa": r"(\d{2,3})/(\d{2,3})mmHg",  # 匹配血压，提取高压
+        'ShenGao': r"身高([\d]+)CM",
+        'TiZhong': r"体重([\d]+)公斤"
+    }
+
+    # 创建一个字典来存储提取的数据， 默认值 -1
+    data = {"TiWen": "-1", "XinLv": "-1", "HuXi": "-1", "GaoYa": "-1", "DiYa": "-1", "ShenGao": -1, "TiZhong": -1}
+    # 使用正则表达式提取数据
+    for key, pattern in patterns.items():
+        match = re.search(pattern, text)
+        if match:
+            data[key] = match.group(1)  # 其他项直接提取第一组匹配
+            if key == "XueYa":
+                data["GaoYa"] = match.group(1)  # 提取高压
+                data["DiYa"] = match.group(2)  # 提取低压
+
+    return data
+
+
+def query_data(card_no, visit_time, sick_id):
+    """
+    使用并发查询测试结果、检查结果和诊断结果
+    :param card_no: 卡号
+    :param visit_time: 就诊时间
+    :param sick_id: 病人 ID
+    :return: 测试结果、检查结果和诊断结果
+    """
+    # start_time = time.time()
+    # 使用线程池并发查询
+    with ThreadPoolExecutor(max_workers=3) as executor:
+        futures = [
+            executor.submit(query_test_result, card_no, visit_time),
+            executor.submit(query_examination_result, card_no, visit_time),
+            executor.submit(query_zhen_duan, sick_id, visit_time)
+        ]
+
+        # 获取查询结果
+        test_results = futures[0].result()
+        examination_result = futures[1].result()
+        zhenduan = futures[2].result()
+    # print(datetime.now(), f"检查检验诊断查询耗时：{time.time() - start_time}秒")
+    return test_results, examination_result, zhenduan
