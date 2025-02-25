@@ -1,5 +1,6 @@
 import json
 import re
+import threading
 import time
 from operator import itemgetter
 from concurrent.futures import ThreadPoolExecutor
@@ -7,7 +8,7 @@ from concurrent.futures import ThreadPoolExecutor
 import requests
 
 from itertools import groupby
-from datetime import datetime
+from datetime import datetime, timedelta
 from gylmodules import global_config
 from gylmodules.utils.db_utils import DbUtil
 
@@ -51,7 +52,7 @@ def call_new_his(sql: str, clobl: list = None):
     try:
         response = requests.post(query_oracle_url, json=param)
         data = json.loads(response.text)
-        data = data.get('data')
+        data = data.get('data', [])
     except Exception as e:
         print(datetime.now(), '问卷调查 调用新 HIS 查询数据失败：' + str(param) + e.__str__())
 
@@ -429,8 +430,8 @@ def query_hist_questionnaires_details(json_data):
 
     # 查询 检查/检验 结果
     visit_time = datetime.strptime(survey_record.get('visit_time'), '%Y-%m-%d %H:%M:%S').strftime('%Y-%m-%d')
-    test_results = query_test_result(survey_record.get('card_no'), visit_time)
-    examination_result = query_examination_result(survey_record.get('card_no'), visit_time)
+    test_results, examination_result, zhenduan = \
+        query_data(survey_record.get('sick_id'), visit_time)
     return survey_record, answer_list, test_results, examination_result
 
 
@@ -477,64 +478,51 @@ def query_test_result(card_no, visit_date):
     :return:
     """
     sql = f"""
-        SELECT jz.guahaoid 挂号ID, brxx.jiuzhenkh 就诊卡号, brxx.shenfenzh 身份证号, mzyz.yizhuid "doc_advice_id", 
-        jc.yizhuid "unique_key", jc.jianchaxmmc "item_name", jc.zhenduan "item_result", jc.jianchasuojian "img_result", 
-        jc.yinxiangurl "img_url", jc.yingxiangbgurl "report_url" FROM df_lc_menzhen.mz_yizhu mzyz 
-        JOIN df_lc_menzhen.zj_jiuzhenxx jz ON mzyz.jiuzhenid = jz.jiuzhenid
-        JOIN df_bingrenzsy.gy_bingrenxx brxx ON mzyz.bingrenid = brxx.bingrenid
-        JOIN df_cdr.yj_jianchabg jc ON mzyz.yizhuid = jc.yizhuid
-        WHERE (brxx.shenfenzh = '{card_no}' OR brxx.jiuzhenkh = '{card_no}') 
-        AND jz.xitongsj >= to_date('{visit_date}','yyyy-mm-dd') and jc.zuofeibz = 0
+        SELECT yj.yizhubh "doc_advice_id", jc.yizhuid "unique_key", yj.yizhumc "item_name", 
+        jc.zhenduan "item_result", jc.jianchasuojian "img_result", jc.yinxiangurl "img_url", 
+        jc.yingxiangbgurl "report_url" FROM df_shenqingdan.yj_jianchasqd yj 
+        LEFT JOIN df_cdr.yj_jianchabg jc on yj.jianchasqdid =jc.shenqingdanid AND  jc.zuofeibz = 0 
+        and jc.bingrenid = '{card_no}' WHERE yj.bingrenid = '{card_no}' 
+        AND yj.kaidanrq  >= to_date('{visit_date}','yyyy-mm-dd')  and yj.zuofeibz=0
     """
     test_results = call_new_his(sql, ['img_result'])
     return test_results
 
 
-def query_examination_result(card_no, visit_date):
+def query_examination_result(patient_id, visit_date):
     """
     查询检验项目结果
-    :param card_no:
+    :param patient_id:
     :param visit_date:
     :return:
     """
     sql = f"""
-        select NULL AS "outpatient_num", a.shenfenzh AS "id_card_no", a.guahaoid AS 挂号ID, 
-        a.yzid AS "doc_advice_id", a.jianchamd AS "item_name", jymx.zhongwenmc AS "item_sub_name",
+     select t.yzid AS "doc_advice_id", t.jianchamd AS "item_name", jymx.zhongwenmc AS "item_sub_name",
         jymx.jianyanjg AS "item_sub_result", jymx.cankaofw AS "item_sub_refer", jymx.dangwei AS "item_sub_unit",
-        jymx.yichangbz, jymx.jianyanxmid AS "item_sub_id", a.jiuzhenid || '-' ||  jymx.shiyanxmid AS "unique_key",
+        jymx.yichangbz, jymx.jianyanxmid AS "item_sub_id",
         CASE
             WHEN jymx.yichangbz = 'L' THEN '低'
             WHEN jymx.yichangbz = 'H' THEN '高'
             WHEN jymx.yichangbz = 'E' THEN '阳性'
             WHEN jymx.yichangbz = 'D' THEN '阴性'  
-            ELSE '正常'
-        END AS "item_sub_flag"
-        from (SELECT distinct brxx.shenfenzh, jz.guahaoid, jy.jianchamd, jy.jiluid, jz.jiuzhenid, yz1.yzid
-                FROM df_lc_menzhen.mz_yizhu mzyz
-                JOIN df_lc_menzhen.zj_jiuzhenxx jz ON mzyz.jiuzhenid = jz.jiuzhenid
-                JOIN df_bingrenzsy.gy_bingrenxx brxx ON mzyz.bingrenid = brxx.bingrenid
-                JOIN df_shenqingdan.yj_jianyansqd jysqd ON mzyz.yizhuid = jysqd.yizhubh 
-                JOIN  (SELECT jiluid, jianyanzt, bingrenid, yizhuid, shenqingdid, jianyanxmid, jianchamd
-                        FROM  df_cdr.yj_jianyanbg WHERE menzhenzybz = '1') jy  
-                ON jy.bingrenid=brxx.bingrenid and instr(jy.shenqingdid,jysqd.jianyansqdid) > 0 
-                JOIN ( select LISTAGG(yz.yizhuid, '+') WITHIN GROUP (ORDER BY yz.yizhuid) as yzid,jy2.jiluid,yz.bingrenid 
-                       from df_lc_menzhen.mz_yizhu yz  join df_shenqingdan.yj_jianyansqd sqd ON yz.yizhuid =sqd.yizhubh
-                      join df_cdr.yj_jianyanbg jy2 on jy2.bingrenid=yz.bingrenid and  instr(jy2.shenqingdid,sqd.jianyansqdid)>0  
-                      group by yz.bingrenid,jy2.jiluid) yz1 on yz1.bingrenid = mzyz.bingrenid and yz1.jiluid=jy.jiluid
-                      WHERE (brxx.shenfenzh = '{card_no}' or brxx.jiuzhenkh='{card_no}') 
-                      AND jz.xitongsj >= to_date('{visit_date}','yyyy-mm-dd') and jy.jianyanzt = 1) a
-                LEFT JOIN df_cdr.yj_jianyanbgmx jymx ON a.jiluid = jymx.jiluid  
+            ELSE '正常' END AS "item_sub_flag" 
+ from (select  LISTAGG(sqd.yizhubh, '+') WITHIN GROUP (ORDER BY sqd.yizhubh) as yzid,jy2.jianchamd,jy2.jiluid
+       from  df_shenqingdan.yj_jianyansqd sqd left  join df_cdr.yj_jianyanbg jy2 on jy2.bingrenid=sqd.bingrenid and  
+       instr(jy2.shenqingdid,sqd.jianyansqdid)>0  and jy2.jianyanzt=1 where sqd.bingrenid='{patient_id}'   
+       and sqd.zuofeibz = 0  and sqd.kaidanrq >= to_date('{visit_date}','yyyy-mm-dd')      
+group by jy2.jiluid,jy2.jianchamd) t left join df_cdr.yj_jianyanbgmx jymx ON t.jiluid = jymx.jiluid   
     """
-
     examination_results = call_new_his(sql)
     return examination_results
 
 
-def query_zhen_duan(sick_id, visit_time):
+def query_zhen_duan(sick_id, visit_date):
+    if not sick_id:
+        return ""
     sql = f"""
         SELECT brxx.zhenduanmc 名称 FROM df_lc_menzhen.zj_zhenduan brxx WHERE brxx.bingrenid = '{sick_id}' and
-        TRUNC(brxx.chuangjiansj) >= to_date('{visit_time}', 'yyyy-mm-dd') 
-        and TRUNC(brxx.chuangjiansj) < to_date('{visit_time}', 'yyyy-mm-dd') + 1 order by brxx.chuangjiansj desc
+        TRUNC(brxx.chuangjiansj) >= to_date('{visit_date}', 'yyyy-mm-dd') 
+        and TRUNC(brxx.chuangjiansj) < to_date('{visit_date}', 'yyyy-mm-dd') + 1 order by brxx.chuangjiansj desc
     """
     zhenduans = call_new_his(sql)
     if not zhenduans:
@@ -555,7 +543,7 @@ def query_report(json_data):
                 global_config.DB_DATABASE_GYL)
     time_sql = ""
     if start_time and end_time:
-        time_sql = f" where visit_time BETWEEN '{start_time}' AND '{end_time}' "
+        time_sql = f" where visit_time BETWEEN '{start_time}' AND '{end_time}' and status != 0"
 
     if query_type == 'question':
         # 统计问卷报表
@@ -616,8 +604,8 @@ def query_outpatient_medical_record(re_id):
     # 查询 检查/检验 结果，拼装辅助检查, 辅助检查结果
     visit_time = datetime.strptime(survey_record.get('visit_time'), '%Y-%m-%d %H:%M:%S').strftime('%Y-%m-%d')
     test_results, examination_result, zhenduan = \
-        query_data(survey_record.get('card_no'), visit_time, survey_record.get('sick_id'))
-    print(datetime.now(), '检验结果耗时：', time.time() - start_time)
+        query_data(survey_record.get('sick_id'), visit_time)
+    # print(datetime.now(), '检验结果耗时：', time.time() - start_time)
 
     if not survey_detail:
         survey_detail = {}
@@ -801,6 +789,8 @@ def submit_medical_record(json_data):
         del db
         raise Exception("问卷记录详情入库失败! ", insert_sql)
     del db
+    # 第一次调用 ai
+    start_thread(call_aichat, (last_rowid, zhusu, xianbingshi, jiwangshi, tigejiancha))
 
 
 def patient_quest_details(json_data):
@@ -838,11 +828,12 @@ def patient_quest_details(json_data):
                     'XianBingShi': d.get("xianbingshi", "") + d.get("xianbingshi_remark", ""),
                     'JiWangShi': d.get("jiwangshi", "") + d.get("jiwangshi_remark", ""),
                     'FuZhuJianCha': d.get('fuzhujiancha', ""), 'FuZhuJianChaJieGuo': d.get('fuzhujiancha_ret', ""),
-                    'ZhuanKeJianCha': '', 'ZhenDuan': d.get('chubuzhenduan', ''), 'TiGe_JianCha': [health_data]}
+                    'ZhuanKeJianCha': d.get('ai_result1', ""), 'ZhenDuan': d.get('chubuzhenduan', ''),
+                    'TiGe_JianCha': [health_data]}
 
             if not ques.get('FuZhuJianCha') or not ques.get('FuZhuJianChaJieGuo') or not ques.get('ZhenDuan'):
                 test_results, examination_result, zhenduan = \
-                    query_data(records[0].get('card_no'), d.get('visit_date'), d.get('sick_id'))
+                    query_data(d.get('sick_id'), d.get('visit_date'))
                 test_data = ""
                 if test_results:
                     for t in test_results:
@@ -920,7 +911,7 @@ def query_and_assembly_data(re_id):
     # 查询 检查/检验 结果，拼装辅助检查, 辅助检查结果
     visit_time = datetime.strptime(survey_record.get('visit_time'), '%Y-%m-%d %H:%M:%S').strftime('%Y-%m-%d')
     test_results, examination_result, zhenduan = \
-        query_data(survey_record.get('card_no'), visit_time, survey_record.get('sick_id'))
+        query_data(survey_record.get('sick_id'), visit_time)
     auxiliary_examination, auxiliary_examination_result = [], []
     # 检验需要根据 检验项目名称 进行分组
     examination_result.sort(key=itemgetter('item_name'))
@@ -969,26 +960,167 @@ def extract_health_data(text):
     return data
 
 
-def query_data(card_no, visit_time, sick_id):
+def query_data(sick_id, visit_date):
     """
     使用并发查询测试结果、检查结果和诊断结果
-    :param card_no: 卡号
-    :param visit_time: 就诊时间
+    :param visit_date: 就诊时间
     :param sick_id: 病人 ID
     :return: 测试结果、检查结果和诊断结果
     """
-    # start_time = time.time()
     # 使用线程池并发查询
     with ThreadPoolExecutor(max_workers=3) as executor:
         futures = [
-            executor.submit(query_test_result, card_no, visit_time),
-            executor.submit(query_examination_result, card_no, visit_time),
-            executor.submit(query_zhen_duan, sick_id, visit_time)
+            executor.submit(query_test_result, sick_id, visit_date),
+            executor.submit(query_examination_result, sick_id, visit_date),
+            executor.submit(query_zhen_duan, sick_id, visit_date)
         ]
 
         # 获取查询结果
         test_results = futures[0].result()
         examination_result = futures[1].result()
         zhenduan = futures[2].result()
-    # print(datetime.now(), f"检查检验诊断查询耗时：{time.time() - start_time}秒")
     return test_results, examination_result, zhenduan
+
+
+def call_ai_api(param: dict):
+    data = None
+    url = f"http://192.168.9.35:6063/aichat/api_aichat"
+    if global_config.run_in_local:
+        url = f"http://192.168.124.53:6080/aichat/api_aichat"
+
+    max_retries = 3
+    delay = 1
+    for attempt in range(max_retries + 1):  # +1 包括首次尝试
+        try:
+            # 发送 POST 请求
+            response = requests.post(url, timeout=200, json=param)
+            response.raise_for_status()  # 检查状态码，非 2xx 会抛出异常
+            data = response.text
+            data = json.loads(data)  # 成功时返回解析后的数据
+            return data
+        except (requests.RequestException, json.JSONDecodeError) as e:
+            error_msg = f"尝试 {attempt + 1}/{max_retries + 1} 失败: {e}"
+            print(f"{datetime.now()} - {error_msg}")
+            if attempt < max_retries:  # 如果不是最后一次尝试
+                time.sleep(delay)  # 等待后重试
+            else:
+                # 所有尝试失败，返回错误信息
+                return data
+    return data
+
+
+def start_thread(funct, args=None, tl=None):
+    """
+    start a thread
+    """
+    if not tl:
+        tl = []
+    if not args:
+        args = ()
+    t = threading.Thread(target=funct, args=args)
+    t.setDaemon(True)  # 服务器一直运行，所以子线程不会被关
+    tl.append(t)
+    t.start()
+    return t
+
+
+def call_aichat(id, zhusu, xianbingshi, jiwangshi, tigejiancha):
+    start_time = time.time()
+    medical_data = ""
+    medical_data = medical_data + "主诉：" + zhusu + "; "
+    medical_data = medical_data + "现病史：" + xianbingshi + "; "
+    medical_data = medical_data + "既往史：" + jiwangshi + "; "
+    medical_data = medical_data + "体格检查：" + tigejiancha + "; "
+    medical_data = medical_data + "以上为患者基本信息，请根据该患者病历信息，给出初步诊断和推荐做的检查检验项目。"
+
+    data = None
+    try:
+        data = call_ai_api({"message": medical_data})
+    except Exception as e:
+        print(datetime.now(), '调用 ai api 失败： ' + e.__str__())
+
+    if not data:
+        return
+
+    db = DbUtil(global_config.DB_HOST, global_config.DB_USERNAME, global_config.DB_PASSWORD,
+                global_config.DB_DATABASE_GYL)
+    update_sql = f"UPDATE nsyy_gyl.sq_surveys_detail set ai_result1 = '{data.get('data')}' where id = {id}"
+    db.execute(update_sql, need_commit=True)
+    del db
+    print(datetime.now(), 'ai 耗时：', time.time() - start_time, f's, {id}')
+
+
+def fetch_ai_result():
+    db = DbUtil(global_config.DB_HOST, global_config.DB_USERNAME, global_config.DB_PASSWORD,
+                global_config.DB_DATABASE_GYL)
+
+    # visit_date = datetime.now().date() - timedelta(days=1)
+    visit_date = datetime.now().date()
+    query_sql = f"""
+        select r.card_no, r.patient_name, r.patient_age, r.patient_sex, d.* 
+        from nsyy_gyl.sq_surveys_detail d join nsyy_gyl.sq_surveys_record r 
+        on d.re_id = r.id where d.ai_result2 is null and d.visit_date >= '{visit_date}' 
+        and r.status = 1 order by d.visit_time
+    """
+    all_survey = db.query_all(query_sql)
+    del db
+    for survey in all_survey:
+        # 第二次调用 ai
+        start_thread(fetch_patient_test_result, (survey, ))
+        # fetch_patient_test_result(survey)
+
+
+def fetch_patient_test_result(survey_record):
+    test_results, examination_result, _ = query_data(survey_record.get('sick_id'),
+                                                     survey_record.get('visit_date'))
+    print(datetime.now(), survey_record.get('id'), test_results, examination_result)
+    # 判断检查检验结果是否全部有结果了
+    if len(test_results) == 0 and len(examination_result) == 0:
+        # 没有开检查检验结果
+        return
+
+    test_data = ""
+    if test_results:
+        for t in test_results:
+            if not t.get('item_name') and not t.get('item_result') and not t.get('img_result'):
+                return
+            test_data = test_data + f"检查项目：{t.get('item_name')}, 检查结果：{t.get('item_result', '')} " \
+                                    f"影像结果：{t.get('img_result', '')}; "
+
+    examination_data = ""
+    if examination_result:
+        sorted_data = sorted(examination_result, key=lambda x: (str(x['item_name'])))
+        for key, group in groupby(sorted_data, key=lambda x: (str(x["item_name"]))):
+            # examination_data = examination_data + key
+            for t in group:
+                if not t.get('item_name'):
+                    return
+                examination_data += f"{t['item_sub_name']}：{t['item_sub_result']} {t['item_sub_unit']} {t['item_sub_flag']}; "
+
+    medical_data = f"患者 {survey_record.get('patient_name')}, 性别 {survey_record.get('patient_sex')}, " \
+                   f"年龄 {survey_record.get('patient_age')} 岁 "
+    medical_data = medical_data + "主诉：" + survey_record.get('zhusu') + "; "
+    medical_data = medical_data + "现病史：" + survey_record.get('xianbingshi') + "; "
+    medical_data = medical_data + "既往史：" + survey_record.get('jiwangshi') + "; "
+    medical_data = medical_data + "体格检查：" + survey_record.get('tigejiancha') + "; "
+    medical_data = medical_data + "检查检验结果：" + test_data + examination_data + "; "
+    medical_data = medical_data + "以上为患者基本信息以及检查检验结果，请根据该患者，给出用药建议和治疗建议"
+
+    data = None
+    try:
+        data = call_ai_api({"message": medical_data})
+    except Exception as e:
+        print(datetime.now(), '调用 ai api 失败： ' + e.__str__())
+
+    if not data:
+        return
+    db = DbUtil(global_config.DB_HOST, global_config.DB_USERNAME, global_config.DB_PASSWORD,
+                global_config.DB_DATABASE_GYL)
+    update_sql = f"UPDATE nsyy_gyl.sq_surveys_detail set ai_result2 = '{data.get('data')}', " \
+                 f"fuzhujiancha = '{test_data}', fuzhujiancha_ret = '{examination_data}' " \
+                 f"where id = {survey_record.get('id')}"
+    db.execute(update_sql, need_commit=True)
+    del db
+
+
+
