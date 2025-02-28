@@ -745,9 +745,9 @@ def submit_medical_record(json_data):
     tigejiancha_remark = json_data.get('tigejiancha_remark', '')
     zhuankejiancha = json_data.get('zhuankejiancha', '')
     zhuankejiancha_remark = json_data.get('zhuankejiancha_remark', '')
-    test_results = json_data.get('fuzhujiancha', '')
+    test_results = json_data.get('fuzhujiancha', '') if json_data.get('fuzhujiancha') else ""
     fuzhujiancha_remark = json_data.get('fuzhujiancha_remark', '')
-    examination_result = json_data.get('fuzhujiancha_ret', '')
+    examination_result = json_data.get('fuzhujiancha_ret', '') if json_data.get('fuzhujiancha_ret') else ""
     fuzhujiancha_ret_remark = json_data.get('fuzhujiancha_ret_remark', '')
     chubuzhenduan = json_data.get('chubuzhenduan', '')
     yijian = json_data.get('yijian', '')
@@ -837,15 +837,20 @@ def patient_quest_details(json_data):
                 test_data = ""
                 if test_results:
                     for t in test_results:
+                        if not t.get('item_name'):
+                            return
                         test_data += f"{t['item_name']}：{t['item_result']} \n"
                 exam_data = ""
                 if examination_result:
                     for e in examination_result:
-                        exam_data += f"{e['item_sub_name']}：{e['item_sub_result']} {e['item_sub_unit']} {e['item_sub_flag']} \n"
+                        if not e.get('item_name'):
+                            return
+                        exam_data += f"{e['item_sub_name']}：{e['item_sub_result']} " \
+                                     f"{e['item_sub_unit']} {e['item_sub_flag']} \n"
 
-                update_sql = f"UPDATE nsyy_gyl.sq_surveys_detail SET fuzhujiancha = '{test_data}',  " \
-                             f"fuzhujiancha_ret = '{exam_data}', chubuzhenduan = '{zhenduan}' WHERE id = {d.get('id')}"
-                db.execute(update_sql, need_commit=True)
+                # update_sql = f"UPDATE nsyy_gyl.sq_surveys_detail SET fuzhujiancha = '{test_data}',  " \
+                #              f"fuzhujiancha_ret = '{exam_data}', chubuzhenduan = '{zhenduan}' WHERE id = {d.get('id')}"
+                # db.execute(update_sql, need_commit=True)
                 ques['FuZhuJianCha'] = test_data
                 ques['FuZhuJianChaJieGuo'] = exam_data
                 ques['ZhenDuan'] = zhenduan
@@ -1073,7 +1078,6 @@ def fetch_ai_result():
 def fetch_patient_test_result(survey_record):
     test_results, examination_result, _ = query_data(survey_record.get('sick_id'),
                                                      survey_record.get('visit_date'))
-    print(datetime.now(), survey_record.get('id'), test_results, examination_result)
     # 判断检查检验结果是否全部有结果了
     if len(test_results) == 0 and len(examination_result) == 0:
         # 没有开检查检验结果
@@ -1082,7 +1086,7 @@ def fetch_patient_test_result(survey_record):
     test_data = ""
     if test_results:
         for t in test_results:
-            if not t.get('item_name') and not t.get('item_result') and not t.get('img_result'):
+            if not t.get('report_url') and not t.get('item_result'):
                 return
             test_data = test_data + f"检查项目：{t.get('item_name')}, 检查结果：{t.get('item_result', '')} " \
                                     f"影像结果：{t.get('img_result', '')}; "
