@@ -478,7 +478,7 @@ def query_test_result(card_no, visit_date):
     :return:
     """
     sql = f"""
-        SELECT yj.yizhubh "doc_advice_id", jc.yizhuid "unique_key", yj.yizhumc "item_name", 
+        SELECT jc.jiluid "jiluid", yj.yizhubh "doc_advice_id", jc.yizhuid "unique_key", yj.yizhumc "item_name", 
         jc.zhenduan "item_result", jc.jianchasuojian "img_result", jc.yinxiangurl "img_url", 
         jc.yingxiangbgurl "report_url" FROM df_shenqingdan.yj_jianchasqd yj 
         LEFT JOIN df_cdr.yj_jianchabg jc on yj.jianchasqdid =jc.shenqingdanid AND  jc.zuofeibz = 0 
@@ -497,7 +497,7 @@ def query_examination_result(patient_id, visit_date):
     :return:
     """
     sql = f"""
-     select t.yzid AS "doc_advice_id", t.jianchamd AS "item_name", jymx.zhongwenmc AS "item_sub_name",
+     select t.jiluid AS "jiluid", t.yzid AS "doc_advice_id", t.jianchamd AS "item_name", jymx.zhongwenmc AS "item_sub_name",
         jymx.jianyanjg AS "item_sub_result", jymx.cankaofw AS "item_sub_refer", jymx.dangwei AS "item_sub_unit",
         jymx.yichangbz, jymx.jianyanxmid AS "item_sub_id",
         CASE
@@ -1086,7 +1086,7 @@ def fetch_patient_test_result(survey_record):
     test_data = ""
     if test_results:
         for t in test_results:
-            if not t.get('report_url') and not t.get('item_result'):
+            if not t.get('jiluid'):
                 return
             test_data = test_data + f"检查项目：{t.get('item_name')}, 检查结果：{t.get('item_result', '')} " \
                                     f"影像结果：{t.get('img_result', '')}; "
@@ -1097,7 +1097,7 @@ def fetch_patient_test_result(survey_record):
         for key, group in groupby(sorted_data, key=lambda x: (str(x["item_name"]))):
             # examination_data = examination_data + key
             for t in group:
-                if not t.get('item_name'):
+                if not t.get('jiluid'):
                     return
                 examination_data += f"{t['item_sub_name']}：{t['item_sub_result']} {t['item_sub_unit']} {t['item_sub_flag']}; "
 
