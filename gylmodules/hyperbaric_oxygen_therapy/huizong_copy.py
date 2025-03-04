@@ -177,7 +177,9 @@ def query_report(start_date, end_date):
                 '结算金额': float(d[8])
             })
     daily_stats = defaultdict(lambda: defaultdict(lambda: {'revenue': 0, 'patients': set()}))
+    people_set = set()
     for record in all_data:
+        people_set.add(record['病人ID'])
         date, department = record['计费日期'], record['计费科室']
         patient_id, amount = record['病人ID'], record['结算金额']
 
@@ -201,20 +203,23 @@ def query_report(start_date, end_date):
         people_total.append({"name": departments, **people})
         price_total.append({"name": departments, **price})
 
-    people_total.append({"name": "总计", **total_people})
-    price_total.append({"name": "总计", **total_price})
-    people_total = sort_departments(people_total)
-    price_total = sort_departments(price_total)
-    i = 0
-    for d in people_total:
-        d['sort_num'] = i
-        i = i + 1
-    i = 0
-    for d in price_total:
-        d['sort_num'] = i
-        i = i + 1
+
+    total = {}
+    t_people = 0
+    t_price = 0.0
+    for k, v in total_people.items():
+        t_people += v
+        total[k] = {'日期': k, '人数': v}
+
+    for k, v in total_price.items():
+        t_price += v
+        total[k] = {"工作量": v, **total[k]}
+    total = sorted(total.values(), key=lambda x: x['日期'])
+    total.append({'日期': "汇总", '人数': t_people, '工作量': t_price})
+    total.append({'日期': "人数汇总", '人数': len(people_set), '工作量': t_price})
+
     print(datetime.now(), '总耗时：', time.time() - start_time, start_date, end_date)
-    return people_total, price_total
+    return total, all_data
 
 
 def query_menzhen(sql):
@@ -231,5 +236,55 @@ def query_menzhen(sql):
         print(datetime.now(), '高压氧门诊费用记录查询失败', e)
         results = []
     return results
+
+
+def write_to_excel_with_sheets(data_sheets, file_name):
+    from openpyxl import Workbook
+    """
+    将多组数据写入 Excel 文件的不同 Sheet 中。
+
+    :param data_sheets: 数据列表，每个元素是一个字典，包含 "sheet_name" 和 "data" 信息
+                        示例：[{"sheet_name": "Sheet1", "data": [...]}, {...}]
+    :param file_name: 保存的 Excel 文件名
+    """
+    # 创建一个新的工作簿
+    workbook = Workbook()
+
+    # 遍历每个数据组，写入到对应的 Sheet 中
+    for i, sheet_info in enumerate(data_sheets):
+        sheet_name = sheet_info["sheet_name"]
+        data = sheet_info["data"]
+        column_order = sheet_info.get("column_order", [])
+
+        # 创建新 Sheet（第一个 Sheet 保留为默认激活的 Sheet）
+        if i == 0:
+            sheet = workbook.active
+            sheet.title = sheet_name
+        else:
+            sheet = workbook.create_sheet(title=sheet_name)
+
+        # 写入表头
+        if column_order:
+            sheet.append(column_order)
+
+        # 写入数据
+        for row in data:
+            sheet.append([row.get(col, '') for col in column_order])
+
+    # 保存文件
+    workbook.save(file_name)
+    print(f"数据已保存到 {file_name}")
+
+
+# query_report('2025-01-01', '2025-01-31')
+ret_total, all_data = query_report('2025-02-01', '2025-02-28')
+
+
+data_sheets = [
+    {"sheet_name": "费用总计", "data": ret_total, "column_order": ["日期", "人数", "工作量"]},
+    {"sheet_name": "治疗列表", "data": all_data, "column_order": ["计费日期", "病人ID", "计费科室", "结算金额"]},
+]
+
+# write_to_excel_with_sheets(data_sheets, '一月数据汇总.xlsx')
 
 
