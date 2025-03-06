@@ -7,6 +7,7 @@ from gylmodules import global_config
 
 from collections import defaultdict
 from datetime import datetime
+from decimal import Decimal
 
 
 def call_third_systems_obtain_data(type: str, sql: str, db_source: str):
@@ -19,24 +20,6 @@ def call_third_systems_obtain_data(type: str, sql: str, db_source: str):
         data = data.get('data')
     except Exception as e:
         print('调用第三方系统方法失败：type = ' + type + ' param = ' + str(param) + "   " + e.__str__())
-
-    return data
-
-
-def call_new_his(sql: str):
-    param = {"key": "o4YSo4nmde9HbeUPWY_FTp38mB1c", "sys": "newzt", "sql": sql}
-
-    query_oracle_url = "http://192.168.3.12:6080/oracle_sql"
-    if global_config.run_in_local:
-        query_oracle_url = "http://192.168.124.53:6080/oracle_sql"
-
-    data = []
-    try:
-        response = requests.post(query_oracle_url, timeout=200, json=param)
-        data = json.loads(response.text)
-        data = data.get('data')
-    except Exception as e:
-        print('调用新 HIS 查询数据失败：' + str(param) + e.__str__())
 
     return data
 
@@ -74,15 +57,33 @@ bingrenxx.bingrenzyid 病人住院ID, feiyong.keshimc 科室名称, feiyong.bing
 feiyong.jifeirxm 计费人姓名, feiyong.jifeiks 计费科室, feiyong.jifeiksmc 计费科室名称, feiyong.zhixingksmc 执行科室名称,
 feiyong.xiangmumc 项目名称, feiyong.shuliang 数量, feiyong.jiesuanje 结算金额 from df_jj_zhuyuan.zy_feiyong1 feiyong
 join df_jj_zhuyuan.zy_bingrenxx bingrenxx on feiyong.bingrenid = bingrenxx.bingrenid
-WHERE feiyong.zhixingks = 281 
+WHERE feiyong.zhixingks = '281'
 -- and  TRUNC(jifeirq) = TRUNC(SYSDATE)
 and feiyong.fashengrq >= to_date('{visit_date}','yyyy-mm-dd') and feiyong.fashengrq < to_date('{visit_end_date}','yyyy-mm-dd') + 1
 order by bingrenxx.xingming, feiyong.jifeirq
 """
 
-sheet1_data = call_new_his(sql)
-
-print(sheet1_data)
+sheet1_data = query_menzhen(sql)
+sheet1_data = [
+        {
+            '计费日期': row[0],
+            '姓名': row[1],
+            '住院号': row[2],
+            '病人ID': row[3],
+            '病人住院ID': row[4],
+            '科室名称': row[5],
+            '病区名称': row[6],
+            '主治医生姓名': row[7],
+            '计费人姓名': row[8],
+            '计费科室': row[9],
+            '计费科室名称': row[10],
+            '执行科室名称': row[11],
+            '项目名称': row[12],
+            '数量': float(row[13]) if isinstance(row[13], Decimal) else row[13],
+            '结算金额': float(row[14]) if isinstance(row[14], Decimal) else row[14],
+        }
+        for row in sheet1_data
+    ]
 print('总院人数:', len(sheet1_data))
 
 for d in sheet1_data:
@@ -108,7 +109,7 @@ for d in kangfu_data:
         '计费日期': d.get('计费日期'),
         '姓名': d.get('姓名'),
         '住院号': "",
-        '病人ID': "",
+        '病人ID': d.get('病人ID'),
         '病人住院ID': "",
         '科室名称': d.get('病人科室名称'),
         '病区名称': d.get('病人科室名称'),
@@ -122,7 +123,7 @@ for d in kangfu_data:
         '结算金额': d.get('实收金额')
     })
 
-print(sheet1_data)
+# print(sheet1_data)
 print('康复人数: ', len(kangfu_data))
 
 sql_menzhen = f"""
@@ -160,76 +161,11 @@ for d in menzhen_data:
     })
 
 
-
-
-sql = f"""
-SELECT jifeiks 计费科室, jifeiksmc 计费科室名称, COUNT(DISTINCT bingrenid) AS 病人数量,
-SUM(jiesuanje) AS 价格总数 FROM df_jj_zhuyuan.zy_feiyong1
-WHERE zhixingks = 281
--- AND TRUNC(jifeirq) = TRUNC(SYSDATE)
-and jifeirq >= to_date('{visit_date}','yyyy-mm-dd') and jifeirq < to_date('{visit_date}','yyyy-mm-dd') + 1
-GROUP BY jifeiks, jifeiksmc ORDER BY 价格总数 DESC
-"""
-
-sheet2_data = call_new_his(sql)
-
-price_data = []
-for d in kangfu_data:
-    price_data.append({
-        '计费科室': d.get('病人科室ID'),
-        '计费科室名称': d.get('病人科室名称'),
-        '姓名': d.get('姓名'),
-        '金额': d.get('实收金额'),
-    })
-
-result = {}
-for record in price_data:
-    dept_id = record['计费科室']
-    dept_name = record['计费科室名称']
-    amount = record['金额']
-
-    # 如果科室不存在，初始化
-    if dept_id not in result:
-        result[dept_id] = {'科室名称': dept_name, '人数': 0, '总金额': 0.0}
-
-    # 更新科室统计
-    result[dept_id]['人数'] += 1
-    result[dept_id]['总金额'] += amount
-
-for dept_id, stats in result.items():
-    sheet2_data.append({
-        '计费科室': dept_id,
-        '计费科室名称': stats['科室名称'],
-        '病人数量': stats['人数'],
-        '价格总数': stats['总金额']
-    })
-
-
-total_price = 0.0
-total_patient = 0
-for d in sheet2_data:
-    total_price += float(d.get('价格总数'))
-    total_patient += int(d.get('病人数量'))
-    # print(d, ',')
-
-print('总价格: ', total_price, '总人数: ', total_patient)
-
-sheet2_data.append({
-    '计费科室': '总计',
-    '计费科室名称': '总计',
-    '病人数量': total_patient,
-    '价格总数': total_price
-})
-
-
 print('======================================')
-# for d in sheet1_data:
-#     print(d)
-
-print('======================================')
-print(sheet2_data)
-# for d in sheet2_data:
-#     print(d)
+people_set = set()
+for d in sheet1_data:
+    people_set.add(d.get('病人ID'))
+    # print(d)
 
 
 def write_to_excel_with_sheets(data_sheets, file_name):
@@ -271,7 +207,6 @@ def write_to_excel_with_sheets(data_sheets, file_name):
 
 
 data_sheets = [
-    {"sheet_name": "费用总计", "data": sheet2_data, "column_order": ["计费科室", "计费科室名称", "病人数量", "价格总数"]},
     {"sheet_name": "治疗列表", "data": sheet1_data, "column_order": ["院区", "计费日期", "姓名", "住院号", "病人ID", "病人住院ID", "科室名称", "病区名称",
                                                                      "主治医生姓名", "计费人姓名", "计费科室", "计费科室名称", "执行科室名称", "项目名称", "数量", "结算金额"]},
 ]
@@ -279,8 +214,8 @@ data_sheets = [
 
 # 写入 Excel 文件
 # file_name = datetime.now().strftime('%Y%m%d') + '工作量.xlsx'
-file_name = visit_date + '工作量.xlsx'
-write_to_excel_with_sheets(data_sheets, file_name)
+# file_name = visit_date + '工作量.xlsx'
+# write_to_excel_with_sheets(data_sheets, file_name)
 
 
 

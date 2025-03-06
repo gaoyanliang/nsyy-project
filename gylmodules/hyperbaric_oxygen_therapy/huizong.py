@@ -2,12 +2,19 @@ import json
 import requests
 import time
 import concurrent.futures
+import psycopg2
 from collections import defaultdict
-
-import pandas as pd
 
 from datetime import datetime, timedelta
 from gylmodules import global_config
+
+DB_CONFIG = {
+    "dbname": "df_his",
+    "user": "ogg",
+    "password": "nyogg@2024",
+    "host": "192.168.8.57",
+    "port": "6000"
+}
 
 
 def call_third_systems_obtain_data(type: str, sql: str, db_source: str):
@@ -22,7 +29,8 @@ def call_third_systems_obtain_data(type: str, sql: str, db_source: str):
             data = data.get('data')
         except Exception as e:
             data = []
-            print(datetime.now(), '调用第三方系统方法失败：type = orcl_db_read ' + ' param = ' + str(param) + "   " + e.__str__())
+            print(datetime.now(),
+                  '调用第三方系统方法失败：type = orcl_db_read ' + ' param = ' + str(param) + "   " + e.__str__())
     else:
         # 根据住院号/门诊号查询 病人id 主页id
         from tools import orcl_db_read
@@ -30,154 +38,168 @@ def call_third_systems_obtain_data(type: str, sql: str, db_source: str):
             data = orcl_db_read(param)
         except Exception as e:
             data = []
-            print(datetime.now(), '调用第三方系统方法失败：type = orcl_db_read ' + ' param = ' + str(param) + "   " + e.__str__())
-
-    return data
-
-
-def call_new_his(sql: str):
-    param = {"key": "o4YSo4nmde9HbeUPWY_FTp38mB1c", "sys": "newzt", "sql": sql}
-
-    query_oracle_url = "http://127.0.0.1:6080/oracle_sql"
-    if global_config.run_in_local:
-        query_oracle_url = "http://192.168.124.53:6080/oracle_sql"
-
-    data = []
-    try:
-        response = requests.post(query_oracle_url, timeout=100, json=param)
-        data = json.loads(response.text)
-        data = data.get('data')
-    except Exception as e:
-        print(datetime.now(), '高压氧报表 调用新 HIS 查询数据失败：' + str(param) + e.__str__())
+            print(datetime.now(),
+                  '调用第三方系统方法失败：type = orcl_db_read ' + ' param = ' + str(param) + "   " + e.__str__())
 
     return data
 
 
 def sort_departments(departments):
-    # Dictionary to convert Chinese numerals to Arabic
-    chinese_to_arabic = {
-        '一': 1, '二': 2, '三': 3, '四': 4, '五': 5, '六': 6, '七': 7, '八': 8, '九': 9, '十': 10
+    # 常量定义提高可读性
+    SPECIAL_CATEGORIES = {
+        '神经内科': {'keys': ['神经内科', '神内'], 'priority': 0},
+        '康复院区': {'keys': ['康复院区'], 'priority': 1},
+        '神经外科': {'keys': ['神经外科', '神外'], 'priority': 2},
+        '烧伤科': {'keys': ['烧伤科'], 'priority': 3},
+        '肿瘤科': {'keys': ['肿瘤科'], 'priority': 4},
+        '心血管内科': {'keys': ['心血管内科'], 'priority': 5},
+        '门诊': {'keys': ['门诊'], 'priority': 7},
+        '总计': {'keys': ['总计'], 'priority': 8}
     }
 
-    def get_number_from_name(dept_name):
-        words = dept_name.split()
-        for word in words:
-            for char in word:
-                if char in chinese_to_arabic:
-                    return chinese_to_arabic[char]
-        # If no Chinese numeral found, try to find an Arabic number
-        nums = [int(s) for s in dept_name.split() if s.isdigit()]
-        return nums[0] if nums else 0
+    CHINESE_NUM_MAP = {
+        '一': 1, '二': 2, '三': 3, '四': 4, '五': 5,
+        '六': 6, '七': 7, '八': 8, '九': 9, '十': 10
+    }
 
-    # Custom sorting function
-    def sort_key(dept):
-        dept_name = dept['name']
+    def parse_chinese_number(text):
+        """解析中文数字字符串为阿拉伯数字"""
+        result, temp = 0, 0
+        for char in text:
+            value = CHINESE_NUM_MAP.get(char, 0)
+            if value >= 10:  # 处理单位字符
+                result += temp * value
+                temp = 0
+            else:
+                temp = temp * 10 + value
+        return result + temp
 
-        if '神经内科' in dept_name or '神内' in dept_name:
-            return (0, get_number_from_name(dept_name))
-        elif '康复院区' in dept_name:
-            return (1, 0)
-        elif '神经外科' in dept_name or '神外' in dept_name:
-            return (2, get_number_from_name(dept_name))
-        elif '烧伤科' in dept_name:
-            return (3, get_number_from_name(dept_name))
-        elif '肿瘤科' in dept_name:
-            return (4, get_number_from_name(dept_name))
-        elif '心血管内科' in dept_name:
-            return (5, get_number_from_name(dept_name))
-        elif '门诊' in dept_name:
-            return (7, 0)  # Outpatient clinic
-        elif dept_name == '总计':
-            return (8, 0)  # Outpatient clinic
-        else:
-            return (6, dept_name)  # Other departments
+    def extract_number(dept_name):
+        """从科室名称中提取数字（支持中文数字和阿拉伯数字）"""
+        import re
+        # 同时匹配中文数字和阿拉伯数字
+        match = re.search(r'(\d+|[一二三四五六七八九十]+)', dept_name)
+        if not match:
+            return 0  # 默认值
 
-    # Sort departments using the custom key
-    sorted_depts = sorted(departments, key=sort_key)
+        num_str = match.group()
+        if num_str.isdigit():
+            return int(num_str)
 
-    return sorted_depts
+        # 处理中文数字
+        try:
+            return parse_chinese_number(num_str)
+        except:
+            return 0
 
+    def get_category_priority(dept_name):
+        """获取科室分类优先级"""
+        for category in SPECIAL_CATEGORIES.values():
+            if any(key in dept_name for key in category['keys']):
+                return (category['priority'], extract_number(dept_name))
+        # 默认分类（其他科室按名称排序）
+        return (6, dept_name)
 
-def get_next_day(end_date_str):
-    end_date = datetime.strptime(end_date_str, '%Y-%m-%d')
-    next_day = end_date + timedelta(days=1)
-    return next_day.strftime('%Y-%m-%d')
+    # 执行排序（保证稳定性）
+    return sorted(departments,
+                  key=lambda x: get_category_priority(x['name']),
+                  reverse=False
+                  )
 
 
 def query_report(start_date, end_date):
     start_time = time.time()
-    end_date = get_next_day(end_date)
-    sql_zongyuan = f"""
-        SELECT to_char(fashengrq,'yyyy-mm-dd') AS 计费日期, jifeiksmc AS 计费科室, bingrenid AS 病人ID,
-        jiesuanje AS 结算金额 FROM df_jj_zhuyuan.zy_feiyong1
-        WHERE jifeirq BETWEEN DATE '{start_date}' AND DATE'{end_date}' AND zhixingks = 281 
-    """
-    sql_kangfu = f"""
-        SELECT to_char(发生时间, 'yyyy-mm-dd') as 计费日期, '康复院区' as 计费科室, 病人ID, 实收金额 as 结算金额 
-        FROM 住院费用记录 WHERE 发生时间 BETWEEN TO_DATE('{start_date}', 'yyyy-mm-dd') 
-        AND TO_DATE('{end_date}', 'yyyy-mm-dd') AND 执行部门ID = 342 
-    """
+    end_date = (datetime.strptime(end_date, '%Y-%m-%d') + timedelta(days=1)).strftime('%Y-%m-%d')
 
-    sql_menzhen = f"""
-        SELECT to_char(COALESCE(t.zhixingrq, t1.shoufeirq2), 'yyyy-mm-dd') 计费日期,
-               t.bingrenxm 姓名, t.kaidanksmc 开单科室名称,
-               t.kaidanysxm 开单人, t.zhixingrxm 执行人姓名, 
-               t.zhixingksmc 执行科室名称, t1.xiangmumc 项目名称, t1.shuliang 数量, t1.jiesuanje 结算金额, t.bingrenid 病人ID 
-          FROM df_jj_menzhen.mz_feiyong1 t JOIN df_jj_menzhen.mz_feiyong2 t1 ON t.feiyongid = t1.feiyongid
-          LEFT JOIN df_jj_menzhen.mz_shoufei t2 ON t.shoufeiid = t2.shoufeiid
-         WHERE t.zhixingks = '281'
-           and COALESCE(t.zhixingrq, t1.shoufeirq2) >= to_date('{start_date}', 'yyyy-mm-dd') and
-         COALESCE(t.zhixingrq, t1.shoufeirq2) < to_date('{end_date}', 'yyyy-mm-dd') + 1
-         order by t.bingrenxm, t.zhixingrq
+    # SQL 查询（使用 f-string 方式）
+    sql_queries = {
+        "zongyuan": f"""
+            SELECT to_char(fashengrq, 'yyyy-mm-dd') AS 计费日期, jifeiksmc AS 计费科室, bingrenid AS 病人ID, 
+                   jiesuanje AS 结算金额 
+            FROM df_jj_zhuyuan.zy_feiyong1 
+            WHERE jifeirq BETWEEN '{start_date}' AND '{end_date}' AND zhixingks = '281'
+        """,
+        "kangfu": f"""
+            SELECT to_char(发生时间, 'yyyy-mm-dd') AS 计费日期, '康复院区' AS 计费科室, 病人ID, 实收金额 AS 结算金额
+            FROM 住院费用记录 WHERE 发生时间 BETWEEN DATE '{start_date}' AND DATE '{end_date}' AND 执行部门ID = 342 
+        """,
+        "menzhen": f"""
+            SELECT to_char(COALESCE(t.zhixingrq, t1.shoufeirq2), 'yyyy-mm-dd') AS 计费日期, 
+                   t.bingrenxm AS 姓名, t.kaidanksmc AS 开单科室名称,
+                   t.kaidanysxm AS 开单人, t.zhixingrxm AS 执行人姓名, 
+                   t.zhixingksmc AS 执行科室名称, t1.xiangmumc AS 项目名称, 
+                   t1.shuliang AS 数量, t1.jiesuanje AS 结算金额, t.bingrenid AS 病人ID 
+            FROM df_jj_menzhen.mz_feiyong1 t
+            JOIN df_jj_menzhen.mz_feiyong2 t1 ON t.feiyongid = t1.feiyongid
+            WHERE t.zhixingks = '281'
+              AND COALESCE(t.zhixingrq, t1.shoufeirq2) BETWEEN '{start_date}' AND '{end_date}'
+            ORDER BY t.bingrenxm, t.zhixingrq
         """
+    }
 
     # 并行查询
-    with concurrent.futures.ThreadPoolExecutor(max_workers=4) as executor:
-        future_zongyuan = executor.submit(call_new_his, sql_zongyuan)
-        future_kangfu = executor.submit(call_third_systems_obtain_data, 'orcl_db_read', sql_kangfu, "kfhis")
-        future_menzhen = executor.submit(query_menzhen, sql_menzhen)
+    with concurrent.futures.ThreadPoolExecutor(max_workers=3) as executor:
+        future_zongyuan = executor.submit(safe_postgres_query, sql_queries["zongyuan"])
+        future_menzhen = executor.submit(safe_postgres_query, sql_queries["menzhen"])
+        future_kangfu = executor.submit(call_third_systems_obtain_data, 'orcl_db_read', sql_queries["kangfu"], "kfhis")
 
         try:
             zongyuan_data = future_zongyuan.result()
-            kangfu_data = future_kangfu.result()
             menzhen_data = future_menzhen.result()
+            kangfu_data = future_kangfu.result()
         except Exception as e:
             print(f"费用查询失败: {e}")
+            return [], []  # 查询失败时返回空数据
             # 可以在这里执行额外的清理操作，或者重新抛出异常
 
+    def convert_data(todo_data):
+        from decimal import Decimal
+        return [
+            {
+                '病人ID': row[2],
+                '结算金额': float(row[3]) if isinstance(row[3], Decimal) else row[3],
+                '计费日期': row[0],
+                '计费科室': row[1]
+            }
+            for row in todo_data if datetime.strptime(row[0], '%Y-%m-%d') >= datetime.strptime(start_date, '%Y-%m-%d')
+        ]
+
+    zongyuan_data = convert_data(zongyuan_data) if zongyuan_data else []
     zongyuan_new_data = []
     for d in zongyuan_data:
         if datetime.strptime(d.get('计费日期'), '%Y-%m-%d') < datetime.strptime(start_date, '%Y-%m-%d'):
             continue
         zongyuan_new_data.append(d)
     zongyuan_data = zongyuan_new_data
-    print('查询耗时：', time.time() - start_time, '数量: ', len(kangfu_data), len(zongyuan_data))
-
     zongyuan_data = zongyuan_data if zongyuan_data is not None else []
     kangfu_data = kangfu_data if kangfu_data is not None else []
     all_data = zongyuan_data + kangfu_data
     if menzhen_data:
-        for d in menzhen_data:
-            all_data.append({
+        all_data += [
+            {
                 '院区': '总院',
-                '计费日期': d[0],
-                '姓名': d[1],
+                '计费日期': row[0],
+                '姓名': row[1],
                 '住院号': "",
-                '病人ID': d[9],
+                '病人ID': row[9],
                 '病人住院ID': "",
-                '科室名称': d[2],
-                '病区名称': d[2],
-                '主治医生姓名': d[3],
-                '计费人姓名': d[4],
+                '科室名称': row[2],
+                '病区名称': row[2],
+                '主治医生姓名': row[3],
+                '计费人姓名': row[4],
                 '计费科室': '门诊',
                 '计费科室名称': '门诊',
-                '执行科室名称': d[5],
-                '项目名称': d[6],
-                '数量': float(d[7]),
-                '结算金额': float(d[8])
-            })
+                '执行科室名称': row[5],
+                '项目名称': row[6],
+                '数量': float(row[7]),
+                '结算金额': float(row[8])
+            }
+            for row in menzhen_data
+        ]
     daily_stats = defaultdict(lambda: defaultdict(lambda: {'revenue': 0, 'patients': set()}))
+    people_set = set()
     for record in all_data:
+        people_set.add(record['病人ID'])
         date, department = record['计费日期'], record['计费科室']
         patient_id, amount = record['病人ID'], record['结算金额']
 
@@ -201,7 +223,13 @@ def query_report(start_date, end_date):
         people_total.append({"name": departments, **people})
         price_total.append({"name": departments, **price})
 
-    people_total.append({"name": "总计", **total_people})
+    people_total.append({"name": "人次总计", **total_people})
+
+    # 将最后一天改为人数统计
+    last_day = max(total_people.keys())
+    modified_data = {date: (len(people_set) if date == last_day else 0) for date, _ in total_people.items()}
+    people_total.append({"name": "人数总计", **modified_data})
+
     price_total.append({"name": "总计", **total_price})
     people_total = sort_departments(people_total)
     price_total = sort_departments(price_total)
@@ -217,19 +245,16 @@ def query_report(start_date, end_date):
     return people_total, price_total
 
 
-def query_menzhen(sql):
+def safe_postgres_query(sql):
     results = []
     try:
-        import psycopg2
-        conn = psycopg2.connect(dbname="df_his", user="ogg", password="nyogg@2024", host="192.168.8.57", port="6000")
-        cur = conn.cursor()
-        cur.execute(sql)
-        results = cur.fetchall()
-        cur.close()
-        conn.close()
+        # 使用 `with` 语句确保自动关闭连接
+        with psycopg2.connect(**DB_CONFIG) as conn:
+            with conn.cursor() as cur:
+                cur.execute(sql)
+                results = cur.fetchall()
+
     except Exception as e:
         print(datetime.now(), '高压氧门诊费用记录查询失败', e)
-        results = []
+
     return results
-
-
