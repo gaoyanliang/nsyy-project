@@ -209,7 +209,7 @@ def data_statistics():
     json_data = {}
     try:
         json_data = json.loads(request.get_data().decode('utf-8'))
-        data = hbot_server.data_statistics(json_data)
+        people_total, price_total = hbot_server.data_statistics(json_data)
     except Exception as e:
         print(datetime.now(), "data_statistics exception: param = ", json_data, e)
         return jsonify({
@@ -219,7 +219,8 @@ def data_statistics():
     return jsonify({
         'code': 20000,
         'res': 'query successes',
-        'data': data
+        'people_total': people_total,
+        "price_total": price_total
     })
 
 
