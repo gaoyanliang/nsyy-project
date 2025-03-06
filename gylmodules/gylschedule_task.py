@@ -20,6 +20,7 @@ from apscheduler.schedulers.background import BackgroundScheduler
 
 from gylmodules.critical_value.cv_manage import fetch_cv_record
 from gylmodules.hyperbaric_oxygen_therapy.hbot_server import hbot_run_everyday
+from gylmodules.questionnaire.sq_server import fetch_ai_result
 from gylmodules.utils.db_utils import DbUtil
 from gylmodules.workstation.message.message import flush_msg_cache
 from gylmodules.workstation.schedule_task import write_data_to_db
@@ -215,12 +216,13 @@ def regular_update_dept_info():
 
 def update_appt_capacity():
     url = "http://127.0.0.1:6092/gyl/appt/update_capacity"
-    # url = "http://127.0.0.1:8080/gyl/appt/update_capacity"
+    if global_config.run_in_local:
+        url = "http://127.0.0.1:8080/gyl/appt/update_capacity"
     response = requests.post(url)
     if response.status_code == 200:
-        print("Successfully updated appointment capacity.")
+        print(datetime.now(), "Successfully updated appointment capacity.")
     else:
-        print("Failed to update appointment capacity. Status code:", response.status_code)
+        print(datetime.now(), "Failed to update appointment capacity. Status code:", response.status_code)
 
 
 """
@@ -300,12 +302,12 @@ def schedule_task():
     # 项目启动时，执行一次，初始化数据。 之后每天凌晨执行
     print("2. 综合预约模块定时任务 ", datetime.now())
     if global_config.schedule_task['appt_daily']:
-        run_time = datetime.now() + timedelta(seconds=20)
+        run_time = datetime.now() + timedelta(seconds=15)
         gylmodule_scheduler.add_job(run_everyday, trigger='date', run_date=run_time)
-        gylmodule_scheduler.add_job(update_today_doc_info, 'cron', hour=6, minute=10, id='update_today_doc_info')
-        gylmodule_scheduler.add_job(run_everyday, 'cron', hour=1, minute=30, id='appt_daily')
-        gylmodule_scheduler.add_job(update_appt_capacity, 'cron', hour=1, minute=45, id='update_appt_capacity')
-        gylmodule_scheduler.add_job(do_update, trigger='interval', seconds=60*5, coalesce=True, id='do_update_doc')
+        gylmodule_scheduler.add_job(update_today_doc_info, 'cron', hour=7, minute=5, id='update_today_doc_info')
+        gylmodule_scheduler.add_job(update_appt_capacity, 'cron', hour=7, minute=10, id='update_appt_capacity')
+        gylmodule_scheduler.add_job(run_everyday, 'cron', hour=7, minute=15, id='appt_daily')
+        gylmodule_scheduler.add_job(do_update, trigger='interval', seconds=5*60, coalesce=True, id='do_update_doc')
 
     print("3. 定时任务状态 ", datetime.now())
     gylmodule_scheduler.add_job(task_state, trigger='interval', seconds=6*60*60, id='sched_state')
@@ -318,6 +320,10 @@ def schedule_task():
     # ======================  高压氧定时任务  ======================
     print("5. 高压氧模块定时任务 ", datetime.now())
     gylmodule_scheduler.add_job(hbot_run_everyday, 'cron', hour=1, minute=30, id='hbot_run_everyday')
+
+    # ======================  问卷调查定时任务  ======================
+    print("6. 问卷调查模块定时任务 ", datetime.now())
+    gylmodule_scheduler.add_job(fetch_ai_result, trigger='interval', seconds=20*60, id='fetch_ai_result')
 
     # ======================  Start ======================
     gylmodule_scheduler.start()
