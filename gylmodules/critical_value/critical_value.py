@@ -742,7 +742,7 @@ def manual_report_cv(json_data):
     last_rowid = db.execute(insert_sql, need_commit=True)
     if last_rowid == -1:
         del db
-        raise Exception("系统危急值入库失败! " + str(args))
+        raise Exception(datetime.now(), "系统危急值入库失败! ")
 
     # 发送危机值 直接通知医生和护士
     msg = '[{} - {} - {} - {}]'.format(json_data.get('patient_name', 'unknown'), json_data.get('req_docno', 'unknown'),
@@ -915,7 +915,7 @@ def create_cv_by_system(json_data, cv_source):
     last_rowid = db.execute(insert_sql, need_commit=True)
     if last_rowid == -1:
         del db
-        raise Exception("系统危急值入库失败! " + str(args))
+        raise Exception(datetime.now(), "系统危急值入库失败! ")
 
     # 发送危机值 直接通知医生和护士
     msg = '[{} - {} - {} - {}]'.format(cvd.get('patient_name', 'unknown'), cvd.get('req_docno', 'unknown'),
