@@ -304,9 +304,9 @@ def schedule_task():
     if global_config.schedule_task['appt_daily']:
         run_time = datetime.now() + timedelta(seconds=15)
         gylmodule_scheduler.add_job(run_everyday, trigger='date', run_date=run_time)
-        gylmodule_scheduler.add_job(update_today_doc_info, 'cron', hour=7, minute=5, id='update_today_doc_info')
-        gylmodule_scheduler.add_job(update_appt_capacity, 'cron', hour=7, minute=10, id='update_appt_capacity')
-        gylmodule_scheduler.add_job(run_everyday, 'cron', hour=7, minute=15, id='appt_daily')
+        gylmodule_scheduler.add_job(update_today_doc_info, 'cron', hour=7, minute=1, id='update_today_doc_info')
+        gylmodule_scheduler.add_job(update_appt_capacity, 'cron', hour=7, minute=4, id='update_appt_capacity')
+        gylmodule_scheduler.add_job(run_everyday, 'cron', hour=7, minute=7, id='appt_daily')
         gylmodule_scheduler.add_job(do_update, trigger='interval', seconds=5*60, coalesce=True, id='do_update_doc')
 
     print("3. 定时任务状态 ", datetime.now())
