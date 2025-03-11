@@ -24,9 +24,9 @@ def call_third_systems_obtain_data(url: str, type: str, param: dict):
     data = []
     try:
         if global_config.run_in_local:
-            response = requests.post(f"http://192.168.124.53:6080/{url}", timeout=10, json=param)
+            response = requests.post(f"http://192.168.124.53:6080/{url}", timeout=20, json=param)
         else:
-            response = requests.post(f"http://127.0.0.1:6080/{url}", timeout=10, json=param)
+            response = requests.post(f"http://127.0.0.1:6080/{url}", timeout=20, json=param)
         data = json.loads(response.text)
         if type != 'his_pers_reg':
             data = data.get('data')
@@ -49,15 +49,17 @@ def call_new_his(sql: str, clobl: list = None):
         query_oracle_url = "http://192.168.124.53:6080/oracle_sql"
 
     data = []
+    err_data = ''
     try:
         response = requests.post(query_oracle_url, json=param, timeout=30)
+        err_data = response.text
         if response.status_code != 200 or not response.text.strip():
-            print(datetime.now(), '请求失败，服务器未返回数据：', response.status_code)
+            print(datetime.now(), '请求失败，服务器未返回数据：', response.status_code, err_data)
             return []
         data = json.loads(response.text)
         data = data.get('data', [])
     except Exception as e:
-        print(datetime.now(), '问卷调查 调用新 HIS 查询数据失败：', param.get('sql'), e)
+        print(datetime.now(), '问卷调查 调用新 HIS 查询数据失败：', param.get('sql'), err_data, e)
 
     return data
 
