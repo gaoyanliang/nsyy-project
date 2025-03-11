@@ -50,11 +50,14 @@ def call_new_his(sql: str, clobl: list = None):
 
     data = []
     try:
-        response = requests.post(query_oracle_url, json=param)
+        response = requests.post(query_oracle_url, json=param, timeout=30)
+        if response.status_code != 200 or not response.text.strip():
+            print(datetime.now(), '请求失败，服务器未返回数据：', response.status_code)
+            return []
         data = json.loads(response.text)
         data = data.get('data', [])
     except Exception as e:
-        print(datetime.now(), '问卷调查 调用新 HIS 查询数据失败：' + str(param) + e.__str__())
+        print(datetime.now(), '问卷调查 调用新 HIS 查询数据失败：', param.get('sql'), e)
 
     return data
 
