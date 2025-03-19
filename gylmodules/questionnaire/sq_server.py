@@ -525,8 +525,8 @@ def query_zhen_duan(sick_id, visit_date):
     if not sick_id:
         return ""
     sql = f"""
-        SELECT brxx.zhenduanmc 名称 FROM df_lc_menzhen.zj_zhenduan brxx WHERE brxx.bingrenid = '{sick_id}' and
-        TRUNC(brxx.chuangjiansj) >= to_date('{visit_date}', 'yyyy-mm-dd') 
+        SELECT brxx.zhenduanmc 名称 FROM df_lc_menzhen.zj_zhenduan brxx WHERE brxx.bingrenid = '{sick_id}' and 
+        brxx.zuofeibz = 0 and TRUNC(brxx.chuangjiansj) >= to_date('{visit_date}', 'yyyy-mm-dd') 
         and TRUNC(brxx.chuangjiansj) < to_date('{visit_date}', 'yyyy-mm-dd') + 1 order by brxx.chuangjiansj desc
     """
     zhenduans = call_new_his(sql)
