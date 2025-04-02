@@ -789,10 +789,11 @@ def create_cv_by_system(json_data, cv_source):
     if cvd['dept_id'] and not cvd['dept_id'].isdigit():
         # print('当前危机值病人科室不是数字，跳过。 ' + str(json_data))
         return
-    # 如果是康复中医院，跳过(不是总院的科室，不处理)
+    # 如果是康复中医院，跳过(不是总院的科室，不处理)  高压氧 康复医学科病区 过滤 2025-04-02 17:30
     # 社区门诊需要处理 联系人 吴主任 13333671269
     if cvd['dept_id'] and cvd['dept_id'].isdigit() and \
-            (int(cvd['dept_id']) == 1000760 or str(cvd['dept_id']) == '0812'):
+            (int(cvd['dept_id']) == 1000760 or str(cvd['dept_id']) == '0812'
+             or int(cvd['dept_id']) == 1000700 or int(cvd['dept_id']) == 281):
         return
 
     # 解析危机值上报信息
