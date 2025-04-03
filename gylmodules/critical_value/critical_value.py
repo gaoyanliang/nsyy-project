@@ -53,25 +53,6 @@ def his_dept_pers1(pers_no):
     return pers_list
 
 
-# 内部调用标准功能
-def his_dept1(jdata):
-    """
-    todo his 切换期间临时使用  部门表信息自己维护
-    :param jdata:
-    :return:
-    """
-    db = DbUtil(global_config.DB_HOST, global_config.DB_USERNAME, global_config.DB_PASSWORD,
-                global_config.DB_DATABASE_GYL)
-    rs = ""
-    if jdata.get('dept_type'): rs += f" and dept_type='{jdata['dept_type']}'"
-    if jdata.get('his_id'): rs += f" and ori_id='{jdata['his_id']}'"
-    query_sql = f"select dept_id, dept_name, dept_code, ori_id as his_dept_id, dept_mng_name, dept_mng " \
-                f"from hr_dept where dept_source=3 and comp_id=12 {rs}"
-    dff = db.query_all(query_sql)
-    del db
-    return dff
-
-
 """
 调用第三方系统获取数据
 """
@@ -97,18 +78,17 @@ def call_third_systems_obtain_data(type: str, param: dict):
             orcl_db_update(param)
         elif type == 'get_dept_info_by_emp_num':
             # 根据员工号，查询科室信息
-            # from tools import his_dept_pers
-            # data = his_dept_pers(param)
-            try:
-                data = his_dept_pers1(param.get('pers_no'))
-            except Exception as e:
-                data = []
-                print(datetime.now(),
-                      '根据员工号，查询科室信息： param = ' + str(param) + "   " + e.__str__())
+            from tools import his_dept_pers
+            data = his_dept_pers(param)
+            # try:
+            #     data = his_dept_pers1(param.get('pers_no'))
+            # except Exception as e:
+            #     data = []
+            #     print(datetime.now(),
+            #           '根据员工号，查询科室信息： param = ' + str(param) + "   " + e.__str__())
         elif type == 'cache_all_dept_info':
-            # from tools import his_dept
-            # data = his_dept(param)
-            data = his_dept1(param)
+            from tools import his_dept
+            data = his_dept(param)
         elif type == 'send_wx_msg':
             # 向企业微信推送消息
             from tools import send_wx_msg
