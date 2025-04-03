@@ -12,7 +12,6 @@ parse = Blueprint('medical record analysis', __name__, url_prefix='/parse')
 def query_record_and_parse():
     try:
         json_data = json.loads(request.get_data().decode('utf-8'))
-        print(json_data)
         cda, structure = parse_server.query_record_and_parse(json_data)
     except Exception as e:
         timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
