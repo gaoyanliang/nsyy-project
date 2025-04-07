@@ -78,14 +78,14 @@ def call_third_systems_obtain_data(type: str, param: dict):
             orcl_db_update(param)
         elif type == 'get_dept_info_by_emp_num':
             # 根据员工号，查询科室信息
-            from tools import his_dept_pers
-            data = his_dept_pers(param)
-            # try:
-            #     data = his_dept_pers1(param.get('pers_no'))
-            # except Exception as e:
-            #     data = []
-            #     print(datetime.now(),
-            #           '根据员工号，查询科室信息： param = ' + str(param) + "   " + e.__str__())
+            # from tools import his_dept_pers
+            # data = his_dept_pers(param)
+            try:
+                data = his_dept_pers1(param.get('pers_no'))
+            except Exception as e:
+                data = []
+                print(datetime.now(),
+                      '根据员工号，查询科室信息： param = ' + str(param) + "   " + e.__str__())
         elif type == 'cache_all_dept_info':
             from tools import his_dept
             data = his_dept(param)
@@ -101,7 +101,7 @@ def call_third_systems_obtain_data(type: str, param: dict):
             if result:
                 return result[0].get('HIS_DEPT_ID'), result[0].get('DEPT_NAME'), \
                     result[0].get('PERS_NAME'), result[0].get('oa_pers_id')
-            print(datetime.now(), '不存在缺省部门 ', str(param))
+            # print(datetime.now(), '不存在缺省部门 ', str(param))
             return data[0].get('HIS_DEPT_ID'), data[0].get('DEPT_NAME'), \
                 data[0].get('PERS_NAME'), data[0].get('oa_pers_id')
         else:
@@ -618,6 +618,21 @@ def manual_report_cv(json_data):
     :param json_data:
     :return:
     """
+    # 查询最近 10 分钟内 同一个人同一个危机值 是否有相同的记录
+    query_sql = f"select 1 from nsyy_gyl.cv_info where time >= DATE_SUB(NOW(), INTERVAL 10 MINUTE) " \
+                f"and cv_type = {int(json_data.get('cv_type'))} " \
+                f"and patient_treat_id = '{json_data.get('patient_treat_id')}' " \
+                f"and alertman = '{json_data.get('alertman')}' " \
+                f"and cv_name = '{json_data.get('cv_name')}' " \
+                f"and patient_name = '{json_data.get('patient_name')}' "
+
+    db = DbUtil(global_config.DB_HOST, global_config.DB_USERNAME, global_config.DB_PASSWORD,
+                global_config.DB_DATABASE_GYL)
+    records = db.query_all(query_sql)
+    if records:
+        del db
+        raise Exception("该危急值已上报过, 请勿重复上报")
+
     redis_client = redis.Redis(connection_pool=pool)
     if json_data['alertman'] == '0':
         json_data['alert_dept_id'], json_data['alert_dept_name'], \
@@ -713,8 +728,6 @@ def manual_report_cv(json_data):
 
     # 手工上报 报告时间 = 上报时间
     json_data['jianchasj'] = json_data.get('alertdt')
-    db = DbUtil(global_config.DB_HOST, global_config.DB_USERNAME, global_config.DB_PASSWORD,
-                global_config.DB_DATABASE_GYL)
     # 插入危机值
     fileds = ','.join(json_data.keys())
     args = str(tuple(json_data.values()))
