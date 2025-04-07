@@ -9,7 +9,7 @@ import requests
 
 from itertools import groupby
 from datetime import datetime, timedelta
-from gylmodules import global_config
+from gylmodules import global_config, global_tools
 from gylmodules.utils.db_utils import DbUtil
 
 
@@ -32,35 +32,6 @@ def call_third_systems_obtain_data(url: str, type: str, param: dict):
             data = data.get('data')
     except Exception as e:
         print('调用第三方系统方法失败：type = ' + type + ' param = ' + str(param) + "   " + e.__str__())
-    return data
-
-
-def call_new_his(sql: str, clobl: list = None):
-    """
-    调用新 his 查询数据
-    :param sql:
-    :return:
-    """
-    param = {"key": "o4YSo4nmde9HbeUPWY_FTp38mB1c", "sys": "newzt", "sql": sql}
-    if clobl:
-        param['clobl'] = clobl
-    query_oracle_url = "http://127.0.0.1:6080/oracle_sql"
-    if global_config.run_in_local:
-        query_oracle_url = "http://192.168.124.53:6080/oracle_sql"
-
-    data = []
-    err_data = ''
-    try:
-        response = requests.post(query_oracle_url, json=param, timeout=30)
-        err_data = response.text
-        if response.status_code != 200 or not response.text.strip():
-            print(datetime.now(), '请求失败，服务器未返回数据：', response.status_code, err_data)
-            return []
-        data = json.loads(response.text)
-        data = data.get('data', [])
-    except Exception as e:
-        print(datetime.now(), '问卷调查 调用新 HIS 查询数据失败：', param.get('sql'), err_data, e)
-
     return data
 
 
@@ -96,7 +67,7 @@ def query_patient_info(card_no):
     brxx.MINZUMC 民族 FROM df_bingrenzsy.gy_bingrenxx brxx WHERE brxx.JIUZHENKH = '{card_no}'  
     OR brxx.SHENFENZH = '{card_no}' ORDER BY brxx.JIANDANGRQ DESC
         """
-        patient_infos = call_new_his(sql)
+        patient_infos = global_tools.call_new_his(sql)
         if not patient_infos:
             raise Exception('未找到该患者信息，请仔细核对 就诊卡号/身份证号 是否正确')
         patient_age = calculate_age_from_id(patient_infos[0].get('身份证号'), patient_infos[0].get('出生日期'))
@@ -128,7 +99,7 @@ def query_patient_info(card_no):
         gh.guahaorq 发生时间, gh.guahaoys 执行人ID FROM df_jj_menzhen.mz_guahao gh WHERE gh.zuofeibz = 0 
         AND TRUNC(gh.guahaorq) = TRUNC(SYSDATE) AND gh.bingrenxm = '{patient_name}' ORDER BY gh.guahaorq DESC
     """
-    register_infos = call_new_his(sql)
+    register_infos = global_tools.call_new_his(sql)
     if register_infos:
         data['doctor_id'] = register_infos[0].get('执行人ID', "")
         data['doctor_name'] = register_infos[0].get('执行人', "")
@@ -447,8 +418,9 @@ def query_question_survey_by_patient_id(patient_id):
     :return:
     """
     # 根据 病人 id 查询病人信息
-    patient_infos = call_new_his(f"SELECT brxx.SHENFENZH, brxx.JIUZHENKH FROM df_bingrenzsy.gy_bingrenxx brxx "
-                                 f"WHERE brxx.bingrenid = '{patient_id}'")
+    patient_infos = global_tools.call_new_his(
+        f"SELECT brxx.SHENFENZH, brxx.JIUZHENKH FROM df_bingrenzsy.gy_bingrenxx brxx "
+        f"WHERE brxx.bingrenid = '{patient_id}'")
     medical_card_no, id_card_no = patient_infos[0].get('JIUZHENKH'), patient_infos[0].get('SHENFENZH')
     query_sql = ""
     if medical_card_no == 0 and id_card_no == 0:
@@ -490,7 +462,7 @@ def query_test_result(card_no, visit_date):
         and jc.bingrenid = '{card_no}' WHERE yj.bingrenid = '{card_no}' 
         AND yj.kaidanrq  >= to_date('{visit_date}','yyyy-mm-dd')  and yj.zuofeibz=0
     """
-    test_results = call_new_his(sql, ['img_result'])
+    test_results = global_tools.call_new_his(sql, ['img_result'])
     return test_results
 
 
@@ -517,7 +489,7 @@ def query_examination_result(patient_id, visit_date):
        and sqd.zuofeibz = 0  and sqd.kaidanrq >= to_date('{visit_date}','yyyy-mm-dd')      
 group by jy2.jiluid,jy2.jianchamd) t left join df_cdr.yj_jianyanbgmx jymx ON t.jiluid = jymx.jiluid   
     """
-    examination_results = call_new_his(sql)
+    examination_results = global_tools.call_new_his(sql)
     return examination_results
 
 
@@ -529,7 +501,7 @@ def query_zhen_duan(sick_id, visit_date):
         brxx.zuofeibz = 0 and TRUNC(brxx.chuangjiansj) >= to_date('{visit_date}', 'yyyy-mm-dd') 
         and TRUNC(brxx.chuangjiansj) < to_date('{visit_date}', 'yyyy-mm-dd') + 1 order by brxx.chuangjiansj desc
     """
-    zhenduans = call_new_his(sql)
+    zhenduans = global_tools.call_new_his(sql)
     if not zhenduans:
         return ""
 
@@ -801,12 +773,24 @@ def submit_medical_record(json_data):
 def patient_quest_details(json_data):
     """
     查询患者门诊问卷详情（根据病人 ID + 就诊日期（yyyy-mm-dd）查询）
+    这个接口就是在挂号初次接诊时会把问卷接口里面的主诉 病史 辅助检查  体温  体重 身高 血压 脉搏信息回传（his主动调用）到门诊病历里面
     :param json_data:
     :return:
     """
     start_time = time.time()
     patient_id = json_data.get('patient_id')
     ques_date = json_data.get('ques_date')
+
+    if str(patient_id) == '3641937':
+        return {
+            "patient_id": patient_id,
+            "ques_date": ques_date,
+            "ReturnCode": 1,
+            "ReturnMessage": "",
+            "ques_dtl": [{"ques_time": datetime.now().strftime('%Y-%m-%d %H:%M:%S'),
+                          'ques_title': '测试问卷',
+                          'FuZhuJianCha': "HIT-6评分： 10; MIDAS评分： 10；"}]
+        }
 
     query_sql = f"select b.title, a.* from nsyy_gyl.sq_surveys_record a join nsyy_gyl.sq_surveys b on a.su_id = b.id " \
                 f"WHERE sick_id = '{patient_id}' and DATE(visit_time) = '{ques_date}'"
@@ -1076,7 +1060,7 @@ def fetch_ai_result():
     del db
     for survey in all_survey:
         # 第二次调用 ai
-        start_thread(fetch_patient_test_result, (survey, ))
+        start_thread(fetch_patient_test_result, (survey,))
         # fetch_patient_test_result(survey)
 
 
@@ -1130,6 +1114,3 @@ def fetch_patient_test_result(survey_record):
                  f"where id = {survey_record.get('id')}"
     db.execute(update_sql, need_commit=True)
     del db
-
-
-

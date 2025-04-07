@@ -4,7 +4,7 @@ from datetime import datetime
 
 from flask import Blueprint, jsonify, request
 
-from gylmodules.questionnaire import question_config, sq_server
+from gylmodules.questionnaire import sq_server
 
 question = Blueprint('question survey', __name__, url_prefix='/question')
 
@@ -322,28 +322,5 @@ def patient_quest_details():
         })
     return jsonify(ques_dtl)
 
-
-
-@question.route('/testttt', methods=['POST', 'GET'])
-def testttt():
-    try:
-        par = {
-            "type": "his_pers_reg",
-            "randstr": "XPFDFZDF7193CIONS1PD7XCJ3AD4ORRC",
-            "pers_name": "高彦良",
-            "pers_mobile": "13027751873",
-            "pers_id_no": "411324199605164530",
-            "pers_id_type": 1
-        }
-        from tools import his_pers_reg
-        data = his_pers_reg(par)
-        print('创建患者信息返回: ', data)
-    except Exception as e:
-        print(datetime.now(), "testttt, param: ", par, e)
-        return jsonify({
-            'code': 50000,
-            'res': f"患者门诊问卷详情查询异常: {e}"
-        })
-    return jsonify(data)
 
 
