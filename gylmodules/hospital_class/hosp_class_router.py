@@ -7,7 +7,7 @@ from gylmodules.hospital_class import hosp_class_server
 hosp_class = Blueprint('hospital class', __name__, url_prefix='/hosp_class')
 
 
-@hosp_class.route('/', methods=['POST', 'OPTIONS'])
+@hosp_class.route('/v1', methods=['POST', 'OPTIONS'])
 def hosp_class_func():
     json_data = []
     try:

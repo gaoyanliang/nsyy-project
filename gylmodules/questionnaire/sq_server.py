@@ -781,17 +781,6 @@ def patient_quest_details(json_data):
     patient_id = json_data.get('patient_id')
     ques_date = json_data.get('ques_date')
 
-    if str(patient_id) == '3641937':
-        return {
-            "patient_id": patient_id,
-            "ques_date": ques_date,
-            "ReturnCode": 1,
-            "ReturnMessage": "",
-            "ques_dtl": [{"ques_time": datetime.now().strftime('%Y-%m-%d %H:%M:%S'),
-                          'ques_title': '测试问卷',
-                          'FuZhuJianCha': "HIT-6评分： 10; MIDAS评分： 10；"}]
-        }
-
     query_sql = f"select b.title, a.* from nsyy_gyl.sq_surveys_record a join nsyy_gyl.sq_surveys b on a.su_id = b.id " \
                 f"WHERE sick_id = '{patient_id}' and DATE(visit_time) = '{ques_date}'"
     db = DbUtil(global_config.DB_HOST, global_config.DB_USERNAME, global_config.DB_PASSWORD,
