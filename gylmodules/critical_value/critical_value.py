@@ -13,7 +13,7 @@ import time
 
 from apscheduler.schedulers.background import BackgroundScheduler
 
-from gylmodules import global_config
+from gylmodules import global_config, global_tools
 from gylmodules.critical_value import cv_config
 from gylmodules.utils.db_utils import DbUtil
 import asyncio
@@ -116,28 +116,6 @@ def call_third_systems_obtain_data(type: str, param: dict):
                 redis_client.hset(cv_config.DEPT_INFO_REDIS_KEY, d.get('his_dept_id'), json.dumps(d, default=str))
                 if not redis_client.hexists(cv_config.DEPT_INFO_REDIS_KEY, d.get('dept_code')):
                     redis_client.hset(cv_config.DEPT_INFO_REDIS_KEY, d.get('dept_code'), json.dumps(d, default=str))
-
-    return data
-
-
-"""
-调用新 his 查询数据
-"""
-
-
-def call_new_his(sql: str):
-    param = {"key": "o4YSo4nmde9HbeUPWY_FTp38mB1c", "sys": "newzt", "sql": sql}
-    query_oracle_url = "http://127.0.0.1:6080/oracle_sql"
-    if global_config.run_in_local:
-        query_oracle_url = "http://192.168.124.53:6080/oracle_sql"
-
-    data = []
-    try:
-        response = requests.post(query_oracle_url, timeout=10, json=param)
-        data = json.loads(response.text)
-        data = data.get('data')
-    except Exception as e:
-        print(datetime.now(), '危急值 调用新 HIS 查询数据失败：' + str(param) + e.__str__())
 
     return data
 
@@ -666,7 +644,7 @@ def manual_report_cv(json_data):
                 FROM df_jj_zhuyuan.zy_bingrenxx t left join DF_ZHUSHUJU.GY_CHUANGWEI t2 on t.ruyuancwid = t2.chuangweiid
                 WHERE t.zhuyuanhao = '{patient_treat_id}' ORDER BY t.ruyuanrq DESC
             """
-        data = call_new_his(sql)
+        data = global_tools.call_new_his(sql)
         if data and data[0]:
             json_data['patient_type'] = cv_config.PATIENT_TYPE_HOSPITALIZATION if not json_data.get(
                 'patient_type') else json_data.get('patient_type')
@@ -847,7 +825,7 @@ def create_cv_by_system(json_data, cv_source):
             case when chuyuanrq IS NULL then null else dangqianksid end  "出院科室ID" 
             FROM df_jj_zhuyuan.zy_bingrenxx WHERE zhuyuanhao = '{cvd['patient_treat_id']}' ORDER BY ruyuanrq DESC
         """
-        data = call_new_his(sql)
+        data = global_tools.call_new_his(sql)
         if data and data[0]:
             # 判断科室/病区和 最新的科室/病区是否一致
             latest_dept = data[0].get('当前科室ID') if data[0].get('当前科室ID') else data[0].get('入院科室ID')
@@ -1821,7 +1799,7 @@ def send_to_his(cv_record):
         from df_jj_zhuyuan.zy_bingrenxx where zhuyuanhao = '{patient_treat_id}' or jiuzhenkh = '{patient_treat_id}' 
         or bingrenid = '{patient_treat_id}' ORDER BY jiandangrq DESC
     """
-    patient_data = call_new_his(sql)
+    patient_data = global_tools.call_new_his(sql)
     if not patient_data:
         print(datetime.now(), '未查询到病人信息 cv_id = ', cv_record.get('cv_id'), 'patient_treat_id = ', patient_treat_id)
         return
@@ -1858,7 +1836,7 @@ def send_to_his(cv_record):
             baogaodanid, baogaosj 报告时间, jianchasj 执行时间
             from df_cdr.yj_jianchabg where baogaodanid = '{report_id}'
         """
-    shenqing_data = call_new_his(sql)
+    shenqing_data = global_tools.call_new_his(sql)
     if not shenqing_data:
         print(datetime.now(), '未查询到申请单 cv_id = ', cv_record.get('cv_id'), 'report_id = ', report_id)
         return

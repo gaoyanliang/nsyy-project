@@ -1,4 +1,4 @@
-from gylmodules import global_config
+from gylmodules import global_config, global_tools
 from gylmodules.medical_record_analysis.record_parse import progress_note_parse, cv_record_parse
 from gylmodules.utils.db_utils import DbUtil
 import requests
@@ -184,7 +184,7 @@ def query_cv_medical_record(patient_type, patient_id):
             AND t2.zuofeibz = 0 AND t2.menzhenzybz = 1
             AND (a.jiuzhenkh = '{patient_id}' or a.bingrenid = '{patient_id}' or a.jiuzhenid = '{patient_id}')
         """
-    data = call_new_his(sql, ['CONTENT'])
+    data = global_tools.call_new_his(sql, ['CONTENT'])
     if not data:
         return []
     ret_data = []
@@ -193,25 +193,6 @@ def query_cv_medical_record(patient_type, patient_id):
         ret_data.append((d.get('编辑时间'), sentence))
 
     return ret_data
-
-
-def call_new_his(sql: str, clobl: list = None):
-    param = {"key": "o4YSo4nmde9HbeUPWY_FTp38mB1c", "sys": "newzt", "sql": sql}
-    if clobl:
-        param['clobl'] = clobl
-
-    query_oracle_url = "http://127.0.0.1:6080/oracle_sql"
-    if global_config.run_in_local:
-        query_oracle_url = "http://192.168.124.53:6080/oracle_sql"
-
-    data = []
-    try:
-        response = requests.post(query_oracle_url, timeout=10, json=param)
-        data = json.loads(response.text)
-        data = data.get('data')
-    except Exception as e:
-        print(datetime.now(), '危急值管理 调用新 HIS 查询数据失败：' + str(param) + e.__str__())
-    return data
 
 
 def parse_xml_to_sentence(xml_string):
