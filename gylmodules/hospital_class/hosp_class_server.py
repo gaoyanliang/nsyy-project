@@ -16,9 +16,9 @@ def hosp_class(json_data):
     elif func_type == 'class_apply':
         return class_apply(json_data)
     elif func_type == 'class_apply_list':
-        return class_apply_list()
+        return class_apply_list(int(json_data.get('query_type')), json_data.get('page_no'), json_data.get('page_size'))
     elif func_type == 'class_appr':
-        return class_appr(json_data.get('class_id'))
+        return class_appr(json_data.get('class_id'), json_data.get('approver_pers_id'), json_data.get('approver_name'))
     elif func_type == 'class_list':
         return class_list(json_data.get('date_str'), json_data.get('period'))
     elif func_type == 'class_join':
@@ -74,9 +74,9 @@ def class_apply(apply_data):
     if apply_data.get('class_att'):
         apply_data['class_att'] = json.dumps(apply_data.get('class_att'))
 
-    if 'class_status' not in apply_data:
+    if 'class_status' not in apply_data and 'class_id' not in apply_data:
         apply_data['class_status'] = 1
-    if int(apply_data.get('applicant')) == 11171 and apply_data.get('class_status') == 1:
+    if apply_data.get('applicant') == 11171 and apply_data.get('class_status') == 1:
         # 如果申请人是黄满利，则直接改为审核状态
         apply_data['class_status'] = 2
 
@@ -127,31 +127,46 @@ def class_apply(apply_data):
             return jsonify({'code': 50000, 'res': '新增讲座申请失败'})
     del db
 
-    global_tools.start_thread(app_notify, (f"主题: {apply_data.get('class_name')}  "
-                                           f"主讲人: {apply_data.get('owner_name')}  "
-                                           f"地点: {apply_data.get('class_addr', '待定')}  "
-                                           f"开始时间: {apply_data.get('class_start')}", ))
+    # 通知审批人员审批
+    global_tools.start_thread(app_notify, ([11171, 10711, 10014], "有新讲座待审批"))
 
     return jsonify({'code': 20000, 'res': '讲座申请/更新成功'})
 
 
-def class_apply_list():
+def class_apply_list(query_type, page_no, page_size):
     """
-    获取待批复讲座清单 （仅 黄满利 可以看到这个列表，前端控制）
+    获取待批复讲座清单 （仅 黄满利/彭巍/郭鑫 可以看到这个列表，前端控制）
+    :param query_type:
+    :param page_no:
+    :param page_size:
     :return:
     """
+    if page_no < 1 or page_size < 1:
+        return jsonify({'code': 50000, 'res': '分页参数不合法'})
+
+    # 计算偏移量
+    offset = (page_no - 1) * page_size
+
     db = DbUtil(global_config.DB_HOST, global_config.DB_USERNAME, global_config.DB_PASSWORD,
                 global_config.DB_DATABASE_GYL)
-    classes = db.query_all(f"select * from nsyy_gyl.hosp_class where class_status = 1")
+    # 查询总数
+    total = db.query_one(f"SELECT COUNT(*) FROM nsyy_gyl.hosp_class WHERE class_status = {int(query_type)}")
+    total = total.get('COUNT(*)')
+
+    # 分页查询数据
+    classes = db.query_all(f"SELECT * FROM nsyy_gyl.hosp_class WHERE class_status = {int(query_type)} "
+                           f"LIMIT {page_size} OFFSET {offset}")
     del db
 
-    return jsonify({'code': 20000, 'res': '待批复讲座清单查询成功', 'data': classes})
+    return jsonify({'code': 20000, 'res': '待批复讲座清单查询成功', 'data': classes, 'total': total})
 
 
-def class_appr(class_id):
+def class_appr(class_id, approver_pers_id, approver_name):
     """
     讲座批复
     :param class_id:
+    :param approver_pers_id:
+    :param approver_name:
     :return:
     """
     db = DbUtil(global_config.DB_HOST, global_config.DB_USERNAME, global_config.DB_PASSWORD,
@@ -162,23 +177,13 @@ def class_appr(class_id):
         del db
         return jsonify({'code': 50000, 'res': '该讲座不存在'})
 
-    class_date = class_data.get('class_start').strftime('%Y-%m-%d %H:%M:%S')
-    # 构建查询语句，检查时间冲突和间隔不足30分钟的情况  -- 检查与已有课程的时间交叉
-    check_query = f"""SELECT COUNT(*) > 0 AS has_conflict FROM nsyy_gyl.hosp_class WHERE class_status = 2 and 
-            DATE(class_start) = '{class_date}' and ('{class_data.get('class_start').strftime('%Y-%m-%d %H:%M:%S')}' < 
-            class_end AND '{class_data.get('class_end').strftime('%Y-%m-%d %H:%M:%S')}' > class_start)
-       """
-    if class_data.get('class_addr'):
-        check_query += f" AND class_addr = '{class_data.get('class_addr')}'"
-
-    has_conflict = db.query_one(check_query)
-    if has_conflict.get('has_conflict') > 0:
-        del db
-        return jsonify({'code': 50000, 'res': '新课程与已批复课程存在时间存在冲突或讲座地址冲突'})
-
-    db.execute(f"update nsyy_gyl.hosp_class set class_status = 2 "
+    approval_time = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+    db.execute(f"update nsyy_gyl.hosp_class set class_status = 2, approver_name = '{approver_name}', "
+               f"approver_pers_id = {approver_pers_id}, approval_time = '{approval_time}' "
                f"where class_id = {int(class_id)} and class_status = 1", need_commit=True)
     del db
+
+    global_tools.start_thread(app_notify, ([class_data.get('applicant')], "讲座已批复"))
     return jsonify({'code': 20000, 'res': '讲座批复成功'})
 
 
@@ -260,8 +265,9 @@ def class_checkin(cp_key, class_start):
         del db
         return jsonify({'code': 50000, 'res': '仅允许在讲座开始时间前后10分钟内签到'})
 
-    affected_rows = db.execute(f"update nsyy_gyl.hosp_class_pers set pers_status = 2 where cp_key = '{cp_key}'",
-                               need_commit=True)
+    affected_rows = db.execute(f"update nsyy_gyl.hosp_class_pers set pers_status = 2, "
+                               f"check_in_time = '{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}' "
+                               f"where cp_key = '{cp_key}'", need_commit=True)
     del db
     return jsonify({'code': 20000, 'res': '签到成功'})
 
@@ -357,9 +363,11 @@ def class_his(pers_id, his_type, page_no, page_size, start_d, end_d):
     return jsonify({'code': 20000, 'res': '查询成功', 'data': classes, 'total': total})
 
 
-def app_notify(context):
+def app_notify(pers_id_list, context):
+    if not pers_id_list:
+        pers_id_list = all_pers_id
     data = {'msg_list': [{'socket_data': {"type": 400, "data": {"title": "新讲座通知", "context": context}},
-                          'pers_id': 11171}]}
+                          'pers_id': pers_id_list}]}
     try:
         response = requests.post('http://120.194.96.67:6066/inter_socket_msg',
                                  data=json.dumps(data), headers={'Content-Type': 'application/json'})
