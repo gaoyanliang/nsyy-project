@@ -1,8 +1,22 @@
 import json
+import threading
+
 import requests
+import psycopg2
 from datetime import datetime
 
+from psycopg2.extras import RealDictCursor
+
 from gylmodules import global_config
+
+
+DB_CONFIG = {
+    "dbname": "df_his",
+    "user": "ogg",
+    "password": "nyogg@2024",
+    "host": "192.168.8.57",
+    "port": "6000"
+}
 
 
 def call_new_his(sql: str, clobl: list = None):
@@ -35,3 +49,39 @@ def call_new_his(sql: str, clobl: list = None):
 
     return data
 
+
+def call_new_his_pg(sql):
+    results = []
+    try:
+        # 使用 `with` 语句确保自动关闭连接
+        with psycopg2.connect(**DB_CONFIG) as conn:
+            with conn.cursor(cursor_factory=RealDictCursor) as cur:
+                cur.execute(sql)
+                datas = cur.fetchall()
+                for row in datas:
+                    results.append(dict(row))
+
+    except Exception as e:
+        print(datetime.now(), 'PG 数据库查询失败', e, sql)
+
+    return results
+
+
+def start_thread(funct, args=None, tl=None):
+    """
+    start a thread
+    :param funct:
+    :param args:
+    :param tl:
+    :return:
+    """
+
+    if not tl:
+        tl = []
+    if not args:
+        args = ()
+    t = threading.Thread(target=funct, args=args)
+    t.setDaemon(True)  # 服务器一直运行，所以子线程不会被关
+    tl.append(t)
+    t.start()
+    return t
