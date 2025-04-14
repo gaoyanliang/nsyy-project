@@ -8,7 +8,7 @@ hosp_class = Blueprint('hospital class', __name__, url_prefix='/hosp_class')
 
 
 # 领导设计的接口，仅负责实现
-@hosp_class.route('/v1', methods=['POST', 'OPTIONS'])
+@hosp_class.route('/v1', methods=['POST'])
 def hosp_class_func():
     json_data = []
     try:
@@ -20,3 +20,8 @@ def hosp_class_func():
             'code': 50000,
             'res': e.__str__()
         })
+
+
+
+
+

@@ -51,10 +51,15 @@ def class_dtl(class_id, pers_id):
                             left join nsyy_gyl.hosp_class_pers p on c.class_id = p.class_id and p.pers_id = {pers_id}
                             where c.class_id = {class_id}
                             """)
+    pers_data = pers_account(db, class_id)
     del db
 
     if class_detail and class_detail.get('class_att'):
         class_detail['class_att'] = json.loads(class_detail.get('class_att'))
+
+    class_detail['pers_list'] = pers_data.get('pers_list') if pers_data else []
+    class_detail['num_of_appoint'] = pers_data.get('num_of_appoint') if pers_data else 0
+    class_detail['num_of_sign_in'] = pers_data.get('num_of_sign_in') if pers_data else 0
 
     return jsonify({'code': 20000, 'res': '讲座明细查询成功', 'data': class_detail})
 
@@ -361,6 +366,14 @@ def class_his(pers_id, his_type, page_no, page_size, start_d, end_d):
         classes = classes[start_index:end_index]
 
     return jsonify({'code': 20000, 'res': '查询成功', 'data': classes, 'total': total})
+
+
+def pers_account(db, class_id):
+    pers_list = db.query_all(f"select pers_id, pers_name, pers_status "
+                             f"from nsyy_gyl.hosp_class_pers where class_id = {class_id}")
+    num_of_appoint = sum(1 for i in pers_list if i['pers_status'] >= 1)
+    num_of_sign_in = sum(1 for i in pers_list if i['pers_status'] >= 2)
+    return {'pers_list': pers_list, 'num_of_appoint': num_of_appoint, 'num_of_sign_in': num_of_sign_in}
 
 
 def app_notify(pers_id_list, context):
