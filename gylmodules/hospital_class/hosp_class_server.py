@@ -109,6 +109,7 @@ def class_apply(apply_data):
     if apply_data.get('class_addr'):
         check_query += f" AND class_addr = '{apply_data.get('class_addr')}'"
 
+    apply_data['create_time'] = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
     db = DbUtil(global_config.DB_HOST, global_config.DB_USERNAME, global_config.DB_PASSWORD,
                 global_config.DB_DATABASE_GYL)
 
@@ -288,6 +289,7 @@ def class_comment_questions(class_id, pers_id):
     question_list = db.query_all(f"""select q.id as qu_id, q.qu_title, q.qu_note, q.qu_type, q.qu_answer, 
         q.qu_default_value, q.step_size, q.visibility, r.qu_answer as answer from nsyy_gyl.hosp_class_rate_questions q
         left join nsyy_gyl.hosp_class_rate r on q.id = r.qu_id and r.cp_key = '{cp_key}'
+        where q.visibility = 1 
     """)
     del db
 
@@ -327,6 +329,7 @@ def class_comments(class_id, pers_id, answer_list):
     last_row = db.execute_many(insert_sql, args=values, need_commit=True)
 
     if last_row == -1:
+        print(datetime.now(), '评价失败： ', answer_list)
         return jsonify({'code': 50000, 'res': '评价失败'})
 
     # 评价成功 修改状态

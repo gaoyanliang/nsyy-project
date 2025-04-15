@@ -8,17 +8,14 @@ PRIVATE_CHAT = 1
 # 群聊
 GROUP_CHAT = 2
 
-
 #  === redis config ===
 REDIS_HOST = '127.0.0.1'
 REDIS_PORT = 6379
 REDIS_DB = 2
 
-
 #  === redis key (new record) ===
 NEW_MESSAGE = 'MSG_NEW-MESSAGE'
 NEW_HISTORICAL_CONTACTS_RECORD = 'MSG_NEW-HISTORICAL-CONTACTS-RECORD'
-
 
 # msg cache redis key
 msg_cache_key = {
@@ -39,52 +36,12 @@ msg_cache_count = 100
 
 
 # ===========================================================
-# =============         mail            =====================
-# ===========================================================
-
-# mail server db config
-MAIL_DB_HOST = '192.168.124.128'
-MAIL_DB_PORT = 3306
-MAIL_DB_USERNAME = 'root'
-MAIL_DB_PASSWORD = '111111'
-MAIL_DB_DATABASE = 'vmail'
-
-# 默认密码  nsyy0601
-mail_default_passwd = "{SSHA512}w1gDN4y3uc/nyhuB+nMkbpd7c6yEB4/7DEoC6sIewkk9U9JvyGe498psVz92IfakT6ERsXzdNxoO23TKXi1+yN4UWjo="
-
-MAIL_DOMAIN = '@nsyy.com'
-MAIL_ACCOUNT_PASSWORD = 'nsyy0601'
-MAIL_MAILBOX = 'INBOX'
-
-# SSH connection details
-MAIL_SSH_HOST = "192.168.124.128"
-MAIL_SSH_USERNAME = "root"
-MAIL_SSH_PASSWORD = "111111"
-MAIL_SMTP_PORT = 587
-MAIL_IMAP_PORT = 993
-
-MAIL_OPERATE_UPDATE = 0
-MAIL_OPERATE_ADD = 1
-MAIL_OPERATE_REMOVE = 2
-MAIL_OPERATE_PUBLIC = 3
-MAIL_OPERATE_DELETE = 4
-
-NEW_MAIL_KEY = 'NEW-MAIL'
-ADD_MAIL_ACCOUNT_KEY = 'ADD-MAIL-ACCOUNT'
-REMOVE_MAIL_ACCOUNT_KEY = 'REMOVE-MAIL-ACCOUNT'
-DELETE_MAIL_GROUP_KEY = 'DELETE-MAIL-GROUP'
-DELETE_MAIL_ACCOUNT_KEY = 'DELETE-MAIL-ACCOUNT'
-
-
-# ===========================================================
 # =============         fail            =====================
 # ===========================================================
-
 
 FILE_UPLOAD_FOLDER = '/uploads'
 FILE_DOWNLOAD_FOLDER = '/downloads'
 FILE_ALLOWED_EXTENSIONS = {'txt', 'pdf', 'png', 'jpg', 'jpeg', 'gif', 'zip'}
-
 
 # sftp config
 FILE_SFTP_HOST = '192.168.124.128'

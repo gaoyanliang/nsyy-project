@@ -1,10 +1,12 @@
+import os
 import traceback
 
 from flask import Blueprint, jsonify, request, send_file
-
 from io import BytesIO
-from gylmodules.workstation import ws_config
-from gylmodules.workstation.mail import mail
+
+from gylmodules import global_config
+from gylmodules.workstation.mail import mail_config
+from gylmodules.workstation.mail import mail_server as mail
 from datetime import datetime
 import json
 
@@ -22,11 +24,10 @@ def send_email():
         json_data = json.loads(request.get_data().decode('utf-8'))
         mail.send_email(json_data)
     except Exception as e:
-        print(datetime.now(), f"mail_router.send_email: {e}")
-        print(traceback.print_exc())
+        print(datetime.now(), f"send_email: {e}", traceback.print_exc())
         return jsonify({
             'code': 50000,
-            'res': '邮件发送失败，请稍后重试' + e.__str__(),
+            'res': '邮件发送失败，请稍后重试, ' + e.__str__(),
             'data': ''
         })
 
@@ -48,11 +49,10 @@ def query_mail_list():
     try:
         mail_list = mail.read_mail_list(user_account, page_size, page_number, mailbox)
     except Exception as e:
-        print(datetime.now(), f"mail_router.query_mail_list: {e}")
-        print(traceback.print_exc())
+        print(datetime.now(), f"query_mail_list: {e}", traceback.print_exc())
         return jsonify({
             'code': 50000,
-            'res': '邮件列表查询失败，请稍后重试' + e.__str__(),
+            'res': '邮件列表查询失败 ' + e.__str__(),
             'data': ''
         })
 
@@ -73,10 +73,9 @@ def query_mail_list_by_keyword():
     keyword = json_data.get('keyword')
 
     try:
-        mail_list = mail.read_mail_list_by_keyword(user_account, page_size, page_number, mailbox, keyword)
+        mail_list = mail.read_mail_list(user_account, page_size, page_number, mailbox, keyword)
     except Exception as e:
-        print(datetime.now(), f"mail_router.query_mail_list: {e}")
-        print(traceback.print_exc())
+        print(datetime.now(), f"query_mail_list_by_keyword: {e}", traceback.print_exc())
         return jsonify({
             'code': 50000,
             'res': '邮件列表查询失败，请稍后重试' + e.__str__(),
@@ -98,10 +97,9 @@ def query_mail():
     mailbox = json_data.get('mailbox')
 
     try:
-        email = mail.read_mail(user_account, mail_id, mailbox)
+        email = mail.read_mail_detail(user_account, mail_id, mailbox)
     except Exception as e:
-        print(datetime.now(), f"mail_router.query_mail: {e}")
-        print(traceback.print_exc())
+        print(datetime.now(), f"query_mail: {e}", traceback.print_exc())
         return jsonify({
             'code': 50000,
             'res': '邮件查询失败，请稍后重试' + e.__str__(),
@@ -125,8 +123,7 @@ def delete_mail():
     try:
         mail.delete_mail(user_account, mail_ids, mailbox)
     except Exception as e:
-        print(datetime.now(), f"mail_router.delete_mail: {e}")
-        print(traceback.print_exc())
+        print(datetime.now(), f"delete_mail: {e}", traceback.print_exc())
         return jsonify({
             'code': 50000,
             'res': '邮件删除失败，请稍后重试' + e.__str__(),
@@ -188,8 +185,7 @@ def create_mail_account():
     try:
         mail.create_mail_account(user_list)
     except Exception as e:
-        print(datetime.now(), f"mail_router.create_mail_group: {e}")
-        print(traceback.print_exc())
+        print(datetime.now(), f"create_mail_group: {e}", traceback.print_exc())
         return jsonify({
             'code': 50000,
             'res': '邮箱账户创建失败，请稍后重试' + e.__str__(),
@@ -203,7 +199,7 @@ def create_mail_account():
     })
 
 
-# 删除邮箱账户，这里只删除群组依赖，邮箱账户需要到 iRedMail 管理后台手动删除
+# todo 删除邮箱账户，这里只删除群组依赖，邮箱账户需要到 iRedMail 管理后台手动删除
 @mail_router.route('/delete_mail_account', methods=['POST'])
 def delete_mail_account():
     json_data = json.loads(request.get_data().decode('utf-8'))
@@ -211,8 +207,7 @@ def delete_mail_account():
     try:
         mail.delete_mail_account(user_account)
     except Exception as e:
-        print(datetime.now(), f"mail_router.delete_mail_account: {e}")
-        print(traceback.print_exc())
+        print(datetime.now(), f"delete_mail_account: {e}", traceback.print_exc())
         return jsonify({
             'code': 50000,
             'res': '删除邮箱账户失败，请稍后重试' + e.__str__(),
@@ -297,9 +292,9 @@ def operate_mail_group():
 
         failed_user_list = mail.operate_mail_group(json_data)
         if failed_user_list and len(failed_user_list) != 0:
-            if operate_type == ws_config.MAIL_OPERATE_ADD:
+            if operate_type == mail_config.MAIL_OPERATE_ADD:
                 info = ' '.join(failed_user_list) + ': 以上用户订阅邮箱群组 ' + mail_group_name + ' 失败, 请联系管理员处理'
-            elif operate_type == ws_config.MAIL_OPERATE_REMOVE:
+            elif operate_type == mail_config.MAIL_OPERATE_REMOVE:
                 info = ' '.join(failed_user_list) + ': 以上用户取消订阅邮箱群组 ' + mail_group_name + ' 失败, 请联系管理员处理'
             else:
                 info = ''
@@ -330,8 +325,7 @@ def query_mail_group_list():
     try:
         mail_group_list = mail.query_mail_group_list(user_account)
     except Exception as e:
-        print(f"mail_router.query_mail_group_list: {e}")
-        print(traceback.print_exc())
+        print(f"mail_router.query_mail_group_list: {e}", traceback.print_exc())
         return jsonify({
             'code': 50000,
             'res': '邮箱群组列表查询失败，请稍后重试',
@@ -344,3 +338,37 @@ def query_mail_group_list():
         'data': mail_group_list
     })
 
+
+@mail_router.route('/download/<path:filename>', methods=['GET'])
+def download_file(filename):
+    try:
+        save_dir = mail_config.inline_attachments_dir_dev if global_config.run_in_local else mail_config.inline_attachments_dir_prod
+        save_path = os.path.join(save_dir, filename)
+
+        # 检查文件是否已存在
+        if not os.path.exists(save_path):
+            return jsonify({
+                'code': 50000,
+                'res': f'文件不存在 {filename}',
+                'data': f'文件不存在 {filename}'
+            })
+
+        # 4. 获取文件大小（用于日志或限速）
+        file_size = os.path.getsize(save_path)
+
+        # 5. 分块发送大文件（支持断点续传）
+        return send_file(
+            save_path,
+            as_attachment=True,
+            download_name=filename,  # 指定下载显示的文件名
+            conditional=True,        # 支持 Range 请求
+            etag=True,               # 启用 ETag 缓存
+            max_age=3600             # 客户端缓存时间
+        )
+
+    except Exception as e:
+        return jsonify({
+                'code': 50000,
+                'res': f'文件不存在 {filename}',
+                'data': f'文件下载失败 {str(e)}'
+            })

@@ -1,4 +1,4 @@
-import time
+from datetime import datetime
 
 import paramiko
 
@@ -18,15 +18,15 @@ class SshUtil:
 
         # Connect to the SSH server
         try:
-            self.client.connect(ssh_host, username=ssh_username, password=ssh_password, timeout=self.TIMEOUT)
+            self.client.connect(host, username=username, password=password, timeout=self.TIMEOUT)
         except paramiko.AuthenticationException:
-            print("Authentication failed. Please check your credentials.")
+            print(datetime.now(), "SSH Util Authentication failed. Please check your credentials.")
             exit(1)
         except paramiko.SSHException as e:
-            print(f"Unable to establish SSH connection: {str(e)}")
+            print(datetime.now(), f"SSH Util Unable to establish SSH connection: {str(e)}")
             exit(1)
         except Exception as e:
-            print(f"Error: {str(e)}")
+            print(datetime.now(), f"SSH Util Error: {str(e)}")
             exit(1)
 
     """Close the SSH connection"""
@@ -34,7 +34,6 @@ class SshUtil:
         if self.client is not None:
             self.client.close()
             self.client = None
-        print("Close the SSH connection!")
 
     """Execute a shell command"""
     def execute_shell_command(self, command, sudo=False) -> object:
@@ -50,39 +49,40 @@ class SshUtil:
                 stdin.write(self.ssh_password + "\n")
                 stdin.flush()
 
-            print(f'Debugging: execute command: ' + command)
+            # print(f'Debugging: execute command: ' + command)
             # Read and print the output
             output = stdout.read().decode('utf-8')
-            print(f'Debugging: execute command response: ' + output)
+            # print(f'Debugging: execute command response: ' + output)
 
             # Read and print any errors
             errors = stderr.read().decode('utf-8')
             if errors:
-                print(f'Debugging: execute command errors: ' + errors)
+                print(datetime.now(), f"SSH Util command exception: ", command)
+                print(datetime.now(), f'SSH Util error info: ', errors)
 
             # return {'out': stdout.readlines(),
             #         'err': stderr.readlines(),
             #         'retval': stdout.channel.recv_exit_status()}
         except Exception as e:
-            print(f"Error executing command: {str(e)}")
+            print(datetime.now(), f"SSH Util Error executing command: {str(e)}")
 
         return output
 
 
-# SSH connection details
-ssh_host = "192.168.124.128"
-ssh_username = "root"
-ssh_password = "111111"
+# # SSH connection details
+# ssh_host = "192.168.124.128"
+# ssh_username = "root"
+# ssh_password = "111111"
 
 
-if __name__ == "__main__":
-    ssh = SshUtil(ssh_host, ssh_username, ssh_password)
-    ssh.execute_shell_command("pwd")
-    # ssh.execute_shell_command("whoami", sudo=True)
-    # ssh.execute_shell_command("python3 -V", sudo=True)
-    ssh.execute_shell_command(f"cd /opt/mlmmjadmin-3.1.8/tools/; python3 /opt/mlmmjadmin-3.1.8/tools/maillist_admin.py update tg1@nsyy.com only_subscriber_can_post=yes disable_subscription=no", sudo=True)
-    ssh.execute_shell_command(f"cd /opt/mlmmjadmin-3.1.8/tools/; python3 /opt/mlmmjadmin-3.1.8/tools/maillist_admin.py info tg1@nsyy.com")
-    del ssh
+# if __name__ == "__main__":
+#     ssh = SshUtil(ssh_host, ssh_username, ssh_password)
+#     ssh.execute_shell_command("pwd")
+#     # ssh.execute_shell_command("whoami", sudo=True)
+#     # ssh.execute_shell_command("python3 -V", sudo=True)
+#     ssh.execute_shell_command(f"cd /opt/mlmmjadmin-3.1.8/tools/; python3 /opt/mlmmjadmin-3.1.8/tools/maillist_admin.py update tg1@nsyy.com only_subscriber_can_post=yes disable_subscription=no", sudo=True)
+#     ssh.execute_shell_command(f"cd /opt/mlmmjadmin-3.1.8/tools/; python3 /opt/mlmmjadmin-3.1.8/tools/maillist_admin.py info tg1@nsyy.com")
+#     del ssh
 
 
 
