@@ -36,9 +36,7 @@ pool = redis.ConnectionPool(host=appt_config.APPT_REDIS_HOST, port=appt_config.A
 
 def send_email(json_data):
     """
-    Send an email with the provided JSON data and save a copy to the Sent folder.
-    Raises:
-        Exception: If email sending fails
+    发送邮件
     """
     # Extract and validate required fields
     sender = json_data.get("sender")
@@ -65,7 +63,25 @@ def send_email(json_data):
     msg["Subject"] = subject
     msg["Date"] = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
 
-    # Process all recipients and build To/Cc/Bcc headers   todo 校验群组是否存在
+    # 如果收件人在群组中，则不单独给收件人发
+    if recipients_group:
+        db = DbUtil(global_config.DB_HOST, global_config.DB_USERNAME, global_config.DB_PASSWORD,
+                    global_config.DB_DATABASE_GYL)
+        group_list = ', '.join(f"'{item}'" for item in recipients_group)
+        db_mail_group = db.query_all(f"SELECT id, account FROM nsyy_gyl.ws_mail_group WHERE account in ({group_list})")
+        if db_mail_group:
+            recipients_group = [item['account'] for item in db_mail_group]
+            group_id_list = [item['id'] for item in db_mail_group]
+
+            account_in_group_list = db.query_all(
+                f"SELECT user_account FROM nsyy_gyl.ws_mail_group_members WHERE mail_group_id in ({','.join(str(i) for i in group_id_list)})")
+
+            if account_in_group_list:
+                account_in_group_list = [item['user_account'] for item in account_in_group_list]
+                recipients = [item for item in recipients if item not in account_in_group_list]
+        del db
+
+    # Process all recipients and build To/Cc/Bcc headers
     def process_recipients(recipient_list):
         return [f"{r}{mail_config.MAIL_DOMAIN}".lower() for r in recipient_list]
 
@@ -161,8 +177,6 @@ def save_to_sent_folder(sender, email_text):
 def download_file(url, filename):
     """
     下载文件并保存到本地
-    :param url:
-    :param filename:
     :return:
     """
     response = requests.get(url)
@@ -175,7 +189,7 @@ def read_mail_list(user_account: str, page_size: int, page: int, mailbox: str, k
     start_time = time.time()
     ret, mail = __login_mail_server(user_account, mailbox)
     if not ret:
-        return []
+        return [], 0
 
     search_criteria = 'ALL'
     if keyword:
@@ -185,13 +199,13 @@ def read_mail_list(user_account: str, page_size: int, page: int, mailbox: str, k
     # **1️⃣ 获取所有邮件 UID**
     status, messages = mail.search(None, search_criteria)
     if status != "OK" or not messages[0]:
-        return []
+        return [], 0
 
     # 倒序获取邮件 UID，最新邮件在前
     email_uids = messages[0].split()[::-1]
     total_emails = len(email_uids)
     if total_emails == 0:
-        return []
+        return [], 0
 
     # **2️⃣ 计算分页范围**
     start = (page - 1) * page_size
@@ -199,7 +213,7 @@ def read_mail_list(user_account: str, page_size: int, page: int, mailbox: str, k
     selected_uids = email_uids[start:end]
 
     if not selected_uids:
-        return []
+        return [], 0
 
     # **3️⃣ 批量获取邮件头 & FLAGS**
     uid_range = ",".join(uid.decode() for uid in selected_uids)
@@ -207,7 +221,7 @@ def read_mail_list(user_account: str, page_size: int, page: int, mailbox: str, k
                                   "(UID FLAGS BODY.PEEK[HEADER.FIELDS (FROM TO SUBJECT DATE X-Attachments X-Names)])")
 
     if status != "OK":
-        return []
+        return [], 0
 
     email_list = []
     for response_part in msg_data:
@@ -242,7 +256,7 @@ def read_mail_list(user_account: str, page_size: int, page: int, mailbox: str, k
 
     __close_mail(mail)
 
-    return email_list
+    return email_list, total_emails
 
 
 def read_mail_detail(user_account: str, mail_id: str, mailbox: str):
@@ -721,8 +735,8 @@ def create_mail_group(json_data):
         mail_account = account + mail_config.MAIL_DOMAIN
         mail_account = mail_account.lower()
         # 账号存在将账号加入到
-        output = ssh.execute_shell_command(f" echo {mail_config.MAIL_SSH_PASSWORD} | sudo -S bash -c 'cd /opt/mlmmjadmin/tools; "
-                                           f"python3 maillist_admin.py add_subscribers {group_name} {mail_account} ' ")
+        command = f" echo {mail_config.MAIL_SSH_PASSWORD} | sudo -S bash -c 'cd /opt/mlmmjadmin/tools; python3 maillist_admin.py add_subscribers {group_name} {mail_account} ' "
+        output = ssh.execute_shell_command(command)
         # 将执行不成功的（账号不存在，添加失败） 移除列表，并想办法告知客户端
         if 'Added.' not in output:
             failed_user_list.append(user)
@@ -742,8 +756,9 @@ def create_mail_group(json_data):
         for account in batch_insert_list:
             user = user_dict.get(account)
             args.append((last_rowid, user.get('user_account'), user.get('user_name'), timer))
-        insert_sql = "INSERT INTO nsyy_gyl.ws_mail_group_members (mail_group_id, " \
-                     "user_account, user_name, timer) VALUES (%s,%s,%s,%s)"
+        insert_sql = """INSERT INTO nsyy_gyl.ws_mail_group_members(mail_group_id, user_account, user_name, timer)
+                VALUES (%s, %s, %s, %s) ON DUPLICATE KEY UPDATE timer = VALUES(timer), 
+                user_name = VALUES(user_name)"""
         db.execute_many(insert_sql, args, need_commit=True)
 
     del db
@@ -795,10 +810,8 @@ def operate_mail_group(json_data):
             mail_account = account + mail_config.MAIL_DOMAIN
             mail_account = mail_account.lower()
             # 账号存在将账号加入到邮箱群组
-            output = ssh.execute_shell_command(f" echo {mail_config.MAIL_SSH_PASSWORD} | sudo -S bash -c "
-                                               f"'cd /opt/mlmmjadmin/tools; "
-                                               f"python3 maillist_admin.py add_subscribers"
-                                               f" {mail_group} {mail_account}' ")
+            command = f" echo {mail_config.MAIL_SSH_PASSWORD} | sudo -S bash -c 'cd /opt/mlmmjadmin/tools; python3 maillist_admin.py add_subscribers {mail_group} {mail_account} ' "
+            output = ssh.execute_shell_command(command)
             # 将执行不成功的（账号不存在，添加失败） 移除列表，并想办法告知客户端
             if 'Added.' not in output:
                 failed_user_list.append(user)

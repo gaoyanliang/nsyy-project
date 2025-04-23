@@ -47,7 +47,7 @@ def query_mail_list():
     mailbox = json_data.get('mailbox')
 
     try:
-        mail_list = mail.read_mail_list(user_account, page_size, page_number, mailbox)
+        mail_list, total_emails = mail.read_mail_list(user_account, page_size, page_number, mailbox)
     except Exception as e:
         print(datetime.now(), f"query_mail_list: {e}", traceback.print_exc())
         return jsonify({
@@ -59,7 +59,8 @@ def query_mail_list():
     return jsonify({
         'code': 20000,
         'res': '邮件列表查询成功',
-        'data': mail_list
+        'data': mail_list,
+        'total': total_emails
     })
 
 
@@ -73,7 +74,7 @@ def query_mail_list_by_keyword():
     keyword = json_data.get('keyword')
 
     try:
-        mail_list = mail.read_mail_list(user_account, page_size, page_number, mailbox, keyword)
+        mail_list, total_emails = mail.read_mail_list(user_account, page_size, page_number, mailbox, keyword)
     except Exception as e:
         print(datetime.now(), f"query_mail_list_by_keyword: {e}", traceback.print_exc())
         return jsonify({
@@ -85,7 +86,8 @@ def query_mail_list_by_keyword():
     return jsonify({
         'code': 20000,
         'res': '邮件列表查询成功',
-        'data': mail_list
+        'data': mail_list,
+        'total': total_emails
     })
 
 
@@ -236,7 +238,7 @@ def reset_user_password():
     try:
         mail.reset_user_password(user_account, old_password, new_password, is_default)
     except Exception as e:
-        print(datetime.now(), f"mail_router.reset_user_password: {e}")
+        print(datetime.now(), f"mail_router.reset_user_password: {e}", traceback.print_exc())
         return jsonify({
             'code': 50000,
             'res': '密码重置失败，请稍后重试' + e.__str__(),
@@ -268,7 +270,7 @@ def create_mail_group():
                 'data': '邮箱群组创建成功，但成员 ' + ' '.join(failed_user_list) + ' 加入群组失败，请检查以上用户是否拥有邮箱账户'
             })
     except Exception as e:
-        print(datetime.now(), f"mail_router.create_mail_group: {e}")
+        print(datetime.now(), f"mail_router.create_mail_group: {e}", traceback.print_exc())
         return jsonify({
             'code': 50000,
             'res': '邮箱群组创建失败，请稍后重试' + e.__str__(),
@@ -304,7 +306,7 @@ def operate_mail_group():
                 'data': info
             })
     except Exception as e:
-        print(datetime.now(), f"mail_router.operate_mail_group: {e}")
+        print(datetime.now(), f"mail_router.operate_mail_group: {e}", traceback.print_exc())
         return jsonify({
             'code': 50000,
             'res': '邮箱群组操作失败，请稍后重试' + e.__str__(),
