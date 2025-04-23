@@ -56,7 +56,7 @@ class SshUtil:
 
             # Read and print any errors
             errors = stderr.read().decode('utf-8')
-            if errors:
+            if errors and '[sudo]' not in errors:
                 print(datetime.now(), f"SSH Util command exception: ", command)
                 print(datetime.now(), f'SSH Util error info: ', errors)
 
