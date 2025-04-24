@@ -78,14 +78,13 @@ def call_third_systems_obtain_data(type: str, param: dict):
             orcl_db_update(param)
         elif type == 'get_dept_info_by_emp_num':
             # 根据员工号，查询科室信息
-            # from tools import his_dept_pers
-            # data = his_dept_pers(param)
-            try:
-                data = his_dept_pers1(param.get('pers_no'))
-            except Exception as e:
-                data = []
-                print(datetime.now(),
-                      '根据员工号，查询科室信息： param = ' + str(param) + "   " + e.__str__())
+            from tools import his_dept_pers
+            data = his_dept_pers(param)
+            # try:
+            #     data = his_dept_pers1(param.get('pers_no'))
+            # except Exception as e:
+            #     data = []
+            #     print(datetime.now(), '根据员工号，查询科室信息： param = ' + str(param) + "   " + e.__str__())
         elif type == 'cache_all_dept_info':
             from tools import his_dept
             data = his_dept(param)
