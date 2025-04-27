@@ -66,8 +66,10 @@ def call_third_systems_obtain_data(type: str, param: dict):
             # response = requests.post("http://192.168.3.12:6080/int_api", json=param)
             response = requests.post("http://192.168.124.53:6080/int_api", timeout=3, json=param)
             data = response.text
+            print('======> ', data)
             data = json.loads(data)
             data = data.get('data')
+
         except Exception as e:
             print(datetime.now(),
                   '调用第三方系统方法失败：type = ' + type + ' param = ' + str(param) + "   " + e.__str__())
@@ -1544,7 +1546,7 @@ def data_feedback(cv_id, cv_source, confirmer, timer, confirm_info, type: int):
         "table_name": table_name,
         "datal": datal,
         "updatel": updatel,
-        "datel": datel,
+        "timel": datel,
         "intl": intl,
         "keyl": ["RESULTALERTID"]
     }
