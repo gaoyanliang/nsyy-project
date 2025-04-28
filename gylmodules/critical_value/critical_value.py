@@ -26,33 +26,6 @@ scheduler = BackgroundScheduler()
 cv_id_lock = threading.Lock()
 
 
-# 内部调用标准功能
-def his_dept_pers1(pers_no):
-    """
-    todo his 切换期间临时使用  将人员表和部门表自己维护
-    :param pers_no:
-    :return:
-    """
-    db = DbUtil(global_config.DB_HOST, global_config.DB_USERNAME, global_config.DB_PASSWORD,
-                global_config.DB_DATABASE_GYL)
-    query_sql = f"select a.姓名 as 'PERS_NAME', a.编号 as 'EMP_NUB', a.ID as 'PERS_ID', b.缺省, c.id as 'HIS_DEPT_ID', c.名称 as 'DEPT_NAME' from " \
-          f"nsyy_gyl.人员表 a left join nsyy_gyl.部门人员 b on a.id=b.人员id left join nsyy_gyl.部门表 c on b.部门id=c.id where a.编号='{pers_no}' "
-    pers_list = db.query_all(query_sql)
-    del db
-
-    if not pers_list:
-        return []
-
-    # 有效连接，重启刷新
-    redi_f = redis.StrictRedis(host="127.0.0.1", port=6379, db=1, decode_responses=True)
-    for i in pers_list:
-        emp_no = "U" + "0"*(5-len(i['EMP_NUB'])) + i['EMP_NUB']
-        i['oa_pers_id'] = redi_f.hget('hr_pers_main', emp_no)
-    redi_f.close()
-
-    return pers_list
-
-
 """
 调用第三方系统获取数据
 """
@@ -82,11 +55,6 @@ def call_third_systems_obtain_data(type: str, param: dict):
             # 根据员工号，查询科室信息
             from tools import his_dept_pers
             data = his_dept_pers(param)
-            # try:
-            #     data = his_dept_pers1(param.get('pers_no'))
-            # except Exception as e:
-            #     data = []
-            #     print(datetime.now(), '根据员工号，查询科室信息： param = ' + str(param) + "   " + e.__str__())
         elif type == 'cache_all_dept_info':
             from tools import his_dept
             data = his_dept(param)
@@ -765,7 +733,8 @@ def create_cv_by_system(json_data, cv_source):
     # 社区门诊需要处理 联系人 吴主任 13333671269
     if cvd['dept_id'] and cvd['dept_id'].isdigit() and \
             (int(cvd['dept_id']) == 1000760 or str(cvd['dept_id']) == '0812'
-             or int(cvd['dept_id']) == 1000700 or int(cvd['dept_id']) == 281):
+             or int(cvd['dept_id']) == 1000700 or int(cvd['dept_id']) == 281
+             or int(cvd['dept_id']) == 94803 or str(cvd['dept_id']) == '0800'):
         return
 
     # 解析危机值上报信息
@@ -784,6 +753,12 @@ def create_cv_by_system(json_data, cv_source):
                  "randstr": "XPFDFZDF7193CIONS1PD7XCJ3AD4ORRC"}
         cvd['alert_dept_id'], cvd['alert_dept_name'], cvd['alertman_name'], cvd['alertman_pers_id'] = \
             call_third_systems_obtain_data('get_dept_info_by_emp_num', param)
+
+    # 2025-04-28 王永慧反馈 上报科室是康复院区的也不处理
+    if int(cvd['alert_dept_id']) == 1000760 or str(cvd['alert_dept_id']) == '0812' \
+            or int(cvd['alert_dept_id']) == 1000700 or int(cvd['alert_dept_id']) == 281 \
+            or int(cvd['alert_dept_id']) == 94803 or str(cvd['alert_dept_id']) == '0800':
+        return
 
     if not cvd.get('alertman_pers_id'):
         cvd['alertman_pers_id'] = 0
