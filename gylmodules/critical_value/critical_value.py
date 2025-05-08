@@ -33,13 +33,13 @@ cv_id_lock = threading.Lock()
 
 def call_third_systems_obtain_data(type: str, param: dict):
     data = []
-    if global_config.run_in_local:
+    # 线上环境 cache_all_dept_info 走url调用， 注意要改成 http://127.0.0.1:6080/int_api
+    if global_config.run_in_local or type == 'cache_all_dept_info':
         try:
             # 发送 POST 请求，将字符串数据传递给 data 参数
-            # response = requests.post("http://192.168.3.12:6080/int_api", json=param)
+            # response = requests.post("http://127.0.0.1:6080/int_api", timeout=3, json=param)
             response = requests.post("http://192.168.124.53:6080/int_api", timeout=3, json=param)
             data = response.text
-            print('======> ', data)
             data = json.loads(data)
             data = data.get('data')
 
@@ -80,6 +80,7 @@ def call_third_systems_obtain_data(type: str, param: dict):
     elif type == 'cache_all_dept_info':
         # 缓存所有科室信息
         redis_client = redis.Redis(connection_pool=pool)
+        print(datetime.now(), '缓存所有科室信息', len(data))
         if len(data) > 0:
             for d in data:
                 redis_client.hset(cv_config.DEPT_INFO_REDIS_KEY, d.get('his_dept_id'), json.dumps(d, default=str))
