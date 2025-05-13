@@ -174,9 +174,9 @@ def update_today_doc_info():
     id_list = ','.join(map(str, his_status_set))
     db.execute(f"""UPDATE nsyy_gyl.appt_doctor SET his_status = CASE WHEN id IN ({id_list}) THEN 1 ELSE 0 END""",
                need_commit=True)
-    # # 当日医生非坐诊状态的排班记录设置为停诊  # TODO appt_schedules 中的状态应该没有作用了，暂不删除
-    # db.execute(f"""UPDATE nsyy_gyl.appt_schedules SET status = 3
-    #                 WHERE did NOT IN ({id_list}) and did != 0 and shift_date = '{datetime.now().date()}'""")
+    # 当日医生非坐诊状态的排班记录设置为停诊  # TODO appt_schedules 中的状态应该没有作用了，暂不删除
+    db.execute(f"""UPDATE nsyy_gyl.appt_schedules SET status = 3
+                    WHERE did NOT IN ({id_list}) and did != 0 and shift_date = '{datetime.now().date()}'""")
 
     doctor_list = db.query_all(f"""select sid, did from nsyy_gyl.appt_schedules 
                      where shift_date = '{datetime.now().date()}' and did not in ({id_list}) and did != 0 """)
