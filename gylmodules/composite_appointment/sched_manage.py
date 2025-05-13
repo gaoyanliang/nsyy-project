@@ -210,6 +210,42 @@ def create_schedule(did, rid, pid, shift_date, shift_type):
         raise Exception('新增排班记录异常', e)
 
 
+def create_doctor_schedule(did, start_date, end_date):
+    """
+    新增医生排班记录
+    :param did:
+    :param start_date:
+    :param end_date:
+    :return:
+    """
+    try:
+        # 将字符串转换为datetime对象
+        start = datetime.strptime(start_date, '%Y-%m-%d')
+        end = datetime.strptime(end_date, '%Y-%m-%d')
+
+        doc_s_data = []
+        current_date = start
+        while current_date <= end:
+            doc_s_data.append((int(did), current_date.strftime('%Y-%m-%d'), 1, 1))
+            doc_s_data.append((int(did), current_date.strftime('%Y-%m-%d'), 2, 1))
+            # 增加一天
+            current_date += timedelta(days=1)
+
+        # 批量插入
+        db = DbUtil(global_config.DB_HOST, global_config.DB_USERNAME, global_config.DB_PASSWORD,
+                    global_config.DB_DATABASE_GYL)
+        insert_sql = """
+            INSERT INTO nsyy_gyl.appt_schedules_doctor (did, shift_date, shift_type, status)
+            VALUES (%s, %s, %s, %s)
+            ON DUPLICATE KEY UPDATE did = VALUES(did), shift_date = VALUES(shift_date),
+            shift_type = VALUES(shift_type), status = VALUES(status)
+        """
+        db.execute_many(insert_sql, doc_s_data, need_commit=True)
+        del db
+    except Exception as e:
+        raise Exception('新增医生排班记录异常', e)
+
+
 def update_schedule(sid, new_rid, new_did, new_pid):
     """
     更新排班记录

@@ -4,7 +4,7 @@ import traceback
 from datetime import datetime
 from flask import Blueprint, jsonify, request
 
-from gylmodules.composite_appointment import ca_server, sched_manage
+from gylmodules.composite_appointment import ca_server, sched_manage, update_doc_scheduling
 
 appt = Blueprint('composite appointment', __name__, url_prefix='/appt')
 
@@ -780,5 +780,34 @@ def today_doctor_for_appointment():
 
     return jsonify(doctor_list)
 
+
+@appt.route('/create_doctor_schedule', methods=['POST', 'GET'])
+def create_doctor_schedule():
+    json_data = {}
+    try:
+        json_data = json.loads(request.get_data().decode('utf-8'))
+        sched_manage.create_doctor_schedule(json_data.get('did'),
+                                            json_data.get('start_date'), json_data.get('end_date'))
+    except Exception as e:
+        print(datetime.now(), f"create_doctor_schedule Exception occurred: {e.__str__()}, param: ", json_data)
+        return jsonify({
+            'code': 50000,
+            'res': e.__str__()
+        })
+    return jsonify({'code': 20000})
+
+
+@appt.route('/update_today_doc_info', methods=['POST', 'GET'])
+def update_today_doc_info():
+    try:
+        update_doc_scheduling.update_today_doc_info()
+    except Exception as e:
+        print(datetime.now(), f"today_doctor_for_appointment Exception occurred: {e.__str__()}")
+        return jsonify({
+            'code': 50000,
+            'res': e.__str__()
+        })
+
+    return jsonify({'code': 20000})
 
 
