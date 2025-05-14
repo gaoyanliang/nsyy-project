@@ -19,14 +19,16 @@ pool = redis.ConnectionPool(host=appt_config.APPT_REDIS_HOST, port=appt_config.A
                             db=appt_config.APPT_REDIS_DB, decode_responses=True)
 
 
-def data_list(query_by):
+def data_list(query_by, online: int = 0):
     """
     查询数据列表
     :param query_by:
+    :param online:
     :return:
     """
     if query_by == 'doctor':
-        sql = 'select * from nsyy_gyl.appt_doctor'
+        sql = 'select * from nsyy_gyl.appt_doctor' if online == 0 \
+            else 'select * from nsyy_gyl.appt_doctor where his_status = 1'
     elif query_by == 'room':
         sql = 'select * from nsyy_gyl.appt_room'
     elif query_by == 'project':

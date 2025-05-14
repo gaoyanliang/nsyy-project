@@ -605,7 +605,11 @@ def query_doc():
 @appt.route('/doc_list', methods=['POST', 'GET'])
 def doc_list():
     try:
-        data = sched_manage.data_list('doctor')
+        online = 0
+        if request.get_data().decode('utf-8'):
+            json_data = json.loads(request.get_data().decode('utf-8'))
+            online = int(json_data.get('online', 0))
+        data = sched_manage.data_list('doctor', online)
     except Exception as e:
         timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
         print(f"[{timestamp}] doc_list Exception occurred: {e.__str__()}")
