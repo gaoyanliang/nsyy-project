@@ -50,12 +50,14 @@ def query_doc_bynum_or_name(key):
     :return:
     """
     db = DbUtil(global_config.DB_HOST, global_config.DB_USERNAME, global_config.DB_PASSWORD,
-                    global_config.DB_DATABASE_GYL)
-    docl = db.query_all(f"select * from nsyy_gyl.appt_doctor where (name like '%{key}%' or emp_nub = '{key}') "
-                        f"and his_status = 1 ")
+                global_config.DB_DATABASE_GYL)
+    query_sql = f"""select d.* from nsyy_gyl.appt_doctor d join nsyy_gyl.appt_schedules_doctor sd on d.id = sd.did 
+                    where (d.name like '%{key}%' or d.emp_nub = '{key}') and d.his_status = 1 
+                    and sd.shift_date = '{str(datetime.now().date())}' and sd.status = 1 """
+    docl = db.query_all(query_sql)
     del db
 
-    return docl
+    return docl[0] if docl else []
 
 
 def get_schedule(start_date, end_date, query_by, pid):
@@ -266,6 +268,16 @@ def update_schedule(sid, new_rid, new_did, new_pid):
         original = db.query_one(query_sql)
         if not original:
             raise Exception("排班记录不存在")
+
+        # 如果修改的是当天的排班，医生修改时校验医生是否有排班权限
+        if original.get('shift_date').strftime("%Y-%m-%d") == datetime.now().strftime("%Y-%m-%d") \
+                and int(new_did) != int(original.get('did')):
+            q_sql = f"""select d.id from nsyy_gyl.appt_doctor d join nsyy_gyl.appt_schedules_doctor ds on ds.did = d.id 
+                         where d.id = {new_did} and d.his_status = 1 and ds.status = 1 
+                         and ds.shift_date = '{datetime.now().strftime("%Y-%m-%d")}' """
+            allow_scheduling = db.query_all(q_sql)
+            if not allow_scheduling:
+                raise Exception("该医生今天没有排班权限")
 
         # 检查新时间冲突, 仅当修改房间的时候需要检查冲突
         if new_rid:

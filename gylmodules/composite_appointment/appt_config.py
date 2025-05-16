@@ -4,8 +4,8 @@ APPT_REDIS_HOST = '127.0.0.1'
 APPT_REDIS_PORT = 6379
 APPT_REDIS_DB = 2
 
-# 预约类型 1=在线预约（小程序） 2=现场预约 3=自助挂号，手机查询时创建， 4=根据医嘱创建
-APPT_TYPE = {'online': 1, 'offline': 2, 'auto_appt': 3, 'advice_appt': 4, 'inpatient_advice': 5}
+# 预约类型 1=在线预约（小程序） 2=现场预约 3=自助挂号，手机查询时创建， 4=根据医嘱创建  6=挂号（自助机/诊间）后登记 排号
+APPT_TYPE = {'online': 1, 'offline': 2, 'auto_appt': 3, 'advice_appt': 4, 'inpatient_advice': 5, "after_reg": 6}
 
 # 预约紧急程度
 APPT_URGENCY_LEVEL = {'green': 1, 'yellow': 2, 'red': 3}
