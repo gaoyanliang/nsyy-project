@@ -57,7 +57,7 @@ def query_doc_bynum_or_name(key):
     docl = db.query_all(query_sql)
     del db
 
-    return docl[0] if docl else []
+    return docl
 
 
 def get_schedule(start_date, end_date, query_by, pid):
