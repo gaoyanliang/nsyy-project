@@ -67,7 +67,7 @@ def query_patient_info(card_no):
     brxx.MINZUMC 民族 FROM df_bingrenzsy.gy_bingrenxx brxx WHERE brxx.JIUZHENKH = '{card_no}'  
     OR brxx.SHENFENZH = '{card_no}' ORDER BY brxx.JIANDANGRQ DESC
         """
-        patient_infos = global_tools.call_new_his(sql)
+        patient_infos = global_tools.call_new_his_pg(sql)
         if not patient_infos:
             raise Exception('未找到该患者信息，请仔细核对 就诊卡号/身份证号 是否正确')
         patient_age = calculate_age_from_id(patient_infos[0].get('身份证号'), patient_infos[0].get('出生日期'))
