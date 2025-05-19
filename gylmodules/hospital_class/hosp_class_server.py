@@ -18,7 +18,8 @@ def hosp_class(json_data):
     elif func_type == 'class_apply_list':
         return class_apply_list(int(json_data.get('query_type')), json_data.get('page_no'), json_data.get('page_size'))
     elif func_type == 'class_appr':
-        return class_appr(json_data.get('class_id'), json_data.get('approver_pers_id'), json_data.get('approver_name'))
+        return class_appr(json_data.get('class_id'), json_data.get('approver_pers_id'),
+                          json_data.get('approver_name'), json_data.get('class_status'))
     elif func_type == 'class_list':
         return class_list(json_data.get('date_str'), json_data.get('period'))
     elif func_type == 'class_join':
@@ -33,6 +34,8 @@ def hosp_class(json_data):
     elif func_type == 'class_his':
         return class_his(json_data.get('pers_id'), json_data.get('his_type'), json_data.get('page_no'),
                          json_data.get('page_size'), json_data.get('start_d'), json_data.get('end_d'))
+    elif func_type == 'class_report':
+        return class_report(json_data)
     else:
         return jsonify({'code': 50000, 'res': 'type is illegal'})
 
@@ -81,8 +84,8 @@ def class_apply(apply_data):
 
     if 'class_status' not in apply_data and 'class_id' not in apply_data:
         apply_data['class_status'] = 1
-    if apply_data.get('applicant') == 11171 and apply_data.get('class_status') == 1:
-        # 如果申请人是黄满利，则直接改为审核状态
+    if apply_data.get('applicant') in [11171, 10711, 10014, 111146] and apply_data.get('class_status') == 1:
+        # 如果申请人是管理员，则直接改为审核状态
         apply_data['class_status'] = 2
 
     # 验证输入时间格式
@@ -155,24 +158,29 @@ def class_apply_list(query_type, page_no, page_size):
 
     db = DbUtil(global_config.DB_HOST, global_config.DB_USERNAME, global_config.DB_PASSWORD,
                 global_config.DB_DATABASE_GYL)
+
+    condition_sql = f"WHERE class_status = {int(query_type)}"
+    if int(query_type) == 2:
+        condition_sql = f"WHERE class_status >= {int(query_type)}"
     # 查询总数
-    total = db.query_one(f"SELECT COUNT(*) FROM nsyy_gyl.hosp_class WHERE class_status = {int(query_type)}")
+    total = db.query_one(f"SELECT COUNT(*) FROM nsyy_gyl.hosp_class {condition_sql}")
     total = total.get('COUNT(*)')
 
     # 分页查询数据
-    classes = db.query_all(f"SELECT * FROM nsyy_gyl.hosp_class WHERE class_status = {int(query_type)} "
+    classes = db.query_all(f"SELECT * FROM nsyy_gyl.hosp_class {condition_sql} "
                            f"LIMIT {page_size} OFFSET {offset}")
     del db
 
     return jsonify({'code': 20000, 'res': '待批复讲座清单查询成功', 'data': classes, 'total': total})
 
 
-def class_appr(class_id, approver_pers_id, approver_name):
+def class_appr(class_id, approver_pers_id, approver_name, class_status):
     """
     讲座批复
     :param class_id:
     :param approver_pers_id:
     :param approver_name:
+    :param class_status: 2=同意 3=撤销  -1=拒绝
     :return:
     """
     db = DbUtil(global_config.DB_HOST, global_config.DB_USERNAME, global_config.DB_PASSWORD,
@@ -184,9 +192,9 @@ def class_appr(class_id, approver_pers_id, approver_name):
         return jsonify({'code': 50000, 'res': '该讲座不存在'})
 
     approval_time = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
-    db.execute(f"update nsyy_gyl.hosp_class set class_status = 2, approver_name = '{approver_name}', "
+    db.execute(f"update nsyy_gyl.hosp_class set class_status = {class_status}, approver_name = '{approver_name}', "
                f"approver_pers_id = {approver_pers_id}, approval_time = '{approval_time}' "
-               f"where class_id = {int(class_id)} and class_status = 1", need_commit=True)
+               f"where class_id = {int(class_id)}", need_commit=True)
     del db
 
     global_tools.start_thread(app_notify, ([class_data.get('applicant')], "讲座已批复"))
@@ -230,6 +238,11 @@ def class_join(pers_id, pers_name, pers_status, class_id):
     if target_class.get('class_start') < datetime.now():
         del db
         return jsonify({'code': 50000, 'res': '该讲座已经开始'})
+
+    appt_deadline = target_class.get('appt_deadline')
+    if pers_status == 1 and appt_deadline and appt_deadline < datetime.now():
+        del db
+        return jsonify({'code': 50000, 'res': '您预约的太晚了, 该讲座已停止预约, 下次请提前预约'})
 
     insert_sql = """
             INSERT INTO nsyy_gyl.hosp_class_pers (cp_key, pers_id, pers_name, pers_status, class_id) 
@@ -323,13 +336,15 @@ def class_comments(class_id, pers_id, answer_list):
     insert_sql = """INSERT INTO nsyy_gyl.hosp_class_rate (cp_key, qu_id, qu_answer, other_answer)
             VALUES (%s, %s, %s, %s) ON DUPLICATE KEY UPDATE qu_answer = VALUES(qu_answer), 
             other_answer = VALUES(other_answer)"""
-    values = [(cp_key, item["qu_id"],
-               json.dumps(item["qu_answer"], ensure_ascii=False) if item.get('qu_answer') and type(item.get('qu_answer')) == list
-               else item["qu_answer"], item.get('other_answer', '')) for item in answer_list]
+    values = []
+    for item in answer_list:
+        qu_answer = json.dumps(item["qu_answer"], ensure_ascii=False) \
+            if item.get('qu_answer') and type(item.get('qu_answer')) == list else item["qu_answer"]
+        qu_answer = qu_answer if qu_answer else ''
+        values.append((cp_key, item["qu_id"], qu_answer, item.get('other_answer', '')))
     last_row = db.execute_many(insert_sql, args=values, need_commit=True)
 
     if last_row == -1:
-        print(datetime.now(), '评价失败： ', answer_list)
         return jsonify({'code': 50000, 'res': '评价失败'})
 
     # 评价成功 修改状态
@@ -371,6 +386,73 @@ def class_his(pers_id, his_type, page_no, page_size, start_d, end_d):
     return jsonify({'code': 20000, 'res': '查询成功', 'data': classes, 'total': total})
 
 
+def class_report(json_data):
+    """
+    统计报表 report_type=class 讲座报表， report_type=sign_in 签到报表
+    :param json_data:
+    :return:
+    """
+    db = DbUtil('192.168.3.12', 'root', '123123', "oa_test")
+    report_type = json_data.get('report_type')
+    if report_type == 'class':
+        start_time = json_data.get('start_time')
+        end_time = json_data.get('end_time')
+        if not start_time or not end_time:
+            del db
+            return jsonify({'code': 50000, 'res': '请选择时间范围'})
+
+        classes = db.query_all(f"select * from nsyy_gyl.hosp_class where class_start >= '{start_time}' "
+                               f"and class_start <= '{end_time}'")
+        del db
+        return jsonify({'code': 20000, 'res': '报表导出成功', 'data': classes})
+    elif report_type == 'sign_in':
+        class_id = json_data.get('class_id')
+
+        if class_id:
+            target_class = db.query_one(f"select * from nsyy_gyl.hosp_class where class_id = {class_id}")
+            if not target_class:
+                del db
+                return jsonify({'code': 50000, 'res': '讲座不存在'})
+
+            must_attend_dept = target_class.get('must_attend_dept')
+            must_attend_title = target_class.get('must_attend_title')
+            must_attend_job = target_class.get('must_attend_job')
+            condition_sql = ''
+            if must_attend_dept:
+                condition_sql = condition_sql + f" and c.dept_name in ({','.join(map(str, must_attend_dept))}) "
+            if must_attend_title:
+                condition_sql = condition_sql + f" and a.pro_gen_lvl in ({','.join(map(str, must_attend_title))}) "
+            if must_attend_job:
+                condition_sql = condition_sql + f" and b.work_sub_categ in ({','.join(map(str, must_attend_job))}) "
+
+            query_sql = f"""
+                        SELECT a.pers_id,  a.pers_name, MIN(c.dept_id) AS dept_id, 
+                        MIN(c.dept_name) AS dept_name, COALESCE(p.pers_status, 0) AS pers_status,
+                        CASE 
+                            WHEN p.pers_status IS NULL THEN '未预约'
+                            WHEN p.pers_status = 0 THEN '未预约'
+                            WHEN p.pers_status = 1 THEN '已报名未签到'
+                            WHEN p.pers_status = 2 THEN '已签到未评价'
+                            WHEN p.pers_status = 3 THEN '已评价'
+                            ELSE '未知状态'
+                        END AS status_desc
+                    FROM oa_test.hr_pers_main a 
+                    LEFT JOIN oa_test.hr_pers_dept b ON a.pers_id = b.pers_id 
+                    LEFT JOIN oa_test.hr_dept c ON b.dept_id = c.dept_id 
+                    LEFT JOIN nsyy_gyl.hosp_class_pers p ON p.pers_id = a.pers_id 
+                    WHERE a.pers_active IN (1, 2) AND p.class_id = {class_id} {condition_sql}
+                    GROUP BY a.pers_id, a.pers_name, p.pers_status
+            """
+            data = db.query_all(query_sql)
+            del db
+            return jsonify({'code': 20000, 'res': '报表导出成功', 'data': data})
+        else:
+            del db
+            return jsonify({'code': 50000, 'res': '请选择讲座'})
+    else:
+        return jsonify({'code': 50000, 'res': '报表导出失败，仅支持 讲座报表 class 和 签到报表 sign_in'})
+
+
 def pers_account(db, class_id):
     pers_list = db.query_all(f"select pers_id, pers_name, pers_status "
                              f"from nsyy_gyl.hosp_class_pers where class_id = {class_id}")
@@ -385,7 +467,7 @@ def app_notify(pers_id_list, context):
     data = {'msg_list': [{'socket_data': {"type": 400, "data": {"title": "新讲座通知", "context": context}},
                           'pers_id': pers_id_list}]}
     try:
-        response = requests.post('http://120.194.96.67:6066/inter_socket_msg',
+        response = requests.post('http://192.168.3.65:6066/inter_socket_msg',
                                  data=json.dumps(data), headers={'Content-Type': 'application/json'})
     except Exception as e:
         print(datetime.now(), '新讲座通知异常 Exception: ', e.__str__())
