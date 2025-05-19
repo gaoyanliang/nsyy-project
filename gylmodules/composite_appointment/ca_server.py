@@ -120,8 +120,8 @@ def call_third_systems_obtain_data(url: str, type: str, param: dict):
             data = response.text
             data = json.loads(data)
             if type == 'his_visit_reg':
-                print('his 取号返回: ', data, ' 取号参数：', param)
-                # data = data.get('ResultCode')
+                print(datetime.now(), 'his 取号返回: ', data, ' 取号参数：', param)
+                data = data[2]
             elif type == 'reg_refund_apply':
                 data = data
             else:
@@ -133,7 +133,8 @@ def call_third_systems_obtain_data(url: str, type: str, param: dict):
             # 门诊挂号 当天
             from tools import nhis_api
             data = nhis_api(param, tcode='4005')
-            print('his 取号返回: ', data, ' 取号参数：', param)
+            print(datetime.now(), 'his 取号返回: ', data, ' 取号参数：', param)
+            data = data[2]
             # data = data.get('ResultCode')
         elif type == 'his_visit_check':
             # 查询当天患者挂号信息
@@ -1023,22 +1024,24 @@ def sign_in(json_data, over_num: bool = False):
     # 签到前到 his 中取号, 小程序预约，现场预约需要取号。 自助挂号机挂号的预约不需要挂号
     pay_sql, pay_no = '', ''
     if appt_type in (1, 2):
-        # TODO 挂号接口更新
         doctorinfo = redis_client.hget(APPT_DOCTORS_KEY, str(json_data.get('doc_id')))
-        if doctorinfo.get('his_status') == 0:
-            raise Exception('当前医生 今天在 his 中没有挂号权限, 无法签到')
         if doctorinfo:
             doctorinfo = json.loads(doctorinfo)
-            # paymethod: 1 微信 2 支付宝
-            param = {"type": "his_visit_reg", "paymethod": 1, "day": datetime.now().date(), "patient_id": patient_id,
-                     "AsRowid": str(doctorinfo.get('appointment_id')),
-                     "PayAmt": float(doctorinfo.get('fee')), "orderid": record.get('orderid')}
-            sign_in_ret = call_third_systems_obtain_data('his_socket', 'his_visit_reg', param)
+
+            if doctorinfo.get('his_status') == 0:
+                raise Exception('当前医生今天在 his 中没有挂号权限, 无法签到')
+
+            sign_in_ret = ''
             try:
-                if not sign_in_ret or sign_in_ret.get('ResultCode') != '0':
-                    raise Exception('在 his 中取号失败， 签到失败, ', sign_in_ret)
+                # paymethod: 1 微信 2 支付宝
+                param = {"type": "his_visit_reg", "paymethod": 1, "day": record.get('book_date'),
+                         "patient_id": patient_id, "AsRowid": str(doctorinfo.get('appointment_id')),
+                         "PayAmt": float(doctorinfo.get('fee')), "orderid": record.get('orderid')}
+                sign_in_ret = call_third_systems_obtain_data('his_socket', 'his_visit_reg', param)
+                if not sign_in_ret or int(sign_in_ret.get('ResultCode')) != 0:
+                    raise Exception('在 his 中取号失败， 签到接口返回数据, ', sign_in_ret)
             except Exception:
-                raise Exception('在 his 中取号失败， 签到失败, ', sign_in_ret)
+                raise Exception('在 his 中取号失败， 签到接口返回数据, ', sign_in_ret)
             # 挂号成功更新 pay_no
             pay_no = sign_in_ret.get('RegisterNo')
             redis_client.sadd(APPT_DAILY_AUTO_REG_RECORD_KEY, pay_no)
