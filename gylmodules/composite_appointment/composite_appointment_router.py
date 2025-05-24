@@ -78,12 +78,16 @@ def sign_in(json_data):
 @appt.route('/query_projs', methods=['GET', 'POST'])
 @api_response
 def get_all_project(json_data):
+    if datetime.now().hour < 7:
+        raise Exception('请于七点之后再进行挂号')
     return ca_server.query_all_appt_project(int(json_data.get('type')), json_data.get('pid'))
 
 
 @appt.route('/query_today_projs', methods=['GET', 'POST'])
 @api_response
 def query_today_projs(json_data):
+    if datetime.now().hour < 7:
+        raise Exception('请于七点之后再进行挂号')
     return ca_server.query_all_appt_project(int(json_data.get('type')), json_data.get('pid'), only_today=True)
 
 

@@ -76,6 +76,8 @@ def class_apply(apply_data):
     class_id = apply_data.get('class_id')
     new_class_start = apply_data.get('class_start')
     new_class_end = apply_data.get('class_end')
+    if not apply_data.get('appt_deadline', ''):
+        apply_data['appt_deadline'] = apply_data.get('class_end')
 
     if 'class_att' in apply_data and not apply_data.get('class_att'):
         apply_data.pop('class_att')

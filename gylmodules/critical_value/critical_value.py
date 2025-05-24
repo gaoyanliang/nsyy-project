@@ -177,7 +177,8 @@ def pull_running_cv():
                 global_config.DB_DATABASE_GYL)
     # 加载所有处理中的危机值到内存
     states = (cv_config.INVALID_STATE, cv_config.DOCTOR_HANDLE_STATE)
-    query_sql = f'select * from nsyy_gyl.cv_info where state not in {states} or cv_source = {cv_config.CV_SOURCE_MANUAL} '
+    query_sql = f'select * from nsyy_gyl.cv_info where state not in {states} ' \
+                f'or (cv_source = {cv_config.CV_SOURCE_MANUAL} and alertdt >= DATE_SUB(CURRENT_DATE(), INTERVAL 2 DAY) ) '
     cvs = db.query_all(query_sql)
     for cv in cvs:
         key = cv.get('cv_id') + '_' + str(cv.get('cv_source'))
