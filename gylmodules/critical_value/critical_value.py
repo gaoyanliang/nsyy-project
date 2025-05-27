@@ -1767,13 +1767,22 @@ def send_to_his(cv_record):
         return
 
     patient_treat_id = cv_record.get('patient_treat_id', 'unknown')
-    sql = f"""
-        select xingming 姓名, xingbiemc 性别, nianling 年龄, 
-        bingrenzyid	病人住院ID, zhuyuanhao 住院号, binganhao 病案号, bingrenid 病人ID, dangqiancwbm 当前床位编码, 
-        dangqianksid 当前科室, dangqianksmc 当前科室名称, dangqianbqid 当前病区, dangqianbqmc 当前病区名称 
-        from df_jj_zhuyuan.zy_bingrenxx where zhuyuanhao = '{patient_treat_id}' or jiuzhenkh = '{patient_treat_id}' 
-        or bingrenid = '{patient_treat_id}' ORDER BY jiandangrq DESC
-    """
+
+    if int(cv_record.get("patient_type")) == 3:
+        sql = f"""
+            select xingming 姓名, xingbiemc 性别, nianling 年龄, 
+            bingrenzyid	病人住院ID, zhuyuanhao 住院号, binganhao 病案号, bingrenid 病人ID, dangqiancwbm 当前床位编码, 
+            dangqianksid 当前科室, dangqianksmc 当前科室名称, dangqianbqid 当前病区, dangqianbqmc 当前病区名称 
+            from df_jj_zhuyuan.zy_bingrenxx where zhuyuanhao = '{patient_treat_id}' or jiuzhenkh = '{patient_treat_id}' 
+            or bingrenid = '{patient_treat_id}' ORDER BY jiandangrq DESC
+        """
+    else:
+        sql = f"""
+            select xingming 姓名, xingbiemc 性别,nianling 年龄,jiuzhenid 病人住院id,null 住院号,null 病案号,
+            bingrenid 病人id,null 当前床位编码, jiuzhenksid 当前科室,jiuzhenksmc 当前科室名称,null 当前病区,null 当前病区名称, 
+            jiezhensj 接诊时间 from df_lc_menzhen.zj_jiuzhenxx where zuofeibz=0 
+            and (jiuzhenkh='{patient_treat_id}' or bingrenid='{patient_treat_id}') order by jiezhensj desc
+        """
     patient_data = global_tools.call_new_his(sql)
     if not patient_data:
         print(datetime.now(), '未查询到病人信息 cv_id = ', cv_record.get('cv_id'), 'patient_treat_id = ', patient_treat_id)
