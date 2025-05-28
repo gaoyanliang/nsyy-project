@@ -25,18 +25,6 @@ def wx_appt(json_data):
 
 
 """
-自动创建预约记录（自助机挂号/诊间挂号）
-"""
-
-
-@appt.route('/auto_appt', methods=['POST'])
-@api_response
-def auto_appt(json_data):
-    ca_server.auto_create_appt_by_auto_reg(json_data.get('patient_key'), int(json_data.get('did')),
-                                           int(json_data.get('rid')), int(json_data.get('pid')))
-
-
-"""
 预约记录查询
 """
 

@@ -104,7 +104,6 @@ def cache_capacity():
 
 cache_capacity()
 
-
 """
 调用第三方系统
 """
@@ -213,6 +212,7 @@ def check_appointment_quantity(book_info):
     小程序预约和线下预约选择的时间段（上午/下午）不能更改
     自助预约/医嘱预约可以根据容量调整时间段
     """
+
     def find_next_available(date, next_slot, period_list, find_in, pre_room_dict):
         capdict_am = pre_room_dict.get(str(book_info['room']), {}).get(date, {}).get('1', {})
         capdict_pm = pre_room_dict.get(str(book_info['room']), {}).get(date, {}).get('2', {})
@@ -350,69 +350,128 @@ def create_appt(json_data, last_date=None, last_slot=None):
     return last_rowid, bdate, bslot
 
 
-def auto_create_appt_by_auto_reg(patient_key, did, rid, pid):
+def auto_create_appt_by_auto_reg(id_card_list, medical_card_list, rid):
     """
-    自助机/诊间 挂号的补一条记录，用于排号，不消耗小程序号源
-    :param patient_key:  患者姓名/身份证号
-    :param did:
-    :param rid:
-    :param pid:
+    取号
+    1. 如果当日有小程序挂号记录， 什么都不做
+    2. 如果当日有自助机挂号记录， 没有OA记录，创建OA记录
+    3. 既没有小程序挂号记录，也没有自助机挂号记录，单纯创建挂号记录
+    :param id_card_list:
+    :param medical_card_list:
     :return:
     """
     # 根据身份证号或者就诊卡号查询患者当天的挂号记录
-    condition_sql = f"( mzgh.bingrenxm like '{patient_key}' " \
-                    f"or brxx.shenfenzh like '{patient_key}' " \
-                    f"or brxx.jiuzhenkh like '{patient_key}' )"
+    condition_sql = ''
+    if id_card_list and not medical_card_list:
+        id_list = ', '.join(f"'{item}'" for item in id_card_list)
+        condition_sql = condition_sql + f' brxx.shenfenzh in ({id_list}) '
+    elif not id_card_list and medical_card_list:
+        medical_list = ', '.join(f"'{item}'" for item in medical_card_list)
+        condition_sql = condition_sql + f' brxx.jiuzhenkh in ({medical_list}) '
+    elif id_card_list and medical_card_list:
+        id_list = ', '.join(f"'{item}'" for item in id_card_list)
+        medical_list = ', '.join(f"'{item}'" for item in medical_card_list)
+        condition_sql = condition_sql + f'( brxx.jiuzhenkh in ({medical_list}) or brxx.shenfenzh in ({id_list}) )'
 
     # 查询病人当天的挂号记录 不存在自助挂号记录 直接返回
-    sql = f"""select mzgh.guahaoid "NO", mzgh.shoufeiid id, brxx.jiuzhenkh 就诊卡号, brxx.shenfenzh 身份证号,
-	          brxx.bingrenid "病人ID", mzgh.bingrenxm 姓名, mzgh.guahaoks 执行部门id, mzgh.guahaoysxm 执行人,
-	        case when mzgh.zuofeibz=1 or mzgh.jiaoyilx=-1 then -1 
-	        when mzgh.zuofeibz=0 and mzgh.jiaoyilx=1 then 1 else null end as 记录状态
-            from df_jj_menzhen.mz_guahao mzgh join df_bingrenzsy.gy_bingrenxx brxx on mzgh.bingrenid = brxx.bingrenid
-            where {condition_sql} and date(mzgh.guahaorq) = current_date order by mzgh.guahaorq desc"""
-
+    sql = f"""
+        select mzgh.guahaoid "NO", mzgh.shoufeiid id, brxx.jiuzhenkh 就诊卡号, brxx.shenfenzh 身份证号,
+	           brxx.bingrenid "病人ID", mzgh.bingrenxm 姓名, mzgh.guahaoks 执行部门ID, mzgh.guahaoysxm 执行人,
+	        case when mzgh.zuofeibz = 1 or mzgh.jiaoyilx =-1 then -1
+		         when zj.jiuzhenzt=-1 then -2
+		         when mzgh.zuofeibz = 0 and mzgh.jiaoyilx = 1 then 1 
+		    else null
+	        end as 记录状态 from df_jj_menzhen.mz_guahao mzgh 
+	        join df_lc_menzhen.zj_jiuzhenxx zj on mzgh.guahaoid=zj.guahaoid and zj.zuofeibz=0
+            join df_bingrenzsy.gy_bingrenxx brxx on mzgh.bingrenid = brxx.bingrenid
+            where {condition_sql} and date(mzgh.guahaorq) = current_date order by mzgh.guahaorq desc
+    """
     reg_recordl = global_tools.call_new_his_pg(sql)
     if not reg_recordl:
-        raise Exception(f"未找到 {patient_key} 今天的自助挂号记录")
+        # 如果 his 中没有挂号记录，则直接创建排号记录
+        if rid:
+            create_numbering_record(id_card_list, medical_card_list, rid)
+        return
+
+    # 查询当日排班信息
+    shift_type = 1 if datetime.now().hour < 12 else 2
+    db = DbUtil(global_config.DB_HOST, global_config.DB_USERNAME, global_config.DB_PASSWORD,
+                global_config.DB_DATABASE_GYL)
+    worktime = (datetime.now().weekday() + 1) % 8
+    query_sql = f"select * from nsyy_gyl.appt_schedules where shift_date = '{date.today()}' and shift_type = {shift_type}  "
+    daily_sched = db.query_all(query_sql)
+    del db
+
+    # 是否需要创建排号记录
+    need_create_numbering_record = True
 
     # 查询当天所有自助挂号的记录（pay no）集合
     redis_client = redis.Redis(connection_pool=pool)
     created_pay_list = redis_client.smembers(APPT_DAILY_AUTO_REG_RECORD_KEY)
-
     # 上午挂号的可以预约上午和下午，下午挂号的只能预约下午， 1=上午 2=下午
-    period = 1 if datetime.now().hour < 12 else 2
-    # 同一个人 退费和正常挂号是不同的记录
+    period = '12' if datetime.now().hour < 12 else '2'
     for item in reg_recordl:
+        # 判断是否已经创建过预约
+        pay_no = item.get('NO')
+        if pay_no in created_pay_list:
+            print(datetime.now(), f"{id_card_list} {medical_card_list} guahaoid {pay_no} 今天的自助挂号记录已经创建过预约记录，请勿重复创建")
+            continue
+
         # 记录状态 1-正常的挂号或预约记录
         if int(item.get('记录状态')) != 1:
             continue
 
-        # 判断是否已经创建过预约  TODO 新 his NO 长啥样
-        pay_no = reg_recordl[0].get('NO')
-        if pay_no in created_pay_list:
-            print(f"{patient_key} 今天的自助挂号记录已经创建过预约记录，请勿重复创建")
-            continue
-
-        doctor_in_cache = redis_client.hget(APPT_DOCTORS_KEY, str(did))
+        doc_his_name = item.get('执行人')
+        doctor_in_cache = redis_client.hget(APPT_DOCTORS_BY_NAME_KEY, doc_his_name)
         if not doctor_in_cache:
             redis_client.sadd(APPT_DAILY_AUTO_REG_RECORD_KEY, pay_no)
-            print(datetime.now(), 'TODO: ', f'综合预约系统中不存在 {did} 医生，请及时维护门诊医生信息', item)
+            print(datetime.now(), 'Exception: ', '预约系统中不存在 {} 医生，请联系护士及时维护门诊医生信息'.format(item.get('执行人')),
+                  '医嘱信息: ', item)
+            continue
+        doctor_in_cache = json.loads(doctor_in_cache)
+        if type(doctor_in_cache) == dict:
+            doctor_in_cache = [doctor_in_cache]
+
+        doctor = doctor_in_cache[0]
+        doctord = {int(dd['id']): dd for dd in doctor_in_cache}
+        doc_ids = list(doctord.keys())
+        if len(doc_ids) > 1:
+            for doc_key, doc_value in doctord.items():
+                if int(doc_value.get('dept_id')) == int(item.get('执行部门ID')):
+                    doc_ids = [doc_value['id']]
+                    break
+
+        # 根据医生找到医生当天的坐诊项目
+        target_proj, target_room, book_period = '', '', ''
+        for s in daily_sched:
+            if not s.get('did'):
+                continue
+            if int(s.get('did')) in doc_ids and str(s.get('shift_type')) in period:
+                target_proj = redis_client.hget(APPT_PROJECTS_KEY, str(s.get('pid')))
+                target_proj = json.loads(target_proj)
+                target_room = redis_client.hget(APPT_ROOMS_KEY, str(s.get('rid')))
+                target_room = json.loads(target_room)
+                book_period = s.get('shift_type')
+                doctor = doctord[int(s.get('did'))]
+                break
+        if not target_proj or not target_room:
+            # redis_client.sadd(APPT_DAILY_AUTO_REG_RECORD_KEY, pay_no)
+            print(datetime.now(), 'Exception: ', '未找到 {} 医生今天的坐诊信息'.format(item.get('执行人')), '医嘱信息: ', item)
             continue
 
-        target_doctor = json.loads(doctor_in_cache)
-        target_proj = json.loads(redis_client.hget(APPT_PROJECTS_KEY, str(pid)))
-        target_room = json.loads(redis_client.hget(APPT_ROOMS_KEY, str(rid)))
         try:
+            if target_room.get('id') == rid:
+                # 如果有同一个房间的挂号记录，则不创建
+                need_create_numbering_record = False
+
             # 根据上面的信息，创建预约
-            record = {'type': appt_config.APPT_TYPE['after_reg'], 'patient_id': int(item.get('病人ID')),
+            record = {'type': appt_config.APPT_TYPE['auto_appt'], 'patient_id': int(item.get('病人ID')),
                       'id_card_no': item.get('身份证号'), 'patient_name': item.get('姓名'),
                       'state': appt_config.APPT_STATE['booked'], 'pid': target_proj.get('id'),
                       'pname': target_proj.get('proj_name'), 'ptype': target_proj.get('proj_type'),
                       'rid': target_room.get('id'), 'room': target_room.get('no'), 'book_date': str(date.today()),
-                      'book_period': period, 'level': 1, 'price': target_doctor.get('fee'),
-                      'doc_id': target_doctor.get('id'), 'doc_his_name': target_doctor.get('his_name'),
-                      'doc_dept_id': target_doctor.get('dept_id'), 'pay_no': pay_no,
+                      'book_period': book_period, 'level': 1, 'price': doctor.get('fee'), 'doc_id': doctor.get('id'),
+                      'doc_his_name': doctor.get('his_name'), 'doc_dept_id': doctor.get('dept_id'), 'pay_no': pay_no,
                       'pay_state': appt_config.appt_pay_state['his_pay'],
                       'location_id': target_proj.get('location_id') if target_proj.get(
                           'location_id') else target_room.get(
@@ -428,8 +487,123 @@ def auto_create_appt_by_auto_reg(patient_key, did, rid, pid):
                 'pid': record.get('pid'),
                 'rid': record.get('rid')
             })
+
+            # 如果自助挂号记录不是同一个房间的，则创建
+            if need_create_numbering_record and rid:
+                create_numbering_record(id_card_list, medical_card_list, rid)
         except Exception as e:
-            print(datetime.now(), '根据自助挂号记录创建预约异常: ', e)
+            print('根据自助挂号记录创建预约异常: ', e)
+
+
+def create_numbering_record(id_card_list, medical_card_list, rid):
+    # 根据身份证号或者就诊卡号查询患者信息
+    condition_sql = ''
+    if id_card_list and not medical_card_list:
+        id_list = ', '.join(f"'{item}'" for item in id_card_list)
+        condition_sql = condition_sql + f' shenfenzh in ({id_list}) '
+    elif not id_card_list and medical_card_list:
+        medical_list = ', '.join(f"'{item}'" for item in medical_card_list)
+        condition_sql = condition_sql + f' jiuzhenkh in ({medical_list}) '
+    elif id_card_list and medical_card_list:
+        id_list = ', '.join(f"'{item}'" for item in id_card_list)
+        medical_list = ', '.join(f"'{item}'" for item in medical_card_list)
+        condition_sql = condition_sql + f'( jiuzhenkh in ({medical_list}) or shenfenzh in ({id_list}) )'
+
+    # 查询病人当天的挂号记录 不存在自助挂号记录 直接返回
+    sql = f"""SELECT jiuzhenkh 就诊卡号, shenfenzh 身份证号, bingrenid "病人ID", 
+                xingming 姓名 FROM df_bingrenzsy.gy_bingrenxx WHERE {condition_sql}"""
+    patient_info = global_tools.call_new_his_pg(sql)
+    if not patient_info:
+        print(datetime.now(), f'未找到 {id_card_list} {medical_card_list} 病人信息')
+        return
+
+    patient_id = patient_info[0].get('病人ID') if patient_info[0].get('病人ID') else 0
+    patient_name = patient_info[0].get('姓名')
+
+    # 根据患者挂号记录中的挂号项目创建预约，如果没有匹配上项目，则不创建预约
+    db = DbUtil(global_config.DB_HOST, global_config.DB_USERNAME, global_config.DB_PASSWORD,
+                global_config.DB_DATABASE_GYL)
+    query_sql = f"select * from nsyy_gyl.appt_record where (patient_id = {int(patient_id)} " \
+                f"or patient_name = '{patient_name}') and rid = {int(rid)} and book_date = '{date.today()}' "
+    appt_record = db.query_all(query_sql)
+    if appt_record:
+        del db
+        print(datetime.now(), f"患者 {patient_name} 在房间 {rid} 存在预约记录 ")
+        return
+
+    shift_type = 1 if datetime.now().hour < 12 else 2
+    query_sql = f"select * from nsyy_gyl.appt_schedules where shift_date = '{date.today()}' " \
+                f"and shift_type = {shift_type} and rid  = {rid}  "
+    daily_sched = db.query_all(query_sql)
+    if not daily_sched:
+        del db
+        print(datetime.now(), f"房间 {rid} 存在预约记录 当日没有排班信息 ")
+        return
+
+    numbering_record = {
+        "id_card_no": "411324199605164530",
+        "book_date": f"{date.today()}",
+        "book_period": shift_type,
+        "patient_id": patient_id,
+        "patient_name": patient_name,
+        "pid": daily_sched[0].get('pid'),
+        "doc_id": daily_sched[0].get('did'),
+        "rid": rid,
+        "type": appt_config.APPT_TYPE['numbering'],
+        "level": appt_config.APPT_URGENCY_LEVEL['green'],
+        "state": appt_config.APPT_STATE['in_queue'],
+        "time_slot": appt_config.appt_slot_dict[datetime.now().hour]
+    }
+
+    numbering_record['create_time'] = str(datetime.now())[:19]
+    redis_client = redis.Redis(connection_pool=pool)
+    if numbering_record.get('rid'):
+        room_data = redis_client.hget(APPT_ROOMS_KEY, str(numbering_record.get('rid')))
+        if not room_data:
+            del db
+            print(datetime.now(), f"房间 {rid} 不存在")
+            return
+        room_data = json.loads(room_data)
+        numbering_record['room'] = room_data.get('no')
+        numbering_record['location_id'] = room_data.get('no')
+    if numbering_record.get('pid'):
+        proj_data = redis_client.hget(APPT_PROJECTS_KEY, str(numbering_record.get('pid')))
+        if not proj_data:
+            del db
+            print(datetime.now(), f"预约项目信息 {numbering_record.get('pid')} 不存在")
+            return
+        proj_data = json.loads(proj_data)
+        numbering_record['ptype'] = proj_data.get('proj_type')
+        numbering_record['pname'] = proj_data.get('proj_name')
+    if numbering_record.get('doc_id'):
+        doc_data = redis_client.hget(APPT_DOCTORS_KEY, str(numbering_record.get('doc_id')))
+        if not doc_data:
+            del db
+            print(datetime.now(), f"预约医生 {numbering_record.get('doc_id')} 不存在")
+            return
+        doc_data = json.loads(doc_data)
+        numbering_record['doc_his_name'] = doc_data.get('his_name')
+        numbering_record['doc_dept_id'] = doc_data.get('dept_id')
+        numbering_record['price'] = doc_data.get('fee')
+
+    # 查询前方等待人数
+    wait_state = (appt_config.APPT_STATE['in_queue'], appt_config.APPT_STATE['processing'],
+                  appt_config.APPT_STATE['over_num'])
+    query_sql = f"select count(*) AS record_count from nsyy_gyl.appt_record " \
+                f"where state in {wait_state} and book_date = '{date.today()}' and rid = {rid} "
+    result = db.query_one(query_sql)
+    numbering_record['wait_num'] = int(result.get('record_count'))
+    numbering_record['sign_in_num'] = __get_signin_num(int(numbering_record.get('pid')))
+    numbering_record['sign_in_time'] = str(datetime.now())[:19]
+
+    fileds = ','.join(numbering_record.keys())
+    args = str(tuple(numbering_record.values()))
+    insert_sql = f"INSERT INTO nsyy_gyl.appt_record ({fileds}) VALUES {args}"
+    last_rowid = db.execute(sql=insert_sql, need_commit=True)
+    if last_rowid == -1:
+        del db
+        print(datetime.now(), "排号预约记录入库失败! sql = " + insert_sql)
+    del db
 
 
 def query_appt_record(json_data):
@@ -447,8 +621,14 @@ def query_appt_record(json_data):
     query_from = json_data.get('query_from')
     id_card_list = json_data.get('id_card_list')
     medical_card_list = json_data.get('medical_card_list')
-    if not id_card_list and not medical_card_list and query_from == 4 and 'id_card_no' not in json_data:
+    if not id_card_list and not medical_card_list and query_from == 4 and 'patient_id' not in json_data:
         return [], 0
+
+    if id_card_list or medical_card_list:
+        try:
+            auto_create_appt_by_auto_reg(id_card_list, medical_card_list, json_data.get('target_rid', 0))
+        except Exception as e:
+            print(datetime.now(), f"自动创建预约失败 {e}")
 
     is_completed = int(json_data.get('is_completed')) if json_data.get('is_completed') else 0
     condition_sql = ''
@@ -2064,16 +2244,17 @@ def auto_copy_schedule():
                 f"where shift_date >= '{next_week_start.strftime('%Y-%m-%d')}'"
     if db.query_one(query_sql).get('count(*)') == 0:
         try:
-            sched_manage.copy_schedule(cur_week_start.strftime('%Y-%m-%d'), next_week_start.strftime('%Y-%m-%d'), None, None, None, 'doctor')
+            sched_manage.copy_schedule(cur_week_start.strftime('%Y-%m-%d'), next_week_start.strftime('%Y-%m-%d'), None,
+                                       None, None, 'doctor')
         except Exception as e:
             print(f"自动复制排班记录失败: {str(e)}")
 
     query_sql = f"select count(*) from nsyy_gyl.appt_schedules where shift_date >= '{next_week_start.strftime('%Y-%m-%d')}'"
     if db.query_one(query_sql).get('count(*)') == 0:
         try:
-            sched_manage.copy_schedule(cur_week_start.strftime('%Y-%m-%d'), next_week_start.strftime('%Y-%m-%d'), None, None, None, 'room')
+            sched_manage.copy_schedule(cur_week_start.strftime('%Y-%m-%d'), next_week_start.strftime('%Y-%m-%d'), None,
+                                       None, None, 'room')
         except Exception as e:
             print(f"自动复制排班记录失败: {str(e)}")
 
     del db
-
