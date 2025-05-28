@@ -1745,18 +1745,53 @@ def query_cv_template(key):
     return all_template
 
 
-def safe_post(data, method_name, timeout=10):
-    try:
-        data = data.strip()
-        if isinstance(data, str):
-            data = data.encode('utf-8')
-        headers = {"Content-Type": "application/xml", "Methodname": method_name}
-        response = requests.post("http://192.168.9.23:6000/WEIJZ", timeout=timeout, headers=headers, data=data)
-        response.raise_for_status()  # 如果响应状态码不是 2xx，会抛出异常
-        data = response.text
-        # print(datetime.now(), 'safe post ret ', data)
-    except Exception as e:
-        print(datetime.now(), '危急值同步 his 异常 ' + e.__str__())
+def safe_post(data, method_name, timeout=5, max_retries=3, backoff_factor=1):
+    """
+    安全的 POST 请求，带重试机制
+
+    :param data: 请求数据（字符串或字节）
+    :param method_name: 方法名（用于 headers）
+    :param timeout: 超时时间（秒）
+    :param max_retries: 最大重试次数
+    :param backoff_factor: 指数退避因子（每次重试等待时间 = backoff_factor * (2^(retry-1))）
+    :return: 响应文本（如果成功），否则返回 None
+    """
+    retry_count = 0
+    last_exception = None
+
+    while retry_count <= max_retries:
+        try:
+            data = data.strip()
+            if isinstance(data, str):
+                data = data.encode('utf-8')
+
+            headers = {
+                "Content-Type": "application/xml",
+                "Methodname": method_name
+            }
+
+            response = requests.post(
+                "http://192.168.9.23:6000/WEIJZ",
+                timeout=timeout,
+                headers=headers,
+                data=data
+            )
+            response.raise_for_status()  # 检查 HTTP 状态码
+            print(f"{datetime.now()} 危急值同步 HIS 成功", response.text)
+            return response.text  # 成功则返回响应数据
+
+        except Exception as e:
+            last_exception = e
+            retry_count += 1
+            if retry_count > max_retries:
+                print(f"{datetime.now()} 危急值同步 HIS 异常（重试 {max_retries} 次后失败）: {str(e)}")
+                return None
+
+            # 指数退避等待
+            wait_time = backoff_factor * (2 ** (retry_count - 1))
+            print(
+                f"{datetime.now()} 危急值同步 HIS 异常（第 {retry_count} 次重试，等待 {wait_time} 秒）: {str(e)}")
+            time.sleep(wait_time)
 
 
 def send_to_his(cv_record):
