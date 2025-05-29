@@ -360,6 +360,8 @@ def auto_create_appt_by_auto_reg(id_card_list, medical_card_list, rid):
     :param medical_card_list:
     :return:
     """
+    if (id_card_list and len(id_card_list) > 1) or (medical_card_list and len(medical_card_list) > 1):
+        return
     # 根据身份证号或者就诊卡号查询患者当天的挂号记录
     condition_sql = ''
     if id_card_list and not medical_card_list:
@@ -621,7 +623,7 @@ def query_appt_record(json_data):
     query_from = json_data.get('query_from')
     id_card_list = json_data.get('id_card_list')
     medical_card_list = json_data.get('medical_card_list')
-    if not id_card_list and not medical_card_list and query_from == 4 and 'patient_id' not in json_data:
+    if not id_card_list and not medical_card_list and query_from == 4 and 'id_card_no' not in json_data:
         return [], 0
 
     if id_card_list or medical_card_list:

@@ -1828,26 +1828,32 @@ def send_to_his(cv_record):
         print(datetime.now(), '未查询到报告单 cv_id = ', cv_record.get('cv_id'), 'report_id = ', report_id)
         return
     if cv_source == 2:
+        # sql = f"""
+        #     SELECT DISTINCT t1.shenqingdid, t.kaidanys, t.kaidanksmc, t.kaidanks, t.kaidanysxm, t.kaidanrq, t1.tiaomahao, t1.shenhesj 报告时间, t1.zhixingsj 执行时间
+        #     FROM (SELECT x.shenqingdid, a.jianyanzt, a.jiluid, a.bingrenzyid, a.tiaomahao, a.yangbenhao, a.shenhesj, a.zhixingsj
+        #     FROM (SELECT a.shenqingdid, a.jianyanzt, a.jiluid, a.bingrenzyid, a.tiaomahao, a.yangbenhao, a.shenhesj, a.zhixingsj,
+        #              CASE
+        #                  WHEN TRIM(a.shenqingdid) IS NOT NULL THEN
+        #                      '<root><item>' || REPLACE(TRIM(a.shenqingdid), ',', '</item><item>') || '</item></root>'
+        #                  ELSE NULL
+        #              END AS xml_data
+        #             FROM df_cdr.yj_jianyanbg a ) a,
+        #     XMLTABLE(
+        #      '/root/item'
+        #      PASSING XMLTYPE(a.xml_data)
+        #      COLUMNS shenqingdid VARCHAR2(100) PATH '.'
+        #     ) x
+        #         WHERE a.jianyanzt = 1
+        #     ) t1
+        #     JOIN df_cdr.yj_jianyanbgmx t2 ON t1.jiluid = t2.jiluid
+        #     JOIN df_shenqingdan.yj_jianyansqd t ON t1.shenqingdid = t.jianyansqdid
+        #     WHERE t.jianyanxmid = t2.jianyanxmid AND t1.yangbenhao = '{report_id}'
+        # """
+
         sql = f"""
-            SELECT DISTINCT t1.shenqingdid, t.kaidanys, t.kaidanksmc, t.kaidanks, t.kaidanysxm, t.kaidanrq, t1.tiaomahao, t1.shenhesj 报告时间, t1.zhixingsj 执行时间 
-            FROM (SELECT x.shenqingdid, a.jianyanzt, a.jiluid, a.bingrenzyid, a.tiaomahao, a.yangbenhao, a.shenhesj, a.zhixingsj
-            FROM (SELECT a.shenqingdid, a.jianyanzt, a.jiluid, a.bingrenzyid, a.tiaomahao, a.yangbenhao, a.shenhesj, a.zhixingsj,  
-                     CASE 
-                         WHEN TRIM(a.shenqingdid) IS NOT NULL THEN 
-                             '<root><item>' || REPLACE(TRIM(a.shenqingdid), ',', '</item><item>') || '</item></root>'
-                         ELSE NULL
-                     END AS xml_data
-                    FROM df_cdr.yj_jianyanbg a ) a,
-            XMLTABLE(
-             '/root/item'
-             PASSING XMLTYPE(a.xml_data)
-             COLUMNS shenqingdid VARCHAR2(100) PATH '.'
-            ) x
-                WHERE a.jianyanzt = 1 
-            ) t1
-            JOIN df_cdr.yj_jianyanbgmx t2 ON t1.jiluid = t2.jiluid
-            JOIN df_shenqingdan.yj_jianyansqd t ON t1.shenqingdid = t.jianyansqdid
-            WHERE t.jianyanxmid = t2.jianyanxmid AND t1.yangbenhao = '{report_id}'
+        select yj.shenqingdid, yj.kaidanren, yj.kaidanksmc, yj.kaidanks, yj.kaidanrenxm, yj.kaidanrq,
+         yj.baogaodanid, yj.shenhesj 报告时间,yj.zhixingsj 执行时间, yj.tiaomahao 
+         from df_cdr.yj_jianyanbg yj where yj.yangbenhao ='{report_id}'
         """
     else:
         sql = f"""
