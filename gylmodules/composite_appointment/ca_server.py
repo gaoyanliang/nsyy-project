@@ -1155,11 +1155,6 @@ def sign_in(json_data, over_num: bool = False):
     :param over_num:
     :return:
     """
-    # 七点之前 数据还没有同步
-    current_time = datetime.now()
-    if current_time.hour < 7:
-        raise Exception("现在是早上7点之前，不允许签到。当前时间: {}".format(current_time))
-
     db = DbUtil(global_config.DB_HOST, global_config.DB_USERNAME, global_config.DB_PASSWORD,
                 global_config.DB_DATABASE_GYL)
     redis_client = redis.Redis(connection_pool=pool)
