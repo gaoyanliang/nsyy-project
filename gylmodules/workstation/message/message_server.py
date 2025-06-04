@@ -62,8 +62,8 @@ def push(socket_data: dict, user_id: int):
     # 发送POST请求
     response = requests.post(global_config.socket_push_url, data=json.dumps(data), headers=headers)
     # 打印响应内容
-    print("Socket Push Status: ", response.status_code)
-    print("Socket Push Response: ", response.text)
+    if response.status_code != 200:
+        print(datetime.now(), "Socket Push Response: ", response.status_code, response.text, data)
 
 
 #  ==========================================================================================

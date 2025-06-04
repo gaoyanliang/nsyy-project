@@ -14,7 +14,6 @@ from gylmodules.utils.db_utils import DbUtil
 from collections import defaultdict
 from itertools import groupby
 
-
 pool = redis.ConnectionPool(host=appt_config.APPT_REDIS_HOST, port=appt_config.APPT_REDIS_PORT,
                             db=appt_config.APPT_REDIS_DB, decode_responses=True)
 
@@ -60,13 +59,14 @@ def query_doc_bynum_or_name(key):
     return docl
 
 
-def get_schedule(start_date, end_date, query_by, pid):
+def get_schedule(start_date, end_date, query_by, pid, rid: int = 45):
     """
     查询排班列表（医生维度）
     :param start_date:
     :param end_date:
     :param query_by:
     :param pid:
+    :param rid:
     :return:
     """
     if query_by == 'doctor':
@@ -83,13 +83,13 @@ def get_schedule(start_date, end_date, query_by, pid):
                             JOIN nsyy_gyl.appt_doctor d ON s.did = d.id WHERE s.shift_date 
                             BETWEEN '{start_date}' AND '{end_date}' ORDER BY d.his_name, s.shift_date """
     else:
-        order_by = "ORDER BY d.his_name, s.shift_date" if query_by == 'doctor' else "ORDER BY r.no, s.shift_date"
         pid_condition = f"AND s.pid = {int(pid)}" if pid else ""
+        rid_condition = '' if rid == 0 else f" AND s.rid = {rid}"
         query_sql = f"""SELECT s.sid, s.shift_date, s.shift_type, s.rid, r.no, s.pid, p.proj_name, 
                     s.did, d.dept_name, d.name, d.his_name, d.career, s.status FROM nsyy_gyl.appt_schedules s
                     JOIN nsyy_gyl.appt_room r ON s.rid = r.id JOIN nsyy_gyl.appt_project p ON s.pid = p.id
-                    JOIN nsyy_gyl.appt_doctor d ON s.did = d.id WHERE s.shift_date 
-                    BETWEEN '{start_date}' AND '{end_date}' {pid_condition} {order_by}"""
+                    JOIN nsyy_gyl.appt_doctor d ON s.did = d.id WHERE s.shift_date BETWEEN '{start_date}' 
+                    AND '{end_date}' {pid_condition} {rid_condition} ORDER BY r.no, s.shift_date"""
 
     db = DbUtil(global_config.DB_HOST, global_config.DB_USERNAME, global_config.DB_PASSWORD,
                 global_config.DB_DATABASE_GYL)
@@ -125,7 +125,7 @@ def copy_schedule(source_date, target_date, pid, did, rid, copy_by: str = 'docto
             source_end = source_start + relativedelta(months=1) - timedelta(days=1)
 
             diff = (datetime.strptime(target_date, "%Y-%m").year - source_start.year) * 12 + (
-                             datetime.strptime(target_date, "%Y-%m").month - source_start.month)
+                    datetime.strptime(target_date, "%Y-%m").month - source_start.month)
             date_sql = f"DATE_FORMAT(shift_date, '%Y-%m') >= '{target_date}' and shift_date " \
                        f" < '{datetime.strptime(target_date, '%Y-%m').date() + relativedelta(months=1)}'"
         elif len(source_date) == 10:
@@ -389,28 +389,28 @@ def query_today_doctor_for_appointment(dept_id):
     for doc in doctor_list:
         shift_type = doc.get('shift_type')
         today_doc.append({
-                "RigsterType": "1",  # 含义待定 目前发现仅急诊 急诊内科 急诊诊查费 是2 其他都是 1
-                "AsRowid": doc.get('appointment_id'),
-                "EnSerNumList": "1",  # 含义待定
-                "IsTime": "2",  # 含义待定
-                "ShangXiaWBz": "0" if shift_type == 1 else "1",
-                "BegTime": "08:00:00" if shift_type == 1 else "14:00:00",
-                "EndTime": "12:00:00" if shift_type == 1 else "17:30:00",
-                "HBTime": "上午" if shift_type == 1 else "下午",
-                "DepID": doc.get('dept_id'),
-                "DepName": doc.get('dept_name'),
-                "FartherDepID": doc.get('farther_dept_id'),
-                "FartherDepName": doc.get('farther_dept_name'),
-                "MarkDesc": doc.get('his_name'),
-                "MarkId": doc.get('no'),
-                "Price": str(doc.get('fee')),
-                "RegCount": 100,
-                "SessionType": doc.get('career'),
-                "Sex": doc.get('sex'),
-                "UCount": doc.get('u_count'),
-                "VisitID": doc.get('visit_id'),
-                "shouFeiXmMc": doc.get('shoufei_xm')
-            })
+            "RigsterType": "1",  # 含义待定 目前发现仅急诊 急诊内科 急诊诊查费 是2 其他都是 1
+            "AsRowid": doc.get('appointment_id'),
+            "EnSerNumList": "1",  # 含义待定
+            "IsTime": "2",  # 含义待定
+            "ShangXiaWBz": "0" if shift_type == 1 else "1",
+            "BegTime": "08:00:00" if shift_type == 1 else "14:00:00",
+            "EndTime": "12:00:00" if shift_type == 1 else "17:30:00",
+            "HBTime": "上午" if shift_type == 1 else "下午",
+            "DepID": doc.get('dept_id'),
+            "DepName": doc.get('dept_name'),
+            "FartherDepID": doc.get('farther_dept_id'),
+            "FartherDepName": doc.get('farther_dept_name'),
+            "MarkDesc": doc.get('his_name'),
+            "MarkId": doc.get('no'),
+            "Price": str(doc.get('fee')),
+            "RegCount": 100,
+            "SessionType": doc.get('career'),
+            "Sex": doc.get('sex'),
+            "UCount": doc.get('u_count'),
+            "VisitID": doc.get('visit_id'),
+            "shouFeiXmMc": doc.get('shoufei_xm')
+        })
 
     return {
         "Count": len(today_doc),

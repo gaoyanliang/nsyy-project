@@ -249,7 +249,7 @@ def query_sched_list(json_data):
     if not json_data.get('start_date') or not json_data.get('end_date'):
         raise Exception('未选择时间范围')
     return sched_manage.get_schedule(json_data.get('start_date'), json_data.get('end_date'),
-                                     json_data.get('query_by', 'doctor'), json_data.get('pid'))
+                                     json_data.get('query_by', 'doctor'), json_data.get('pid'), json_data.get('rid', 0))
 
 
 @appt.route('/copy_schedule', methods=['POST'])
