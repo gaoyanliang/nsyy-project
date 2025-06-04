@@ -99,8 +99,8 @@ def start_thread(funct, args=None, tl=None):
 def api_response(func):
     @wraps(func)
     def wrapper(*args, **kwargs):
+        json_data = {}
         try:
-            json_data = {}
             if request.get_data():
                 json_data = json.loads(request.get_data().decode('utf-8'))
 
@@ -116,7 +116,7 @@ def api_response(func):
         except KeyError as e:
             return jsonify({'code': 50000, 'res': f'Missing parameter: {e}'})
         except Exception as e:
-            print(datetime.now(), request.url, f"系统异常: {e}", traceback.print_exc())
+            print(datetime.now(), request.url, f"系统异常: {e} , param = ", json_data, traceback.print_exc())
             return jsonify({'code': 50000, 'res': str(e)})
     return wrapper
 

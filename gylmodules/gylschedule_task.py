@@ -22,8 +22,7 @@ from gylmodules.critical_value.cv_manage import fetch_cv_record
 from gylmodules.hyperbaric_oxygen_therapy.hbot_server import hbot_run_everyday
 from gylmodules.questionnaire.sq_server import fetch_ai_result
 from gylmodules.utils.db_utils import DbUtil
-from gylmodules.workstation.message.message import flush_msg_cache
-from gylmodules.workstation.schedule_task import write_data_to_db
+from gylmodules.workstation.message.message_server import flush_msg_cache
 
 pool = redis.ConnectionPool(host=cv_config.CV_REDIS_HOST, port=cv_config.CV_REDIS_PORT,
                             db=cv_config.CV_REDIS_DB, decode_responses=True)
@@ -283,18 +282,19 @@ def schedule_task():
     # 定时判断危机值是否超时
     print('1. 危急值模块定时任务')
     if global_config.schedule_task['cv_timeout']:
-        print("1.1 危机值超时管理 ", datetime.now())
+        print("    1.1 危机值超时管理 ", datetime.now())
         gylmodule_scheduler.add_job(handle_timeout_cv, trigger='interval', seconds=40, coalesce=True, id='cv_timeout')
 
+        print("    1.2 查询危机值报告时间 ", datetime.now())
         gylmodule_scheduler.add_job(query_baogao_sj, trigger='interval', seconds=5*60*60, id='query_baogao_sj')
 
-        print("1.2 ip 地址是否可用校验", datetime.now())
+        print("    1.3 ip 地址是否可用校验", datetime.now())
         gylmodule_scheduler.add_job(re_alert_fail_ip_log, 'cron', hour=2, minute=20, id='re_alert_fail_ip_log')
 
-        print("1.3 每日同步危急值处理报告", datetime.now())
+        print("    1.4 每日同步危急值处理报告", datetime.now())
         gylmodule_scheduler.add_job(fetch_cv_record, 'cron', hour=3, minute=20, id='fetch_cv_record')
 
-        print("1.4 危机值部门信息更新 ", datetime.now())
+        print("    1.5 危机值部门信息更新 ", datetime.now())
         gylmodule_scheduler.add_job(regular_update_dept_info, trigger='interval', seconds=6*60*60,
                                     id='cv_dept_update')
 
@@ -304,9 +304,9 @@ def schedule_task():
     if global_config.schedule_task['appt_daily']:
         run_time = datetime.now() + timedelta(seconds=15)
         gylmodule_scheduler.add_job(run_everyday, trigger='date', run_date=run_time)
-        gylmodule_scheduler.add_job(update_today_doc_info, 'cron', hour=7, minute=1, id='update_today_doc_info')
-        gylmodule_scheduler.add_job(update_appt_capacity, 'cron', hour=7, minute=4, id='update_appt_capacity')
-        gylmodule_scheduler.add_job(run_everyday, 'cron', hour=7, minute=7, id='appt_daily')
+        gylmodule_scheduler.add_job(update_today_doc_info, 'cron', hour=1, minute=1, id='update_today_doc_info')
+        gylmodule_scheduler.add_job(update_appt_capacity, 'cron', hour=1, minute=5, id='update_appt_capacity')
+        gylmodule_scheduler.add_job(run_everyday, 'cron', hour=1, minute=10, id='appt_daily')
         gylmodule_scheduler.add_job(do_update, trigger='interval', seconds=5*60, coalesce=True, id='do_update_doc')
 
     print("3. 定时任务状态 ", datetime.now())
@@ -315,7 +315,6 @@ def schedule_task():
     # ======================  workstation 定时任务  ======================
     print("4. 消息模块定时任务 ", datetime.now())
     gylmodule_scheduler.add_job(flush_msg_cache, trigger='date', run_date=datetime.now())
-    gylmodule_scheduler.add_job(write_data_to_db, trigger='interval', minutes=2)
 
     # ======================  高压氧定时任务  ======================
     print("5. 高压氧模块定时任务 ", datetime.now())

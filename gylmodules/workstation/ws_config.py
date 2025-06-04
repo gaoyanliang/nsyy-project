@@ -19,17 +19,8 @@ NEW_HISTORICAL_CONTACTS_RECORD = 'MSG_NEW-HISTORICAL-CONTACTS-RECORD'
 
 # msg cache redis key
 msg_cache_key = {
-    "notification_msg": "MSG_NotificationMessage:{}",
-    "private_msg": "MSG_PrivateChat:{}",
-    "group_msg": "MSG_GroupChat:{}",
-    "hist_contacts": "MSG_HistoricalContacts:{}",
-    # user_id -> group_id
-    "group_unread": "MSG_GroupUnread:{}:{}",
-    "notification_unread": "MSG_NotificationUnread:{}",
-    # a -> b a 给 b 发消息
-    "unread": "MSG_PrivateUnread:{}:{}",
-    "group_member": "MSG_GroupMember:{}",
-    "group_info": "MSG_GroupInfo:{}",
+    "group_member": "MESSAGE:GroupMember:{}",
+    "group_info": "MESSAGE:GroupInfo:{}",
 }
 
 msg_cache_count = 100
