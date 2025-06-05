@@ -32,7 +32,7 @@ def simplify_node(node):
     return simplified
 
 
-def main_parse_func(xml_string, to_print: bool = True):
+def main_parse_func(xml_string, to_print: bool = False):
     root = ET.fromstring(xml_string)
     result = {}
 

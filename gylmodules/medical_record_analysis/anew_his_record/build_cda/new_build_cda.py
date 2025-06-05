@@ -105,7 +105,7 @@ def query_pat_info_by_pat_no(data):
         print("没有查询到病人信息")
         return
 
-    print(datetime.now(), "患者信息", data)
+    # print(datetime.now(), "患者信息", data)
     return data
 
 
