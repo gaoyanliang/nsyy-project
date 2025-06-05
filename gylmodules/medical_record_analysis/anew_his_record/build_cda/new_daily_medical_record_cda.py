@@ -33,7 +33,7 @@ def assembling_header(admission_record: str, data: dict):
         .replace('{文档模版编号}', "2.16.156.10011.2.1.1.58") \
         .replace('{文档类型}', "C0038") \
         .replace('{文档标识编码}', data.get('文档ID', '/')) \
-        .replace('{文档标题}', data.get('file_title', '/')) \
+        .replace('{文档标题}', data.get('file_title')) \
         .replace('{文档生成时间}', ct)
 
     # 文档记录对象（患者信息）
@@ -41,7 +41,7 @@ def assembling_header(admission_record: str, data: dict):
         .replace('{pat_no}', data.get('pat_no', '/')) \
         .replace('{pat_id_card}', data.get('pat_id_card', '/')) \
         .replace('{pat_name}', data.get('pat_name', '/')) \
-        .replace('{pat_sex_no}', '1') \
+        .replace('{pat_sex_no}', data.get("性别代码", '/') if data.get("性别代码") else '/') \
         .replace('{pat_sex}', data.get('pat_sex', '/')) \
         .replace('{pat_birth_time}', get_birthday_from_id(data.get('pat_id_card', '/'))) \
         .replace('{pat_age}', data.get('pat_age', '/'))
@@ -58,19 +58,12 @@ def assembling_header(admission_record: str, data: dict):
         .replace('{医疗卫生机构名称}', data.get('hospital_name'))
 
     admission_record = admission_record + xml_header.xml_header_authenticator4 \
+        .replace('{显示医师名称}', '医师签名') \
         .replace('{签名时间}', sign_doc.get('signtime', '/') if sign_doc else '/') \
         .replace('{医师id}', '/') \
-        .replace('{显示医师名称}', '医师签名') \
         .replace('{医师名字}', sign_doc.get('displayinfo', '/') if sign_doc else '/') \
         .replace('{职称编码}', '/') \
         .replace('{医师职称}', data.get('医师职称', '/'))
-
-    admission_record = admission_record + xml_header.xml_header_associated_person \
-        .replace('{type_code}', 'RPCP') \
-        .replace('{class_code}', 'ASSIGNED') \
-        .replace('{name1}', '/') \
-        .replace('{name2}', '/') \
-        .replace('{name3}', '/')
 
     # 关联文档
     admission_record = admission_record + xml_header.xml_header_related_document
@@ -78,16 +71,16 @@ def assembling_header(admission_record: str, data: dict):
     # 病床号、病房、病区、科室和医院的关联
     admission_record = admission_record + xml_header.xml_header_encompassing_encounter \
         .replace('{入院时间}', data.get('pat_time', '/')) \
-        .replace('{pat_bed_no}', data.get('pat_bed', '/') if data.get('pat_bed') else '/') \
-        .replace('{pat_bed}', data.get('pat_bed', '/') if data.get('pat_bed') else '/') \
-        .replace('{pat_room_no}', '/') \
-        .replace('{pat_room}', '/') \
+        .replace('{pat_bed_no}', data.get('当前床位id', '/') if data.get('当前床位id') else '/') \
+        .replace('{pat_bed}', data.get('当前床位编码', '/') if data.get('当前床位编码') else '/') \
+        .replace('{pat_room_no}', data.get('当前房间id', '/') if data.get('当前房间id') else '/') \
+        .replace('{pat_room}', data.get('当前房间号', '/') if data.get('当前房间号') else '/') \
         .replace('{pat_dept_no}', data.get('pat_dept_no', '/')) \
         .replace('{pat_dept}', data.get('pat_dept', '/')) \
-        .replace('{pat_ward_no}', '/') \
-        .replace('{pat_ward}', '/') \
-        .replace('{医院编码}', data.get('hospital_no')) \
-        .replace('{医院}', data.get('hospital_name'))
+        .replace('{pat_ward_no}', data.get('当前病区id', '/') if data.get('当前病区id') else '/') \
+        .replace('{pat_ward}', data.get('当前病区名称', '/') if data.get('当前病区名称') else '/') \
+        .replace('{医院编码}', data.get('hospital_no', '/')) \
+        .replace('{医院}', data.get('hospital_name', '/'))
 
     return admission_record
 

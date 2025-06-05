@@ -54,19 +54,14 @@ def parse_cda_xml_document(root):
 
         # 病人住址
         if patient_role.find('hl7:addr', namespaces) is not None:
-            p_info['addr_house'] = patient_role.find('hl7:addr/hl7:houseNumber', namespaces).text if patient_role.find(
+            p_info['现住址'] = patient_role.find('hl7:addr/hl7:houseNumber', namespaces).text if patient_role.find(
                 'hl7:addr/hl7:houseNumber', namespaces) is not None else '/'
-            # p_info['addr_street'] = patient_role.find('hl7:addr/hl7:streetName', namespaces).text if patient_role.find(
-            #     'hl7:addr/hl7:streetName', namespaces) is not None else '/'
-            # p_info['addr_town'] = patient_role.find('hl7:addr/hl7:township', namespaces).text if patient_role.find(
-            #     'hl7:addr/hl7:township', namespaces) is not None else '/'
-            # p_info['addr_county'] = patient_role.find('hl7:addr/hl7:county', namespaces).text if patient_role.find(
-            #     'hl7:addr/hl7:county', namespaces) is not None else '/'
-            # p_info['addr_city'] = patient_role.find('hl7:addr/hl7:city', namespaces).text if patient_role.find(
-            #     'hl7:addr/hl7:city', namespaces) is not None else '/'
-            # p_info['addr_state'] = patient_role.find('hl7:addr/hl7:state', namespaces).text if patient_role.find(
-            #     'hl7:addr/hl7:state', namespaces) is not None else '/'
-
+            p_info['现住址-省'] = patient_role.find('hl7:addr/hl7:state', namespaces).text if patient_role.find(
+                'hl7:addr/hl7:state', namespaces) is not None else '/'
+            p_info['现住址-市'] = patient_role.find('hl7:addr/hl7:city', namespaces).text if patient_role.find(
+                'hl7:addr/hl7:city', namespaces) is not None else '/'
+            p_info['现住址-县'] = patient_role.find('hl7:addr/hl7:county', namespaces).text if patient_role.find(
+                'hl7:addr/hl7:county', namespaces) is not None else '/'
         p_info['患者联系电话'] = patient_role.find('hl7:telecom', namespaces).get(
             'value') if patient_role.find('hl7:telecom', namespaces) is not None else '/'
 
@@ -188,7 +183,8 @@ def parse_cda_xml_document(root):
         for au in authenticators:
             name = au.find('hl7:assignedEntity/hl7:code', namespaces).get('displayName')
             parse_data[name + '编码'] = au.find('hl7:assignedEntity/hl7:id', namespaces).get('extension')
-            parse_data[name + '名称'] = au.find('hl7:assignedEntity/hl7:assignedPerson/hl7:name', namespaces).text
+            parse_data[name + '名称'] = au.find('hl7:assignedEntity/hl7:assignedPerson/hl7:name', namespaces).text \
+                if au.find('hl7:assignedEntity/hl7:assignedPerson/hl7:name', namespaces) else '/'
 
     # 患者联系人
     participant = root.find('participant', namespaces)

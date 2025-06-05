@@ -21,26 +21,31 @@ def assembling_header(admission_record: str, data: dict):
         .replace('{文档生成时间}', datetime.now().strftime('%Y%m%d%H%M%S'))
 
     # 文档记录对象（患者信息）
-    admission_record = admission_record + xml_header.xml_header_record_target1 \
+    admission_record = admission_record + xml_header.new_his_xml_header_record_target1 \
         .replace('{pat_no}', data.get('pat_no', '/')) \
         .replace('{addr_house_num}', data.get('pat_addr', '/')) \
+        .replace('{addr_state}', data.get('现住址省份名称', '/') if data.get('现住址省份名称') else '/') \
+        .replace('{addr_city}', data.get('现住址市地区名称', '/') if data.get('现住址市地区名称') else '/') \
+        .replace('{addr_county}', data.get('现住址县区名称', '/') if data.get('现住址县区名称') else '/') \
+        .replace('{addr_township}', data.get('现住址省市县', '/')if data.get('现住址省市县') else '/') \
+        .replace('{addr_street_name}', data.get('现住址乡镇街道名称', '/') if data.get('现住址乡镇街道名称') else '/') \
         .replace('{pat_id_card}', data.get('pat_id_card', '/')) \
         .replace('{pat_name}', data.get('pat_name', '/')) \
-        .replace('{pat_sex_no}', '1') \
+        .replace('{pat_sex_no}', data.get("性别代码", '/') if data.get("性别代码") else '/') \
         .replace('{pat_sex}', data.get('pat_sex', '/')) \
-        .replace('{pat_marriage_no}', '1') \
+        .replace('{pat_marriage_no}', data.get("婚姻代码", '/') if data.get("婚姻代码") else '/') \
         .replace('{pat_marriage}', data.get('pat_marriage', '/')) \
-        .replace('{pat_nation_no}', '1') \
+        .replace('{pat_nation_no}', data.get("民族代码", '/') if data.get("民族代码") else '/') \
         .replace('{pat_nation}', data.get('pat_nation', '/')) \
         .replace('{pat_age}', data.get('pat_age', '/')) \
-        .replace('{pat_occupation_no}', '20') \
+        .replace('{pat_occupation_no}', data.get("职业代码", '/') if data.get("职业代码") else '/') \
         .replace('{pat_occupation}', data.get('pat_occupation', '/'))
 
     # 文档创作者
     admission_record = admission_record + xml_header.xml_header_author \
         .replace('{文档创作时间}', datetime.now().strftime('%Y%m%d%H%M%S')) \
-        .replace('{文档创作者id}', data.get('hospital_no')) \
-        .replace('{文档创作者}', data.get('hospital_name'))
+        .replace('{文档创作者id}', data.get('hospital_no', '/')) \
+        .replace('{文档创作者}', data.get('hospital_name', '/'))
 
     # 病史陈述者
     admission_record = admission_record + xml_header.xml_header_informant \
@@ -51,43 +56,35 @@ def assembling_header(admission_record: str, data: dict):
 
     # 保管机构
     admission_record = admission_record + xml_header.xml_header_custodian \
-        .replace('{医疗卫生机构编号}', data.get('hospital_no')) \
-        .replace('{医疗卫生机构名称}', data.get('hospital_name'))
+        .replace('{医疗卫生机构编号}', data.get('hospital_no', '/')) \
+        .replace('{医疗卫生机构名称}', data.get('hospital_name', '/'))
 
     # 最终审核者签名
     admission_record = admission_record + xml_header.xml_header_legal_authenticator \
-        .replace('{医师id}', '/') \
+        .replace('{医师id}', data.get("主治医师", '/') if data.get("主治医师", '/') else '/') \
         .replace('{展示医师}', '主任医师') \
-        .replace('{医师}', '/')
+        .replace('{医师}', data.get("主治医师姓名", '/') if data.get("主治医师姓名", '/') else '/')
 
-    if '住院医师' in data:
-        doc_name = data.get('住院医师')
-    elif '主治医师' in data:
-        doc_name = data.get('主治医师')
-    elif '经治医师' in data:
-        doc_name = data.get('经治医师')
-    else:
-        doc_name = '/'
     # 接诊医师签名/住院医师签名/主治医师签名
     admission_record = admission_record + xml_header.xml_header_authenticator1 \
-        .replace('{医师id}', '/') \
+        .replace('{医师id}', data.get("接诊医师", '/') if data.get("接诊医师", '/') else '/') \
         .replace('{显示医师名字}', '接诊医师') \
-        .replace('{医师名字}', doc_name)
+        .replace('{医师名字}', data.get("接诊医师姓名", '/') if data.get("接诊医师姓名", '/') else '/')
     admission_record = admission_record + xml_header.xml_header_authenticator1 \
-        .replace('{医师id}', '/') \
+        .replace('{医师id}', data.get("住院医师", '/') if data.get("住院医师", '/') else '/') \
         .replace('{显示医师名字}', '住院医师') \
-        .replace('{医师名字}', doc_name)
+        .replace('{医师名字}', data.get("住院医师姓名", '/') if data.get("住院医师姓名", '/') else '/')
     admission_record = admission_record + xml_header.xml_header_authenticator1 \
-        .replace('{医师id}', '/') \
+        .replace('{医师id}', data.get("主治医师", '/') if data.get("主治医师", '/') else '/') \
         .replace('{显示医师名字}', '主治医师') \
-        .replace('{医师名字}', doc_name)
+        .replace('{医师名字}', data.get("主治医师姓名", '/') if data.get("主治医师姓名", '/') else '/')
 
     # 关联文档
     admission_record = admission_record + xml_header.xml_header_related_document
 
     # 病床号、病房、病区、科室和医院的关联
     admission_record = admission_record + xml_header.xml_header_encompassing_encounter2 \
-        .replace('{入院日期}', data.get('入院日期', '/')) \
+        .replace('{入院日期}', data.get('pat_time', '/')) \
         .replace('{出院日期}', data.get('出院日期', '/'))
 
     return admission_record

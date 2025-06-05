@@ -26,7 +26,7 @@ def assembling_header(admission_record: str, data: dict):
         .replace('{文档模版编号}', "2.16.156.10011.2.1.1.60") \
         .replace('{文档类型}', "C0040") \
         .replace('{文档标识编码}', data.get('文档ID', '/')) \
-        .replace('{文档标题}', data.get('file_title')) \
+        .replace('{文档标题}', data.get('file_title', '/')) \
         .replace('{文档生成时间}', data.get('文档创建时间', '/'))
 
     # 文档记录对象（患者信息）
@@ -56,7 +56,7 @@ def assembling_header(admission_record: str, data: dict):
     admission_record = admission_record + xml_header.xml_header_legal_authenticator \
         .replace('{医师id}', '/') \
         .replace('{展示医师}', '主任医师') \
-        .replace('{医师}', data.get('主任医师', '/'))
+        .replace('{医师}', '/')
 
     if '住院医师' in data:
         doc_name = data.get('住院医师')

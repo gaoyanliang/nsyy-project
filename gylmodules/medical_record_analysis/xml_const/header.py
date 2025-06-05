@@ -65,6 +65,45 @@ xml_header_record_target1 = """
 </recordTarget>
 """
 
+new_his_xml_header_record_target1 = """
+<!-- 文档记录对象（患者） -->
+<recordTarget typeCode="RCT" contextControlCode="OP">
+    <patientRole classCode="PAT">
+        <!-- 住院号标识 具体的编号放入 extension -->
+        <id root="2.16.156.10011.1.12" extension="{pat_no}" />
+        <!-- 现住址 -->
+        <addr use="H">
+            <houseNumber>{addr_house_num}</houseNumber>
+            <streetName>{addr_street_name}</streetName>
+            <township>{addr_township}</township>
+            <county>{addr_county}</county>
+            <city>{addr_city}</city>
+            <state>{addr_state}</state>
+        </addr>
+        <patient classCode="PSN" determinerCode="INSTANCE">
+            <!-- 患者身份证号 -->
+            <id root="2.16.156.10011.1.3" extension="{pat_id_card}" />
+            <name>{pat_name}</name>
+            <administrativeGenderCode code="{pat_sex_no}" displayName="{pat_sex}"
+                codeSystem="2.16.156.10011.2.3.3.4" codeSystemName="生理性别代码表(GB/T2261.1)" />
+            <maritalStatusCode code="{pat_marriage_no}" displayName="{pat_marriage}" codeSystem="2.16.156.10011.2.3.3.5"
+                codeSystemName="婚姻状况代码表(GB/T2261.2)" />
+            <ethnicGroupCode code="{pat_nation_no}" displayName="{pat_nation}" codeSystem="2.16.156.10011.2.3.3.3"
+                codeSystemName="民族类别代码表(GB/T3304)" />
+
+            <!-- 年龄 -->
+            <age unit="岁" value="{pat_age}"></age>
+            <!-- 职业状况 -->
+            <occupation>
+                <occupationCode code="{pat_occupation_no}" displayName="{pat_occupation}"
+                    codeSystem="2.16.156.10011.2.3.3.13"
+                    codeSystemName="从业状况(个人身体)代码表(GB/T2261.4)" />
+            </occupation>
+        </patient>
+    </patientRole>
+</recordTarget>
+"""
+
 
 """
 # xml Header 患者信息 （出院记录）
@@ -215,19 +254,20 @@ xml_header_record_target4 = """
 xml_header_record_target5 = """
     <!-- 文档记录对象（患者）-->
     <recordTarget typeCode="RCT" contextControlCode="OP">
-    <patientRole classCode="PAT">
-        <!-- 住院号标识 具体的编号放入 extension -->
-        <id root="2.16.156.10011.1.12" extension="{pat_no}" />
-        <patient classCode="PSN" determinerCode="INSTANCE">
-            <!-- 患者身份证号 -->
-            <id root="2.16.156.10011.1.3" extension="{pat_id_card}" />
-            <name>{pat_name}</name>
-            <administrativeGenderCode code="{pat_sex_no}" displayName="{pat_sex}"
-                codeSystem="2.16.156.10011.2.3.3.4" codeSystemName="生理性别代码表(GB/T2261.1)" />
-            <!--1 数据集里是年龄（年）、年龄（月） -->
-            <birthTime value="{pat_birth_time}"/>
-            <!-- 年龄 -->
-            <age unit="岁" value="{pat_age}"></age>
+        <patientRole classCode="PAT">
+            <!-- 住院号标识 具体的编号放入 extension -->
+            <id root="2.16.156.10011.1.12" extension="{pat_no}" />
+            <patient classCode="PSN" determinerCode="INSTANCE">
+                <!-- 患者身份证号 -->
+                <id root="2.16.156.10011.1.3" extension="{pat_id_card}" />
+                <name>{pat_name}</name>
+                <administrativeGenderCode code="{pat_sex_no}" displayName="{pat_sex}"
+                    codeSystem="2.16.156.10011.2.3.3.4" codeSystemName="生理性别代码表(GB/T2261.1)" />
+                <!--1 数据集里是年龄（年）、年龄（月） -->
+                <birthTime value="{pat_birth_time}"/>
+                <!-- 年龄 -->
+                <age unit="岁" value="{pat_age}"></age>
+            </patient>
             <!--DE06.00.218.00讨论日期时间 DE06.00.274.00讨论地点-->
             <providerOrganization classCode="ORG" determinerCode="INSTANCE">
                 <asOrganizationPartOf classCode="PART">
@@ -414,7 +454,7 @@ xml_header_authenticator4 = """
     <signatureCode/>
     <assignedEntity>
         <id root="2.16.156.10011.1.4" extension="{医师id}"/>
-        <code displayName="医师签名"></code>
+        <code displayName="{显示医师名称}"></code>
         <assignedPerson classCode="PSN" determinerCode="INSTANCE">
             <name>{医师名字}</name>
             <protessionalTecmnicalPosition>

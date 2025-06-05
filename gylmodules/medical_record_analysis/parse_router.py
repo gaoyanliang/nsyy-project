@@ -1,4 +1,5 @@
 import json
+import traceback
 from datetime import datetime
 from flask import Blueprint, jsonify, request, Response
 from collections import OrderedDict
@@ -10,23 +11,32 @@ parse = Blueprint('medical record analysis', __name__, url_prefix='/parse')
 
 @parse.route('/query_record_and_parse', methods=['POST'])
 def query_record_and_parse():
+    json_data = None
     try:
         json_data = json.loads(request.get_data().decode('utf-8'))
         cda, structure = parse_server.query_record_and_parse(json_data)
     except Exception as e:
-        timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-        print(f"[{timestamp}] Exception occurred: {e.__str__()}", 'param: ', json_data)
-        return jsonify({
-            'code': 50000,
-            'res': e.__str__()
-        })
+        print(datetime.now(), "Exception occurred: {e.__str__()}", 'param: ', json_data, traceback.print_exc())
+        return jsonify({'code': 50000, 'res': e.__str__()})
 
     ordered_data = convert_to_ordered_dict(structure)
-    ret = {
-        'code': 20000,
-        'cda': cda,
-        'structure': ordered_data
-    }
+    ret = {'code': 20000, 'cda': cda, 'structure': ordered_data}
+    return Response(response=json.dumps(ret, ensure_ascii=False), mimetype='application/json')
+    # return Response(cda, mimetype='application/xml')
+
+
+@parse.route('/query_new_his_record_and_parse', methods=['POST'])
+def query_new_his_record_and_parse():
+    json_data = None
+    try:
+        json_data = json.loads(request.get_data().decode('utf-8'))
+        cda, structure = parse_server.query_new_his_record_and_parse(json_data)
+    except Exception as e:
+        print(datetime.now(), "Exception occurred: {e.__str__()}", 'param: ', json_data)
+        return jsonify({'code': 50000, 'res': e.__str__()})
+
+    ordered_data = convert_to_ordered_dict(structure)
+    ret = {'code': 20000, 'cda': cda, 'structure': ordered_data}
     return Response(response=json.dumps(ret, ensure_ascii=False), mimetype='application/json')
     # return Response(cda, mimetype='application/xml')
 

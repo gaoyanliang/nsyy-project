@@ -204,7 +204,7 @@ def assembling_cda_record(data, type):
         admission_record = admission_record + xml_const.xml_body_start
         admission_record = consultation_record_cda.assembling_body(admission_record, data)
     elif type == 14:
-        # 会诊记录
+        # 术前小结
         admission_record = preoperative_summary_cda.assembling_header(admission_record, data)
         admission_record = admission_record + xml_const.xml_body_start
         admission_record = preoperative_summary_cda.assembling_body(admission_record, data)

@@ -21,83 +21,80 @@ def assembling_header(admission_record: str, data: dict):
         .replace('{文档生成时间}', datetime.now().strftime('%Y%m%d%H%M%S'))
 
     # 文档记录对象（患者信息）
-    admission_record = admission_record + xml_header.xml_header_record_target1 \
+    admission_record = admission_record + xml_header.new_his_xml_header_record_target1 \
         .replace('{pat_no}', data.get('pat_no', '/')) \
         .replace('{addr_house_num}', data.get('pat_addr', '/')) \
+        .replace('{addr_state}', data.get('现住址省份名称', '/') if data.get('现住址省份名称') else '/') \
+        .replace('{addr_city}', data.get('现住址市地区名称', '/') if data.get('现住址市地区名称') else '/') \
+        .replace('{addr_county}', data.get('现住址县区名称', '/') if data.get('现住址县区名称') else '/') \
+        .replace('{addr_township}', data.get('现住址省市县', '/')if data.get('现住址省市县') else '/') \
+        .replace('{addr_street_name}', data.get('现住址乡镇街道名称', '/') if data.get('现住址乡镇街道名称') else '/') \
         .replace('{pat_id_card}', data.get('pat_id_card', '/')) \
         .replace('{pat_name}', data.get('pat_name', '/')) \
-        .replace('{pat_sex_no}', '1') \
+        .replace('{pat_sex_no}', data.get("性别代码", '/') if data.get("性别代码") else '/') \
         .replace('{pat_sex}', data.get('pat_sex', '/')) \
-        .replace('{pat_marriage_no}', '1') \
+        .replace('{pat_marriage_no}', data.get("婚姻代码", '/') if data.get("婚姻代码") else '/') \
         .replace('{pat_marriage}', data.get('pat_marriage', '/')) \
-        .replace('{pat_nation_no}', '1') \
+        .replace('{pat_nation_no}', data.get("民族代码", '/') if data.get("民族代码") else '/') \
         .replace('{pat_nation}', data.get('pat_nation', '/')) \
         .replace('{pat_age}', data.get('pat_age', '/')) \
-        .replace('{pat_occupation_no}', '20') \
+        .replace('{pat_occupation_no}', data.get("职业代码", '/') if data.get("职业代码") else '/') \
         .replace('{pat_occupation}', data.get('pat_occupation', '/'))
 
     # 文档创作者
     admission_record = admission_record + xml_header.xml_header_author \
         .replace('{文档创作时间}', datetime.now().strftime('%Y%m%d%H%M%S')) \
-        .replace('{文档创作者id}', data.get('hospital_no')) \
-        .replace('{文档创作者}', data.get('hospital_name'))
+        .replace('{文档创作者id}', data.get('hospital_no', '/')) \
+        .replace('{文档创作者}', data.get('hospital_name', '/'))
 
     # 病史陈述者
     admission_record = admission_record + xml_header.xml_header_informant \
         .replace('{presenter_id_card}', '/') \
         .replace('{presenter_relation_no}', '/') \
-        .replace('{presenter_relation}', data.get('病史叙述者', '/')) \
+        .replace('{presenter_relation}', data.get('病史陈述者', '/')) \
         .replace('{presenter_name}', '/')
 
     # 保管机构
     admission_record = admission_record + xml_header.xml_header_custodian \
-        .replace('{医疗卫生机构编号}', data.get('hospital_no')) \
-        .replace('{医疗卫生机构名称}', data.get('hospital_name'))
+        .replace('{医疗卫生机构编号}', data.get('hospital_no', '/')) \
+        .replace('{医疗卫生机构名称}', data.get('hospital_name', '/'))
 
     # 最终审核者签名
     admission_record = admission_record + xml_header.xml_header_legal_authenticator \
-        .replace('{医师id}', '/') \
+        .replace('{医师id}', data.get('主治医师', '/') if data.get('主治医师') else '/') \
         .replace('{展示医师}', '主任医师') \
-        .replace('{医师}', '/')
+        .replace('{医师}', data.get('主治医师姓名', '/') if data.get('主治医师姓名') else '/')
 
-    if '住院医师' in data:
-        doc_name = data.get('住院医师')
-    elif '主治医师' in data:
-        doc_name = data.get('主治医师')
-    elif '经治医师' in data:
-        doc_name = data.get('经治医师')
-    else:
-        doc_name = '/'
     # 接诊医师签名/住院医师签名/主治医师签名
     admission_record = admission_record + xml_header.xml_header_authenticator1 \
-        .replace('{医师id}', '/') \
+        .replace('{医师id}', data.get('接诊医师', '/') if data.get('接诊医师') else '/') \
         .replace('{显示医师名字}', '接诊医师') \
-        .replace('{医师名字}', doc_name)
+        .replace('{医师名字}', data.get('收治医师姓名', '/') if data.get('收治医师姓名') else '/')
     admission_record = admission_record + xml_header.xml_header_authenticator1 \
-        .replace('{医师id}', '/') \
+        .replace('{医师id}', data.get('住院医师', '/') if data.get('住院医师') else '/') \
         .replace('{显示医师名字}', '住院医师') \
-        .replace('{医师名字}', doc_name)
+        .replace('{医师名字}', data.get('住院医师姓名', '/') if data.get('住院医师姓名') else '/')
     admission_record = admission_record + xml_header.xml_header_authenticator1 \
-        .replace('{医师id}', '/') \
+        .replace('{医师id}', data.get('主治医师', '/') if data.get('主治医师') else '/') \
         .replace('{显示医师名字}', '主治医师') \
-        .replace('{医师名字}', doc_name)
+        .replace('{医师名字}', data.get('主治医师姓名', '/') if data.get('主治医师姓名') else '/')
 
     # 关联文档
     admission_record = admission_record + xml_header.xml_header_related_document
 
     # 病床号、病房、病区、科室和医院的关联
     admission_record = admission_record + xml_header.xml_header_encompassing_encounter \
-        .replace('{入院时间}', data.get('pat_time')) \
-        .replace('{pat_bed_no}', data.get('pat_bed', '/') if data.get('pat_bed') else '/') \
-        .replace('{pat_bed}', data.get('pat_bed', '/') if data.get('pat_bed') else '/') \
-        .replace('{pat_room_no}', '/') \
-        .replace('{pat_room}', '/') \
+        .replace('{入院时间}', data.get('pat_time', '/')) \
+        .replace('{pat_bed_no}', data.get('当前床位id', '/') if data.get('当前床位id') else '/') \
+        .replace('{pat_bed}', data.get('当前床位编码', '/') if data.get('当前床位编码') else '/') \
+        .replace('{pat_room_no}', data.get('当前房间id', '/') if data.get('当前房间id') else '/') \
+        .replace('{pat_room}', data.get('当前房间号', '/') if data.get('当前房间号') else '/') \
         .replace('{pat_dept_no}', data.get('pat_dept_no', '/')) \
         .replace('{pat_dept}', data.get('pat_dept', '/')) \
-        .replace('{pat_ward_no}', '/') \
-        .replace('{pat_ward}', '/') \
-        .replace('{医院编码}', data.get('hospital_no')) \
-        .replace('{医院}', data.get('hospital_name'))
+        .replace('{pat_ward_no}', data.get('当前病区id', '/') if data.get('当前病区id') else '/') \
+        .replace('{pat_ward}', data.get('当前病区名称', '/') if data.get('当前病区名称') else '/') \
+        .replace('{医院编码}', data.get('hospital_no', '/')) \
+        .replace('{医院}', data.get('hospital_name', '/'))
 
     return admission_record
 
@@ -118,7 +115,7 @@ def assembling_body(admission_record: str, data: dict):
 
     present_illness = data.get('现病史')
     if present_illness and type(present_illness) == dict:
-        present_illness = present_illness.get('value')
+        present_illness = present_illness.get('value', '/')
     # 现病史
     admission_record = admission_record + xml_body.body_component \
         .replace('{code}', xml_body.body_section_code
@@ -131,24 +128,55 @@ def assembling_body(admission_record: str, data: dict):
                  .replace('{entry_name}', '现病史')
                  .replace('{entry_body}', xml_body.value_st.replace('{value}', present_illness)))
 
-    past_illness = data.get('既往史')
+    past_illness = data.get('既往史', '/')
+    if not past_illness:
+        past_illness = '/'
     if '外伤史' in past_illness and type(past_illness) == dict:
-        his_illness = past_illness.get('外伤史')
+        his_illness = past_illness.get('外伤史', '/')
     elif '疾病史' in past_illness and type(past_illness) == dict:
-        his_illness = past_illness.get('疾病史')
+        his_illness = past_illness.get('疾病史', '/')
     elif '既往疾病史' in past_illness and type(past_illness) == dict:
-        his_illness = past_illness.get('既往疾病史')
+        his_illness = past_illness.get('既往疾病史', '')
     else:
         his_illness = '/'
 
-    if '药物及食物过敏史' in past_illness and type(past_illness) == dict:
-        allergy_his = past_illness.get('药物及食物过敏史')
-    elif '药品及食物过敏史' in past_illness and type(past_illness) == dict:
-        allergy_his = past_illness.get('药品及食物过敏史')
-    else:
-        allergy_his = '/'
-
     value = past_illness.get('value') if past_illness and type(past_illness) == dict else past_illness
+
+    chuanran = '/'
+    hunyushi = '/'
+    shoushushi = '/'
+    waishangshi = '/'
+    if type(past_illness) == dict:
+        chuanran = past_illness.get('传染病史')
+        if not chuanran:
+            chuanran = '/'
+        elif type(chuanran) == dict:
+            chuanran = chuanran.get('value')
+
+        hunyushi = past_illness.get('婚育史')
+        if not hunyushi:
+            hunyushi = '/'
+        elif type(hunyushi) == dict:
+            hunyushi = hunyushi.get('value')
+
+        shoushushi = past_illness.get('手术史')
+        if not shoushushi:
+            shoushushi = '/'
+        elif type(shoushushi) == dict:
+            shoushushi = shoushushi.get('value')
+
+        waishangshi = past_illness.get('外伤史')
+        if not waishangshi:
+            waishangshi = '/'
+        elif type(waishangshi) == dict:
+            waishangshi = waishangshi.get('value')
+
+    guominshi = data.get('过敏史')
+    if not guominshi:
+        guominshi = '/'
+    elif type(guominshi) == dict:
+        guominshi = guominshi.get('value')
+
     # 既往史
     admission_record = admission_record + xml_body.body_history_of_past_illness \
         .replace('{code}', xml_body.body_section_code
@@ -163,7 +191,7 @@ def assembling_body(admission_record: str, data: dict):
                  .replace('{value}', xml_body.value_bl.replace('{value}', 'false'))
                  .replace('{obs_code}', xml_body.body_observation_code1.replace('{obs_code}', 'DE02.10.026.00')
                           .replace('{obs_display_name}', '疾病史含外伤'))
-                 .replace('{entry_ship_body}', xml_body.value_st.replace('{value}', his_illness))) \
+                 .replace('{entry_ship_body}', xml_body.value_st.replace('{value}', waishangshi))) \
         .replace('{history_of_infectious_diseases}', xml_body.body_section_entry_relation_ship
                  .replace('{code}', xml_body.body_section_code
                           .replace('{section_code}', 'DE05.10.119.00')
@@ -172,25 +200,19 @@ def assembling_body(admission_record: str, data: dict):
                  .replace('{value}', xml_body.value_bl.replace('{value}', 'true'))
                  .replace('{obs_code}', xml_body.body_observation_code1.replace('{obs_code}', 'DE02.10.008.00')
                           .replace('{obs_display_name}', '传染病史'))
-                 .replace('{entry_ship_body}', xml_body.value_st.replace('{value}', past_illness.get('传染病史',
-                                                                                                     '/') if past_illness and type(
-        past_illness) == dict else '/'))) \
+                 .replace('{entry_ship_body}', xml_body.value_st.replace('{value}', chuanran))) \
         .replace('{marriage_and_childbearing_history}', xml_body.body_section_entry
                  .replace('{entry_code}', 'DEO2.10.098.00')
                  .replace('{entry_name}', '婚育史')
-                 .replace('{entry_body}', xml_body.value_st.replace('{value}', past_illness.get('婚育史',
-                                                                                                '/') if past_illness and type(
-        past_illness) == dict else '/'))) \
+                 .replace('{entry_body}', xml_body.value_st.replace('{value}', hunyushi))) \
         .replace('{allergy_history}', xml_body.body_section_entry
                  .replace('{entry_code}', 'DEO2.10.022.00')
                  .replace('{entry_name}', '过敏史')
-                 .replace('{entry_body}', xml_body.value_st.replace('{value}', allergy_his))) \
+                 .replace('{entry_body}', xml_body.value_st.replace('{value}', guominshi))) \
         .replace('{surgical_history}', xml_body.body_section_entry
                  .replace('{entry_code}', 'DEO2.10.022.00')
                  .replace('{entry_name}', '手术史')
-                 .replace('{entry_body}', xml_body.value_st.replace('{value}', past_illness.get('手术史',
-                                                                                                '/') if past_illness and type(
-        past_illness) == dict else '/')))
+                 .replace('{entry_body}', xml_body.value_st.replace('{value}', shoushushi)))
 
     # 预防接种史
     admission_record = admission_record + xml_body.body_component \
@@ -221,10 +243,12 @@ def assembling_body(admission_record: str, data: dict):
         past_illness) == dict else '/')))
 
     social_his = data.get('个人史')
-    if social_his is None:
+    if not social_his:
         social_his = '/'
-    if social_his and type(social_his) == dict:
+    elif type(social_his) == dict:
         social_his = social_his.get('value')
+        if not social_his:
+            social_his = '/'
     # 个人史
     admission_record = admission_record + xml_body.body_component \
         .replace('{code}', xml_body.body_section_code
@@ -239,10 +263,10 @@ def assembling_body(admission_record: str, data: dict):
 
     # 月经史
     menstrual_his = data.get('月经史')
-    if menstrual_his is None:
+    if not menstrual_his:
         menstrual_his = '/'
-    if menstrual_his and type(menstrual_his) == dict:
-        menstrual_his = menstrual_his.get('value')
+    elif type(menstrual_his) == dict:
+        menstrual_his = menstrual_his.get('value', '/')
     admission_record = admission_record + xml_body.body_component \
         .replace('{code}', xml_body.body_section_code
                  .replace('{section_code}', '49033-4')
@@ -271,12 +295,8 @@ def assembling_body(admission_record: str, data: dict):
                  .replace('{entry_name}', '家族史')
                  .replace('{entry_body}', xml_body.value_st.replace('{value}', family_his)))
 
-    vital_signs = data.get('体格检查')
+    vital_signs = data.get('体格检查_体征')
     if 'value' in vital_signs:
-        xueya = []
-        if '血压' in vital_signs:
-            # 使用 split 方法将字符串按斜杠分割
-            xueya = vital_signs.get('血压').split("/")
         # 生命体征
         admission_record = admission_record + xml_body.body_vital_signs \
             .replace('{code}', xml_body.body_section_code
@@ -299,10 +319,10 @@ def assembling_body(admission_record: str, data: dict):
                      .replace('{entry_code}', 'DEO4.10.082.00')
                      .replace('{entry_name}', '呼吸频率(次/min)')
                      .replace('{entry_body}',
-                              xml_body.value_pq.replace('{value}', vital_signs.get('呼吸', '/')).replace('{unit}',
+                              xml_body.value_pq.replace('{value}', vital_signs.get('呼吸频率', '/')).replace('{unit}',
                                                                                                          '次/min'))) \
-            .replace('{systolic}', xueya[0] if xueya else '/') \
-            .replace('{diastolic}', xueya[1] if xueya else '/') \
+            .replace('{systolic}', vital_signs.get('收缩压', '/')) \
+            .replace('{diastolic}', vital_signs.get('舒张压', '/')) \
             .replace('{height}', xml_body.body_section_entry
                      .replace('{entry_code}', 'DEO4.10.167.00')
                      .replace('{entry_name}', '身高（cm）')
@@ -384,6 +404,12 @@ def assembling_body(admission_record: str, data: dict):
                                                                             data.get('专科情况')) == dict else data.get(
                                                                             '专科情况', '/'))))
 
+    fuzhujiancha = data.get('辅助检查')
+    if fuzhujiancha is None:
+        fuzhujiancha = '/'
+    if fuzhujiancha and type(fuzhujiancha) == dict:
+        fuzhujiancha = fuzhujiancha.get('value')
+
     # 辅助检査章节
     admission_record = admission_record + xml_body.body_component \
         .replace('{code}', '<code displayName="辅助检查" />') \
@@ -392,7 +418,7 @@ def assembling_body(admission_record: str, data: dict):
         .replace('{entry}', xml_body.body_section_entry
                  .replace('{entry_code}', 'DEO4.30.009.00')
                  .replace('{entry_name}', '辅助检查')
-                 .replace('{entry_body}', xml_body.value_st.replace('{value}', data.get('辅助检查', '/'))))
+                 .replace('{entry_body}', xml_body.value_st.replace('{value}', fuzhujiancha)))
 
     admission_record = admission_record + xml_body.body_main_health_problem \
         .replace('{code}', xml_body.body_section_code
