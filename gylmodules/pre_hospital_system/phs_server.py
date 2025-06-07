@@ -27,6 +27,21 @@ def update_patient_info(json_data, register_id):
     :param register_id: 患者的唯一 ID
     :return:
     """
+    if 'laidiansj' in json_data and not json_data.get('laidiansj'):
+        json_data.pop('laidiansj')
+    if 'paichesj' in json_data and not json_data.get('paichesj'):
+        json_data.pop('paichesj')
+    if 'liyuansj' in json_data and not json_data.get('liyuansj'):
+        json_data.pop('liyuansj')
+    if 'hushishangchesj' in json_data and not json_data.get('hushishangchesj'):
+        json_data.pop('hushishangchesj')
+    if 'daoyuansj' in json_data and not json_data.get('daoyuansj'):
+        json_data.pop('daoyuansj')
+    if 'create_at' in json_data and not json_data.get('create_at'):
+        json_data.pop('create_at')
+    if 'update_at' in json_data and not json_data.get('update_at'):
+        json_data.pop('update_at')
+
     db = DbUtil(global_config.DB_HOST, global_config.DB_USERNAME, global_config.DB_PASSWORD,
                 global_config.DB_DATABASE_GYL)
 
@@ -34,16 +49,14 @@ def update_patient_info(json_data, register_id):
     set_clause = ', '.join([f"{key} = %s" for key in json_data.keys()])
 
     # 构造 SQL 语句
-    update_sql = f"UPDATE nsyy_gyl.phs_patient_registration SET {set_clause} WHERE id = %s"
+    update_sql = f"UPDATE nsyy_gyl.phs_patient_registration SET {set_clause} WHERE register_id = %s"
     params = tuple(json_data.values()) + (register_id,)
-    affected_rows = db.execute(update_sql, params, need_commit=True)
-
-    if affected_rows == 0:
+    try:
+        db.execute(update_sql, params, need_commit=True)
+    except Exception as e:
         del db
         raise Exception(datetime.now(), f"急诊患者更新失败，未找到登记 ID = {register_id} 的记录。SQL = {update_sql}")
-
     del db
-    return affected_rows
 
 
 def query_patient_info(register_id, record_id):
@@ -59,7 +72,7 @@ def query_patient_info(register_id, record_id):
     if record_id:
         query_sql = f"SELECT * FROM nsyy_gyl.phs_record_data WHERE record_id = {int(record_id)}"
     else:
-        query_sql = f"SELECT * FROM nsyy_gyl.phs_patient_registration WHERE id = {int(register_id)}"
+        query_sql = f"SELECT * FROM nsyy_gyl.phs_patient_registration WHERE register_id = {int(register_id)}"
 
     data = db.query_all(query_sql)
     del db
@@ -82,7 +95,7 @@ def query_patient_list(key, start_date, end_date, page_number, page_size):
     if key:
         condition_sql = condition_sql + f"AND patient_name LIKE '%{key}%' "
 
-    query_sql = f"SELECT id, patient_name, patient_sex, patient_phone, chuzhen_addr, chubuzd, daoyuansj" \
+    query_sql = f"SELECT register_id, patient_name, patient_sex, patient_phone, chuzhen_addr, chubuzd, daoyuansj" \
                 f" FROM nsyy_gyl.phs_patient_registration WHERE {condition_sql}"
     data = db.query_all(query_sql)
     del db
