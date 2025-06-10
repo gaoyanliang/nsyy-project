@@ -76,7 +76,7 @@ def query_patient_info(card_no):
         else:
             patient_phone = patient_infos[0].get('联系人电话')
         data = {
-            "sick_id": patient_infos[0].get('病人ID'), "patient_name": patient_infos[0].get('姓名'),
+            "sick_id": patient_infos[0].get('病人id'), "patient_name": patient_infos[0].get('姓名'),
             "patient_sex": patient_infos[0].get('性别'), "patient_age": patient_age,
             "patient_phone": patient_phone, "birth_day": patient_infos[0].get('出生日期'),
             "marital_status": patient_infos[0].get('婚姻'), "occupation": patient_infos[0].get('职业'),
@@ -907,8 +907,10 @@ def query_and_assembly_data(re_id):
         auxiliary_examination_result.append(ret)
 
     for item in test_results:
-        auxiliary_examination.append(item['item_name'])
-        auxiliary_examination_result.append(item.get('item_result'))
+        if item.get('item_name') and type(item['item_name']) == str:
+            auxiliary_examination.append(item['item_name'])
+        if item.get('item_result') and type(item['item_result']) == str:
+            auxiliary_examination_result.append(item.get('item_result'))
     medical_data[5] = '、'.join(auxiliary_examination)
     medical_data[6] = '、'.join(auxiliary_examination_result)
 
