@@ -795,6 +795,7 @@ def patient_quest_details(json_data):
     query_sql = f"select * from nsyy_gyl.sq_surveys_detail WHERE sick_id = '{patient_id}' " \
                 f"and visit_date = '{ques_date}'"
     surveys_details = db.query_all(query_sql)
+    del db
 
     ques_dtl = []
     if surveys_details:
@@ -852,7 +853,6 @@ def patient_quest_details(json_data):
                 }]}
             ques_dtl.append(ques)
 
-    del db
     return {
         "patient_id": patient_id,
         "ques_date": ques_date,

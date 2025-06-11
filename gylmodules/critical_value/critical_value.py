@@ -1828,28 +1828,6 @@ def send_to_his(cv_record):
         print(datetime.now(), '未查询到报告单 cv_id = ', cv_record.get('cv_id'), 'report_id = ', report_id)
         return
     if cv_source == 2:
-        # sql = f"""
-        #     SELECT DISTINCT t1.shenqingdid, t.kaidanys, t.kaidanksmc, t.kaidanks, t.kaidanysxm, t.kaidanrq, t1.tiaomahao, t1.shenhesj 报告时间, t1.zhixingsj 执行时间
-        #     FROM (SELECT x.shenqingdid, a.jianyanzt, a.jiluid, a.bingrenzyid, a.tiaomahao, a.yangbenhao, a.shenhesj, a.zhixingsj
-        #     FROM (SELECT a.shenqingdid, a.jianyanzt, a.jiluid, a.bingrenzyid, a.tiaomahao, a.yangbenhao, a.shenhesj, a.zhixingsj,
-        #              CASE
-        #                  WHEN TRIM(a.shenqingdid) IS NOT NULL THEN
-        #                      '<root><item>' || REPLACE(TRIM(a.shenqingdid), ',', '</item><item>') || '</item></root>'
-        #                  ELSE NULL
-        #              END AS xml_data
-        #             FROM df_cdr.yj_jianyanbg a ) a,
-        #     XMLTABLE(
-        #      '/root/item'
-        #      PASSING XMLTYPE(a.xml_data)
-        #      COLUMNS shenqingdid VARCHAR2(100) PATH '.'
-        #     ) x
-        #         WHERE a.jianyanzt = 1
-        #     ) t1
-        #     JOIN df_cdr.yj_jianyanbgmx t2 ON t1.jiluid = t2.jiluid
-        #     JOIN df_shenqingdan.yj_jianyansqd t ON t1.shenqingdid = t.jianyansqdid
-        #     WHERE t.jianyanxmid = t2.jianyanxmid AND t1.yangbenhao = '{report_id}'
-        # """
-
         sql = f"""
         select yj.shenqingdid, yj.kaidanren, yj.kaidanksmc, yj.kaidanks, yj.kaidanrenxm, yj.kaidanrq,
          yj.baogaodanid, yj.shenhesj 报告时间,yj.zhixingsj 执行时间, yj.tiaomahao 
@@ -1859,15 +1837,16 @@ def send_to_his(cv_record):
         sql = f"""
             select shenqingdanid, kaidanren, kaidanksmc, kaidanks, kaidanrenxm, kaidanrq,
             baogaodanid, baogaosj 报告时间, jianchasj 执行时间
-            from df_cdr.yj_jianchabg where baogaodanid = '{report_id}'
+            from df_cdr.yj_jianchabg where baogaodanid like '%{report_id}%' 
+            and (zhuyuanhao = '{patient_treat_id}' or bingrenxm = '{cv_record.get('patient_name', 'unknown')}')
         """
-    shenqing_data = global_tools.call_new_his(sql)
+    shenqing_data = global_tools.call_new_his_pg(sql)
     if not shenqing_data:
         print(datetime.now(), '未查询到申请单 cv_id = ', cv_record.get('cv_id'), 'report_id = ', report_id)
         return
 
     create_time = cv_record.get('time').strftime("%Y-%m-%d %H:%M:%S")
-    leixing = '1' if int(cv_record.get('cv_source')) in (2, 5) else '2'
+    leixing = '1' if int(cv_record.get('cv_source')) == 2 else '2'
     patient_type = int(cv_record.get('patient_type', 3)) # 1=门诊,2=急诊,3=住院,4=体检
     # 通过映射关系获取 menzhenzybz，默认为 '1'（门诊）
     menzhenzybz = cv_config.patient_type_map.get(patient_type, '2')
@@ -1875,9 +1854,9 @@ def send_to_his(cv_record):
     alertdt = cv_record.get('alertdt').strftime("%Y-%m-%d %H:%M:%S")
     handle_time = cv_record.get('handle_time').strftime("%Y-%m-%d %H:%M:%S")
     nurse_recv_time = cv_record.get('nurse_recv_time').strftime("%Y-%m-%d %H:%M:%S") if cv_record.get('nurse_recv_time') else '0'
-    baogaosj = datetime.strptime(shenqing_data[0].get('报告时间'), "%a, %d %b %Y %H:%M:%S GMT").strftime("%Y-%m-%d %H:%M:%S") if shenqing_data[0].get('报告时间') else '0'
-    zhixingsj = datetime.strptime(shenqing_data[0].get('执行时间'), "%a, %d %b %Y %H:%M:%S GMT").strftime("%Y-%m-%d %H:%M:%S") if shenqing_data[0].get('执行时间') else '0'
-    kaidanrq = datetime.strptime(shenqing_data[0].get('KAIDANRQ'), "%a, %d %b %Y %H:%M:%S GMT").strftime("%Y-%m-%d %H:%M:%S") if shenqing_data[0].get('KAIDANRQ') else '0'
+    baogaosj = shenqing_data[0].get('报告时间').strftime("%Y-%m-%d %H:%M:%S") if shenqing_data[0].get('报告时间') else '0'
+    zhixingsj = shenqing_data[0].get('执行时间').strftime("%Y-%m-%d %H:%M:%S") if shenqing_data[0].get('执行时间') else '0'
+    kaidanrq = shenqing_data[0].get('kaidanrq').strftime("%Y-%m-%d %H:%M:%S") if shenqing_data[0].get('kaidanrq') else '0'
 
     cv_result = cv_record.get('cv_result') if cv_record.get('cv_result') else '0'
     cv_result = cv_result.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;")
@@ -1911,7 +1890,7 @@ def send_to_his(cv_record):
         .replace('{fasongsj}', alertdt) \
         .replace('{fasongrenxm}', cv_record.get('alertman_name') if cv_record.get('alertman_name') else '0') \
         .replace('{fasongren}', cv_record.get('alertman') if cv_record.get('alertman_name') else '0') \
-        .replace('{zuofeisj}', cv_record.get('invalid_time') if cv_record.get('invalid_time') else '0') \
+        .replace('{zuofeisj}', cv_record.get('invalid_time').strftime("%Y-%m-%d %H:%M:%S") if cv_record.get('invalid_time') else '0') \
         .replace('{zuofeiren}', cv_record.get('invalid_person') if cv_record.get('invalid_person') else '0') \
         .replace('{huifuysid}', str(cv_record.get('handle_doctor_id')) if cv_record.get('handle_doctor_id') else '0') \
         .replace('{huifuysxm}', cv_record.get('handle_doctor_name') if cv_record.get('handle_doctor_name') else '0') \
@@ -1927,16 +1906,16 @@ def send_to_his(cv_record):
         .replace('{tongzhiyssj}', alertdt) \
         .replace('{tongzhiysxm}', cv_record.get('handle_doctor_name') if cv_record.get('handle_doctor_name') else '0') \
         .replace('{tongzhiysid}', str(cv_record.get('handle_doctor_id')) if cv_record.get('handle_doctor_id') else '0') \
-        .replace('{baogaodanid}', shenqing_data[0].get('BAOGAODANID') if shenqing_data[0].get('BAOGAODANID') else '0') \
         .replace('{baogaosj}', baogaosj) \
-        .replace('{jianyantmh}', shenqing_data[0].get('TIAOMAHAO') if shenqing_data[0].get('TIAOMAHAO') else '0') \
         .replace('{zhixingsj}', zhixingsj) \
-        .replace('{shenqingdanid}', shenqing_data[0].get('SHENQINGDID') if shenqing_data[0].get('SHENQINGDID') else '0') \
-        .replace('{kaidanren}', shenqing_data[0].get('KAIDANREN') if shenqing_data[0].get('KAIDANREN') else '0') \
-        .replace('{kaidanksmc}', shenqing_data[0].get('KAIDANKSMC') if shenqing_data[0].get('KAIDANKSMC') else '0') \
-        .replace('{kaidanks}', shenqing_data[0].get('KAIDANKS') if shenqing_data[0].get('KAIDANKS') else '0') \
-        .replace('{kaidanrenxm}', shenqing_data[0].get('KAIDANRENXM') if shenqing_data[0].get('KAIDANRENXM') else '0') \
-        .replace('{kaidanrq}', kaidanrq)
+        .replace('{kaidanrq}', kaidanrq) \
+        .replace('{jianyantmh}', shenqing_data[0].get('tiaomahao') if shenqing_data[0].get('tiaomahao') else '0') \
+        .replace('{baogaodanid}', shenqing_data[0].get('baogaodanid') if shenqing_data[0].get('baogaodanid') else '0') \
+        .replace('{shenqingdanid}', shenqing_data[0].get('shenqingdid') if shenqing_data[0].get('shenqingdid') else '0') \
+        .replace('{kaidanren}', shenqing_data[0].get('kaidanren') if shenqing_data[0].get('kaidanren') else '0') \
+        .replace('{kaidanksmc}', shenqing_data[0].get('kaidanksmc') if shenqing_data[0].get('kaidanksmc') else '0') \
+        .replace('{kaidanks}', shenqing_data[0].get('kaidanks') if shenqing_data[0].get('kaidanks') else '0') \
+        .replace('{kaidanrenxm}', shenqing_data[0].get('kaidanrenxm') if shenqing_data[0].get('kaidanrenxm') else '0')
 
     # print(his_sync_data)
     safe_post(his_sync_data, 'WeiJZInfoAdd')
@@ -2108,6 +2087,35 @@ def fetch_acquisitionDateTime(ftp_path):
         ftp.quit()
     return ''
 
+
+def manual_push_cv(cv_id):
+    db = DbUtil(global_config.DB_HOST, global_config.DB_USERNAME, global_config.DB_PASSWORD,
+                global_config.DB_DATABASE_GYL)
+    record = db.query_one(f"select * from nsyy_gyl.cv_info where cv_id = '{cv_id}'")
+    del db
+    if not record:
+        return
+
+    msg = '[{} - {} - {} - {}]'.format(record.get('patient_name', 'unknown'), record.get('req_docno', 'unknown'),
+                                       record.get('patient_treat_id', '0'), record.get('patient_bed_num', '0'))
+    main_alert(record.get('dept_id', 0), record.get('ward_id', 0),
+               f'发现危急值, 请及时查看并处理 <br> [患者-主管医生-住院/门诊号-床号] <br> {msg} <br> <br> <br> 点击 [确认] 跳转至危急值页面')
+
+
+def manual_push_vital_signs(patient_name, ip_addr, open):
+    if open:
+        param = {"type": "popup", "wiki_info": f"⚠️ 危急警报 <br><br> 患者 【{patient_name}】的生命体征异常, 请及时关注！！"}
+    else:
+        param = {"type": "stop"}
+
+    try:
+        # 发送 POST 请求，将字符串数据传递给 data 参数
+        response = requests.post(f"http://{ip_addr}:8085/opera_wiki", timeout=3, json=param)
+        data = response.text
+        data = json.loads(data)
+        print(datetime.now(), data)
+    except Exception as e:
+        print(datetime.now(), '弹框发送异常')
 
 
 

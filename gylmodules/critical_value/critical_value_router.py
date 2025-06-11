@@ -575,6 +575,38 @@ def manual_send_to_his_invalid():
     })
 
 
+@cv.route('/manual_push_cv', methods=['POST', 'GET'])
+def manual_push_cv():
+    try:
+        json_data = json.loads(request.get_data().decode('utf-8'))
+        critical_value.manual_push_cv(json_data.get('cv_id'))
+    except Exception as e:
+        return jsonify({
+            'code': 50000,
+            'res': e.__str__(),
+        })
+
+    return jsonify({
+        'code': 20000
+    })
+
+
+@cv.route('/manual_push', methods=['POST', 'GET'])
+def manual_push_vital_signs():
+    try:
+        json_data = json.loads(request.get_data().decode('utf-8'))
+        critical_value.manual_push_vital_signs(json_data.get('patient_name'), json_data.get('ip_addr'),
+                                               json_data.get('open', True))
+    except Exception as e:
+        return jsonify({
+            'code': 50000,
+            'res': e.__str__(),
+        })
+
+    return jsonify({
+        'code': 20000
+    })
+
 
 
 

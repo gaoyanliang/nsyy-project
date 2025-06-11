@@ -11,6 +11,7 @@ def patient_registration(json_data):
     """
     db = DbUtil(global_config.DB_HOST, global_config.DB_USERNAME, global_config.DB_PASSWORD,
                 global_config.DB_DATABASE_GYL)
+    json_data['create_at'] = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
     insert_sql = f"INSERT INTO nsyy_gyl.phs_patient_registration ({','.join(json_data.keys())}) " \
                  f"VALUES {str(tuple(json_data.values()))}"
     last_rowid = db.execute(sql=insert_sql, need_commit=True)
@@ -91,12 +92,11 @@ def query_patient_list(key, start_date, end_date, page_number, page_size):
     db = DbUtil(global_config.DB_HOST, global_config.DB_USERNAME, global_config.DB_PASSWORD,
                 global_config.DB_DATABASE_GYL)
 
-    condition_sql = f"paichesj BETWEEN '{start_date}' AND '{end_date}' "
+    condition_sql = f"create_at BETWEEN '{start_date}' AND '{end_date}' "
     if key:
         condition_sql = condition_sql + f"AND patient_name LIKE '%{key}%' "
 
-    query_sql = f"SELECT register_id, patient_name, patient_sex, patient_phone, chuzhen_addr, chubuzd, daoyuansj" \
-                f" FROM nsyy_gyl.phs_patient_registration WHERE {condition_sql}"
+    query_sql = f"SELECT * FROM nsyy_gyl.phs_patient_registration WHERE {condition_sql}"
     data = db.query_all(query_sql)
     del db
 
