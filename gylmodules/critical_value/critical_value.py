@@ -739,7 +739,7 @@ def create_cv_by_system(json_data, cv_source):
     # 解析危机值上报信息
     cvd['cv_id'] = json_data.get('RESULTALERTID')
     cvd['cv_source'] = cv_source
-    cvd['alertman'] = json_data.get('ALERTMAN')
+    cvd['alertman'] = json_data.get('ALERTMAN') if json_data.get('ALERTMAN') else '0'
     cvd['alertdt'] = json_data.get('ALERTDT')
     cvd['time'] = str(datetime.now())[:19]
     cvd['state'] = cv_config.CREATED_STATE
@@ -753,6 +753,12 @@ def create_cv_by_system(json_data, cv_source):
         cvd['alert_dept_id'], cvd['alert_dept_name'], cvd['alertman_name'], cvd['alertman_pers_id'] = \
             call_third_systems_obtain_data('get_dept_info_by_emp_num', param)
 
+    if not cvd.get('alert_dept_id'):
+        cvd['alert_dept_id'] = 0
+        cvd['alert_dept_name'] = ''
+        cvd['alertman_name'] = '' if not cvd.get('alertman_name') else cvd.get('alertman_name')
+        cvd['alertman_pers_id'] = 0 if not cvd.get('alertman_pers_id') else cvd.get('alertman_pers_id')
+
     # 2025-04-28 王永慧反馈 上报科室是康复院区的也不处理
     if int(cvd['alert_dept_id']) == 1000760 or str(cvd['alert_dept_id']) == '0812' \
             or int(cvd['alert_dept_id']) == 1000700 or int(cvd['alert_dept_id']) == 281 \
@@ -764,12 +770,12 @@ def create_cv_by_system(json_data, cv_source):
 
     # 解析危机值病人信息
     cvd['patient_type'] = json_data.get('PAT_TYPECODE') if str(json_data.get('PAT_TYPECODE')).isdigit() else 0
-    cvd['patient_treat_id'] = json_data.get('PAT_NO')
-    cvd['patient_name'] = json_data.get('PAT_NAME')
-    cvd['patient_gender'] = json_data.get('PAT_SEX')
-    cvd['patient_age'] = json_data.get('PAT_AGESTR')
-    cvd['patient_bed_num'] = json_data.get('REQ_BEDNO')
-    cvd['req_docno'] = json_data.get('REQ_DOCNO')
+    cvd['patient_treat_id'] = json_data.get('PAT_NO') if json_data.get('PAT_NO') else 0
+    cvd['patient_name'] = json_data.get('PAT_NAME') if json_data.get('PAT_NAME') else ''
+    cvd['patient_gender'] = json_data.get('PAT_SEX') if json_data.get('PAT_SEX') else 0
+    cvd['patient_age'] = json_data.get('PAT_AGESTR') if json_data.get('PAT_AGESTR') else ''
+    cvd['patient_bed_num'] = json_data.get('REQ_BEDNO') if json_data.get('REQ_BEDNO') else 0
+    cvd['req_docno'] = json_data.get('REQ_DOCNO') if json_data.get('REQ_DOCNO') else '0'
     if str(cvd['req_docno']).isdigit() and str(cvd['req_docno']) != '0':
         _, _, name, _ = call_third_systems_obtain_data('get_dept_info_by_emp_num', {
             "type": "his_dept_pers", "pers_no": str(cvd['req_docno']), "comp_id": 12,
@@ -821,20 +827,20 @@ def create_cv_by_system(json_data, cv_source):
                         cvd['ward_name'] = json.loads(ward_info).get('dept_name')
 
     # 解析危机值内容信息
-    cvd['cv_name'] = json_data.get('RPT_ITEMNAME')
+    cvd['cv_name'] = json_data.get('RPT_ITEMNAME') if json_data.get('RPT_ITEMNAME') else ''
     cvd['cv_result'] = json_data.get('RESULT_STR') if json_data.get('RESULT_STR') else json_data.get('RPT_ITEMNAME')
     if int(cv_source) == cv_config.CV_SOURCE_INSPECTION_SYSTEM:
-        cvd['cv_flag'] = json_data.get('RESULT_FLAG')
-        cvd['cv_unit'] = json_data.get('RESULT_UNIT')
+        cvd['cv_flag'] = json_data.get('RESULT_FLAG') if json_data.get('RESULT_FLAG') else ''
+        cvd['cv_unit'] = json_data.get('RESULT_UNIT') if json_data.get('RESULT_UNIT') else ''
         # 结果参考值 H偏高 HH偏高报警 L偏低 LL偏低报警 P阳性 E错误
-        cvd['cv_ref'] = json_data.get('RESULT_REF')
+        cvd['cv_ref'] = json_data.get('RESULT_REF') if json_data.get('RESULT_REF') else ''
         # 复查标志 0无需复查 1需要复查 2已经复查
-        cvd['redo_flag'] = json_data.get('REDO_FLAG')
-        cvd['alertrules'] = json_data.get('ALERTRULES')
+        cvd['redo_flag'] = json_data.get('REDO_FLAG') if json_data.get('REDO_FLAG') else ''
+        cvd['alertrules'] = json_data.get('ALERTRULES') if json_data.get('ALERTRULES') else ''
 
     if int(cv_source) == cv_config.CV_SOURCE_XUETANG_SYSTEM:
-        cvd['cv_flag'] = json_data.get('RESULT_FLAG')
-        cvd['cv_unit'] = json_data.get('RESULT_UNIT')
+        cvd['cv_flag'] = json_data.get('RESULT_FLAG') if json_data.get('RESULT_FLAG') else ''
+        cvd['cv_unit'] = json_data.get('RESULT_UNIT') if json_data.get('RESULT_UNIT') else ''
 
     # 超时时间配置
     cvd['nurse_recv_timeout'] = redis_client.get(cv_config.TIMEOUT_REDIS_KEY['nurse_recv']) or 120
@@ -844,15 +850,15 @@ def create_cv_by_system(json_data, cv_source):
     cvd['total_timeout'] = redis_client.get(cv_config.TIMEOUT_REDIS_KEY['total']) or 600
 
     if json_data.get('INSTRNA'):
-        cvd['instrna'] = json_data.get('INSTRNA', '')
+        cvd['instrna'] = json_data.get('INSTRNA', '') if json_data.get('INSTRNA') else ''
     if json_data.get('REPORTID') or json_data.get('RESULTID'):
         cvd['report_id'] = json_data.get('RESULTID', '0') if int(cv_source) == 3 else json_data.get('REPORTID', '0')
     if int(cv_source) != 3 or (int(cv_source) == 3 and '床旁' in cvd['cv_name']):
         cvd['jianchasj'] = cvd['alertdt']
     if json_data.get('RPT_ITEMID'):
-        cvd['rpt_item_id'] = json_data.get('RPT_ITEMID', '0')
+        cvd['rpt_item_id'] = json_data.get('RPT_ITEMID', '0') if json_data.get('RPT_ITEMID') else '0'
     if json_data.get('SPECIMEN_NAME'):
-        cvd['specimen_name'] = json_data.get('SPECIMEN_NAME', '')
+        cvd['specimen_name'] = json_data.get('SPECIMEN_NAME', '') if json_data.get('SPECIMEN_NAME') else ''
     db = DbUtil(global_config.DB_HOST, global_config.DB_USERNAME, global_config.DB_PASSWORD,
                 global_config.DB_DATABASE_GYL)
     # 插入危机值
@@ -2104,18 +2110,15 @@ def manual_push_cv(cv_id):
 
 def manual_push_vital_signs(patient_name, ip_addr, open):
     if open:
-        param = {"type": "popup", "wiki_info": f"⚠️ 危急警报 <br><br> 患者 【{patient_name}】的生命体征异常, 请及时关注！！"}
+        param = {"type": "popup", "wiki_info": f"⚠️ 危急警报 <br><br> 有异常生命体征异常出现, 请及时关注！！"}
     else:
         param = {"type": "stop"}
 
     try:
         # 发送 POST 请求，将字符串数据传递给 data 参数
         response = requests.post(f"http://{ip_addr}:8085/opera_wiki", timeout=3, json=param)
-        data = response.text
-        data = json.loads(data)
-        print(datetime.now(), data)
     except Exception as e:
-        print(datetime.now(), '弹框发送异常')
+        print(datetime.now(), '弹框发送异常', e)
 
 
 
