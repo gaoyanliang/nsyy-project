@@ -1,6 +1,7 @@
 import json
+import logging
+
 import redis
-import threading
 import requests
 from datetime import datetime
 
@@ -10,6 +11,7 @@ from gylmodules.workstation import ws_config
 
 pool = redis.ConnectionPool(host=ws_config.REDIS_HOST, port=ws_config.REDIS_PORT,
                             db=ws_config.REDIS_DB, decode_responses=True)
+logger = logging.getLogger(__name__)
 
 
 def flush_msg_cache():
@@ -53,8 +55,6 @@ def cache_group_member(group_id):
 
 # 消息推送 type = 100
 def push(socket_data: dict, user_id: int):
-    # print('向用户 ' + str(user_id) + ' 推送消息: ' + json.dumps(socket_data, default=str))
-
     data = {'msg_list': [{"socketd": "m_app", 'socket_data': socket_data, 'pers_id': user_id}]}
     # data = {'msg_list': [{'socket_data': socket_data, 'pers_id': user_id, 'socketd': 'w_site'}]}
     # 设置请求头
@@ -63,7 +63,7 @@ def push(socket_data: dict, user_id: int):
     response = requests.post(global_config.socket_push_url, data=json.dumps(data), headers=headers)
     # 打印响应内容
     if response.status_code != 200:
-        print(datetime.now(), "Socket Push Response: ", response.status_code, response.text, data)
+        logger.error(f"Socket Push Response:  {response.status_code}  {response.text}  {data}")
 
 
 #  ==========================================================================================
@@ -346,3 +346,28 @@ def is_in_group(group_id: int, user_id: int):
         return False
     del db
     return True
+
+
+def save_phone_info(phone_info):
+    """
+    保存用户手机信息
+    :param phone_info:
+    :return:
+    """
+    logger.debug(f"保存设备token {phone_info}")
+    pers_id = int(phone_info.get("pers_id"))
+    device_token = phone_info.get("device_token")
+    brand = phone_info.get("brand")
+    if brand:
+        brand = brand.upper()
+    if not pers_id or not device_token or not brand:
+        return
+
+    insert_sql = """INSERT INTO nsyy_gyl.app_token_info (pers_id, device_token, brand) 
+                VALUES (%s, %s, %s) ON DUPLICATE KEY UPDATE pers_id = VALUES(pers_id), 
+                device_token = VALUES(device_token), brand = VALUES(brand), update_time = CURRENT_TIMESTAMP"""
+    db = DbUtil(global_config.DB_HOST, global_config.DB_USERNAME, global_config.DB_PASSWORD,
+                global_config.DB_DATABASE_GYL)
+    db.execute(insert_sql, args=(pers_id, device_token, brand), need_commit=True)
+    del db
+
