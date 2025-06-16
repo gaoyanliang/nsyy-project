@@ -1,3 +1,5 @@
+import logging
+
 import pymssql
 import redis
 import json
@@ -19,11 +21,15 @@ from gylmodules.utils.db_utils import DbUtil
 import asyncio
 import aiohttp
 
+from gylmodules.utils.event_loop import GlobalEventLoop
+
 pool = redis.ConnectionPool(host=cv_config.CV_REDIS_HOST, port=cv_config.CV_REDIS_PORT,
                             db=cv_config.CV_REDIS_DB, decode_responses=True)
 
 scheduler = BackgroundScheduler()
 cv_id_lock = threading.Lock()
+
+logger = logging.getLogger(__name__)
 
 
 """
@@ -42,8 +48,7 @@ def call_third_systems_obtain_data(type: str, param: dict):
             data = json.loads(data)
             data = data.get('data')
         except Exception as e:
-            print(datetime.now(),
-                  '调用第三方系统方法失败：type = ' + type + ' param = ' + str(param) + "   " + e.__str__())
+            logger.error(f'调用第三方系统方法失败：type = {type}, param = {param}, {e}')
     else:
         if type == 'data_feedback':
             # 数据回传
@@ -68,11 +73,10 @@ def call_third_systems_obtain_data(type: str, param: dict):
             if result:
                 return result[0].get('HIS_DEPT_ID'), result[0].get('DEPT_NAME'), \
                     result[0].get('PERS_NAME'), result[0].get('oa_pers_id')
-            # print(datetime.now(), '不存在缺省部门 ', str(param))
             return data[0].get('HIS_DEPT_ID'), data[0].get('DEPT_NAME'), \
                 data[0].get('PERS_NAME'), data[0].get('oa_pers_id')
         else:
-            print(datetime.now(), '根据员工号抓取部门信息失败 ', str(param))
+            logger.error(f'根据员工号抓取部门信息失败 {param}')
             return -1, 'unknow', 'unkonw', -1
 
     elif type == 'cache_all_dept_info':
@@ -101,7 +105,7 @@ def read_cache(key):
     redis_client = redis.Redis(connection_pool=pool)
     value = redis_client.hget(cv_config.RUNNING_CVS_REDIS_KEY, key)
     if not value:
-        print(datetime.now(), f'key = {key} , value is nil')
+        logger.warning(f'key = {key} , value is nil')
         return None
     return json.loads(value)
 
@@ -200,7 +204,7 @@ def pull_running_cv():
         del db
     except Exception as e:
         del db
-        print(datetime.now(), '缓存危机值模版异常', e)
+        logger.error(f'缓存危机值模版异常, {e}')
 
     # 子线程执行： 缓存所有站点信息 & 超时时间配置
     thread_b = threading.Thread(target=cache_all_site_and_timeout)
@@ -369,7 +373,7 @@ def create_cv(cvd):
                             "invalid_reason": "系统触发"}
             invalid_crisis_value(cv_ids, cv_source, invalid_info)
         except Exception as e:
-            print(datetime.now(), "作废危急值异常：cv_ids = ", cv_ids, ' cv_source = ', cv_source, 'Exception = ', e)
+            logger.error(f"作废危急值异常：cv_ids = {cv_ids}, cv_source = {cv_source}, {e}")
 
     # 新增的危急值有可能是之前手工上报的危急值，需要更新信息，不需要再插入一条新纪录
     # 新增危急值
@@ -419,7 +423,7 @@ def create_cv(cvd):
                     continue
             create_cv_by_system(cv_data, int(cv_source))
         except Exception as e:
-            print(datetime.now(), "新增危急值异常：key = ", key,  e.__str__())
+            logger.error(f"新增危急值异常：key = {key}, {e}")
     del db
 
 
@@ -435,7 +439,7 @@ def manual_cv_feedback(record):
             # 3. 发送到 his
             send_to_his(record)
     except Exception as e:
-        print(datetime.now(), "合并危急值时，回写数据异常：record = ", record, 'Exception = ', e)
+        logger.error(f"合并危急值时，回写数据异常：record = {record}, {e}")
 
 
 def invalid_crisis_value(cv_ids, cv_source, invalid_info, invalid_remote: bool = False):
@@ -461,7 +465,7 @@ def invalid_crisis_value(cv_ids, cv_source, invalid_info, invalid_remote: bool =
     if not del_keys and not invalid_remote:
         return
 
-    print(datetime.now(), '作废危急值： cv_source=', cv_source, " cv_ids=", del_keys if del_keys else cv_ids, invalid_remote)
+    logger.info(f'作废危急值： cv_source= {cv_source}, cv_ids = {del_keys if del_keys else cv_ids}, {invalid_remote}')
     db = DbUtil(global_config.DB_HOST, global_config.DB_USERNAME, global_config.DB_PASSWORD,
                 global_config.DB_DATABASE_GYL)
     # 更新危急值状态未作废
@@ -479,8 +483,7 @@ def invalid_crisis_value(cv_ids, cv_source, invalid_info, invalid_remote: bool =
         try:
             send_to_his_invalid(cv_id, invalid_info.get('invalid_time'))
         except Exception as e:
-            print(datetime.now(), 'send_to_his_invalid 作废危急值同步 his 失败 cv_id = ',
-                  cv_id, invalid_info.get('invalid_time'), e)
+            logger.error(f'send_to_his_invalid 作废危急值同步 his 失败 cv_id = {cv_id}, {e}')
 
 
 def invalid_remote_crisis_value(cv_id, cv_source):
@@ -501,7 +504,7 @@ def invalid_remote_crisis_value(cv_id, cv_source):
         }
         call_third_systems_obtain_data('data_feedback', param)
     except Exception as e:
-        print(datetime.now(), '作废远程危机值异常', e)
+        logger.error(f'作废远程危机值异常, {e}')
 
 
 def notiaction_alert_man(msg: str, pers_id):
@@ -520,17 +523,13 @@ def notiaction_alert_man(msg: str, pers_id):
                 'pers_id': int(pers_id)}]}
         headers = {'Content-Type': 'application/json'}
         response = requests.post(global_config.socket_push_url, data=json.dumps(data), headers=headers)
-        # print("Socket Push Status: ", response.status_code, "Response: ", response.text, "socket_data: ", data, "user_id: ", pers_id)
 
         call_third_systems_obtain_data('send_wx_msg', {
             "type": "send_wx_msg",
             "key_d": {"type": 71, "process_id": 11527, "action": 4, "title": "危急值上报反馈", "content": msg},
-            "randstr": "XPFDFZDF7193CIONS1PD7XCJ3AD4ORRC",
-            "pers_id": pers_id,
-            "force_notice": 1
-        })
+            "randstr": "XPFDFZDF7193CIONS1PD7XCJ3AD4ORRC", "pers_id": pers_id, "force_notice": 1})
     except Exception as e:
-        print(datetime.now(), "通知危急值上报人员时出现异常, pers_id = ", pers_id, " 异常 = ", e)
+        logger.error(f"通知危急值上报人员时出现异常, pers_id = {pers_id}, {e}")
 
 
 # 查询患者最近半小时内是否上报过危急值
@@ -638,10 +637,8 @@ def manual_report_cv(json_data):
                     if ward_info:
                         json_data['ward_name'] = json.loads(ward_info).get('dept_name')
         else:
-            print(patient_treat_id, "住院号/门诊号异常，未查到病人信息, param: ", json_data)
             raise Exception(patient_treat_id, "住院号/门诊号异常，未查到病人信息")
     else:
-        # print(datetime.now(), patient_treat_id, '未填写病人住院号/门诊号, 使用默认数据 120, param: ', json_data)
         json_data['patient_treat_id'] = int(cv_config.cv_manual_default_treat_id)
         json_data['patient_type'] = cv_config.PATIENT_TYPE_OTHER
 
@@ -652,7 +649,7 @@ def manual_report_cv(json_data):
             if is_repted:
                 return True, cv_data
         except Exception as e:
-            print(datetime.now(), '判断近半小时内是否上报过危急值异常, param: ', json_data, e)
+            logger.error(f'判断近半小时内是否上报过危急值异常, param: {json_data}, {e}')
 
     if 'forced' in json_data:
         json_data.pop('forced')
@@ -1126,19 +1123,29 @@ async def alert(dept_id, ward_id, msg):
         await asyncio.gather(*send_tasks, return_exceptions=True)
 
 
+def sync_alert(dept_id, ward_id, msg):
+    """同步调用入口"""
+    loop = GlobalEventLoop().get_loop()
+    future = asyncio.run_coroutine_threadsafe(
+        alert(dept_id, ward_id, msg),
+        loop
+    )
+    try:
+        return future.result(timeout=10)
+    except Exception as e:
+        logger.error(f"Alert failed: {str(e)}")
+
+
 def main_alert(dept_id, ward_id, msg):
     try:
-        loop = asyncio.get_running_loop()
-    except RuntimeError:
-        loop = None
-
-    try:
-        if loop and loop.is_running():
-            asyncio.create_task(alert(dept_id, ward_id, msg))
-        else:
-            asyncio.run(alert(dept_id, ward_id, msg))
+        loop = GlobalEventLoop().get_loop()
+        # 非阻塞式提交任务
+        asyncio.run_coroutine_threadsafe(
+            alert(dept_id, ward_id, msg),
+            loop
+        )
     except Exception as e:
-        print(datetime.now(), f"在执行 alert 时发生错误: {e}")
+        logger.error(f"Submit alert task failed: {str(e)}")
 
 
 def push(json_data):
@@ -1339,7 +1346,7 @@ def doctor_handle_cv(json_data):
                 record = db.query_one(query_sql)
                 send_to_his(record)
             except Exception as e:
-                print(datetime.now(), f'数据回写失败，错误信息：{e}')
+                logger.error(f'数据回写失败，错误信息：{e}')
     del db
 
 
@@ -1558,7 +1565,7 @@ def xindian_data_feedback(json_data):
         client.options.cache.clear()  # 清除缓存
         return res
     except Exception as e:
-        print(datetime.now(), "心电系统数据回写失败, cv_id = ", cv_id, " 异常： ", e)
+        logger.error(f"心电系统数据回写失败, param = {json_data}, {e}")
         return ''
 
 
@@ -1589,7 +1596,7 @@ def pacs_data_feedback(json_data):
         cursor.callproc('sp_wjz_jg', (main_key, doctor, wjzjg, clsj))
         conn.commit()
     except Exception as e:
-        print(datetime.now(), "PACS 数据回写失败, cv_id = ", main_key, " 异常： ", e)
+        logger.error(f"PACS 数据回写失败, param = {json_data}, {e}")
     finally:
         # 关闭连接
         if cursor:
@@ -1783,20 +1790,18 @@ def safe_post(data, method_name, timeout=5, max_retries=3, backoff_factor=1):
                 data=data
             )
             response.raise_for_status()  # 检查 HTTP 状态码
-            # print(f"{datetime.now()} 危急值同步 HIS 成功", response.text)
             return response.text  # 成功则返回响应数据
 
         except Exception as e:
             last_exception = e
             retry_count += 1
             if retry_count > max_retries:
-                print(f"{datetime.now()} 危急值同步 HIS 异常（重试 {max_retries} 次后失败）: {str(e)}")
+                logger.warning(f"危急值同步 HIS 异常（重试 {max_retries} 次后失败）: {str(e)}")
                 return None
 
             # 指数退避等待
             wait_time = backoff_factor * (2 ** (retry_count - 1))
-            print(
-                f"{datetime.now()} 危急值同步 HIS 异常（第 {retry_count} 次重试，等待 {wait_time} 秒）: {str(e)}")
+            logger.warning(f"危急值同步 HIS 异常（第 {retry_count} 次重试，等待 {wait_time} 秒）: {str(e)}")
             time.sleep(wait_time)
 
 
@@ -1826,12 +1831,12 @@ def send_to_his(cv_record):
         """
     patient_data = global_tools.call_new_his(sql)
     if not patient_data:
-        print(datetime.now(), '未查询到病人信息 cv_id = ', cv_record.get('cv_id'), 'patient_treat_id = ', patient_treat_id)
+        logger.warning(f"未查询到病人信息 cv_id = {cv_record.get('cv_id')}, patient_treat_id = {patient_treat_id}")
         return
 
     report_id = cv_record.get('report_id')
     if not report_id:
-        print(datetime.now(), '未查询到报告单 cv_id = ', cv_record.get('cv_id'), 'report_id = ', report_id)
+        logger.warning(f"未查询到报告单 cv_id = {cv_record.get('cv_id')} report_id = {report_id}")
         return
     if cv_source == 2:
         sql = f"""
@@ -1848,7 +1853,7 @@ def send_to_his(cv_record):
         """
     shenqing_data = global_tools.call_new_his_pg(sql)
     if not shenqing_data:
-        print(datetime.now(), '未查询到申请单 cv_id = ', cv_record.get('cv_id'), 'report_id = ', report_id)
+        logger.warning(f"未查询到申请单 cv_id = {cv_record.get('cv_id')}, report_id = {report_id}")
         return
 
     create_time = cv_record.get('time').strftime("%Y-%m-%d %H:%M:%S")
@@ -1923,7 +1928,6 @@ def send_to_his(cv_record):
         .replace('{kaidanks}', shenqing_data[0].get('kaidanks') if shenqing_data[0].get('kaidanks') else '0') \
         .replace('{kaidanrenxm}', shenqing_data[0].get('kaidanrenxm') if shenqing_data[0].get('kaidanrenxm') else '0')
 
-    # print(his_sync_data)
     safe_post(his_sync_data, 'WeiJZInfoAdd')
 
 
@@ -1943,7 +1947,6 @@ def send_to_his_invalid(cv_id, invalid_time):
             </body>
         </message>
     """
-    # print(his_invalid_data)
     safe_post(his_invalid_data, 'WeiJZCancel')
 
 
@@ -2023,7 +2026,7 @@ def query_sql_server(report_id, patient_name):
         cursor.execute(query)
         rows = cursor.fetchall()
         if not rows:
-            print(datetime.now(), f"根据报告号和姓名未查询到图像路径: ", report_id, patient_name)
+            logger.warning(f"根据报告号和姓名未查询到图像路径: {report_id}, {patient_name}")
             return ''
         ftp_path = rows[0][0]
         baogaosj = rows[0][1]
@@ -2034,7 +2037,7 @@ def query_sql_server(report_id, patient_name):
         if match:
             path = match.group(1)  # 返回匹配到的路径部分
     except Exception as e:
-        print(datetime.now(), f"Error 根据报告号和姓名查询图像路径失败: ", report_id, patient_name, f'{e}')
+        logger.error(f"Error 根据报告号和姓名查询图像路径失败: {report_id}  {patient_name}, {e}")
     finally:
         # 确保 cursor 被正确关闭
         if cursor:
@@ -2083,11 +2086,11 @@ def fetch_acquisitionDateTime(ftp_path):
                 dt = datetime.strptime(f"{acquisition_date}{acquisition_time}", '%Y%m%d%H%M%S')
                 return f"{dt}"
             except ValueError:
-                print(datetime.now(), f"无法解析时间格式: {acquisition_date}, {acquisition_time}")
+                logger.warning(f"无法解析时间格式: {acquisition_date}, {acquisition_time}")
         else:
-            print(datetime.now(), f"未找到采集时间标签。")
+            logger.warning(f"未找到采集时间标签。")
     except Exception as e:
-        print(datetime.now(), f"dcm图像解析错误: {str(e)}")
+        logger.error(f"dcm图像解析错误: {str(e)}")
     finally:
         # 退出 FTP
         ftp.quit()
@@ -2109,16 +2112,15 @@ def manual_push_cv(cv_id):
 
 
 def manual_push_vital_signs(patient_name, ip_addr, open):
+    param = {"type": "stop"}
     if open:
         param = {"type": "popup", "wiki_info": f"⚠️ 危急警报 <br><br> 有异常生命体征异常出现, 请及时关注！！"}
-    else:
-        param = {"type": "stop"}
 
     try:
         # 发送 POST 请求，将字符串数据传递给 data 参数
         response = requests.post(f"http://{ip_addr}:8085/opera_wiki", timeout=3, json=param)
     except Exception as e:
-        print(datetime.now(), '弹框发送异常', e)
+        logger.error(f'弹框发送异常, {e}')
 
 
 

@@ -1,9 +1,12 @@
+import logging
+
 from gylmodules import global_config, global_tools
-from gylmodules.medical_record_analysis.record_parse import progress_note_parse, cv_record_parse
 from gylmodules.utils.db_utils import DbUtil
 import requests
 import json
 from datetime import datetime
+
+logger = logging.getLogger(__name__)
 
 
 def call_third_systems(param: dict):
@@ -17,7 +20,7 @@ def call_third_systems(param: dict):
             data = data.get('data')
         except Exception as e:
             data = []
-            print('调用第三方系统方法失败：type = orcl_db_read ' + ' param = ' + str(param) + "   " + e.__str__())
+            logger.error(f'调用第三方系统方法失败：type = orcl_db_read {param}, {e}')
     else:
         # 根据住院号/门诊号查询 病人id 主页id
         from tools import orcl_db_read
@@ -25,7 +28,7 @@ def call_third_systems(param: dict):
             data = orcl_db_read(param)
         except Exception as e:
             data = []
-            print('调用第三方系统方法失败：type = orcl_db_read ' + ' param = ' + str(param) + "   " + e.__str__())
+            logger.error(f'调用第三方系统方法失败：type = orcl_db_read {param}, {e}')
 
     return data
 
@@ -90,7 +93,6 @@ def check_crisis_value_count(json_data):
 
     miss_list = []
     if miss_cvs:
-        # print('遗漏危急值：', miss_cvs)
         for cv_key in miss_cvs:
             misscv = remote_dict.get(cv_key)
             if misscv:
@@ -123,7 +125,7 @@ def check_crisis_value_count(json_data):
 
 
 def fetch_cv_record():
-    print(datetime.now(), '===> Start 开始抓取并解析危急值报告处理记录')
+    logger.info('开始抓取并解析危急值报告处理记录')
     db = DbUtil(global_config.DB_HOST, global_config.DB_USERNAME, global_config.DB_PASSWORD,
                 global_config.DB_DATABASE_GYL)
     # db = DbUtil('192.168.3.12', 'gyl', '123456', global_config.DB_DATABASE_GYL)
@@ -140,8 +142,7 @@ def fetch_cv_record():
         try:
             records = query_cv_medical_record(int(cv['patient_type']), cv.get('patient_treat_id'))
         except Exception as e:
-            print(datetime.now(), '===> 抓取危急值报告处理记录失败：cv_id = ', cv.get('cv_id'),
-                  cv.get('patient_treat_id'), e)
+            logger.error(f"抓取危急值报告处理记录失败：cv_id = {cv.get('cv_id')}, {cv.get('patient_treat_id')}, {e}")
             records = []
         if not records:
             continue
@@ -157,7 +158,7 @@ def fetch_cv_record():
             .format(record[1], record_time, cv.get('id'))
         db.execute(update_sql, need_commit=True)
 
-    print(datetime.now(), '===> End 抓取并解析危急值报告处理记录完成')
+    logger.info('End 抓取并解析危急值报告处理记录完成')
     del db
 
 

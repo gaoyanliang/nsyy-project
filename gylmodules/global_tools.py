@@ -163,7 +163,10 @@ def api_response(func):
             # 本地调试时 打印
             logger.debug(f"请求 {request.url} 参数：{json_data}")
 
-            result = func(json_data, *args, **kwargs)
+            if not json_data:
+                result = func(*args, **kwargs)
+            else:
+                result = func(json_data, *args, **kwargs)
             return jsonify({'code': 20000, 'data': result if result is not None else {}})
         except json.JSONDecodeError:
             error_msg = f"Invalid JSON format"

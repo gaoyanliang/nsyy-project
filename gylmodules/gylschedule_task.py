@@ -1,5 +1,6 @@
 import concurrent.futures
 import json
+import logging
 import time
 from collections import defaultdict
 from datetime import datetime, timedelta
@@ -22,16 +23,17 @@ from gylmodules.critical_value.cv_manage import fetch_cv_record
 from gylmodules.hyperbaric_oxygen_therapy.hbot_server import hbot_run_everyday
 from gylmodules.questionnaire.sq_server import fetch_ai_result
 from gylmodules.utils.db_utils import DbUtil
+from gylmodules.utils.event_loop import GlobalEventLoop
 from gylmodules.workstation.message.message_server import flush_msg_cache
 
 pool = redis.ConnectionPool(host=cv_config.CV_REDIS_HOST, port=cv_config.CV_REDIS_PORT,
                             db=cv_config.CV_REDIS_DB, decode_responses=True)
 
 # 配置调度器，设置执行器，ThreadPoolExecutor 管理线程池并发
-executors = {
-    'default': ThreadPoolExecutor(10),  # 设置线程池大小为10
-}
+executors = {'default': ThreadPoolExecutor(10), }
 gylmodule_scheduler = BackgroundScheduler(timezone="Asia/Shanghai", executors=executors)
+
+logger = logging.getLogger(__name__)
 
 # check_time 检查字段
 # timeout_file 超时时间配置字段
@@ -150,7 +152,7 @@ def handle_timeout_cv():
                 pipe.execute()
 
     except Exception as e:
-        print(datetime.now(), e)
+        logger.error(e)
 
     # 使用 ThreadPoolExecutor 来并行执行
     with concurrent.futures.ThreadPoolExecutor() as executor:
@@ -159,52 +161,46 @@ def handle_timeout_cv():
             try:
                 future.result()  # 如果任务抛出异常会在此处被捕获
             except Exception as e:
-                print(f"Error during notification: {e}")
+                logger.error(f"Error during notification: {e}")
 
     # 构建报警列表
     alert_list = []
     for (dept, ward), msgs in timeout_records.items():
-        alert_list.append((
-            dept, ward,
-            f"超时危急值，请及时处理<br>[患者-主管医生-住院/门诊号-床号]<br>" +
-            "<br>".join(msgs) + "<br><br><br>点击 [确认] 跳转至危急值页面"
-        ))
+        alert_list.append((dept, ward,
+                           f"超时危急值，请及时处理<br>[患者-主管医生-住院/门诊号-床号]<br>" +
+                           "<br>".join(msgs) + "<br><br><br>点击 [确认] 跳转至危急值页面"))
 
     for dept, msgs in first_timeout_records.items():
-        alert_list.append((
-            dept, None,
-            f"超时危急值，请及时通知科室处理<br>[患者-主管医生-住院/门诊号-床号]<br>" +
-            "<br>".join(msgs) + "<br><br><br>点击 [确认] 跳转至危急值页面"
-        ))
+        alert_list.append((dept, None,
+                           f"超时危急值，请及时通知科室处理<br>[患者-主管医生-住院/门诊号-床号]<br>" +
+                           "<br>".join(msgs) + "<br><br><br>点击 [确认] 跳转至危急值页面"))
 
     if alert_list:
-        asyncio.run(run_alert(alert_list))
+        # 使用全局事件循环处理异步任务
+        loop = GlobalEventLoop().get_loop()
+        future = asyncio.run_coroutine_threadsafe(run_alert(alert_list), loop)
+        try:
+            future.result(timeout=30)  # 设置合理超时
+        except TimeoutError:
+            logger.warning("处理危急值超时")
 
 
 async def run_alert(alert_list):
     tasks = []
     for alert_info in alert_list:
-        try:
-            task = asyncio.create_task(alert(alert_info[0], alert_info[1], alert_info[2]))
-            tasks.append(task)
-        except Exception as e:
-            print(f"超时危急值通知异常 creating task: {e}")
-
+        task = asyncio.create_task(alert(alert_info[0], alert_info[1], alert_info[2]))
+        tasks.append(task)
     try:
         # 等待所有任务完成
-        await asyncio.gather(*tasks)
+        await asyncio.gather(*tasks, return_exceptions=True)
     except Exception as e:
-        print(f"超时危急值通知异常 task execution: {e}")
+        logger.error(f"超时危急值通知异常 task execution: {e}")
 
 
 def regular_update_dept_info():
     # dept_type 1 临床科室 2 护理单元 0 全部
-    param = {
-        "type": "his_dept",
-        "dept_type": 0,
-        "comp_id": 12,
-        "randstr": "XPFDFZDF7193CIONS1PD7XCJ3AD4ORRC"
-    }
+    param = {"type": "his_dept", "dept_type": 0, "comp_id": 12,
+             "randstr": "XPFDFZDF7193CIONS1PD7XCJ3AD4ORRC"}
     call_third_systems_obtain_data('cache_all_dept_info', param)
 
 
@@ -219,32 +215,9 @@ def update_appt_capacity():
         url = "http://127.0.0.1:8080/gyl/appt/update_capacity"
     response = requests.post(url)
     if response.status_code == 200:
-        print(datetime.now(), "Successfully updated appointment capacity.")
+        logger.info("定时任务：更新可预约数量成功")
     else:
-        print(datetime.now(), "Failed to update appointment capacity. Status code:", response.status_code)
-
-
-"""
-每小时打印一次任务状态
-"""
-
-
-def task_state():
-    print()
-    print('========   gyl schedule task state   ========')
-    print('cur time = ', datetime.now())
-    print('schedule is_running = ', gylmodule_scheduler.running)
-    print('schedule state = ', gylmodule_scheduler.state)
-    print('schedule jobs:  len = ', len(gylmodule_scheduler.get_jobs()))
-    jobs = gylmodule_scheduler.get_jobs()
-    for job in jobs:
-        job_info = {
-            'id': job.id,
-            'next_run_time': job.next_run_time.strftime('%Y-%m-%d %H:%M:%S') if job.next_run_time else None
-        }
-        print(job_info)
-    print('======== gyl schedule task state end ========')
-    print()
+        logger.error("定时任务：更新可预约数量失败")
 
 
 def re_alert_fail_ip_log():
@@ -271,36 +244,34 @@ def re_alert_fail_ip_log():
                     redis_client.srem(cv_config.ALERT_FAIL_IPS_REDIS_KEY, ip['ip'])
                     db.execute(f"delete from nsyy_gyl.alert_fail_log where ip = '{ip['ip']}' ", need_commit=True)
             except Exception as e:
-                # print(datetime.now(), f" {url} 调用失败，危急值程序依旧未正常运行", e.__str__())
                 pass
     del db
 
 
 def schedule_task():
     # ====================== 危机值系统定时任务 ======================
-    print("=============== 注册定时任务 =====================")
+    logger.info("=============== 注册定时任务 =====================")
     # 定时判断危机值是否超时
-    print('1. 危急值模块定时任务')
+    logger.info('1. 危急值模块定时任务')
     if global_config.schedule_task['cv_timeout']:
-        print("    1.1 危机值超时管理 ", datetime.now())
+        logger.info("    1.1 危机值超时管理 ")
         gylmodule_scheduler.add_job(handle_timeout_cv, trigger='interval', seconds=40, coalesce=True, id='cv_timeout')
 
-        print("    1.2 查询危机值报告时间 ", datetime.now())
-        gylmodule_scheduler.add_job(query_baogao_sj, trigger='interval', seconds=5*60*60, id='query_baogao_sj')
+        logger.info("    1.2 查询危机值报告时间 ")
+        gylmodule_scheduler.add_job(query_baogao_sj, trigger='interval', seconds=5 * 60 * 60, id='query_baogao_sj')
 
-        print("    1.3 ip 地址是否可用校验", datetime.now())
+        logger.info("    1.3 ip 地址是否可用校验")
         gylmodule_scheduler.add_job(re_alert_fail_ip_log, 'cron', hour=2, minute=20, id='re_alert_fail_ip_log')
 
-        print("    1.4 每日同步危急值处理报告", datetime.now())
+        logger.info("    1.4 每日同步危急值处理报告")
         gylmodule_scheduler.add_job(fetch_cv_record, 'cron', hour=3, minute=20, id='fetch_cv_record')
 
-        print("    1.5 危机值部门信息更新 ", datetime.now())
-        gylmodule_scheduler.add_job(regular_update_dept_info, trigger='interval', seconds=6*60*60,
+        logger.info("    1.5 危机值部门信息更新 ")
+        gylmodule_scheduler.add_job(regular_update_dept_info, trigger='interval', seconds=6 * 60 * 60,
                                     id='cv_dept_update')
 
-    # ======================  综合预约定时任务  ======================
     # 项目启动时，执行一次，初始化数据。 之后每天凌晨执行
-    print("2. 综合预约模块定时任务 ", datetime.now())
+    logger.info("2. 综合预约模块定时任务 ")
     if global_config.schedule_task['appt_daily']:
         run_time = datetime.now() + timedelta(seconds=15)
         gylmodule_scheduler.add_job(run_everyday, trigger='date', run_date=run_time)
@@ -309,20 +280,14 @@ def schedule_task():
         gylmodule_scheduler.add_job(run_everyday, 'cron', hour=1, minute=10, id='appt_daily')
         gylmodule_scheduler.add_job(do_update, trigger='interval', seconds=5*60, coalesce=True, id='do_update_doc')
 
-    print("3. 定时任务状态 ", datetime.now())
-    gylmodule_scheduler.add_job(task_state, trigger='interval', seconds=6*60*60, id='sched_state')
-
-    # ======================  workstation 定时任务  ======================
-    print("4. 消息模块定时任务 ", datetime.now())
+    logger.info("3. 消息模块定时任务 ")
     gylmodule_scheduler.add_job(flush_msg_cache, trigger='date', run_date=datetime.now())
 
-    # ======================  高压氧定时任务  ======================
-    print("5. 高压氧模块定时任务 ", datetime.now())
+    logger.info("4. 高压氧模块定时任务 ")
     gylmodule_scheduler.add_job(hbot_run_everyday, 'cron', hour=1, minute=30, id='hbot_run_everyday')
 
-    # ======================  问卷调查定时任务  ======================
-    print("6. 问卷调查模块定时任务 ", datetime.now())
-    gylmodule_scheduler.add_job(fetch_ai_result, trigger='interval', seconds=20*60, id='fetch_ai_result')
+    logger.info("6. 问卷调查模块定时任务 ")
+    gylmodule_scheduler.add_job(fetch_ai_result, trigger='interval', seconds=20 * 60, id='fetch_ai_result')
 
     # ======================  Start ======================
     gylmodule_scheduler.start()
