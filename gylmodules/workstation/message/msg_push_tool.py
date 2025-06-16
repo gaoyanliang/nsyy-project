@@ -1,3 +1,4 @@
+import asyncio
 import concurrent
 import logging
 from json import JSONDecodeError
@@ -5,17 +6,21 @@ from json import JSONDecodeError
 from threading import Lock
 
 from concurrent.futures import ThreadPoolExecutor
+
+import aiohttp
 import requests
 from datetime import datetime
 
 from gylmodules import global_config
 from gylmodules.global_tools import timed_lru_cache
 from gylmodules.utils.db_utils import DbUtil
+from gylmodules.utils.event_loop import GlobalEventLoop
 
 # Android
 android_client_id = "109560375"
 android_client_secret = "7c156cd2d19c23fb6100fa947850fabeb5c655ee5d099cf8b8875f097df05d83"
-android_push_url = "https://push-api.cloud.huawei.com/v2/388421841221765522/messages:send"
+# android_push_url = "https://push-api.cloud.huawei.com/v2/388421841221765522/messages:send"
+android_push_url = "https://push-api.cloud.huawei.com/v1/109560375/messages:send"
 
 # iOS
 ios_client_id = "114409375"
@@ -110,16 +115,28 @@ def build_android_payload(title, body, tokens):
     }
 
 
-def sync_push(url, token, payload, timeout=6):
-    """同步推送实现"""
+async def _async_push(url, token, payload):
+    """真正的异步推送实现"""
     try:
-        headers = {"Authorization": f"Bearer {token}", "Content-Type": "application/json"}
-        response = requests.post(url, json=payload, headers=headers, timeout=timeout)
-        response.raise_for_status()
-        return response.json()
+        async with aiohttp.ClientSession(timeout=aiohttp.ClientTimeout(total=6)) as session:
+            headers = {"Authorization": f"Bearer {token}", "Content-Type": "application/json"}
+            async with session.post(url, json=payload, headers=headers) as resp:
+                return await resp.json()
     except Exception as e:
-        logger.error(f"Sync push msg to device failed: {str(e)}")
-        return {"code": "80800005", "msg": str(e)}
+        logger.error(f"Push error: {str(e)}")
+        return {"code": "80800001", "msg": str(e)}
+
+
+def sync_push(url, token, payload):
+    """线程安全的异步调用入口"""
+    loop = GlobalEventLoop().get_loop()
+    coro = _async_push(url, token, payload)
+    future = asyncio.run_coroutine_threadsafe(coro, loop)
+    try:
+        return future.result(timeout=10)
+    except TimeoutError:
+        future.cancel()
+        return {"code": "80000002", "msg": "Request timeout"}
 
 
 def push_msg_to_devices(pers_ids, title, body):
@@ -140,33 +157,28 @@ def push_msg_to_devices(pers_ids, title, body):
     msg_body = body or datetime.now().strftime("%Y-%m-%d %H:%M:%S")
 
     # 分组设备
-    ios_tokens = [item.get("device_token") for item in device_tokens if item.get('brand')
-                  and item.get("brand") == "IOS" and item.get("device_token")]
-    android_tokens = [item.get("device_token") for item in device_tokens if item.get('brand')
-                      and item.get("brand") != "IOS" and item.get("device_token")]
+    ios_device_tokens = [item.get("device_token") for item in device_tokens if item.get('brand')
+                         and item.get("brand") == "IOS" and item.get("device_token")]
+    android_device_tokens = [item.get("device_token") for item in device_tokens if item.get('brand')
+                             and item.get("brand") != "IOS" and item.get("device_token")]
 
-    with ThreadPoolExecutor(max_workers=4) as executor:  # 根据服务器CPU核心数调整
+    # 并行推送（使用线程池+全局事件循环）
+    with ThreadPoolExecutor(max_workers=2) as executor:
         futures = []
-        if android_tokens:
-            futures.append(executor.submit(
-                sync_push,
-                android_push_url,
-                get_cached_token(android_client_id, android_client_secret),
-                build_android_payload(title, body, android_tokens)
-            ))
-        if ios_tokens:
-            futures.append(executor.submit(
-                sync_push,
-                ios_push_url,
-                get_cached_token(ios_client_id, ios_client_secret),
-                build_ios_payload(title, body, ios_tokens)
-            ))
+        if ios_device_tokens:
+            futures.append(executor.submit(sync_push, ios_push_url,
+                                           get_cached_token(ios_client_id, ios_client_secret),
+                                           build_android_payload(msg_title, msg_body, ios_device_tokens)))
+        if android_device_tokens:
+            futures.append(executor.submit(sync_push, android_push_url,
+                                           get_cached_token(android_client_id, android_client_secret),
+                                           build_android_payload(msg_title, msg_body, android_device_tokens)))
 
-    for future in concurrent.futures.as_completed(futures, timeout=10):
-        try:
-            result = future.result()
-            logger.debug(f"Push result: {result}")
-        except Exception as e:
-            logger.error(f"Push failed: {str(e)}")
+        for future in concurrent.futures.as_completed(futures):
+            try:
+                result = future.result()
+                logger.info(f"Push result: {title} {body} {pers_ids} {result}")
+            except Exception as e:
+                logger.error(f"Push failed: {str(e)}")
 
     logger.debug(f"push msg to devices Total time: {(datetime.now() - start_time).total_seconds():.2f}s")
