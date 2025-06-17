@@ -1,7 +1,11 @@
+import logging
+
 import pymysql
 from pymysql.cursors import DictCursor
 
 from gylmodules import global_config
+
+logger = logging.getLogger(__name__)
 
 """
 数据库工具类
@@ -54,7 +58,7 @@ class DbUtil:
         """获取 DB 版本"""
         self.__cursor.execute("SELECT VERSION()", args)
         version = self.__cursor.fetchone()
-        print(f'DB Version : {version}=')
+        logger.info(f'DB Version : {version}=')
         return version
 
     def list_databases(self, args=None):
@@ -100,7 +104,7 @@ class DbUtil:
     def select_db(self, db):
         """选择数据库"""
         self.__conn.select_db(db)
-        print(f'switch database to {db}=')
+        logger.info(f'switch database to {db}=')
 
     def execute(self, sql, args=None, need_commit: bool = False):
         """获取SQL执行结果"""
@@ -111,8 +115,7 @@ class DbUtil:
                 self.__commit()
             return last_rowid
         except Exception as e:
-            print(e)
-            print(sql)
+            logger.warning(f"执行SQL {sql}, 遇到异常 {e}")
             self.__conn.rollback()
         return -1
 
@@ -126,7 +129,7 @@ class DbUtil:
             # 获取最后一个插入记录的ID
             return self.__cursor.lastrowid
         except Exception as e:
-            print(f"执行SQL {sql}, 遇到异常", e)
+            logger.warning(f"执行SQL {sql}, 遇到异常 {e}")
             self.__conn.rollback()
         return -1
 
@@ -137,8 +140,7 @@ class DbUtil:
             self.__cursor.execute(sql)
             result = self.__cursor.fetchone()
         except Exception as e:
-            print(e)
-            print(sql)
+            logger.warning(f"执行SQL {sql}, 遇到异常 {e}")
         return result
 
     def query_all(self, sql):
@@ -148,8 +150,7 @@ class DbUtil:
             self.__cursor.execute(sql)
             list_result = self.__cursor.fetchall()
         except Exception as e:
-            print(e)
-            print(sql)
+            logger.warning(f"执行SQL {sql}, 遇到异常 {e}")
         return list_result
 
 

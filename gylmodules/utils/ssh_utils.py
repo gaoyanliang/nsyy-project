@@ -1,6 +1,9 @@
+import logging
 from datetime import datetime
 
 import paramiko
+
+logger = logging.getLogger(__name__)
 
 
 class SshUtil:
@@ -20,13 +23,13 @@ class SshUtil:
         try:
             self.client.connect(host, username=username, password=password, timeout=self.TIMEOUT)
         except paramiko.AuthenticationException:
-            print(datetime.now(), "SSH Util Authentication failed. Please check your credentials.")
+            logger.error("SSH Util Authentication failed. Please check your credentials.")
             exit(1)
         except paramiko.SSHException as e:
-            print(datetime.now(), f"SSH Util Unable to establish SSH connection: {str(e)}")
+            logger.error(f"SSH Util Unable to establish SSH connection: {str(e)}")
             exit(1)
         except Exception as e:
-            print(datetime.now(), f"SSH Util Error: {str(e)}")
+            logger.error(f"SSH Util Error: {str(e)}")
             exit(1)
 
     """Close the SSH connection"""
@@ -57,14 +60,13 @@ class SshUtil:
             # Read and print any errors
             errors = stderr.read().decode('utf-8')
             if errors and '[sudo]' not in errors:
-                print(datetime.now(), f"SSH Util command exception: ", command)
-                print(datetime.now(), f'SSH Util error info: ', errors)
+                logger.warning(f"SSH Util command exception: {command} , error info = {errors}")
 
             # return {'out': stdout.readlines(),
             #         'err': stderr.readlines(),
             #         'retval': stdout.channel.recv_exit_status()}
         except Exception as e:
-            print(datetime.now(), f"SSH Util Error executing command: {str(e)}")
+            logger.error(f"SSH Util Error executing command: {str(e)}")
 
         return output
 
