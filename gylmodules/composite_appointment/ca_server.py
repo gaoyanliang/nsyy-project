@@ -1,4 +1,5 @@
 import json
+import logging
 import time
 from collections import defaultdict
 
@@ -21,6 +22,7 @@ pool = redis.ConnectionPool(host=appt_config.APPT_REDIS_HOST, port=appt_config.A
                             db=appt_config.APPT_REDIS_DB, decode_responses=True)
 
 lock_redis_client = redis.Redis(connection_pool=pool)
+logger = logging.getLogger(__name__)
 
 # 可以预约的时间段
 room_dict = {}
@@ -94,12 +96,11 @@ def cache_capacity():
             if period in room_dict[rid][datestr] and time_slot in room_dict[rid][datestr][period]:
                 room_dict[rid][datestr][period][time_slot] -= 1
             else:
-                print(datetime.now(),
-                      f'rid={rid}, date={datestr}, period={period}, slot={time_slot} 该时段不存在，可能已停诊')
+                logger.warning(f'rid={rid}, date={datestr}, period={period}, slot={time_slot} 该时段不存在，可能已停诊')
         else:
-            print(datetime.now(), f'rid={rid}, date={datestr} 没有找到匹配的房间或日期，可能已停诊')
+            logger.warning(f'rid={rid}, date={datestr} 没有找到匹配的房间或日期，可能已停诊')
 
-    print(datetime.now(), '房间容量缓存完成, 耗时: ', time.time() - start_time, ' s')
+    logger.info(f'房间容量缓存完成, 耗时: {time.time() - start_time} s')
 
 
 cache_capacity()
@@ -119,20 +120,20 @@ def call_third_systems_obtain_data(url: str, type: str, param: dict):
             data = response.text
             data = json.loads(data)
             if type == 'his_visit_reg':
-                print(datetime.now(), 'his 取号返回: ', data, ' 取号参数：', param)
+                logger.info(f'his 取号返回: {data}, 取号参数： {param}')
                 data = data[2]
             elif type == 'reg_refund_apply':
                 data = data
             else:
                 data = data.get('data')
         except Exception as e:
-            print('调用第三方系统方法失败：type = ' + type + ' param = ' + str(param) + "   " + e.__str__())
+            logger.error(f'调用第三方系统方法失败：type = {type}, param = {param}, {e}')
     else:
         if type == 'his_visit_reg':
             # 门诊挂号 当天
             from tools import nhis_api
             data = nhis_api(param, tcode='4005')
-            print(datetime.now(), 'his 取号返回: ', data, ' 取号参数：', param)
+            logger.info(f'his 取号返回: {data}, 取号参数：{param}')
             data = data[2]
             # data = data.get('ResultCode')
         elif type == 'his_visit_check':
@@ -416,7 +417,7 @@ def auto_create_appt_by_auto_reg(id_card_list, medical_card_list, rid):
         # 判断是否已经创建过预约
         pay_no = item.get('NO')
         if pay_no in created_pay_list:
-            print(datetime.now(), f"{id_card_list} {medical_card_list} guahaoid {pay_no} 今天的自助挂号记录已经创建过预约记录，请勿重复创建")
+            logger.warning(f"{id_card_list} {medical_card_list} 挂号id={pay_no} 今天的自助挂号记录已经创建过预约记录，请勿重复创建")
             continue
 
         # 记录状态 1-正常的挂号或预约记录
@@ -427,8 +428,7 @@ def auto_create_appt_by_auto_reg(id_card_list, medical_card_list, rid):
         doctor_in_cache = redis_client.hget(APPT_DOCTORS_BY_NAME_KEY, doc_his_name)
         if not doctor_in_cache:
             redis_client.sadd(APPT_DAILY_AUTO_REG_RECORD_KEY, pay_no)
-            print(datetime.now(), 'Exception: ', '预约系统中不存在 {} 医生，请联系护士及时维护门诊医生信息'.format(item.get('执行人')),
-                  '医嘱信息: ', item)
+            logger.warning(f"预约系统中不存在 {item.get('执行人', '')} 医生，请联系护士及时维护门诊医生信息, 医嘱信息={item}")
             continue
         doctor_in_cache = json.loads(doctor_in_cache)
         if type(doctor_in_cache) == dict:
@@ -457,8 +457,7 @@ def auto_create_appt_by_auto_reg(id_card_list, medical_card_list, rid):
                 doctor = doctord[int(s.get('did'))]
                 break
         if not target_proj or not target_room:
-            # redis_client.sadd(APPT_DAILY_AUTO_REG_RECORD_KEY, pay_no)
-            print(datetime.now(), 'Exception: ', '未找到 {} 医生今天的坐诊信息'.format(item.get('执行人')), '医嘱信息: ', item)
+            logger.warning(f"未找到 {item.get('执行人', '')} 医生今天的坐诊信息, 医嘱信息: {item}")
             continue
 
         try:
@@ -494,7 +493,7 @@ def auto_create_appt_by_auto_reg(id_card_list, medical_card_list, rid):
             if need_create_numbering_record and rid:
                 create_numbering_record(id_card_list, medical_card_list, rid)
         except Exception as e:
-            print('根据自助挂号记录创建预约异常: ', e)
+            logger.error(f'根据自助挂号记录创建预约异常: {e}')
 
 
 def create_numbering_record(id_card_list, medical_card_list, rid):
@@ -516,7 +515,7 @@ def create_numbering_record(id_card_list, medical_card_list, rid):
                 xingming 姓名 FROM df_bingrenzsy.gy_bingrenxx WHERE {condition_sql}"""
     patient_info = global_tools.call_new_his_pg(sql)
     if not patient_info:
-        print(datetime.now(), f'未找到 {id_card_list} {medical_card_list} 病人信息')
+        logger.warning(f'未找到 {id_card_list} {medical_card_list} 病人信息')
         return
 
     patient_id = patient_info[0].get('病人ID') if patient_info[0].get('病人ID') else 0
@@ -530,7 +529,7 @@ def create_numbering_record(id_card_list, medical_card_list, rid):
     appt_record = db.query_all(query_sql)
     if appt_record:
         del db
-        print(datetime.now(), f"患者 {patient_name} 在房间 {rid} 存在预约记录 ")
+        logger.warning(f"患者 {patient_name} 在房间 {rid} 存在预约记录 ")
         return
 
     shift_type = 1 if datetime.now().hour < 12 else 2
@@ -539,23 +538,15 @@ def create_numbering_record(id_card_list, medical_card_list, rid):
     daily_sched = db.query_all(query_sql)
     if not daily_sched:
         del db
-        print(datetime.now(), f"房间 {rid} 存在预约记录 当日没有排班信息 ")
+        logger.warning(f"房间 {rid} 存在预约记录 当日没有排班信息 ")
         return
 
-    numbering_record = {
-        "id_card_no": "411324199605164530",
-        "book_date": f"{date.today()}",
-        "book_period": shift_type,
-        "patient_id": patient_id,
-        "patient_name": patient_name,
-        "pid": daily_sched[0].get('pid'),
-        "doc_id": daily_sched[0].get('did'),
-        "rid": rid,
-        "type": appt_config.APPT_TYPE['numbering'],
-        "level": appt_config.APPT_URGENCY_LEVEL['green'],
-        "state": appt_config.APPT_STATE['in_queue'],
-        "time_slot": appt_config.appt_slot_dict[datetime.now().hour]
-    }
+    numbering_record = {"id_card_no": "411324199605164530", "book_date": f"{date.today()}",
+                        "book_period": shift_type, "patient_id": patient_id, "patient_name": patient_name,
+                        "pid": daily_sched[0].get('pid'), "doc_id": daily_sched[0].get('did'), "rid": rid,
+                        "type": appt_config.APPT_TYPE['numbering'], "level": appt_config.APPT_URGENCY_LEVEL['green'],
+                        "state": appt_config.APPT_STATE['in_queue'],
+                        "time_slot": appt_config.appt_slot_dict[datetime.now().hour]}
 
     numbering_record['create_time'] = str(datetime.now())[:19]
     redis_client = redis.Redis(connection_pool=pool)
@@ -563,7 +554,7 @@ def create_numbering_record(id_card_list, medical_card_list, rid):
         room_data = redis_client.hget(APPT_ROOMS_KEY, str(numbering_record.get('rid')))
         if not room_data:
             del db
-            print(datetime.now(), f"房间 {rid} 不存在")
+            logger.warning(f"房间 {rid} 不存在")
             return
         room_data = json.loads(room_data)
         numbering_record['room'] = room_data.get('no')
@@ -572,7 +563,7 @@ def create_numbering_record(id_card_list, medical_card_list, rid):
         proj_data = redis_client.hget(APPT_PROJECTS_KEY, str(numbering_record.get('pid')))
         if not proj_data:
             del db
-            print(datetime.now(), f"预约项目信息 {numbering_record.get('pid')} 不存在")
+            logger.warning(f"预约项目信息 {numbering_record.get('pid', '')} 不存在")
             return
         proj_data = json.loads(proj_data)
         numbering_record['ptype'] = proj_data.get('proj_type')
@@ -581,7 +572,7 @@ def create_numbering_record(id_card_list, medical_card_list, rid):
         doc_data = redis_client.hget(APPT_DOCTORS_KEY, str(numbering_record.get('doc_id')))
         if not doc_data:
             del db
-            print(datetime.now(), f"预约医生 {numbering_record.get('doc_id')} 不存在")
+            logger.warning(f"预约医生 {numbering_record.get('doc_id', '')} 不存在")
             return
         doc_data = json.loads(doc_data)
         numbering_record['doc_his_name'] = doc_data.get('his_name')
@@ -604,7 +595,7 @@ def create_numbering_record(id_card_list, medical_card_list, rid):
     last_rowid = db.execute(sql=insert_sql, need_commit=True)
     if last_rowid == -1:
         del db
-        print(datetime.now(), "排号预约记录入库失败! sql = " + insert_sql)
+        logger.warning(f"排号预约记录入库失败! sql = {insert_sql}")
     del db
 
 
@@ -630,7 +621,7 @@ def query_appt_record(json_data):
         try:
             auto_create_appt_by_auto_reg(id_card_list, medical_card_list, json_data.get('target_rid', 0))
         except Exception as e:
-            print(datetime.now(), f"自动创建预约失败 {e}")
+            logger.error(f"自动创建预约失败 {e}")
 
     is_completed = int(json_data.get('is_completed')) if json_data.get('is_completed') else 0
     condition_sql = ''
@@ -703,7 +694,7 @@ def push_patient(patient_name: str, socket_id: str):
         headers = {'Content-Type': 'application/json'}
         response = requests.post(global_config.socket_push_url, data=json.dumps(data), headers=headers)
     except Exception as e:
-        print(datetime.now(), "Socket Push Error: ", e.__str__())
+        logger.error(f"Socket Push Error: {e}")
 
 
 def operate_appt(appt_id: int, type: int):
@@ -804,7 +795,7 @@ def batch_insert_appt_doctor_advice(batch_insert_data):
         if last_rowid == -1:
             raise Exception(datetime.now(), "医嘱记录批量入库失败!")
     except Exception as e:
-        print(datetime.now(), f"数据库插入异常: {str(e)}")
+        logger.error(f"数据库插入异常: {str(e)}")
     finally:
         del db
 
@@ -850,8 +841,7 @@ def create_appt_by_doctor_advice(patient_id: str, doc_name: str, id_card_no, app
         # 根据医嘱中的执行科室id 查询出院内项目
         proj = proj_info.get(str(dept_id))
         if not proj:
-            print('当前医嘱没有可预约项目，暂时使用默认项目创建预约，待后续维护',
-                  ' patient id ', patient_id, 'doc_name', doc_name, advicel)
+            logger.warning(f'当前医嘱没有可预约项目，暂时使用默认项目创建预约，待后续维护 patient_id={patient_id}, doc_name={doc_name}, {advicel}')
             other_advice.extend(advicel)
             continue
 
@@ -1095,7 +1085,7 @@ def inpatient_advice_create(json_data):
         proj = redis_client.hget(APPT_EXECUTION_DEPT_INFO_KEY, str(dept_id))
         if not proj:
             # 所有未维护的执行科室 统一集合处理
-            print('当前医嘱没有可预约项目，暂时使用默认项目创建预约，待后续维护, dept_id = ', dept_id)
+            logger.warning(f'当前医嘱没有可预约项目，暂时使用默认项目创建预约，待后续维护, dept_id = {dept_id}')
             proj = {"id": 79, "proj_name": '其他项目', "proj_type": 2}
         else:
             proj = json.loads(proj)
@@ -1319,7 +1309,7 @@ def call(json_data):
         headers = {'Content-Type': 'application/json'}
         response = requests.post(global_config.socket_push_url, data=json.dumps(data), headers=headers)
     except Exception as e:
-        print(datetime.now(), 'Call Exception: ', e.__str__())
+        logger.error(f'Call Exception: {e}')
 
 
 def next_num(id, is_group):
@@ -2079,7 +2069,7 @@ def load_data_into_cache():
         redis_client.sadd(APPT_DAILY_AUTO_REG_RECORD_KEY, *[n['pay_no'] for n in pay_nos])
 
     del db
-    print(datetime.now(), "综合预约静态数据加载完成, 耗时：", time.time() - start_time, 's')
+    logger.info(f"综合预约静态数据加载完成, 耗时：{time.time() - start_time}")
 
 
 def cache_proj_7day_schedule(proj, all_schedule=None):
@@ -2217,11 +2207,9 @@ def run_everyday():
             for f in futures:
                 f.result()
 
-        print(datetime.now(), "综合预约所有数据缓存完成, 耗时：", time.time() - start_time, 's')
+        logger.info(f"综合预约所有数据缓存完成, 耗时：{time.time() - start_time}")
     except Exception as e:
-        print(f"定时任务执行失败: {str(e)}")
-        import traceback
-        traceback.print_exc()
+        logger.error(f"定时任务执行失败: {str(e)}")
 
 
 def auto_copy_schedule():
@@ -2244,7 +2232,7 @@ def auto_copy_schedule():
             sched_manage.copy_schedule(cur_week_start.strftime('%Y-%m-%d'), next_week_start.strftime('%Y-%m-%d'), None,
                                        None, None, 'doctor')
         except Exception as e:
-            print(f"自动复制排班记录失败: {str(e)}")
+            logger.error(f"自动复制排班记录失败: {str(e)}")
 
     query_sql = f"select count(*) from nsyy_gyl.appt_schedules where shift_date >= '{next_week_start.strftime('%Y-%m-%d')}'"
     if db.query_one(query_sql).get('count(*)') == 0:
@@ -2252,6 +2240,6 @@ def auto_copy_schedule():
             sched_manage.copy_schedule(cur_week_start.strftime('%Y-%m-%d'), next_week_start.strftime('%Y-%m-%d'), None,
                                        None, None, 'room')
         except Exception as e:
-            print(f"自动复制排班记录失败: {str(e)}")
+            logger.error(f"自动复制排班记录失败: {str(e)}")
 
     del db

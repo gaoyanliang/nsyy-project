@@ -1,19 +1,19 @@
 import json
-import traceback
+import logging
 
-from datetime import datetime
 from flask import Blueprint, jsonify, request
 
 from gylmodules.composite_appointment import ca_server, sched_manage, update_doc_scheduling
 from gylmodules.global_tools import api_response
 
 appt = Blueprint('composite appointment', __name__, url_prefix='/appt')
+logger = logging.getLogger(__name__)
 
 
 @appt.route('/wx_appt', methods=['POST'])
 @api_response
 def wx_appt(json_data):
-    print(datetime.now(), '微信小程序预约记录创建： ', json_data)
+    logger.info(f'微信小程序预约记录创建： {json_data}')
 
     id_card_no = json_data.get('id_card_no')
     openid = json_data.get('openid')
@@ -66,6 +66,7 @@ def sign_in(json_data):
 @appt.route('/query_projs', methods=['GET', 'POST'])
 @api_response
 def get_all_project(json_data):
+    raise Exception('抱歉！ 系统升级中，请先用自助机挂号或诊间挂号，谢谢')
     return ca_server.query_all_appt_project(int(json_data.get('type')), json_data.get('pid'))
 
 
@@ -166,7 +167,7 @@ def update_doc(json_data):
 
 @appt.route('/update_capacity', methods=['POST'])
 @api_response
-def update_capacity(json_data):
+def update_capacity():
     ca_server.cache_capacity()
 
 
@@ -221,7 +222,7 @@ def query_doc_by_empno(json_data):
 
 @appt.route('/query_doc', methods=['POST', 'GET'])
 @api_response
-def query_doc(json_data):
+def query_doc():
     return sched_manage.data_list('doctor')
 
 
@@ -233,13 +234,13 @@ def doc_list(json_data):
 
 @appt.route('/proj_list', methods=['POST', 'GET'])
 @api_response
-def query_proj(json_data):
+def query_proj():
     return sched_manage.data_list('project')
 
 
 @appt.route('/room_list', methods=['POST', 'GET'])
 @api_response
-def room_list(json_data):
+def room_list():
     return sched_manage.data_list('room')
 
 
@@ -294,7 +295,7 @@ def create_doctor_schedule(json_data):
 
 @appt.route('/update_today_doc_info', methods=['POST', 'GET'])
 @api_response
-def update_today_doc_info(json_data):
+def update_today_doc_info():
     update_doc_scheduling.update_today_doc_info()
 
 
@@ -303,7 +304,7 @@ def today_dept_for_appointment():
     try:
         dept_list = sched_manage.query_today_dept_for_appointment()
     except Exception as e:
-        print(datetime.now(), f"today_dept_for_appointment Exception occurred: {e.__str__()}")
+        logger.error(f"today_dept_for_appointment Exception occurred: {e.__str__()}")
         return jsonify({
             'code': 50000,
             'res': e.__str__()
@@ -319,7 +320,7 @@ def today_doctor_for_appointment():
         json_data = json.loads(request.get_data().decode('utf-8'))
         doctor_list = sched_manage.query_today_doctor_for_appointment(json_data.get('dept_id'))
     except Exception as e:
-        print(datetime.now(), f"today_doctor_for_appointment Exception occurred: {e.__str__()}, param: ", json_data)
+        logger.error(f"today_doctor_for_appointment Exception occurred: {e.__str__()}, param: {json_data}")
         return jsonify({
             'code': 50000,
             'res': e.__str__()
@@ -406,8 +407,6 @@ def update_schedule_old():
         'code': 50000,
         'res': "以提供新的排班管理工具, 当前功能废弃"
     })
-
-
 
 
 """

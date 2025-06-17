@@ -1,5 +1,7 @@
 import json
+import logging
 import re
+import time
 from datetime import datetime, timedelta
 from itertools import groupby
 
@@ -15,24 +17,57 @@ from gylmodules.utils.db_utils import DbUtil
 pool = redis.ConnectionPool(host=appt_config.APPT_REDIS_HOST, port=appt_config.APPT_REDIS_PORT,
                             db=appt_config.APPT_REDIS_DB, decode_responses=True)
 
+logger = logging.getLogger(__name__)
 
-def call_third_systems_obtain_data(param: dict):
+
+def call_third_systems_obtain_data(param: dict, max_retries: int = 3):
     data = []
     url = f"http://127.0.0.1:6080/his_socket"
     if global_config.run_in_local:
-        # url = f"http://192.168.3.12:6080/his_socket"
         url = f"http://192.168.124.53:6080/his_socket"
 
-    try:
-        # 发送 POST 请求，将字符串数据传递给 data 参数
-        response = requests.post(url, timeout=30, json=param)
-        data = response.text
-        data = json.loads(data)
-        data = data.get('List').get('Item')
-    except Exception as e:
-        print(datetime.now(), '调用第三方系统方法失败： param = ' + str(param) + "   " + e.__str__())
+    retry_count = 0
+    last_exception = None
+    while retry_count < max_retries:
+        try:
+            # 记录请求开始时间（用于计算耗时）
+            start_time = datetime.now()
 
-    return data
+            # 发送 POST 请求，将字符串数据传递给 data 参数
+            response = requests.post(url, timeout=30, json=param)
+            response.raise_for_status()  # 检查HTTP错误状态码
+
+            # 解析响应数据
+            json_data = response.json()
+            data = json_data.get('List', {}).get('Item', [])
+
+            # 记录成功日志（包含耗时）
+            logger.info(f"成功获取到今日排班医生信息 | 耗时: {(datetime.now() - start_time).total_seconds():.2f}s")
+            return data
+        except (json.JSONDecodeError, AttributeError) as e:
+            # 如果JSON解析失败或数据结构不符合预期，直接返回（不需要重试）
+            logger.error(f"响应数据解析失败 | 错误: {str(e)} ")
+            return []
+        except Exception as e:
+            last_exception = e
+            retry_count += 1
+            wait_time = 2 ** retry_count  # 指数退避（1, 2, 4秒...）
+
+            # 记录重试日志
+            error_msg = (
+                f"{datetime.now()} 获取今日排班医生信息失败（重试 {retry_count}/{max_retries}）| "
+                f"错误: {type(e).__name__}: {str(e)} | "
+                f"{f'等待 {wait_time}s 后重试...' if retry_count < max_retries else ''}"
+            )
+            logger.exception(error_msg)
+
+            if retry_count < max_retries:
+                time.sleep(wait_time)
+
+    # 所有重试都失败后记录最终错误
+    if last_exception:
+        logger.error(f"所有重试均失败 | 最后错误: {type(last_exception).__name__}: {str(last_exception)}")
+    return []
 
 
 """
@@ -50,7 +85,7 @@ def update_today_doc_info():
     )
 
     if not doc_list:
-        print(datetime.now(), '当天坐班医生查询失败')
+        logger.info('未获取到当天排班医生信息')
         return
 
     # 数据预处理（过滤 + 字段映射）
@@ -105,7 +140,7 @@ def update_today_doc_info():
                     """
             row_no = db.execute(insert_sql, need_commit=True)
             if row_no == -1:
-                print("医生入库失败! sql = " + insert_sql)
+                logger.warning(f"医生入库失败! sql = {insert_sql}")
                 continue
             his_status_set.add(row_no)
 
@@ -204,7 +239,7 @@ def update_today_doc_info():
 def sort_doctors(doctor_list):
     def sort_key(doctor):
         if not isinstance(doctor, dict):
-            print(f"Warning: Expected dict but got {type(doctor)}: {doctor}")
+            logger.warning(f"Expected dict but got {type(doctor)}: {doctor}")
             return 1
         return 0 if "门诊" in doctor.get('dept_name', '') else 1
 
@@ -221,7 +256,7 @@ def push_patient(patient_name: str, socket_id: str):
         headers = {'Content-Type': 'application/json'}
         response = requests.post(global_config.socket_push_url, data=json.dumps(data), headers=headers)
     except Exception as e:
-        print(datetime.now(), "Socket Push Error: ", e.__str__())
+        logger.error(f"Socket Push Error: {e.__str__()}")
 
 
 def update_today_sched(sched):
@@ -327,7 +362,7 @@ def do_update():
         data = json.loads(data)
         login_data = data.get('data')
     except Exception as e:
-        print(datetime.now(), '门诊登录查询方法失败：' + time_filter.strftime("%Y-%m-%d %H:%M:%S") + " " + e.__str__())
+        logger.error(f'门诊登录查询方法失败：{e.__str__()}')
     if not login_data:
         return
     # 构建 IP -> 医生姓名 映射
@@ -395,7 +430,7 @@ def do_update():
         # 更新医生 ID
         update_sql = f"""UPDATE nsyy_gyl.appt_schedules SET did = {dids[0]}, status = 1 WHERE sid = {sched['sid']}"""
         db.execute(update_sql, need_commit=True)
-        print(datetime.now(), 'DEBUG: 更新排班', sched, dids[0])
+        logger.info(f'DEBUG: 更新排班 {sched} {dids[0]}')
 
         sched['did'] = dids[0]
         sched['status'] = 1

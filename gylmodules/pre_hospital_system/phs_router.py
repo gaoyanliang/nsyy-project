@@ -38,7 +38,7 @@ def query_patient_list(json_data):
 
 @phs.route('/query_record_list', methods=['POST', 'GET'])
 @api_response
-def query_record_list(json_data):
+def query_record_list():
     return phs_server.query_record_list()
 
 
@@ -58,7 +58,7 @@ def create_patient_record(json_data):
 
 @phs.route('/car_no_list', methods=['POST', 'GET'])
 @api_response
-def car_no_list(json_data):
+def car_no_list():
     return phs_config.car_no_list
 
 

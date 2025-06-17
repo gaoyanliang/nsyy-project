@@ -1,11 +1,10 @@
 import json
-import threading
 from datetime import datetime, timedelta
 
 import redis
 from dateutil.relativedelta import relativedelta
 
-from gylmodules import global_config
+from gylmodules import global_config, global_tools
 from gylmodules.composite_appointment import appt_config
 from gylmodules.composite_appointment.appt_config import APPT_ROOMS_KEY, APPT_PROJECTS_KEY
 from gylmodules.composite_appointment import ca_server
@@ -302,7 +301,7 @@ def update_schedule(sid, new_rid, new_did, new_pid):
             pid_list.append(new_pid)
         if new_pid and new_pid != int(original.get('pid')):
             pid_list.append(original.get('pid'))
-        start_thread(update_cache_schedule, (pid_list,))
+        global_tools.start_thread(update_cache_schedule, (pid_list,))
     except Exception as e:
         raise Exception('更新排班记录异常', e)
 
@@ -332,7 +331,7 @@ def update_doctor_schedule(dsid, new_status):
             return
 
         pid_list = [p.get('pid') for p in pid_list]
-        start_thread(update_cache_schedule, (pid_list,))
+        global_tools.start_thread(update_cache_schedule, (pid_list,))
     except Exception as e:
         raise Exception('更新医生排班记录异常', e)
 
@@ -436,21 +435,6 @@ def update_cache_schedule(pid_list):
         proj = json.loads(redis_client.hget(APPT_PROJECTS_KEY, str(pid)))
         ca_server.cache_proj_7day_schedule(proj)
     ca_server.cache_capacity()
-
-
-def start_thread(funct, args=None, tl=None):
-    """
-    start a thread
-    """
-    if not tl:
-        tl = []
-    if not args:
-        args = ()
-    t = threading.Thread(target=funct, args=args)
-    t.setDaemon(True)  # 服务器一直运行，所以子线程不会被关
-    tl.append(t)
-    t.start()
-    return t
 
 
 def query_proj_info(proj_type: int):
