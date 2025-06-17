@@ -49,8 +49,10 @@ def setup_logging(
         logger.handlers.clear()
 
     # 控制台Handler
-    console_handler = logging.StreamHandler()
-    console_handler.setFormatter(logging.Formatter(format))
+    if global_config.run_in_local:
+        console_handler = logging.StreamHandler()
+        console_handler.setFormatter(logging.Formatter(format))
+        logger.addHandler(console_handler)
 
     # 文件Handler（自动轮转）
     file_handler = RotatingFileHandler(
@@ -63,7 +65,6 @@ def setup_logging(
     file_handler.flush()  # 立即刷新缓冲区（可选，但建议添加）
 
     # 添加Handler
-    logger.addHandler(console_handler)
     logger.addHandler(file_handler)
 
     # 关闭第三方库的冗余日志（可选）， INFO 日志（只显示 WARNING 及以上）
