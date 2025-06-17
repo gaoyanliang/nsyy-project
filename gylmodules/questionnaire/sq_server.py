@@ -1,4 +1,5 @@
 import json
+import logging
 import re
 import threading
 import time
@@ -12,6 +13,8 @@ from datetime import datetime, timedelta
 from gylmodules import global_config, global_tools
 from gylmodules.utils.db_utils import DbUtil
 
+logger = logging.getLogger(__name__)
+
 
 def call_third_systems_obtain_data(url: str, type: str, param: dict):
     """
@@ -23,15 +26,15 @@ def call_third_systems_obtain_data(url: str, type: str, param: dict):
     """
     data = []
     try:
+        req_url = f"http://127.0.0.1:6080/{url}"
         if global_config.run_in_local:
-            response = requests.post(f"http://192.168.124.53:6080/{url}", timeout=20, json=param)
-        else:
-            response = requests.post(f"http://127.0.0.1:6080/{url}", timeout=20, json=param)
+            req_url = f"http://192.168.124.53:6080/{url}"
+        response = requests.post(req_url, timeout=20, json=param)
         data = json.loads(response.text)
         if type != 'his_pers_reg':
             data = data.get('data')
     except Exception as e:
-        print('调用第三方系统方法失败：type = ' + type + ' param = ' + str(param) + "   " + e.__str__())
+        logger.error(f'向 HIS 注册患者信息异常：type = {type}, param = {param}, {e}')
     return data
 
 
@@ -767,7 +770,7 @@ def submit_medical_record(json_data):
         raise Exception("问卷记录详情入库失败! ", insert_sql)
     del db
     # 第一次调用 ai
-    start_thread(call_aichat, (last_rowid, zhusu, xianbingshi, jiwangshi, tigejiancha))
+    global_tools.start_thread(call_aichat, (last_rowid, zhusu, xianbingshi, jiwangshi, tigejiancha))
 
 
 def patient_quest_details(json_data):
@@ -984,29 +987,13 @@ def call_ai_api(param: dict):
             data = json.loads(data)  # 成功时返回解析后的数据
             return data
         except (requests.RequestException, json.JSONDecodeError) as e:
-            error_msg = f"尝试 {attempt + 1}/{max_retries + 1} 失败: {e}"
-            print(f"{datetime.now()} - {error_msg}")
+            logger.warning(f"尝试 {attempt + 1}/{max_retries + 1} 调用 {url} 失败: {e}")
             if attempt < max_retries:  # 如果不是最后一次尝试
                 time.sleep(delay)  # 等待后重试
             else:
                 # 所有尝试失败，返回错误信息
                 return data
     return data
-
-
-def start_thread(funct, args=None, tl=None):
-    """
-    start a thread
-    """
-    if not tl:
-        tl = []
-    if not args:
-        args = ()
-    t = threading.Thread(target=funct, args=args)
-    t.setDaemon(True)  # 服务器一直运行，所以子线程不会被关
-    tl.append(t)
-    t.start()
-    return t
 
 
 def call_aichat(id, zhusu, xianbingshi, jiwangshi, tigejiancha):
@@ -1022,7 +1009,7 @@ def call_aichat(id, zhusu, xianbingshi, jiwangshi, tigejiancha):
     try:
         data = call_ai_api({"message": medical_data})
     except Exception as e:
-        print(datetime.now(), '调用 ai api 失败： ' + e.__str__())
+        logger.error(f'调用 ai api 失败： {e}')
 
     if not data:
         return
@@ -1032,7 +1019,7 @@ def call_aichat(id, zhusu, xianbingshi, jiwangshi, tigejiancha):
     update_sql = f"UPDATE nsyy_gyl.sq_surveys_detail set ai_result1 = '{data.get('data')}' where id = {id}"
     db.execute(update_sql, need_commit=True)
     del db
-    print(datetime.now(), 'ai 耗时：', time.time() - start_time, f's, {id}')
+    logger.info(f'调用 ai api 耗时：{time.time() - start_time} s {id}')
 
 
 def fetch_ai_result():
@@ -1051,8 +1038,7 @@ def fetch_ai_result():
     del db
     for survey in all_survey:
         # 第二次调用 ai
-        start_thread(fetch_patient_test_result, (survey,))
-        # fetch_patient_test_result(survey)
+        global_tools.start_thread(fetch_patient_test_result, (survey,))
 
 
 def fetch_patient_test_result(survey_record):
@@ -1094,7 +1080,7 @@ def fetch_patient_test_result(survey_record):
     try:
         data = call_ai_api({"message": medical_data})
     except Exception as e:
-        print(datetime.now(), '调用 ai api 失败： ' + e.__str__())
+        logger.error(f'调用 ai api 失败： {e}')
 
     if not data:
         return
