@@ -1,16 +1,17 @@
 import json
-import traceback
+import logging
 import requests
 
 from gylmodules import global_config, global_tools
 from gylmodules.medical_record_analysis import parse_cda
 from gylmodules.medical_record_analysis.anew_his_record import parse_new_his_xml
 from gylmodules.medical_record_analysis.anew_his_record.build_cda import new_build_cda
-from gylmodules.medical_record_analysis.build_cda.build_cda import assembling_cda_record
 from gylmodules.medical_record_analysis.record_parse.admission_record_parse import parse_admission_record
 from gylmodules.medical_record_analysis.record_parse.discharge_record_parse import parse_discharge_record
 from gylmodules.medical_record_analysis.record_parse.inpatient_homepage_parse import parse_homepage_record
 from gylmodules.medical_record_analysis.record_parse.progress_note_parse import parse_progress_note_record
+
+logger = logging.getLogger(__name__)
 
 
 def call_third_systems_obtain_data(type: str, param: dict):
@@ -23,7 +24,7 @@ def call_third_systems_obtain_data(type: str, param: dict):
             data = json.loads(data)
             data = data.get('data')
         except Exception as e:
-            print('调用第三方系统方法失败：type = ' + type + ' param = ' + str(param) + "   " + e.__str__())
+            logger.error(f'查询老 hi 病历失败：type = {type}, param = {param}, {e}')
     else:
         if type == 'orcl_db_read':
             # 根据住院号/门诊号查询 病人id 主页id
@@ -54,7 +55,7 @@ def query_record_and_parse(json_data):
             cda = parse_homepage_record(data)
         except Exception as e:
             cda = 'cda 生成失败，请联系信息科人工处理'
-            print('cda 生成失败，请联系信息科人工处理', e, data, json_data)
+            logger.error(f'住院病案首页 cda 生成失败，pat_no={pat_no}, pat_page={pat_page}')
 
         # 解析cda ，获取结构
         try:
@@ -62,38 +63,18 @@ def query_record_and_parse(json_data):
                 structure = parse_cda.parse_cda_xml_document_by_str(cda)
         except Exception as e:
             structure = 'cda 结构解析失败，请联系信息科人工处理'
-            print('cda 结构解析失败，请联系信息科人工处理', e)
+            logger.error(f'住院病案首页 cda 结构解析失败，请联系信息科人工处理, {e}')
         return cda, structure
 
     param = {
-        "type": "orcl_db_read",
-        "db_source": "nsbingli",
-        "randstr": "XPFDFZDF7193CIONS1PD7XCJ3AD4ORRC",
-        "clob": ['CONTENT'],
-        "sql": f"""
-            select *
-              from (select *
-                      from (Select b.病人id,
-                                   b.主页id,
-                                   t.title       as 文档名称,
-                                   a.title       文档类型,
-                                   t.creat_time  记录时间,
-                                   t.creator     文档作者,
-                                   RAWTOHEX(t.id) 文档ID,
-                                   -- t.contenttext.getclobval() contenttext, 
-                                   t.content.getclobval() content
-                              From Bz_Doc_Log t
-                              left join Bz_Act_Log a
-                                on a.Id = t.Actlog_Id
-                              left join 病人变动记录@HISINTERFACE b
-                                on a.extend_tag = 'BD_' || to_char(b.id))
-                     order by 记录时间)
-             where 病人ID = {pat_no}
-               and 主页ID = {pat_page}
-               and 文档名称 LIKE '%{file_name}%'
-        """
+        "type": "orcl_db_read", "db_source": "nsbingli",
+        "randstr": "XPFDFZDF7193CIONS1PD7XCJ3AD4ORRC", "clob": ['CONTENT'],
+        "sql": f"""select * from (select * from (Select b.病人id, b.主页id, t.title as 文档名称, a.title 文档类型, 
+                    t.creat_time 记录时间, t.creator 文档作者, RAWTOHEX(t.id) 文档ID, t.content.getclobval() content
+                    From Bz_Doc_Log t left join Bz_Act_Log a on a.Id = t.Actlog_Id
+                    left join 病人变动记录@HISINTERFACE b on a.extend_tag = 'BD_' || to_char(b.id)) order by 记录时间)
+                    where 病人ID = {pat_no} and 主页ID = {pat_page} and 文档名称 LIKE '%{file_name}%' """
     }
-
     records = call_third_systems_obtain_data('orcl_db_read', param)
     if not records:
         raise Exception('当前病人未查询到任何病历', json_data)
@@ -117,7 +98,7 @@ def query_record_and_parse(json_data):
                 break
         except Exception as e:
             cda = 'cda 生成失败，请联系信息科人工处理'
-            print('cda 生成失败，请联系信息科人工处理', e)
+            logger.error(f'{pat_no} {pat_page} {file_name} cda 生成失败，请联系信息科人工处理 {e}')
 
         # 解析cda ，获取结构
         try:
@@ -130,7 +111,7 @@ def query_record_and_parse(json_data):
                     structure = parse_cda.parse_cda_xml_document_by_str(cda)
         except Exception as e:
             structure = 'cda 结构解析失败，请联系信息科人工处理'
-            print('cda 结构解析失败，请联系信息科人工处理', e)
+            logger.error(f'{pat_no} {pat_page} {file_name} cda 结构解析失败，请联系信息科人工处理 {e}')
     except Exception as e:
         if cur_record:
             cur_record.pop('CONTENT')
@@ -156,7 +137,7 @@ def query_new_his_record_and_parse(json_data):
             cda = parse_homepage_record(data)
         except Exception as e:
             cda = 'cda 生成失败，请联系信息科人工处理'
-            print('cda 生成失败，请联系信息科人工处理', e, data, json_data)
+            logger.error(f'住院病案首页 cda 生成失败，binglijlid={binglijlid}')
 
         # 解析cda ，获取结构
         structure = {}
@@ -165,14 +146,13 @@ def query_new_his_record_and_parse(json_data):
                 structure = parse_cda.parse_cda_xml_document_by_str(cda)
         except Exception as e:
             structure = 'cda 结构解析失败，请联系信息科人工处理'
-            print('cda 结构解析失败，请联系信息科人工处理', e)
+            logger.error(f'住院病案首页 cda 结构解析失败，请联系信息科人工处理 {e}')
         return cda, structure
 
     # TODO  根据病历记录id 查询病历 xml数据
     query_record_sql = f"""select wb2.wenjiannr, wb.binglijlid, wb.bingrenid, wb.binglimc, wb.bingrenzyid, 
                 wb.jiuzhenid, wb.menzhenzybz from df_bingli.ws_binglijl wb join df_bingli.ws_binglijlnr wb2 
-                on wb.binglijlid =wb2.binglijlid and wb.zuofeibz ='0' where wb.binglijlid = '{binglijlid}'
-    """
+                on wb.binglijlid =wb2.binglijlid and wb.zuofeibz ='0' where wb.binglijlid = '{binglijlid}'"""
     records = global_tools.call_new_his_pg(sql=query_record_sql)
     if not records:
         raise Exception('当前病人未查询到任何病历', json_data)
@@ -230,7 +210,7 @@ def query_new_his_record_and_parse(json_data):
                 break
         except Exception as e:
             cda = 'cda 生成失败，请联系信息科人工处理'
-            print('cda 生成失败，请联系信息科人工处理', e, traceback.print_exc())
+            logger.error(f'binglijlid={binglijlid} {file_name} cda 生成失败，请联系信息科人工处理 {e}')
 
         # 解析cda ，获取结构
         try:
@@ -243,7 +223,7 @@ def query_new_his_record_and_parse(json_data):
                     structure = parse_cda.parse_cda_xml_document_by_str(cda)
         except Exception as e:
             structure = 'cda 结构解析失败，请联系信息科人工处理'
-            print('cda 结构解析失败，请联系信息科人工处理', e, traceback.print_exc())
+            logger.error(f'cda 结构解析失败，请联系信息科人工处理 {e}')
     except Exception as e:
         if cur_record:
             cur_record.pop('WENJIANNR')
@@ -281,6 +261,7 @@ def clean_dict(d):
         return cleaned_str if cleaned_str else None
     else:
         return d
+
 
 def clean_string(s):
     """

@@ -1,8 +1,9 @@
 import json
+import logging
 import xml.etree.ElementTree as ET
-import re
-import os
 from collections import OrderedDict
+
+logger = logging.getLogger(__name__)
 
 """
 解析 cda xml 文件
@@ -378,7 +379,7 @@ def parse_value(value):
     elif value.get('{http://www.w3.org/2001/XMLSchema-instance}type') == 'MO':
         ret = value.get('value') + ' ' + value.get('currency')
     else:
-        print('===> 未知 value 类型', value.get('{http://www.w3.org/2001/XMLSchema-instance}type'))
+        logger.warning(f"未知 value 类型 {value.get('{http://www.w3.org/2001/XMLSchema-instance}type')}")
     return ret
 
 

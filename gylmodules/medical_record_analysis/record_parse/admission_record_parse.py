@@ -1,3 +1,4 @@
+import logging
 import xml.etree.ElementTree as ET
 import re
 import json
@@ -10,8 +11,8 @@ from gylmodules.medical_record_analysis.build_cda.build_cda import assembling_cd
 ====================================================================================================
 """
 
+logger = logging.getLogger(__name__)
 section_info = {}
-
 sign_set = set()
 
 
@@ -85,7 +86,7 @@ def parse_enum(enum, rangexml: str = ''):
         extracted_text = match.group(1)
         return extracted_text
     else:
-        print(enum.get('title'), " ===> 未能提取出汉字部分")
+        logger.warning(f"{enum.get('title')} 未能提取出汉字部分")
     return ''
 
 
@@ -169,7 +170,7 @@ def parse_hpi(section, info_dict, file):
                 continue
             else:
                 if not (file.__contains__('病程记录') and tag == 'section'):
-                    print('===> 未处理 ', title, tag)
+                    logger.warning(f'未处理 {title} {tag}')
 
         if len(value_dict) < 2:
             info_dict[title] = value.strip()
@@ -177,7 +178,7 @@ def parse_hpi(section, info_dict, file):
             value_dict['value'] = value.strip()
             info_dict[title] = value_dict
     except Exception as e:
-        print(file, '===> parse_hpi 解析异常', e)
+        logger.error(f'{file} parse_hpi 解析异常 {e}')
 
 
 def write_to_excel(data):
