@@ -1,8 +1,10 @@
-from gylmodules.utils.unified_logger import UnifiedLogger
+import logging
+
 from suds.client import Client
 import gylmodules.sport_mng.ehc_config as ehc_config
 
-log = UnifiedLogger("elec_health_card.log")
+logger = logging.getLogger(__name__)
+
 
 """
 电子健康卡信息管理
@@ -28,10 +30,10 @@ def get_info_by_id(id_card_num):
                                                   idCardNum=id_card_num)
     try:
         res = call_webservices(param)
-        log.debug("根据 id_card_num: " + id_card_num + " 查询电子健康卡信息结果为: " + res)
+        logger.debug(f"根据 id_card_num: {id_card_num} 查询电子健康卡信息结果为: {res}")
         return res
     except Exception as e:
-        print(f"An unexpected error occurred: {e}")
+        logger.error(f"An unexpected error occurred: {e}")
     return None
 
 
@@ -54,10 +56,10 @@ def get_info_by_ehc_id(ehc_id):
                                                      ehcId=ehc_id)
     try:
         res = call_webservices(param)
-        log.debug("根据 ehc_id: " + ehc_id + " 查询电子健康卡信息结果为: " + res)
+        logger.debug(f"根据 ehc_id: {ehc_id} 查询电子健康卡信息结果为: {res}")
         return res
     except Exception as e:
-        print(f"电子健康卡验证失败, An unexpected error occurred: {e}")
+        logger.error(f"电子健康卡验证失败, An unexpected error occurred: {e}")
     return None
 
 
@@ -95,10 +97,10 @@ def gov_id_create(apply_type, user_name, telephone, id_card_num, current_address
                                              domicileAddress=domicile_address)
     try:
         res = call_webservices(param)
-        log.debug("电子健康卡申领结果为: " + res)
+        logger.debug(f"电子健康卡申领结果为: {res}")
         return res
     except Exception as e:
-        print(f"电子健康卡申领异常, An unexpected error occurred: {e}")
+        logger.error(f"电子健康卡申领异常, An unexpected error occurred: {e}")
     return None
 
 

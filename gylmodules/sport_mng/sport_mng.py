@@ -1,3 +1,4 @@
+import logging
 from datetime import datetime
 
 from flask import Blueprint, jsonify, request
@@ -5,12 +6,11 @@ from flask import Blueprint, jsonify, request
 from gylmodules import global_config
 from gylmodules.sport_mng import elec_health_card
 from gylmodules.utils.db_utils import DbUtil
-from gylmodules.utils.unified_logger import UnifiedLogger
 import xmltodict
 import json
 
 sport_mng = Blueprint('sport_mng', __name__, url_prefix='/sport_mng')
-log = UnifiedLogger("sport_mng.log")
+logger = logging.getLogger(__name__)
 
 
 #  获取电子健康卡信息
@@ -27,14 +27,14 @@ def gov_id_check():
         xml_dict = xmltodict.parse(res)
         # Convert dictionary to JSON
         json_data = json.dumps(xml_dict, indent=2)
-        log.debug("Return data: " + json_data)
+        logger.debug(f"Return data: {json_data}")
 
         # Load JSON data into a Python dictionary
         data_dict = json.loads(json_data)
         # Access the 'returncode' value
         returncode_value = data_dict['Response']['returncode']
         output = data_dict['Response']['output']
-        log.debug("Return code: " + returncode_value)
+        logger.debug(f"Return code: {returncode_value}")
 
         if int(returncode_value) == 0 and output is not None:
             user_info = {
@@ -102,15 +102,15 @@ def gov_id_create():
         xml_dict = xmltodict.parse(res)
         # Convert dictionary to JSON
         json_data = json.dumps(xml_dict, indent=2)
-        log.debug("Return data: " + json_data)
+        logger.debug(f"Return data: {json_data}")
 
         # Load JSON data into a Python dictionary
         data_dict = json.loads(json_data)
         # Access the 'returncode' value
         returncode_value = data_dict['Response']['returncode']
-        log.debug("Return code: " + returncode_value)
+        logger.debug(f"Return code: {returncode_value}")
         message = data_dict['Response']['message']
-        log.debug("Return Message: " + message)
+        logger.debug(f"Return Message: {message}")
         output = data_dict['Response']['output']
 
         if int(returncode_value) == 0 and output is not None:
@@ -157,7 +157,7 @@ def meal_list():
         del db
     except Exception as e:
         del db
-        print(f"sport_list: An unexpected error occurred: {e}")
+        logger.error(f"sport_list: An unexpected error occurred: {e}")
         return jsonify({
             'code': 50000,
             'res': '获取膳食列表失败',
@@ -183,7 +183,7 @@ def sport_list():
         del db
     except Exception as e:
         del db
-        print(f"sport_list: An unexpected error occurred: {e}")
+        logger.error(f"sport_list: An unexpected error occurred: {e}")
         return jsonify({
             'code': 50000,
             'res': '获取运动列表失败',
@@ -229,7 +229,7 @@ def create_package():
         del db
     except Exception as e:
         del db
-        print(f"sport_list: An unexpected error occurred: {e}")
+        logger.error(f"sport_list: An unexpected error occurred: {e}")
         return jsonify({
             'code': 50000,
             'res': '套餐数据录入失败',
@@ -287,7 +287,7 @@ def read_package():
         del db
     except Exception as e:
         del db
-        print(f"read_package: An unexpected error occurred: {e}")
+        logger.error(f"read_package: An unexpected error occurred: {e}")
         return jsonify({
             'code': 50000,
             'res': '标准套餐数据查询失败',
@@ -352,7 +352,7 @@ def read_patient_package():
         del db
     except Exception as e:
         del db
-        print(f"read_patient_package: An unexpected error occurred: {e}")
+        logger.error(f"read_patient_package: An unexpected error occurred: {e}")
         return jsonify({
             'code': 50000,
             'res': '患者运动/饮食列表查询失败',
@@ -407,7 +407,7 @@ def allocation_package():
         del db
     except Exception as e:
         del db
-        print(f"allocation_package: An unexpected error occurred: {e}")
+        logger.error(f"allocation_package: An unexpected error occurred: {e}")
         return jsonify({
             'code': 50000,
             'res': '套餐分配失败',
@@ -474,7 +474,7 @@ def update_patient_list():
         del db
     except Exception as e:
         del db
-        print(f"update_patient_list: An unexpected error occurred: {e}")
+        logger.error(f"update_patient_list: An unexpected error occurred: {e}")
         return jsonify({
             'code': 50000,
             'res': '患者列表更新失败',
