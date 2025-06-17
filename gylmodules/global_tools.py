@@ -54,18 +54,19 @@ def setup_logging(
         console_handler.setFormatter(logging.Formatter(format))
         logger.addHandler(console_handler)
 
-    # 文件Handler（自动轮转）
-    file_handler = RotatingFileHandler(
-        filename=log_file,
-        maxBytes=max_bytes,
-        backupCount=backup_count,
-        delay=False,  # 禁用延迟打开文件（Python 3.6+）
-    )
-    file_handler.setFormatter(logging.Formatter(format))
-    file_handler.flush()  # 立即刷新缓冲区（可选，但建议添加）
+    if not global_config.run_in_local:
+        # 文件Handler（自动轮转）
+        file_handler = RotatingFileHandler(
+            filename=log_file,
+            maxBytes=max_bytes,
+            backupCount=backup_count,
+            delay=False,  # 禁用延迟打开文件（Python 3.6+）
+        )
+        file_handler.setFormatter(logging.Formatter(format))
+        file_handler.flush()  # 立即刷新缓冲区（可选，但建议添加）
 
-    # 添加Handler
-    logger.addHandler(file_handler)
+        # 添加Handler
+        logger.addHandler(file_handler)
 
     # 关闭第三方库的冗余日志（可选）， INFO 日志（只显示 WARNING 及以上）
     logging.getLogger("apscheduler").setLevel(logging.WARNING)

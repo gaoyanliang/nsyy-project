@@ -31,7 +31,6 @@ cv_id_lock = threading.Lock()
 
 logger = logging.getLogger(__name__)
 
-
 """
 调用第三方系统获取数据
 """
@@ -369,7 +368,8 @@ def create_cv(cvd):
         cv_idd[cv_source].append(cv_id)
     for cv_source, cv_ids in cv_idd.items():
         try:
-            invalid_info = {"invalid_person": "第三方系统", "invalid_time": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+            invalid_info = {"invalid_person": "第三方系统",
+                            "invalid_time": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
                             "invalid_reason": "系统触发"}
             invalid_crisis_value(cv_ids, cv_source, invalid_info)
         except Exception as e:
@@ -519,8 +519,8 @@ def notiaction_alert_man(msg: str, pers_id):
             return
 
         data = {'msg_list': [{'socket_data': {"type": 400,
-                "data": {"title": "危急值上报反馈", "context": msg}},
-                'pers_id': int(pers_id)}]}
+                                              "data": {"title": "危急值上报反馈", "context": msg}},
+                              'pers_id': int(pers_id)}]}
         headers = {'Content-Type': 'application/json'}
         response = requests.post(global_config.socket_push_url, data=json.dumps(data), headers=headers)
 
@@ -645,7 +645,8 @@ def manual_report_cv(json_data):
     # 是否强制提交，如果不是，查询患者最近半小时内是否上报过危急值
     if 'forced' in json_data and not json_data.get('forced'):
         try:
-            is_repted, cv_data = have_cv_been_reported_recently(json_data['patient_name'], json_data['patient_treat_id'])
+            is_repted, cv_data = have_cv_been_reported_recently(json_data['patient_name'],
+                                                                json_data['patient_treat_id'])
             if is_repted:
                 return True, cv_data
         except Exception as e:
@@ -742,7 +743,7 @@ def create_cv_by_system(json_data, cv_source):
     cvd['state'] = cv_config.CREATED_STATE
 
     if cvd['alertman'] == '0':
-        cvd['alert_dept_id'], cvd['alert_dept_name'], cvd['alertman_name'], cvd['alertman_pers_id']\
+        cvd['alert_dept_id'], cvd['alert_dept_name'], cvd['alertman_name'], cvd['alertman_pers_id'] \
             = -1, 'unknow', 'unkonw', -1
     else:
         param = {"type": "his_dept_pers", "pers_no": cvd['alertman'], "comp_id": 12,
@@ -1777,21 +1778,12 @@ def safe_post(data, method_name, timeout=5, max_retries=3, backoff_factor=1):
             data = data.strip()
             if isinstance(data, str):
                 data = data.encode('utf-8')
-
-            headers = {
-                "Content-Type": "application/xml",
-                "Methodname": method_name
-            }
-
-            response = requests.post(
-                "http://192.168.9.23:6000/WEIJZ",
-                timeout=timeout,
-                headers=headers,
-                data=data
-            )
+            response = requests.post("http://192.168.9.23:6000/WEIJZ", timeout=timeout,
+                                     headers={"Content-Type": "application/xml", "Methodname": method_name},
+                                     data=data)
             response.raise_for_status()  # 检查 HTTP 状态码
+            print(f"{datetime.now()} 危机值同步 HIS 成功: {response.text}")
             return response.text  # 成功则返回响应数据
-
         except Exception as e:
             last_exception = e
             retry_count += 1
@@ -1834,40 +1826,24 @@ def send_to_his(cv_record):
         logger.warning(f"未查询到病人信息 cv_id = {cv_record.get('cv_id')}, patient_treat_id = {patient_treat_id}")
         return
 
-    report_id = cv_record.get('report_id')
-    if not report_id:
-        logger.warning(f"未查询到报告单 cv_id = {cv_record.get('cv_id')} report_id = {report_id}")
-        return
-    if cv_source == 2:
-        sql = f"""
-        select yj.shenqingdid, yj.kaidanren, yj.kaidanksmc, yj.kaidanks, yj.kaidanrenxm, yj.kaidanrq,
-         yj.baogaodanid, yj.shenhesj 报告时间,yj.zhixingsj 执行时间, yj.tiaomahao 
-         from df_cdr.yj_jianyanbg yj where yj.yangbenhao ='{report_id}'
-        """
-    else:
-        sql = f"""
-            select shenqingdanid, kaidanren, kaidanksmc, kaidanks, kaidanrenxm, kaidanrq,
-            baogaodanid, baogaosj 报告时间, jianchasj 执行时间
-            from df_cdr.yj_jianchabg where baogaodanid like '%{report_id}%' 
-            and (zhuyuanhao = '{patient_treat_id}' or bingrenxm = '{cv_record.get('patient_name', 'unknown')}')
-        """
-    shenqing_data = global_tools.call_new_his_pg(sql)
+    shenqing_data = query_shenqingdan_info(cv_record)
     if not shenqing_data:
-        logger.warning(f"未查询到申请单 cv_id = {cv_record.get('cv_id')}, report_id = {report_id}")
         return
 
     create_time = cv_record.get('time').strftime("%Y-%m-%d %H:%M:%S")
     leixing = '1' if int(cv_record.get('cv_source')) == 2 else '2'
-    patient_type = int(cv_record.get('patient_type', 3)) # 1=门诊,2=急诊,3=住院,4=体检
+    patient_type = int(cv_record.get('patient_type', 3))  # 1=门诊,2=急诊,3=住院,4=体检
     # 通过映射关系获取 menzhenzybz，默认为 '1'（门诊）
     menzhenzybz = cv_config.patient_type_map.get(patient_type, '2')
 
     alertdt = cv_record.get('alertdt').strftime("%Y-%m-%d %H:%M:%S")
-    handle_time = cv_record.get('handle_time').strftime("%Y-%m-%d %H:%M:%S")
-    nurse_recv_time = cv_record.get('nurse_recv_time').strftime("%Y-%m-%d %H:%M:%S") if cv_record.get('nurse_recv_time') else '0'
-    baogaosj = shenqing_data[0].get('报告时间').strftime("%Y-%m-%d %H:%M:%S") if shenqing_data[0].get('报告时间') else '0'
-    zhixingsj = shenqing_data[0].get('执行时间').strftime("%Y-%m-%d %H:%M:%S") if shenqing_data[0].get('执行时间') else '0'
-    kaidanrq = shenqing_data[0].get('kaidanrq').strftime("%Y-%m-%d %H:%M:%S") if shenqing_data[0].get('kaidanrq') else '0'
+    handle_time = cv_record.get('handle_time').strftime("%Y-%m-%d %H:%M:%S") if cv_record.get('handle_time') else ''
+    nurse_recv_time = cv_record.get('nurse_recv_time').strftime("%Y-%m-%d %H:%M:%S") if cv_record.get(
+        'nurse_recv_time') else '0'
+    baogaosj = shenqing_data[0].get('报告时间') if shenqing_data[0].get('报告时间') else '0'
+    zhixingsj = shenqing_data[0].get('执行时间') if shenqing_data[0].get('执行时间') else '0'
+    kaidanrq = shenqing_data[0].get('kaidanrq').strftime("%Y-%m-%d %H:%M:%S") if shenqing_data[0].get(
+        'kaidanrq') else '0'
 
     cv_result = cv_record.get('cv_result') if cv_record.get('cv_result') else '0'
     cv_result = cv_result.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;")
@@ -1901,7 +1877,8 @@ def send_to_his(cv_record):
         .replace('{fasongsj}', alertdt) \
         .replace('{fasongrenxm}', cv_record.get('alertman_name') if cv_record.get('alertman_name') else '0') \
         .replace('{fasongren}', cv_record.get('alertman') if cv_record.get('alertman_name') else '0') \
-        .replace('{zuofeisj}', cv_record.get('invalid_time').strftime("%Y-%m-%d %H:%M:%S") if cv_record.get('invalid_time') else '0') \
+        .replace('{zuofeisj}',
+                 cv_record.get('invalid_time').strftime("%Y-%m-%d %H:%M:%S") if cv_record.get('invalid_time') else '0') \
         .replace('{zuofeiren}', cv_record.get('invalid_person') if cv_record.get('invalid_person') else '0') \
         .replace('{huifuysid}', str(cv_record.get('handle_doctor_id')) if cv_record.get('handle_doctor_id') else '0') \
         .replace('{huifuysxm}', cv_record.get('handle_doctor_name') if cv_record.get('handle_doctor_name') else '0') \
@@ -1929,6 +1906,139 @@ def send_to_his(cv_record):
         .replace('{kaidanrenxm}', shenqing_data[0].get('kaidanrenxm') if shenqing_data[0].get('kaidanrenxm') else '0')
 
     safe_post(his_sync_data, 'WeiJZInfoAdd')
+
+
+def query_shenqingdan_info(record_data):
+    # 验证必要参数
+    cv_source = record_data.get('cv_source')
+    if not cv_source:
+        logger.warning("缺少必要参数: cv_source")
+        return None
+
+    # 检验危机值
+    if int(cv_source) == 2:
+        report_id = record_data.get('report_id')
+        if not report_id:
+            logger.warning(f"当前危机值没有报告id cv_id = {record_data.get('cv_id')}")
+            return None
+
+        SQL_SOURCE_2 = f"""
+         SELECT yj.shenqingdid, yj.kaidanren, yj.kaidanksmc, yj.kaidanks, yj.kaidanrenxm, yj.kaidanrq,
+                yj.baogaodanid, yj.tiaomahao, 
+                COALESCE(NULLIF(TO_CHAR(yj.shenhesj, 'yyyy-mm-dd hh24:mi:ss'), ''), '') AS 报告时间, 
+                COALESCE(NULLIF(TO_CHAR(yj.zhixingsj, 'yyyy-mm-dd hh24:mi:ss'), ''), '') AS 执行时间
+         FROM df_cdr.yj_jianyanbg yj WHERE yj.yangbenhao ='{report_id}'
+         """
+        return global_tools.call_new_his_pg(SQL_SOURCE_2)
+
+    # 源3的查询逻辑
+    elif int(cv_source) == 3:
+        # 尝试通过PACS视图获取申请单ID
+        sqdid = query_pacs_sqdid(record_data.get('cv_id'))
+        if sqdid:
+            result = global_tools.call_new_his_pg(f"""
+                    SELECT yj.jianchasqdid as shenqingdid, yj.kaidanren, yj.kaidanksmc, yj.kaidanks, yj.kaidanrenxm, yj.kaidanrq,
+                           yj2.baogaodanid, 
+                           COALESCE(NULLIF(TO_CHAR(yj2.baogaosj, 'yyyy-mm-dd hh24:mi:ss'), ''), '') AS 报告时间, 
+                           COALESCE(NULLIF(TO_CHAR(yj2.jianchasj, 'yyyy-mm-dd hh24:mi:ss'), ''), '') AS 执行时间
+                    FROM df_shenqingdan.yj_jianchasqd yj 
+                    LEFT JOIN df_cdr.yj_jianchabg yj2 ON yj.jianchasqdid = yj2.shenqingdanid 
+                    WHERE yj.jianchasqdid = '{sqdid}'
+                    """)
+            if result:
+                if not result[0].get('报告时间'):
+                    five_minutes_earlier, nine_minutes_earlier = calculate_previous_times(record_data.get('alertdt'))
+                    result[0]['报告时间'] = five_minutes_earlier
+                    result[0]['执行时间'] = nine_minutes_earlier
+                return result
+
+        # 如果没有申请单ID或查询失败，尝试通过报告ID反查
+        report_id = record_data.get('report_id')
+        patient_treat_id = record_data.get('patient_treat_id')
+        patient_name = record_data.get('patient_name', 'unknown')
+
+        if not report_id:
+            logger.warning("缺少必要参数: report_id")
+            return None
+
+        SQL_SOURCE_3_WITH_REPORT = f"""
+         SELECT shenqingdanid as shenqingdid, kaidanren, kaidanksmc, kaidanks, kaidanrenxm, kaidanrq, baogaodanid, 
+                COALESCE(NULLIF(TO_CHAR(baogaosj, 'yyyy-mm-dd hh24:mi:ss'), ''), '') AS 报告时间, 
+                COALESCE(NULLIF(TO_CHAR(jianchasj, 'yyyy-mm-dd hh24:mi:ss'), ''), '') AS 执行时间
+         FROM df_cdr.yj_jianchabg 
+         WHERE baogaodanid LIKE '%{report_id}%'
+         AND (zhuyuanhao = '{patient_treat_id}' OR bingrenxm = '{patient_name}')
+         """
+        return global_tools.call_new_his_pg(SQL_SOURCE_3_WITH_REPORT)
+
+    # 心电 / 血糖 / other
+    else:
+        report_id = record_data.get('report_id')
+        if not report_id:
+            logger.warning("缺少必要参数: report_id")
+            return None
+
+        SQL_SOURCE_OTHER_WITH_REPORT = f"""
+         SELECT shenqingdanid as shenqingdid, kaidanren, kaidanksmc, kaidanks, kaidanrenxm, kaidanrq, baogaodanid, 
+                COALESCE(NULLIF(TO_CHAR(baogaosj, 'yyyy-mm-dd hh24:mi:ss'), ''), '') AS 报告时间, 
+                COALESCE(NULLIF(TO_CHAR(jianchasj, 'yyyy-mm-dd hh24:mi:ss'), ''), '') AS 执行时间 
+         FROM df_cdr.yj_jianchabg 
+         WHERE baogaodanid = '{report_id}'
+         """
+        return global_tools.call_new_his_pg(SQL_SOURCE_OTHER_WITH_REPORT)
+
+
+def query_pacs_sqdid(cv_id):
+    import pyodbc
+    # 创建连接字符串
+    conn_str = f"DRIVER={{ODBC Driver 17 for SQL Server}};SERVER=192.168.3.53;" \
+               f"PORT=1433;DATABASE=VisionCenter;UID=sa;PWD=NYS@intechhosun"
+    conn, cursor = None, None  # 在函数开始时将 cursor 设置为 None
+    shenqingdanid = None
+    try:
+        # 连接到 SQL Server
+        conn = pyodbc.connect(conn_str)
+        cursor = conn.cursor()
+        cursor.execute(f"SELECT SQDH FROM V_wjz WHERE BGH = '{cv_id}' ")
+        rows = cursor.fetchall()
+        if not rows:
+            logger.warning(f"从 PACS 危机值视图中未查询到申请单号 {cv_id}")
+            return shenqingdanid
+        shenqingdanid = rows[0][0]
+    except Exception as e:
+        logger.error(f"从 PACS 危机值视图中查询申请单号异常 {cv_id}, {e}")
+    finally:
+        # 确保 cursor 被正确关闭
+        if cursor:
+            cursor.close()
+        if conn:
+            conn.close()
+    logger.info(f"从 PACS 危机值视图中成功查询到申请单号: {cv_id} {shenqingdanid}")
+    return shenqingdanid
+
+
+def calculate_previous_times(report_time):
+    """
+    根据上报时间计算并返回两个时间点：
+    1. 上报时间前5分钟
+    2. 上报时间前9分钟
+    """
+    try:
+        # 如果输入是字符串，转换为datetime对象
+        if isinstance(report_time, str):
+            try:
+                report_time = datetime.strptime(report_time, '%Y-%m-%d %H:%M:%S')
+            except ValueError:
+                raise ValueError("时间格式不正确，请使用'YYYY-MM-DD HH:MM:SS'格式")
+
+        # 计算前5分钟和前9分钟的时间
+        five_minutes_earlier = report_time - timedelta(minutes=5)
+        nine_minutes_earlier = report_time - timedelta(minutes=9)
+    except Exception as e:
+        logger.error(f"计算时间异常 {e}")
+        return '', ''
+
+    return five_minutes_earlier.strftime("%Y-%m-%d %H:%M:%S"), nine_minutes_earlier.strftime("%Y-%m-%d %H:%M:%S")
 
 
 def send_to_his_invalid(cv_id, invalid_time):
@@ -2121,6 +2231,3 @@ def manual_push_vital_signs(patient_name, ip_addr, open):
         response = requests.post(f"http://{ip_addr}:8085/opera_wiki", timeout=3, json=param)
     except Exception as e:
         logger.error(f'弹框发送异常, {e}')
-
-
-
