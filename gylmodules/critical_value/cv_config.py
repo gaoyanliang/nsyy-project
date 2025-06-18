@@ -105,7 +105,7 @@ HIS_SYNCHRONIZE_DATA = """
         <fasongsj>{fasongsj}</fasongsj>
         <fasongrenxm>{fasongrenxm}</fasongrenxm>
         <fasongren>{fasongren}</fasongren>
-        <zuofeibz>0</zuofeibz>
+        <zuofeibz>{zuofeibz}</zuofeibz>
         <zuofeisj>{zuofeisj}</zuofeisj>
         <zuofeiren>{zuofeiren}</zuofeiren>
         <huifuysid>{huifuysid}</huifuysid>

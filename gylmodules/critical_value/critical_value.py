@@ -1798,6 +1798,7 @@ def safe_post(data, method_name, timeout=5, max_retries=3, backoff_factor=1):
 
 
 def send_to_his(cv_record):
+    from xml.sax.saxutils import escape
     cv_source = int(cv_record.get('cv_source'))
     if cv_source in (5, 10):
         # todo 血糖危急值的 检查单暂时查不到
@@ -1823,8 +1824,16 @@ def send_to_his(cv_record):
         """
     patient_data = global_tools.call_new_his(sql)
     if not patient_data:
-        logger.warning(f"未查询到病人信息 cv_id = {cv_record.get('cv_id')}, patient_treat_id = {patient_treat_id}")
-        return
+        #没有的给默认值
+        patient_data = [{
+            "姓名": cv_record.get('patient_name') if cv_record.get('patient_name') else "0",
+            "性别": "男" if cv_record.get('gender') == '1' else ("女" if cv_record.get('gender') == '2' else "0"),
+            "年龄": cv_record.get('patient_age') if cv_record.get('patient_age') else "0",
+            "当前病区": cv_record.get('ward_id') if cv_record.get('ward_id') else "0",
+            "当前病区名称": cv_record.get('ward_name') if cv_record.get('ward_name') else "0",
+            "当前科室": cv_record.get('dept_id') if cv_record.get('dept_id') else "0",
+            "当前科室名称": cv_record.get('dept_name') if cv_record.get('dept_name') else "0"
+        }]
 
     shenqing_data = query_shenqingdan_info(cv_record)
     if not shenqing_data:
@@ -1844,7 +1853,7 @@ def send_to_his(cv_record):
     baogaosj = shenqing_data[0].get('报告时间') if shenqing_data[0].get('报告时间') else '0'
     zhixingsj = shenqing_data[0].get('执行时间') if shenqing_data[0].get('执行时间') else '0'
     kaidanrq = shenqing_data[0].get('kaidanrq').strftime("%Y-%m-%d %H:%M:%S") if shenqing_data[0].get(
-        'kaidanrq') else '0'
+        'kaidanrq') else jieshousj_times(cv_record.get('alertdt'), 21600)
 
     cv_result = cv_record.get('cv_result') if cv_record.get('cv_result') else '0'
     cv_result = cv_result.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;")
@@ -1873,13 +1882,14 @@ def send_to_his(cv_record):
         .replace('{weijizhinr}', cv_record.get('cv_name') if cv_record.get('cv_name') else '0') \
         .replace('{jianyanjg}', cv_result) \
         .replace('{dangwei}', cv_record.get('cv_unit') if cv_record.get('cv_unit') else '0') \
-        .replace('{cankaofw}', cv_record.get('cv_ref') if cv_record.get('cv_ref') else '0') \
+        .replace('{cankaofw}', escape(cv_record.get('cv_ref')) if cv_record.get('cv_ref') else '0') \
         .replace('{jianchaxmmc}', cv_record.get('cv_name') if cv_record.get('cv_name') else '0') \
         .replace('{fasongsj}', alertdt) \
         .replace('{fasongrenxm}', cv_record.get('alertman_name') if cv_record.get('alertman_name') else '0') \
         .replace('{fasongren}', cv_record.get('alertman') if cv_record.get('alertman_name') else '0') \
+        .replace('{zuofeibz}', '1' if cv_record.get('state') == 0 else '0') \
         .replace('{zuofeisj}',
-                 cv_record.get('invalid_time').strftime("%Y-%m-%d %H:%M:%S") if cv_record.get('invalid_time') else '0') \
+                 cv_record.get('invalid_time').strftime("%Y-%m-%d %H:%M:%S") if cv_record.get('invalid_time') else '') \
         .replace('{zuofeiren}', cv_record.get('invalid_person') if cv_record.get('invalid_person') else '0') \
         .replace('{huifuysid}', str(cv_record.get('handle_doctor_id')) if cv_record.get('handle_doctor_id') else '0') \
         .replace('{huifuysxm}', cv_record.get('handle_doctor_name') if cv_record.get('handle_doctor_name') else '0') \
@@ -1906,6 +1916,7 @@ def send_to_his(cv_record):
         .replace('{kaidanks}', shenqing_data[0].get('kaidanks') if shenqing_data[0].get('kaidanks') else '0') \
         .replace('{kaidanrenxm}', shenqing_data[0].get('kaidanrenxm') if shenqing_data[0].get('kaidanrenxm') else '0')
 
+    # print(his_sync_data)
     safe_post(his_sync_data, 'WeiJZInfoAdd')
 
 
