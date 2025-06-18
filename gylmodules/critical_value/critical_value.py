@@ -1782,7 +1782,7 @@ def safe_post(data, method_name, timeout=5, max_retries=3, backoff_factor=1):
                                      headers={"Content-Type": "application/xml", "Methodname": method_name},
                                      data=data)
             response.raise_for_status()  # 检查 HTTP 状态码
-            print(f"{datetime.now()} 危机值同步 HIS 成功: {response.text}")
+            # print(f"{datetime.now()} 危机值同步 HIS 成功: {response.text}")
             return response.text  # 成功则返回响应数据
         except Exception as e:
             last_exception = e
