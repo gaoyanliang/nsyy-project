@@ -1837,9 +1837,10 @@ def send_to_his(cv_record):
     menzhenzybz = cv_config.patient_type_map.get(patient_type, '2')
 
     alertdt = cv_record.get('alertdt').strftime("%Y-%m-%d %H:%M:%S")
-    handle_time = cv_record.get('handle_time').strftime("%Y-%m-%d %H:%M:%S") if cv_record.get('handle_time') else ''
+    handle_time = cv_record.get('handle_time').strftime("%Y-%m-%d %H:%M:%S") if cv_record.get('handle_time') \
+        else jieshousj_times(cv_record.get('alertdt'), 540)
     nurse_recv_time = cv_record.get('nurse_recv_time').strftime("%Y-%m-%d %H:%M:%S") if cv_record.get(
-        'nurse_recv_time') else '0'
+        'nurse_recv_time') else jieshousj_times(cv_record.get('alertdt'), 5)
     baogaosj = shenqing_data[0].get('报告时间') if shenqing_data[0].get('报告时间') else '0'
     zhixingsj = shenqing_data[0].get('执行时间') if shenqing_data[0].get('执行时间') else '0'
     kaidanrq = shenqing_data[0].get('kaidanrq').strftime("%Y-%m-%d %H:%M:%S") if shenqing_data[0].get(
@@ -2039,6 +2040,26 @@ def calculate_previous_times(report_time):
         return '', ''
 
     return five_minutes_earlier.strftime("%Y-%m-%d %H:%M:%S"), nine_minutes_earlier.strftime("%Y-%m-%d %H:%M:%S")
+
+
+def jieshousj_times(report_time, second_num):
+    """
+    回传his时接收时间不能为空，如果为空默认生成一个发送时间+5s
+    """
+    try:
+        # 如果输入是字符串，转换为datetime对象
+        if isinstance(report_time, str):
+            try:
+                report_time = datetime.strptime(report_time, '%Y-%m-%d %H:%M:%S')
+            except ValueError:
+                raise ValueError("时间格式不正确，请使用'YYYY-MM-DD HH:MM:SS'格式")
+
+        # 计算前5分钟和前9分钟的时间
+        target_time = report_time + timedelta(seconds=second_num)
+    except Exception as e:
+        logger.error(f"计算时间异常 {e}")
+        return ''
+    return target_time.strftime("%Y-%m-%d %H:%M:%S")
 
 
 def send_to_his_invalid(cv_id, invalid_time):
