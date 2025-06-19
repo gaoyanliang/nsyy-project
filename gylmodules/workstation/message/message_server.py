@@ -5,9 +5,10 @@ import redis
 import requests
 from datetime import datetime
 
-from gylmodules import global_config
+from gylmodules import global_config, global_tools
 from gylmodules.utils.db_utils import DbUtil
 from gylmodules.workstation import ws_config
+from gylmodules.workstation.message import msg_push_tool
 
 pool = redis.ConnectionPool(host=ws_config.REDIS_HOST, port=ws_config.REDIS_PORT,
                             db=ws_config.REDIS_DB, decode_responses=True)
@@ -121,6 +122,7 @@ def socket_push(msg: dict):
         msg_receiver, msg_sender = msg.get('receiver'), msg.get('sender')
         push({"type": 100, "data": {"title": "新消息来咯", "context": f"{msg.get('sender_name')} 发来一条消息",
                                     "message": msg}}, int(msg_receiver))
+        global_tools.start_thread(msg_push_tool.push_msg_to_devices, ([int(msg_receiver)], "新消息来咯", f"{msg.get('sender_name')} 发来一条消息"))
         push({"type": 100, "data": {"title": "", "context": "", "message": msg}}, int(msg_sender))
 
     elif chat_type == ws_config.GROUP_CHAT:
@@ -138,8 +140,9 @@ def socket_push(msg: dict):
             if int(member) == int(msg_sender):
                 title = ""
                 context = ""
-
             push({"type": 100, "data": {"title": title, "context": context, "message": msg}}, int(member))
+            if title:
+                global_tools.start_thread(msg_push_tool.push_msg_to_devices, ([int(member)], title, context))
 
     elif chat_type == ws_config.NOTIFICATION_MESSAGE:
         # 向所有用户推送未读消息数量，以及最后一条消息内容
@@ -151,6 +154,7 @@ def socket_push(msg: dict):
         recv = msg.get('receiver')
         push({"type": 400, "data": {"title": "新消息来咯", "context": f"接收到来自 {msg.get('sender_name')} 的通知消息",
                                     "message": msg}}, int(recv))
+        global_tools.start_thread(msg_push_tool.push_msg_to_devices, ([int(recv)], "新消息来咯", f"接收到来自 {msg.get('sender_name')} 的通知消息"))
 
 
 #  ==========================================================================================
@@ -358,16 +362,18 @@ def save_phone_info(phone_info):
     pers_id = int(phone_info.get("pers_id"))
     device_token = phone_info.get("device_token")
     brand = phone_info.get("brand")
+    online = phone_info.get("online", 1)
     if brand:
         brand = brand.upper()
     if not pers_id or not device_token or not brand:
         return
 
-    insert_sql = """INSERT INTO nsyy_gyl.app_token_info (pers_id, device_token, brand) 
-                VALUES (%s, %s, %s) ON DUPLICATE KEY UPDATE pers_id = VALUES(pers_id), 
-                device_token = VALUES(device_token), brand = VALUES(brand), update_time = CURRENT_TIMESTAMP"""
+    insert_sql = """INSERT INTO nsyy_gyl.app_token_info (pers_id, device_token, brand, online) 
+                VALUES (%s, %s, %s, %s) ON DUPLICATE KEY UPDATE pers_id = VALUES(pers_id), 
+                device_token = VALUES(device_token), brand = VALUES(brand), online = VALUES(online), 
+                update_time = CURRENT_TIMESTAMP"""
     db = DbUtil(global_config.DB_HOST, global_config.DB_USERNAME, global_config.DB_PASSWORD,
                 global_config.DB_DATABASE_GYL)
-    db.execute(insert_sql, args=(pers_id, device_token, brand), need_commit=True)
+    db.execute(insert_sql, args=(pers_id, device_token, brand, online), need_commit=True)
     del db
 

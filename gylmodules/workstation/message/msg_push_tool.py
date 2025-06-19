@@ -143,7 +143,7 @@ def push_msg_to_devices(pers_ids, title, body):
     start_time = datetime.now()
 
     query_sql = f"select * from nsyy_gyl.app_token_info where pers_id in ({','.join(map(str, pers_ids))}) " \
-                f"and device_token IS NOT NULL "
+                f"and device_token IS NOT NULL and online = 1 "
     db = DbUtil(global_config.DB_HOST, global_config.DB_USERNAME, global_config.DB_PASSWORD,
                 global_config.DB_DATABASE_GYL)
     device_tokens = db.query_all(query_sql)

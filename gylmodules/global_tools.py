@@ -5,6 +5,7 @@ import logging
 from logging.handlers import RotatingFileHandler
 
 from functools import wraps, lru_cache
+from typing import Callable, Any
 
 import requests
 import psycopg2
@@ -194,29 +195,44 @@ def validate_params(*required_params):
     return decorator
 
 
+# def timed_lru_cache(seconds: int, maxsize: int = 128):
+#     """
+#     自定义带过期时间的缓存装饰器
+#     :param seconds:
+#     :param maxsize:
+#     :return:
+#     """
+#     def wrapper(func):
+#         func = lru_cache(maxsize=maxsize)(func)
+#         func.expiration = {}  # {args: expiration_time}
+#
+#         @wraps(func)
+#         def wrapped(*args, **kwargs):
+#             now = time()
+#             # 清理过期缓存（可选）
+#             expired_keys = [k for k, t in func.expiration.items() if t < now]
+#             for key in expired_keys:
+#                 func.cache_remove(key)
+#                 del func.expiration[key]
+#             # 调用函数并记录过期时间
+#             result = func(*args, **kwargs)
+#             func.expiration[args] = now + seconds
+#             return result
+#         return wrapped
+#     return wrapper
+
+
 def timed_lru_cache(seconds: int, maxsize: int = 128):
-    """
-    自定义带过期时间的缓存装饰器
-    :param seconds:
-    :param maxsize:
-    :return:
-    """
-    def wrapper(func):
+    def wrapper_cache(func: Callable) -> Callable:
         func = lru_cache(maxsize=maxsize)(func)
-        func.expiration = {}  # {args: expiration_time}
+        func.lifetime = seconds
+        func.expire_time = time() + func.lifetime
 
         @wraps(func)
-        def wrapped(*args, **kwargs):
-            now = time()
-            # 清理过期缓存（可选）
-            expired_keys = [k for k, t in func.expiration.items() if t < now]
-            for key in expired_keys:
-                func.cache_remove(key)
-                del func.expiration[key]
-            # 调用函数并记录过期时间
-            result = func(*args, **kwargs)
-            func.expiration[args] = now + seconds
-            return result
-        return wrapped
-    return wrapper
-
+        def wrapped_func(*args: Any, **kwargs: Any) -> Any:
+            if time() > func.expire_time:
+                func.cache_clear()
+                func.expire_time = time() + func.lifetime
+            return func(*args, **kwargs)
+        return wrapped_func
+    return wrapper_cache
