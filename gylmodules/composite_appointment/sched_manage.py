@@ -68,6 +68,8 @@ def get_schedule(start_date, end_date, query_by, pid, rid: int = 45):
     :param rid:
     :return:
     """
+    if not rid:
+        rid = 0
     if query_by == 'doctor':
         if pid:
             query_sql = f"""SELECT s.dsid, s.did, s.shift_date, s.shift_type, s.status,
