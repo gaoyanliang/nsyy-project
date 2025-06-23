@@ -140,7 +140,6 @@ def save_phone_info(json_data):
 @message_router.route('/push_msg_to_devices', methods=['POST'])
 @api_response
 def push_msg_to_devices(json_data):
-    msg_push_tool.push_msg_to_devices(json_data.get('pers_id'), json_data.get('title'), json_data.get('body'))
-    return '成功推送消息到指定设备'
+    return msg_push_tool.push_msg_to_devices(json_data.get('pers_id'), json_data.get('title'), json_data.get('body'))
 
 

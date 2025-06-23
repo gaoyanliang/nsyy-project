@@ -38,8 +38,9 @@ class GlobalEventLoop:
 
     @classmethod
     def shutdown(cls):
-        if cls._loop is None:
-            return
+        with cls._lock:  # 加锁保护
+            if cls._loop is None:
+                return
 
         loop = cls._loop
         # 1. 取消所有任务
