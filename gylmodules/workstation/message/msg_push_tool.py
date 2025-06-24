@@ -112,6 +112,17 @@ def android_push(url, token, payload):
         return {"code": "80000002", "msg": "Request timeout"}
 
 
+def send_single_apns(client: APNsClient, device_token: str, title: str, body: str) -> bool:
+    """发送单个通知（同步阻塞）"""
+    try:
+        payload = Payload(alert=PayloadAlert(title=title, body=body), sound="default", category="MY_CATEGORY")
+        client.send_notification(device_token, payload, "com.nsyy.Nsyy")
+        return True
+    except Exception as e:
+        print(f"ios 推送失败 {device_token[:8]}...: {e.__class__}")
+        return False
+
+
 def ios_push(title, body, device_tokens):
     start_time = time.time()
     script_dir = os.path.dirname(os.path.abspath(__file__))
@@ -134,25 +145,27 @@ def ios_push(title, body, device_tokens):
 def android_push_task(title, body, device_tokens):
     """Android 推送任务，供线程池调用"""
     android_error_tokens = []
-    if device_tokens:
-        token = get_cached_token(android_client_id, android_client_secret)
-        if token:
-            android_batch_size = 500
-            for i in range(0, len(device_tokens), android_batch_size):
-                batch_tokens = device_tokens[i:i + android_batch_size]
-                payload = build_android_payload(title, body, batch_tokens)
-                ret = android_push(android_push_url, token, payload)
-                if ret.get("code") == "80000000":
-                    logger.debug(f"Android push batch success: {len(batch_tokens)} tokens")
-                elif ret.get("code") == "80100000":
-                    logger.warning(f"Android push batch error: {ret.get('msg')[:100]}")
-                    illegal_tokens = json.loads(ret.get("msg")).get("illegal_tokens", [])
-                    android_error_tokens.extend(illegal_tokens)
-                else:
-                    logger.warning(f"Android push batch error: {ret.get('msg')[:100]}")
-                    android_error_tokens.extend(batch_tokens)
-        else:
-            android_error_tokens = device_tokens
+    if not device_tokens:
+        return android_error_tokens
+
+    token = get_cached_token(android_client_id, android_client_secret)
+    if token:
+        android_batch_size = 500
+        for i in range(0, len(device_tokens), android_batch_size):
+            batch_tokens = device_tokens[i:i + android_batch_size]
+            payload = build_android_payload(title, body, batch_tokens)
+            ret = android_push(android_push_url, token, payload)
+            if ret.get("code") == "80000000":
+                logger.debug(f"Android push batch success: {len(batch_tokens)} tokens")
+            elif ret.get("code") == "80100000":
+                logger.warning(f"Android push batch error: {ret.get('msg')[:100]}")
+                illegal_tokens = json.loads(ret.get("msg")).get("illegal_tokens", [])
+                android_error_tokens.extend(illegal_tokens)
+            else:
+                logger.warning(f"Android push batch error: {ret.get('msg')[:100]}")
+                android_error_tokens.extend(batch_tokens)
+    else:
+        android_error_tokens = device_tokens
     return android_error_tokens
 
 
@@ -183,15 +196,29 @@ def push_msg_to_devices(pers_ids, title, body):
     android_device_tokens = [item.get("device_token") for item in device_tokens if item.get('brand')
                              and item.get("brand") != "IOS" and item.get("device_token")]
 
+    if len(ios_device_tokens) > 0:
+        # 推送初始化的时候会报错 module 'h2.settings' has no attribute 'ENABLE_PUSH'，仅影响第一个，所以在首位插入一个无效token
+        ios_device_tokens.insert(0, "010101001010101010")
+
+    script_dir = os.path.dirname(os.path.abspath(__file__))
+    pem_path = os.path.join(script_dir, "ck.pem")  # 拼接完整路径
+    # client = APNsClient(pem_path, password="gyl.2015", use_sandbox=global_config.run_in_local)
+    client = APNsClient(pem_path, password="gyl.2015", use_sandbox=False)
+    payload = Payload(alert=PayloadAlert(title=title, body=body), category="MY_CATEGORY", sound="default", )
+
     # 并行执行 Android 和 iOS 推送
     android_error_tokens, ios_error_tokens = [], []
     with ThreadPoolExecutor(max_workers=2) as executor:
         # 提交 Android 和 iOS 推送任务
         android_future = executor.submit(android_push_task, msg_title, msg_body, android_device_tokens)
-        ios_future = executor.submit(ios_push_task, msg_title, msg_body, ios_device_tokens)
+        # ios_future = executor.submit(ios_push_task, msg_title, msg_body, ios_device_tokens)
+        ios_futures = [executor.submit(send_single_apns, client, token, title, body)
+                       for token in ios_device_tokens]
         # 等待结果
         android_error_tokens = android_future.result()
-        ios_error_tokens = ios_future.result()
+        for future, token in zip(ios_futures, ios_device_tokens):
+            if not future.result():  # 阻塞获取结果
+                ios_error_tokens.append(token)
 
     logger.info(f"push msg to devices Total time: {(datetime.now() - start_time).total_seconds():.2f}s")
     send_fail_pers_ids = []
@@ -208,4 +235,3 @@ def push_msg_to_devices(pers_ids, title, body):
                 pers_status[pers_id] = (token in failed_set)
         send_fail_pers_ids = [pers_id for pers_id, is_failed in pers_status.items() if is_failed]
     return send_fail_pers_ids
-
