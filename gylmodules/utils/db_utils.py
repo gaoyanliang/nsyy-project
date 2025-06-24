@@ -106,7 +106,7 @@ class DbUtil:
         self.__conn.select_db(db)
         logger.info(f'switch database to {db}=')
 
-    def execute(self, sql, args=None, need_commit: bool = False):
+    def execute(self, sql, args=None, need_commit: bool = False, print_log: bool = True):
         """获取SQL执行结果"""
         try:
             self.__cursor.execute(sql, args)
@@ -115,11 +115,14 @@ class DbUtil:
                 self.__commit()
             return last_rowid
         except Exception as e:
-            logger.warning(f"执行SQL {sql}, 遇到异常 {e}")
+            if print_log:
+                logger.warning(f"执行SQL {sql}, 遇到异常 {e}")
+            else:
+                logger.debug(f"执行SQL {sql}, 遇到异常 {e}")
             self.__conn.rollback()
         return -1
 
-    def execute_many(self, sql, args=None, need_commit: bool = False):
+    def execute_many(self, sql, args=None, need_commit: bool = False, print_log: bool = True):
         """获取SQL执行结果"""
         try:
             self.__cursor.executemany(sql, args)
@@ -129,28 +132,37 @@ class DbUtil:
             # 获取最后一个插入记录的ID
             return self.__cursor.lastrowid
         except Exception as e:
-            logger.warning(f"执行SQL {sql}, 遇到异常 {e}")
+            if print_log:
+                logger.warning(f"执行SQL {sql}, 遇到异常 {e}")
+            else:
+                logger.debug(f"执行SQL {sql}, 遇到异常 {e}")
             self.__conn.rollback()
         return -1
 
-    def query_one(self, sql):
+    def query_one(self, sql, print_log: bool = True):
         """查询单条数据"""
         result = None
         try:
             self.__cursor.execute(sql)
             result = self.__cursor.fetchone()
         except Exception as e:
-            logger.warning(f"执行SQL {sql}, 遇到异常 {e}")
+            if print_log:
+                logger.warning(f"执行SQL {sql}, 遇到异常 {e}")
+            else:
+                logger.debug(f"执行SQL {sql}, 遇到异常 {e}")
         return result
 
-    def query_all(self, sql):
+    def query_all(self, sql, print_log: bool = True):
         """查询多条数据"""
         list_result = ()
         try:
             self.__cursor.execute(sql)
             list_result = self.__cursor.fetchall()
         except Exception as e:
-            logger.warning(f"执行SQL {sql}, 遇到异常 {e}")
+            if print_log:
+                logger.warning(f"执行SQL {sql}, 遇到异常 {e}")
+            else:
+                logger.debug(f"执行SQL {sql}, 遇到异常 {e}")
         return list_result
 
 
@@ -163,6 +175,9 @@ if __name__ == "__main__":
 
     dbs = db.list_tables()
     print(f"table list: {dbs}")
+
+    data = db.query_all("select count(*) from nsyy_gyl.cv_info")
+    print(data)
 
     del db
 
