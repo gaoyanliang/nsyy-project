@@ -240,23 +240,21 @@ def re_alert_fail_ip_log():
         # 使用线程池并行检查 IP 可用性
         def check_ip(ip_info):
             try:
-                ip = ip_info['ip']
+                ip_addr = ip_info['ip']
                 # 先尝试 ping
-                response_time = ping(ip)
+                response_time = ping(ip_addr)
                 if response_time is None:
                     return None
 
-                # 检查服务可用性
-                url = f"http://{ip}:8085/echo"
-                response = requests.get(url, timeout=3)
+                response = requests.get(f"http://{ip_addr}:8085/echo", timeout=3)
                 if response.status_code == 200:
-                    return ip
+                    return ip_addr
             except Exception:
                 return None
             return None
 
         # 使用线程池并行处理
-        with ThreadPoolExecutor(max_workers=10) as executor:
+        with concurrent.futures.ThreadPoolExecutor() as executor:
             results = executor.map(check_ip, all_fail_ip)
 
             # 收集需要删除的 IP
