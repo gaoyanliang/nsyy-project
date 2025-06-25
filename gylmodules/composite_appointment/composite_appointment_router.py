@@ -318,7 +318,7 @@ def today_doctor_for_appointment():
     json_data = {}
     try:
         json_data = json.loads(request.get_data().decode('utf-8'))
-        doctor_list = sched_manage.query_today_doctor_for_appointment(json_data.get('dept_id'))
+        doctor_list = sched_manage.query_today_doctor_for_appointment(json_data.get('DeptID'))
     except Exception as e:
         logger.error(f"today_doctor_for_appointment Exception occurred: {e.__str__()}, param: {json_data}")
         return jsonify({

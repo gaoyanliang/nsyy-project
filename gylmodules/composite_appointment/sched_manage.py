@@ -361,7 +361,7 @@ def query_today_dept_for_appointment():
         "Outtime": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
         "ResultCode": 0,
         "ReturnQty": len(dept_list),
-        "TransCode": "4003",
+        "TransCode": "4002",
         "List": {
             "Item": dept_list
         },
@@ -376,13 +376,14 @@ def query_today_doctor_for_appointment(dept_id):
     :param dept_id:
     :return:
     """
+    condition_sql = f"and d.dept_id = {dept_id}" if dept_id else ""
     start_time = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
     db = DbUtil(global_config.DB_HOST, global_config.DB_USERNAME, global_config.DB_PASSWORD,
                 global_config.DB_DATABASE_GYL)
     query_sql = f"""SELECT d.*, s.shift_type FROM nsyy_gyl.appt_schedules s 
     join nsyy_gyl.appt_doctor d on s.did = d.id join nsyy_gyl.appt_schedules_doctor ds 
     on ds.did = s.did and ds.shift_date = s.shift_date and ds.shift_type = s.shift_type 
-    WHERE s.shift_date = '{datetime.now().date()}' and d.his_status = 1 and d.dept_id = {dept_id} and ds.status = 1"""
+    WHERE s.shift_date = '{datetime.now().date()}' and d.his_status = 1 {condition_sql} and ds.status = 1"""
     doctor_list = db.query_all(query_sql)
     del db
 
@@ -390,13 +391,13 @@ def query_today_doctor_for_appointment(dept_id):
     for doc in doctor_list:
         shift_type = doc.get('shift_type')
         today_doc.append({
-            "RigsterType": "1",  # 含义待定 目前发现仅急诊 急诊内科 急诊诊查费 是2 其他都是 1
+            "RigsterType": "1",  # 1 普通 2 急诊 3 专科 4 专家
             "AsRowid": doc.get('appointment_id'),
             "EnSerNumList": "1",  # 含义待定
             "IsTime": "2",  # 含义待定
             "ShangXiaWBz": "0" if shift_type == 1 else "1",
-            "BegTime": "08:00:00" if shift_type == 1 else "14:00:00",
-            "EndTime": "12:00:00" if shift_type == 1 else "17:30:00",
+            "BegTime": "08:00:00" if shift_type == 1 else "14:30:00",
+            "EndTime": "12:00:00" if shift_type == 1 else "18:00:00",
             "HBTime": "上午" if shift_type == 1 else "下午",
             "DepID": doc.get('dept_id'),
             "DepName": doc.get('dept_name'),

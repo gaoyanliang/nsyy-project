@@ -589,6 +589,11 @@ def manual_report_cv(json_data):
         json_data['alert_dept_id'], json_data['alert_dept_name'], \
             json_data['alertman_name'], json_data['alertman_pers_id'] = \
             call_third_systems_obtain_data('get_dept_info_by_emp_num', param)
+        if json_data['alertman'] in cv_config.personnel_in_ultrasound2:
+            # his中不区分超声一/二，但是科室要求区分，这里手动区分
+            json_data['alert_dept_id'] = 1000800
+            json_data['alert_dept_name'] = "超声二组"
+
     if not json_data.get('alertman_pers_id'):
         json_data['alertman_pers_id'] = 0
 
@@ -750,6 +755,10 @@ def create_cv_by_system(json_data, cv_source):
                  "randstr": "XPFDFZDF7193CIONS1PD7XCJ3AD4ORRC"}
         cvd['alert_dept_id'], cvd['alert_dept_name'], cvd['alertman_name'], cvd['alertman_pers_id'] = \
             call_third_systems_obtain_data('get_dept_info_by_emp_num', param)
+        if cvd['alertman'] in cv_config.personnel_in_ultrasound2:
+            # his中不区分超声一/二，但是科室要求区分，这里手动区分
+            cvd['alert_dept_id'] = 1000800
+            cvd['alert_dept_name'] = "超声二组"
 
     if not cvd.get('alert_dept_id'):
         cvd['alert_dept_id'] = 0
