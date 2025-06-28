@@ -5,7 +5,7 @@ from flask import Blueprint
 from gylmodules import global_config
 from gylmodules.app_version.app_version_router import app_version
 from gylmodules.critical_value.critical_value_router import cv
-# from gylmodules.eye_hospital_pacs.ehp_router import ehp_system
+from gylmodules.eye_hospital_pacs.ehp_router import ehp_system
 from gylmodules.global_tools import setup_logging
 from gylmodules.hospital_class.hosp_class_router import hosp_class
 from gylmodules.hyperbaric_oxygen_therapy.hbot_router import hbot
@@ -105,11 +105,11 @@ logger.info('10. 注册院内讲座系统路由')
 gylroute.register_blueprint(hosp_class)
 
 
-# # ============================
-# # === 11. 注册眼科医院pacs系统路由 ===
-# # ============================
-# logger.info('11. 注册眼科医院pacs系统路由')
-# gylroute.register_blueprint(ehp_system)
+# ============================
+# === 11. 注册眼科医院pacs系统路由 ===
+# ============================
+logger.info('11. 注册眼科医院pacs系统路由')
+gylroute.register_blueprint(ehp_system)
 
 
 logger.info("=============== End 路由注册完成 =====================")

@@ -48,3 +48,36 @@ curl -v \
 --cert /path/to/cert.pem \
 https://api.development.push.apple.com/3/device/DEVICE_TOKEN
 ```
+
+
+生成不需要密码的证书
+
+```shell
+1. 先把所有证书文件备份一份到 /Users/gaoyanliang/nsyy/ios/配置推送证书/back
+
+然后 
+
+步骤 1：解密私钥（如果加密）（输入原始密码）
+openssl rsa -in PushKey.pem -out PushKey_unencrypted.pem
+
+步骤 2：重新合并文件
+# 合并证书 + 无密码私钥
+cat PushCert.pem PushKey_unencrypted.pem > ck1_fixed.pem
+
+步骤 3：验证最终文件
+
+# 检查证书
+openssl x509 -in ck1_fixed.pem -noout -text
+
+# 检查私钥
+openssl rsa -in ck1_fixed.pem -check -noout
+
+步骤 4：在代码中使用
+
+from aioapns import APNs
+
+apns = APNs(
+    client_cert="ck1_fixed.pem",  # 使用修复后的文件
+    use_sandbox=True,  # 开发环境=True，生产环境=False
+)
+```
