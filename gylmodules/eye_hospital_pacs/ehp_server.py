@@ -128,11 +128,12 @@ def query_patient_list(query_data):
             }
 
         # 添加 tab 信息
-        merged[key]["treatments"].append({
-            "tid": record["tid"],
-            "zhusu": record["zhusu"],
-            "visit_time": record["visit_time"]
-        })
+        if record['tid']:
+            merged[key]["treatments"].append({
+                "tid": record["tid"],
+                "zhusu": record["zhusu"],
+                "visit_time": record["visit_time"]
+            })
 
     return {"patient_list": list(merged.values()), "total": total}
 
