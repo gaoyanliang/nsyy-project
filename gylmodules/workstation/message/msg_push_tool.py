@@ -184,7 +184,7 @@ def push_msg_to_devices(pers_ids, title, body):
     del db
     if not device_tokens:
         logger.debug(f"No devices found for pers_id: {pers_ids}")
-        return
+        return []
 
     # 预处理消息内容
     msg_title = title or "新消息通知📢"

@@ -129,9 +129,24 @@ def query_timeout():
 
 
 @cv.route('/operate_site', methods=['POST'])
-@api_response
-def operate_site(json_data):
-    critical_value.site_maintenance(json_data)
+def operate_site():
+    json_data = json.loads(request.get_data().decode('utf-8'))
+    try:
+        critical_value.site_maintenance(json_data)
+    except Exception as e:
+        print(f"create_critical_value: An unexpected error occurred: {e}")
+        print(traceback.print_exc())
+        return jsonify({
+            'code': 50000,
+            'res': e.__str__(),
+            'data': '站点信息维护失败，请稍后重试'
+        })
+
+    return jsonify({
+        'code': 20000,
+        'res': '站点信息维护成功',
+        'data': '站点信息维护成功'
+    })
 
 
 # 查询待审核危机值列表
