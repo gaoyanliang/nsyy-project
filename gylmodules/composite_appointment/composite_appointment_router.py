@@ -66,13 +66,14 @@ def sign_in(json_data):
 @appt.route('/query_projs', methods=['GET', 'POST'])
 @api_response
 def get_all_project(json_data):
-    raise Exception('抱歉！ 系统升级中，请先用自助机挂号或诊间挂号，谢谢')
+    raise Exception('系统升级中，请先用自助机挂号或诊间挂号，谢谢')
     return ca_server.query_all_appt_project(int(json_data.get('type')), json_data.get('pid'))
 
 
 @appt.route('/query_today_projs', methods=['GET', 'POST'])
 @api_response
 def query_today_projs(json_data):
+    raise Exception('系统升级中，请先用自助机挂号或诊间挂号，谢谢')
     return ca_server.query_all_appt_project(int(json_data.get('type')), json_data.get('pid'), only_today=True)
 
 
@@ -217,6 +218,7 @@ def query_proj_info(json_data):
 @appt.route('/query_doc_by_empno', methods=['POST', 'GET'])
 @api_response
 def query_doc_by_empno(json_data):
+    raise Exception('系统升级中，请先用自助机挂号或诊间挂号，谢谢')
     return sched_manage.query_doc_bynum_or_name(json_data.get('key'))
 
 
@@ -299,34 +301,20 @@ def update_today_doc_info():
     update_doc_scheduling.update_today_doc_info()
 
 
-@appt.route('/today_dept_for_appointment', methods=['POST', 'GET'])
+@appt.route('/entrance_zzj', methods=['POST', 'GET'])
 def today_dept_for_appointment():
     try:
-        dept_list = sched_manage.query_today_dept_for_appointment()
+        json_data = json.loads(request.get_data().decode('utf-8'))
+        if json_data.get('TransCode', 0) == "4002":
+            ret_list = sched_manage.query_today_dept_for_appointment()
+        elif json_data.get('TransCode', 0) == "4003":
+            ret_list = sched_manage.query_today_doctor_for_appointment(json_data.get('DeptID'))
+        else:
+            return jsonify({'ResultCode': "1", 'ErrorMsg': "参数异常，TransCode 仅支持 4002/4003"})
+        return jsonify(ret_list)
     except Exception as e:
         logger.error(f"today_dept_for_appointment Exception occurred: {e.__str__()}")
-        return jsonify({
-            'code': 50000,
-            'res': e.__str__()
-        })
-
-    return jsonify(dept_list)
-
-
-@appt.route('/today_doctor_for_appointment', methods=['POST', 'GET'])
-def today_doctor_for_appointment():
-    json_data = {}
-    try:
-        json_data = json.loads(request.get_data().decode('utf-8'))
-        doctor_list = sched_manage.query_today_doctor_for_appointment(json_data.get('DeptID'))
-    except Exception as e:
-        logger.error(f"today_doctor_for_appointment Exception occurred: {e.__str__()}, param: {json_data}")
-        return jsonify({
-            'code': 50000,
-            'res': e.__str__()
-        })
-
-    return jsonify(doctor_list)
+        return jsonify({'ResultCode': "1", 'ErrorMsg': e.__str__()})
 
 
 """

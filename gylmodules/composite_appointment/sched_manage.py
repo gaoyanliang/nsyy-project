@@ -354,6 +354,9 @@ def query_today_dept_for_appointment():
     dept_list = db.query_all(query_sql)
     del db
 
+    for d in dept_list:
+        d['DeptID'] = str(d['DeptID'])
+
     return {
         "Count": len(dept_list),
         "ErrorMsg": "",
@@ -362,11 +365,7 @@ def query_today_dept_for_appointment():
         "ResultCode": 0,
         "ReturnQty": len(dept_list),
         "TransCode": "4002",
-        "List": {
-            "Item": dept_list
-        },
-        "code": 20000,
-        "res": "成功"
+        "List": {"Item": dept_list}
     }
 
 
@@ -422,11 +421,7 @@ def query_today_doctor_for_appointment(dept_id):
         "ResultCode": 0,
         "ReturnQty": len(today_doc),
         "TransCode": "4003",
-        "List": {
-            "Item": today_doc
-        },
-        "code": 20000,
-        "res": "成功"
+        "List": {"Item": today_doc}
     }
 
 
