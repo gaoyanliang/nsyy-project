@@ -1,5 +1,8 @@
 ## 定时将指定目录中的文件转移至 统一共享目录中
 
+任务计划程序面板
+按 Win + R 键打开“运行”对话框，然后输入 taskschd.msc 并按回车键，这将打开“任务计划程序”窗口。
+
 在各个检查设备所在 windows 电脑上 按顺序执行如下步骤：
 
 1. 用文本编辑器（推荐 VSCode 或记事本）新建一个文件，内容写好你的 `transfer.ps1` 脚本。
@@ -11,10 +14,12 @@ Windows 自带的 wscript.exe 可以彻底隐藏控制台窗口。
 
 步骤：
 创建一个 VBS 脚本（如 E:\script\run_hidden.vbs），内容如下：
+
 ```shell
 Set WshShell = CreateObject("WScript.Shell")
 WshShell.Run "powershell.exe -NoLogo -NonInteractive -ExecutionPolicy Bypass -File ""E:\script\transfer.ps1""", 0, False
 ```
+
 0 表示 完全隐藏窗口（无闪烁）。
 False 表示 不等待脚本执行完成（避免阻塞）。
 修改计划任务命令，改为调用 VBS 脚本：

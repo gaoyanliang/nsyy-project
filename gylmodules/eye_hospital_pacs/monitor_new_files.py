@@ -6,16 +6,6 @@ from smb.SMBConnection import SMBConnection
 import logging
 import socket
 
-# 配置日志
-# logging.basicConfig(
-#     level=logging.INFO,
-#     format='%(asctime)s - %(levelname)s - %(message)s',
-#     handlers=[
-#         logging.FileHandler('monitor.log'),  # 保存日志到文件
-#         logging.StreamHandler()  # 同时输出到控制台
-#     ]
-# )
-logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 logger = logging.getLogger(__name__)
 
 # 共享文件夹配置
