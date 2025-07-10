@@ -519,23 +519,27 @@ def class_help_checkin(json_data):
     帮忙签到
     :return:
     """
+    print(json_data)
     class_id = json_data.get('class_id')
-    pers_name = json_data.get('pers_name')
+    pers_names = json_data.get('pers_names')
+    if not pers_names or not class_id:
+        return jsonify({'code': 50000, 'res': '请输入要帮忙签到的人员名单'})
     db = DbUtil(global_config.DB_HOST, global_config.DB_USERNAME, global_config.DB_PASSWORD,
                 global_config.DB_DATABASE_GYL)
 
-    old_checkin = db.query_one(f"select * from nsyy_gyl.hosp_class_pers where class_id = {class_id} and pers_name = '{pers_name}'")
-    if not old_checkin:
+    pers_name_condition = ",".join([f"'{name}'" for name in pers_names])
+    old_checkins = db.query_all(f"select * from nsyy_gyl.hosp_class_pers where class_id = {class_id} "
+                                f" and pers_name in ({pers_name_condition})")
+    if not old_checkins:
         del db
-        return jsonify({'code': 50000, 'res': f'{pers_name} 没有预约当前讲座, 无法签到'})
-    if old_checkin.get('pers_status') == 2:
+        return jsonify({'code': 50000, 'res': f'{pers_name_condition} 没有预约当前讲座, 无法签到'})
+    cp_key_condition = ",".join([f"'{name.get('cp_key')}'" for name in old_checkins if name.get('pers_status') < 2])
+    if not cp_key_condition:
         del db
-        return jsonify({'code': 50000, 'res': f'{pers_name} 已经签过到了, 请勿重复签到'})
-
-    cp_key = old_checkin.get('cp_key')
+        return jsonify({'code': 20000, 'res': '签到成功'})
     affected_rows = db.execute(f"update nsyy_gyl.hosp_class_pers set pers_status = 2, "
                                f"check_in_time = '{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}' "
-                               f"where cp_key = '{cp_key}'", need_commit=True)
+                               f"where cp_key in ({cp_key_condition})", need_commit=True)
     del db
     return jsonify({'code': 20000, 'res': '签到成功'})
 
