@@ -1,3 +1,24 @@
+## 数据库账号
+
+1. 本地数据库 Mysql 127.0.0.1:3306 root/gyl.2015
+2. 服务器数据库 Mysql 192.168.3.12:3306 gyl/123456
+3. 邮箱服务器 MariaDB 192.168.3.92:3306 root/NSYYnsyy@123 vmail
+4. 新HIS数据库 PostgreSQL 192.168.8.57:6000 ogg/nyogg@2024 df_his       京颐移动护理系统  jk_jingyiydhl/jingyiydhl@123  df_his
+5. 老HIS数据库 Oracle 192.168.3.8:1521 Service Name=ORCL zlhis/.1451534F81B 
+6. OA服务器数据库 Mysql 192.168.3.12:3306 root/123123
+7. PACS 数据库 SQL Server 192.168.3.53:1433 sa/NYS@intechhosun
+8. 危机值数据库 Oracle 192.168.3.240:1521 Service Name=ORCL system/d67v7rbZyV
+
+## 服务器账号
+
+1. 192.168.3.240 gyl/gaoyanliang123     管理员  root/wy123qwe.
+2. 192.168.3.12  gyl/gyl123      oa_test root/123456
+3. 192.168.3.45  yifei/yifei
+4. 192.168.3.92  cc/NSYYnsyy@123    邮箱服务器
+
+ 
+
+
 ## 医体融合项目 sport_mng
 
 ### 电子健康卡服务
