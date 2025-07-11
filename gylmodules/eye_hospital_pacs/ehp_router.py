@@ -47,6 +47,13 @@ def bind_report(json_data):
     return ehp_server.bind_report(json_data.get('report_id'), json_data.get('register_id'), json_data.get('patient_id'))
 
 
+@ehp_system.route('/place_on_file', methods=['POST', 'GET'])
+@api_response
+def place_on_file(json_data):
+    return ehp_server.place_on_file(json_data.get('patient_id'), json_data.get('register_id'), json_data.get('is_complete'))
+
+
+
 @ehp_system.route('/report', methods=['POST', 'GET'])
 def show_report():
 

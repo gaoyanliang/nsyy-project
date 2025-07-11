@@ -84,8 +84,8 @@ def query_medical_list(register_id):
     db = DbUtil(global_config.DB_HOST, global_config.DB_USERNAME, global_config.DB_PASSWORD,
                 global_config.DB_DATABASE_GYL)
 
-    record_data = db.query_all(f"SELECT r.register_id, r.record_id, r.record_name, rd.id as record_detail_id, "
-                               f"rd.table_id, rd.table_name FROM nsyy_gyl.ehp_medical_record_list r "
+    record_data = db.query_all(f"SELECT r.register_id, r.record_id, r.record_name, r.record_status, "
+                               f"rd.id as record_detail_id,rd.table_id, rd.table_name FROM nsyy_gyl.ehp_medical_record_list r "
                                f"join nsyy_gyl.ehp_medical_record_detail rd on r.register_id = rd.register_id "
                                f"and r.record_id = rd.record_id WHERE r.register_id = '{register_id}'")
     del db
@@ -100,6 +100,7 @@ def query_medical_list(register_id):
                 "register_id": record["register_id"],
                 "record_id": record["record_id"],
                 "record_name": record["record_name"],
+                "record_status": record["record_status"],
                 "tabs": []  # 存储 {table_id, table_name} 字典
             }
 
@@ -154,9 +155,10 @@ def query_report_list(register_id):
         report_list = [
             {
                 "report_id": 1,
-                "register_id": None,
-                "patient_id": None,
+                "register_id": "5027760",
+                "patient_id": "41990001032757",
                 "report_name": "检查报告1",
+                "report_machine": "检查报告1",
                 "report_time": "2023-05-01 10:00:00",
                 "report_addr": "http://192.168.124.9:8080/gyl/ehp/report" if global_config.run_in_local else "http://192.168.3.12:6080/gyl/ehp/report",
             },
@@ -165,6 +167,7 @@ def query_report_list(register_id):
                 "register_id": None,
                 "patient_id": None,
                 "report_name": "检查报告2",
+                "report_machine": "检查报告2",
                 "report_time": "2023-05-02 10:00:00",
                 "report_addr": "http://192.168.124.9:8080/gyl/ehp/report" if global_config.run_in_local else "http://192.168.3.12:6080/gyl/ehp/report",
             }
@@ -186,4 +189,23 @@ def bind_report(report_id, register_id, patient_id):
     db.execute(f"UPDATE nsyy_gyl.ehp_reports SET register_id = '{register_id}', patient_id = '{patient_id}' "
                f"WHERE report_id = {report_id}", need_commit=True)
     del db
+
+
+def place_on_file(patient_id, register_id, is_complete):
+    """
+    病历归档，归档之后不允许再修改
+    :param register_id:
+    :param patient_id:
+    :param is_complete: true = 归档 false = 撤销
+    :return:
+    """
+
+    db = DbUtil(global_config.DB_HOST, global_config.DB_USERNAME, global_config.DB_PASSWORD,
+                global_config.DB_DATABASE_GYL)
+    record_status = 2 if is_complete else 1
+    update_sql = f"""UPDATE nsyy_gyl.ehp_medical_record_list SET record_status = {record_status} 
+                    WHERE register_id = '{register_id}' and patient_id = '{patient_id}' """
+    db.execute(update_sql, need_commit=True)
+    del db
+
 

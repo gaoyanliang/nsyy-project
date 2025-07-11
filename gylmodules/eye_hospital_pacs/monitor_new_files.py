@@ -9,8 +9,8 @@ import socket
 logger = logging.getLogger(__name__)
 
 # 共享文件夹配置
-SHARE_SERVER = "192.168.124.5"  # Windows 电脑 IP
-SHARE_NAME = "test_share"  # 共享文件夹名称
+SHARE_SERVER = "192.168.124.22"  # Windows 电脑 IP
+SHARE_NAME = "Temp"  # 共享文件夹名称
 USERNAME = ""  # 匿名访问，无用户名
 PASSWORD = ""  # 匿名访问，无密码
 DOMAIN = ""  # 匿名访问，无域
@@ -179,6 +179,6 @@ def monitor_shared_folder():
         conn.close()
 
 
-if __name__ == "__main__":
-    logger.info("开始监控共享文件夹 test_share...")
-    monitor_shared_folder()
+# if __name__ == "__main__":
+logger.info("开始监控共享文件夹 test_share...")
+monitor_shared_folder()
