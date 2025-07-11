@@ -11,6 +11,12 @@ def patient_registration(json_data):
     """
     db = DbUtil(global_config.DB_HOST, global_config.DB_USERNAME, global_config.DB_PASSWORD,
                 global_config.DB_DATABASE_GYL)
+
+    if 'laidiansj' in json_data and not json_data.get('laidiansj'):
+        json_data.pop('laidiansj')
+    if 'paichesj' in json_data and not json_data.get('paichesj'):
+        json_data.pop('paichesj')
+
     json_data['create_at'] = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
     insert_sql = f"INSERT INTO nsyy_gyl.phs_patient_registration ({','.join(json_data.keys())}) " \
                  f"VALUES {str(tuple(json_data.values()))}"
@@ -52,11 +58,7 @@ def update_patient_info(json_data, register_id):
     # 构造 SQL 语句
     update_sql = f"UPDATE nsyy_gyl.phs_patient_registration SET {set_clause} WHERE register_id = %s"
     params = tuple(json_data.values()) + (register_id,)
-    try:
-        db.execute(update_sql, params, need_commit=True)
-    except Exception as e:
-        del db
-        raise Exception(datetime.now(), f"急诊患者更新失败，未找到登记 ID = {register_id} 的记录。SQL = {update_sql}")
+    db.execute(update_sql, params, need_commit=True)
     del db
 
 
@@ -64,14 +66,14 @@ def query_patient_info(register_id, record_id):
     """
     查询急救患者信息
     :param register_id: 患者的唯一 ID
-    :param record_id:
+    :param record_id: 病历详情
     :return:
     """
     db = DbUtil(global_config.DB_HOST, global_config.DB_USERNAME, global_config.DB_PASSWORD,
                 global_config.DB_DATABASE_GYL)
 
     if record_id:
-        query_sql = f"SELECT * FROM nsyy_gyl.phs_record_data WHERE record_id = {int(record_id)}"
+        query_sql = f"SELECT * FROM nsyy_gyl.phs_record_data WHERE register_id = {int(register_id)} and record_id = {int(record_id)}"
     else:
         query_sql = f"SELECT * FROM nsyy_gyl.phs_patient_registration WHERE register_id = {int(register_id)}"
 
@@ -144,8 +146,33 @@ def create_patient_record(register_id, record_id, record_data):
     """
     db = DbUtil(global_config.DB_HOST, global_config.DB_USERNAME, global_config.DB_PASSWORD,
                 global_config.DB_DATABASE_GYL)
-    values = [(int(register_id), int(record_id), item.get('field_name'), item.get('field_value'),
-               item.get('field_type', '')) for item in record_data]
+    daoyuansj, patient_name, patient_sex, patient_age = '', '', '', ''
+    values = []
+    for item in record_data:
+        values.append((int(register_id), int(record_id), item.get('field_name'), item.get('field_value'), item.get('field_type')))
+        if int(record_id) == 2 and item.get('field_name') == 'time' and item.get('field_value'):
+            daoyuansj = item.get('field_value')
+        if int(record_id) == 1 and item.get('field_name') == 'patient_name' and item.get('field_value'):
+            patient_name = item.get('field_value')
+        if int(record_id) == 1 and item.get('field_name') == 'patient_sex' and item.get('field_value'):
+            patient_sex = item.get('field_value')
+        if int(record_id) == 1 and item.get('field_name') == 'patient_age' and item.get('field_value'):
+            patient_age = item.get('field_value')
+
+
+    update_condition = []
+    if daoyuansj:
+        update_condition.append(f"daoyuansj = '{daoyuansj}'")
+    if patient_name:
+        update_condition.append(f"patient_name = '{patient_name}'")
+    if patient_sex:
+        update_condition.append(f"patient_sex = '{patient_sex}'")
+    if patient_age:
+        update_condition.append(f"patient_age = '{patient_age}'")
+
+    if update_condition:
+        update_sql = f"UPDATE nsyy_gyl.phs_patient_registration SET {','.join(update_condition)} WHERE register_id = {register_id}"
+        db.execute(update_sql, need_commit=True)
 
     insert_sql = """INSERT INTO nsyy_gyl.phs_record_data (register_id, record_id, field_name, field_value, field_type)
             VALUES (%s, %s, %s, %s, %s) ON DUPLICATE KEY UPDATE field_value = VALUES(field_value), 
