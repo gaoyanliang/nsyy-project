@@ -593,6 +593,9 @@ def manual_report_cv(json_data):
             # his中不区分超声一/二，但是科室要求区分，这里手动区分
             json_data['alert_dept_id'] = 1000800
             json_data['alert_dept_name'] = "超声二组"
+        if json_data['alertman'] in cv_config.personnel_in_ultrasound:
+            json_data['alert_dept_id'] = 241
+            json_data['alert_dept_name'] = "彩超室"
 
     if not json_data.get('alertman_pers_id'):
         json_data['alertman_pers_id'] = 0
@@ -759,6 +762,9 @@ def create_cv_by_system(json_data, cv_source):
             # his中不区分超声一/二，但是科室要求区分，这里手动区分
             cvd['alert_dept_id'] = 1000800
             cvd['alert_dept_name'] = "超声二组"
+        if cvd['alertman'] in cv_config.personnel_in_ultrasound:
+            cvd['alert_dept_id'] = 241
+            cvd['alert_dept_name'] = "彩超室"
 
     if not cvd.get('alert_dept_id'):
         cvd['alert_dept_id'] = 0
