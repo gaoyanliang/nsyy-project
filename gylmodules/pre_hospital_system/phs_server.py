@@ -98,7 +98,7 @@ def query_patient_list(key, start_date, end_date, page_number, page_size):
     if key:
         condition_sql = condition_sql + f"AND patient_name LIKE '%{key}%' "
 
-    query_sql = f"SELECT * FROM nsyy_gyl.phs_patient_registration WHERE {condition_sql}"
+    query_sql = f"SELECT * FROM nsyy_gyl.phs_patient_registration WHERE {condition_sql} order by create_at desc"
     data = db.query_all(query_sql)
     del db
 
