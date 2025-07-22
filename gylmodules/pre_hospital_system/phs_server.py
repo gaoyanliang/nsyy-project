@@ -152,13 +152,12 @@ def create_patient_record(register_id, record_id, record_data):
         values.append((int(register_id), int(record_id), item.get('field_name'), item.get('field_value'), item.get('field_type')))
         if int(record_id) == 2 and item.get('field_name') == 'time' and item.get('field_value'):
             daoyuansj = item.get('field_value')
-        if int(record_id) == 1 and item.get('field_name') == 'patient_name' and item.get('field_value'):
+        if item.get('field_name') == 'patient_name' and item.get('field_value'):
             patient_name = item.get('field_value')
-        if int(record_id) == 1 and item.get('field_name') == 'patient_sex' and item.get('field_value'):
+        if item.get('field_name') == 'patient_sex' and item.get('field_value'):
             patient_sex = item.get('field_value')
-        if int(record_id) == 1 and item.get('field_name') == 'patient_age' and item.get('field_value'):
+        if item.get('field_name') == 'patient_age' and item.get('field_value'):
             patient_age = item.get('field_value')
-
 
     update_condition = []
     if daoyuansj:
