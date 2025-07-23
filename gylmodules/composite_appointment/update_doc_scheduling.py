@@ -80,7 +80,8 @@ def update_today_doc_info():
         {
             "type": "his_mz_source_check",
             "day": datetime.now().strftime("%Y-%m-%d"),
-            "start": 0
+            "start": "1",
+            "qty": "2000"
         }
     )
 
@@ -288,8 +289,8 @@ def update_today_sched(sched):
             # 上午
             aml[sched.get('rid')] = {
                 'doc_id': sched.get('did'),
-                'doctor': doc_info,
-                'price': float(doc_info.get('fee')),
+                # 'doctor': doc_info,
+                # 'price': float(doc_info.get('fee')),
                 'room': room,
                 'rid': sched.get('rid'),
                 'proj_name': proj.get('proj_name'),
@@ -300,8 +301,8 @@ def update_today_sched(sched):
             # 下午
             pml[sched.get('rid')] = {
                 'doc_id': sched.get('did'),
-                'doctor': doc_info,
-                'price': float(doc_info.get('fee')),
+                # 'doctor': doc_info,
+                # 'price': float(doc_info.get('fee')),
                 'room': room,
                 'rid': sched.get('rid'),
                 'proj_name': proj.get('proj_name'),
