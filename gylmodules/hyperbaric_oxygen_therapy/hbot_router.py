@@ -157,7 +157,6 @@ def refresh_medical_status():
     try:
         hbot_server.hbot_run_everyday()
     except Exception as e:
-        print(datetime.now(), "hbot_run_everyday exception: ", e)
         return jsonify({
             'code': 50000,
             'res': "刷新医嘱状态异常: " + e.__str__()
