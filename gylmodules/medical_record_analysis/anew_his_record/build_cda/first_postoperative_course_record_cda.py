@@ -32,7 +32,7 @@ def assembling_header(admission_record: str, data: dict):
         .replace('{文档类型}', "C0037") \
         .replace('{文档标识编码}', data.get('文档ID', '/')) \
         .replace('{文档标题}', data.get('file_title', '/')) \
-        .replace('{文档生成时间}', ct)
+        .replace('{文档生成时间}', str(ct))
 
     # 文档记录对象（患者信息）
     admission_record = admission_record + xml_header.xml_header_record_target3 \

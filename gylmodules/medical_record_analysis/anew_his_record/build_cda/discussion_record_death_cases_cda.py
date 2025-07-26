@@ -32,7 +32,7 @@ def assembling_header(admission_record: str, data: dict):
         .replace('{文档类型}', "C0051") \
         .replace('{文档标识编码}', data.get('文档ID', '/')) \
         .replace('{文档标题}', data.get('file_title', '/')) \
-        .replace('{文档生成时间}', ct)
+        .replace('{文档生成时间}', str(ct))
 
     # 文档记录对象（患者信息）
     admission_record = admission_record + xml_header.xml_header_record_target5 \
@@ -43,7 +43,7 @@ def assembling_header(admission_record: str, data: dict):
         .replace('{pat_sex}', data.get('pat_sex', '/')) \
         .replace('{pat_birth_time}', get_birthday_from_id(data.get('pat_id_card', '/'))) \
         .replace('{pat_age}', data.get('pat_age', '/')) \
-        .replace('{讨论时间}', data.get('记录时间', '/') if data.get('记录时间') else '/') \
+        .replace('{讨论时间}', str(data.get('记录时间', '/')) if data.get('记录时间') else '/') \
         .replace('{讨论地点}', data.get('地点', '/') if data.get('地点') else '/')
 
     # 文档创作者

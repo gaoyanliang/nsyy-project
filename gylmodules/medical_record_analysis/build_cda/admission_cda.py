@@ -87,7 +87,7 @@ def assembling_header(admission_record: str, data: dict):
 
     # 病床号、病房、病区、科室和医院的关联
     admission_record = admission_record + xml_header.xml_header_encompassing_encounter \
-        .replace('{入院时间}', data.get('pat_time')) \
+        .replace('{入院时间}', str(data.get('pat_time'))) \
         .replace('{pat_bed_no}', data.get('pat_bed', '/') if data.get('pat_bed') else '/') \
         .replace('{pat_bed}', data.get('pat_bed', '/') if data.get('pat_bed') else '/') \
         .replace('{pat_room_no}', '/') \

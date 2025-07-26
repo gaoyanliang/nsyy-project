@@ -32,7 +32,7 @@ def assembling_header(admission_record: str, data: dict):
         .replace('{文档类型}', "C0045") \
         .replace('{文档标识编码}', data.get('文档ID', '/')) \
         .replace('{文档标题}', data.get('file_title', '/')) \
-        .replace('{文档生成时间}', ct)
+        .replace('{文档生成时间}', str(ct))
 
     # 文档记录对象（患者信息）
     admission_record = admission_record + xml_header.xml_header_record_target6 \
@@ -42,12 +42,12 @@ def assembling_header(admission_record: str, data: dict):
         .replace('{pat_name}', data.get('pat_name', '/')) \
         .replace('{pat_sex_no}', '1') \
         .replace('{pat_sex}', data.get('pat_sex', '/')) \
-        .replace('{pat_birth_time}', get_birthday_from_id(data.get('pat_id_card', '/'))) \
+        .replace('{pat_birth_time}', str(get_birthday_from_id(data.get('pat_id_card', '/')))) \
         .replace('{pat_age}', data.get('pat_age', '/'))
 
     # 文档创作者
     admission_record = admission_record + xml_header.xml_header_author \
-        .replace('{文档创作时间}', data.get('文档创建时间', '/')) \
+        .replace('{文档创作时间}', str(data.get('文档创建时间', '/'))) \
         .replace('{文档创作者id}', '/') \
         .replace('{文档创作者}', data.get('文档作者', '/'))
 
@@ -92,7 +92,7 @@ def assembling_header(admission_record: str, data: dict):
 
     # 病床号、病房、病区、科室和医院的关联
     admission_record = admission_record + xml_header.xml_header_encompassing_encounter \
-        .replace('{入院时间}', data.get('pat_time', '/')) \
+        .replace('{入院时间}', str(data.get('pat_time', '/'))) \
         .replace('{pat_bed_no}', data.get('pat_bed', '/') if data.get('pat_bed') else '/') \
         .replace('{pat_bed}', data.get('pat_bed', '/') if data.get('pat_bed') else '/') \
         .replace('{pat_room_no}', '/') \

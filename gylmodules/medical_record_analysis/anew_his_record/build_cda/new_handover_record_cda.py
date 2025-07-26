@@ -32,7 +32,7 @@ def assembling_header(admission_record: str, data: dict):
         .replace('{文档类型}', "C0041") \
         .replace('{文档标识编码}', data.get('文档ID', '/')) \
         .replace('{文档标题}', data.get('file_title')) \
-        .replace('{文档生成时间}', ct)
+        .replace('{文档生成时间}', str(ct))
 
     # 文档记录对象（患者信息）
     admission_record = admission_record + xml_header.xml_header_record_target3 \
@@ -46,7 +46,7 @@ def assembling_header(admission_record: str, data: dict):
 
     # 文档创作者
     admission_record = admission_record + xml_header.xml_header_author \
-        .replace('{文档创作时间}', data.get('文档创建时间', '/')) \
+        .replace('{文档创作时间}', str(data.get('文档创建时间', '/'))) \
         .replace('{文档创作者id}', '/') \
         .replace('{文档创作者}', data.get('文档作者', '/'))
 
@@ -57,13 +57,13 @@ def assembling_header(admission_record: str, data: dict):
 
     # 接诊医师签名/住院医师签名/主治医师签名
     admission_record = admission_record + xml_header.xml_header_authenticator2 \
-        .replace('{签名时间}', data.get('签名时间', '/')) \
+        .replace('{签名时间}', str(data.get('签名时间', '/'))) \
         .replace('{医师id}', '/') \
         .replace('{医师名字}', data.get('交班者', '/')) \
         .replace('{显示医师名字}', '交班者')
 
     admission_record = admission_record + xml_header.xml_header_authenticator2 \
-        .replace('{签名时间}', data.get('签名时间', '/')) \
+        .replace('{签名时间}', str(data.get('签名时间', '/'))) \
         .replace('{医师id}', '/') \
         .replace('{医师名字}', data.get('接班者', '/')) \
         .replace('{显示医师名字}', '接班者')
