@@ -12,6 +12,12 @@ def patient_register(json_data):
     return phs_server.patient_registration(json_data)
 
 
+@phs.route('/delete_register', methods=['POST'])
+@api_response
+def delete_register(json_data):
+    return phs_server.delete_patient_registration(json_data.get('register_id'))
+
+
 @phs.route('/update_patient_info', methods=['POST'])
 @api_response
 @validate_params('register_id')

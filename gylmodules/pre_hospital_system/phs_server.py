@@ -27,6 +27,19 @@ def patient_registration(json_data):
     del db
 
 
+def delete_patient_registration(register_id):
+    """
+    登记急救患者信息
+    :param register_id:
+    :return:
+    """
+    db = DbUtil(global_config.DB_HOST, global_config.DB_USERNAME, global_config.DB_PASSWORD,
+                global_config.DB_DATABASE_GYL)
+    db.execute(f"UPDATE nsyy_gyl.phs_patient_registration SET status = 0 WHERE "
+               f"register_id = {register_id} ", need_commit=True)
+    del db
+
+
 def update_patient_info(json_data, register_id):
     """
     更新急救患者信息
@@ -98,7 +111,8 @@ def query_patient_list(key, start_date, end_date, page_number, page_size):
     if key:
         condition_sql = condition_sql + f"AND patient_name LIKE '%{key}%' "
 
-    query_sql = f"SELECT * FROM nsyy_gyl.phs_patient_registration WHERE {condition_sql} order by create_at desc"
+    query_sql = f"SELECT * FROM nsyy_gyl.phs_patient_registration WHERE {condition_sql} " \
+                f"and status = 1 order by create_at desc"
     data = db.query_all(query_sql)
     del db
 
@@ -146,28 +160,53 @@ def create_patient_record(register_id, record_id, record_data):
     """
     db = DbUtil(global_config.DB_HOST, global_config.DB_USERNAME, global_config.DB_PASSWORD,
                 global_config.DB_DATABASE_GYL)
-    daoyuansj, patient_name, patient_sex, patient_age = '', '', '', ''
     values = []
+    update_condition = []
     for item in record_data:
         values.append((int(register_id), int(record_id), item.get('field_name'), item.get('field_value'), item.get('field_type')))
-        if int(record_id) == 2 and item.get('field_name') == 'time' and item.get('field_value'):
-            daoyuansj = item.get('field_value')
         if item.get('field_name') == 'patient_name' and item.get('field_value'):
-            patient_name = item.get('field_value')
+            update_condition.append(f"patient_name = '{item.get('field_value')}'")
         if item.get('field_name') == 'patient_sex' and item.get('field_value'):
-            patient_sex = item.get('field_value')
+            update_condition.append(f"patient_sex = '{item.get('field_value')}'")
         if item.get('field_name') == 'patient_age' and item.get('field_value'):
-            patient_age = item.get('field_value')
+            update_condition.append(f"patient_age = '{item.get('field_value')}'")
 
-    update_condition = []
-    if daoyuansj:
-        update_condition.append(f"daoyuansj = '{daoyuansj}'")
-    if patient_name:
-        update_condition.append(f"patient_name = '{patient_name}'")
-    if patient_sex:
-        update_condition.append(f"patient_sex = '{patient_sex}'")
-    if patient_age:
-        update_condition.append(f"patient_age = '{patient_age}'")
+        if int(record_id) == 2 and item.get('field_name') in ['time', 'temperature', 'anjiahuansuan',
+                                                              'pulse', 'respiration', 'blood_pressure'] \
+                and item.get('field_value'):
+            key = 'daoyuansj' if item.get('field_name') == 'time' else item.get('field_name')
+            update_condition.append(f"{key} = '{item.get('field_value')}'")
+
+        if int(record_id) == 2 and item.get('field_name') == 'treatments' and item.get('field_value'):
+            value = item.get('field_value')
+            xindiantu = '未做'
+            if value.__contains__('心电图'):
+                xindiantu = '已做'
+            if value.__contains__('心电图-当地已做'):
+                xindiantu = '当地已做'
+            update_condition.append(f"xindaintu = '{xindiantu}'")
+            if value.__contains__('颈椎固定'):
+                update_condition.append(f"jingzhui = 1")
+            if value.__contains__('骨盆带固定'):
+                update_condition.append(f"gupendai = 1")
+
+            # 方法1：使用split和isdigit检查
+            parts = [p.strip() for p in value.split(',')]
+            last_part = parts[-1]
+            if last_part.replace('.', '', 1).isdigit():  # 允许小数
+                update_condition.append(f"xuetang = '{last_part}'")
+
+        if int(record_id) == 2 and item.get('field_name') == 'condition' and item.get('field_value'):
+            condition_mapping = {"III级": 3, "IV级": 4, "II级": 2, "I级": 1}
+            update_condition.append(f"bingqing_level = {condition_mapping.get(item.get('field_value'), 0)}")
+        if int(record_id) == 2 and item.get('field_name') == 'venous_treatment' and item.get('field_value'):
+            value_list = item.get('field_value').split(",")
+            results = ''
+            for value in value_list:
+                if "外周静脉留置针-" in value:
+                    _, _, suffix = value.partition("-")
+                    results = results + suffix
+            update_condition.append(f"jingmaitd = '{results}'")
 
     if update_condition:
         update_sql = f"UPDATE nsyy_gyl.phs_patient_registration SET {','.join(update_condition)} WHERE register_id = {register_id}"
