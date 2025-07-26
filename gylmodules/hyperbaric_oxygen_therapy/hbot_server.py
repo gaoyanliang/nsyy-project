@@ -8,10 +8,10 @@ import requests
 from contextlib import closing
 from itertools import groupby
 from datetime import datetime, timedelta
-from gylmodules import global_config
+from gylmodules import global_config, global_tools
 from gylmodules.composite_appointment import appt_config
 from gylmodules.critical_value import cv_config
-from gylmodules.hyperbaric_oxygen_therapy import hbot_config
+from gylmodules.hyperbaric_oxygen_therapy import hbot_config, huizong
 from gylmodules.utils.db_utils import DbUtil
 
 pool = redis.ConnectionPool(host=appt_config.APPT_REDIS_HOST, port=appt_config.APPT_REDIS_PORT,
@@ -24,7 +24,7 @@ def call_third_systems_obtain_data(type: str, sql: str, db_source: str):
     if global_config.run_in_local:
         try:
             # response = requests.post(f"http://192.168.3.12:6080/int_api", json=param)
-            response = requests.post(f"http://192.168.124.53:6080/int_api", timeout=3, json=param)
+            response = requests.post(f"http://192.168.124.53:6080/int_api", timeout=10, json=param)
             data = json.loads(response.text)
             data = data.get('data')
         except Exception as e:
@@ -48,21 +48,32 @@ def query_medical_order(patient_id, register_time, db_source):
     :return:
     """
     data = None
-    sql = "select a.*, bm.编码 开嘱科室编码, b.住院号 from 病人医嘱记录 a, 病案主页 b, 部门表 bm " \
-          f"where a.病人id=b.病人id and a.主页id=b.主页id and a.开嘱科室id = bm.id " \
-          f"and a.开嘱时间 >= to_date('{register_time}', 'yyyy-mm-dd') - 30 and a.医嘱内容 like '%高压氧%' " \
-          f"and a.执行标记 != -1 and a.医嘱状态 not in (-1, 2, 4) and a.停嘱时间 is null and b.住院号='{patient_id}'"
-    medical_order_list = call_third_systems_obtain_data('orcl_db_read', sql, db_source)
+    if db_source == 'nshis':
+        sql = f"""
+            select b.bingrenzyid 主页ID,a.yizhuid ID,a.yizhumc 医嘱名称,a.yishengzt 医生嘱托,a.kaizhuys 开嘱医生, 
+            a.kaishisj 开始时间,a.zhixingsj 开始执行时间, a.bingrenid 病人ID, a.yizhubh 序号, a.kaizhuksid 开嘱科室ID, 
+            a.zhixingks 执行科室ID from df_lc_zhuyuan.yz_bingrenyz a 
+            join df_jj_zhuyuan.zy_bingrenxx b on a.bingrenzyid=b.bingrenzyid and a.bingrenid=b.bingrenid
+            where a.kaizhusj >= to_date('{register_time}', 'yyyy-mm-dd') - 30 and a.yizhumc like '%高压氧%' 
+            and a.yizhuzt in (2,3,4) and a.tingzhusj is null and a.chexiaolx is null and b.zhuyuanhao='{patient_id}'
+        """
+        medical_order_list = global_tools.call_new_his(sql)
+    else:
+        sql = "select a.*, bm.编码 开嘱科室编码, b.住院号 from 病人医嘱记录 a, 病案主页 b, 部门表 bm " \
+              f"where a.病人id=b.病人id and a.主页id=b.主页id and a.开嘱科室id = bm.id " \
+              f"and a.开嘱时间 >= to_date('{register_time}', 'yyyy-mm-dd') - 30 and a.医嘱内容 like '%高压氧%' " \
+              f"and a.执行标记 != -1 and a.医嘱状态 not in (-1, 2, 4) and a.停嘱时间 is null and b.住院号='{patient_id}'"
+        medical_order_list = call_third_systems_obtain_data('orcl_db_read', sql, db_source)
     if medical_order_list:
         data = {
             "homepage_id": medical_order_list[0].get('主页ID'), "doc_advice_id": medical_order_list[0].get('ID'),
-            "doc_advice_content": medical_order_list[0].get('医嘱内容'),
-            "doc_advice_info": medical_order_list[0].get('医生嘱托'),
-            "doc_advice_doc": medical_order_list[0].get('开嘱医生'),
+            "doc_advice_content": medical_order_list[0].get('医嘱内容', ''),
+            "doc_advice_info": medical_order_list[0].get('医生嘱托', ''),
+            "doc_advice_doc": medical_order_list[0].get('开嘱医生', ''),
             "start_time": medical_order_list[0].get('开始执行时间'), "patient_id": medical_order_list[0].get('病人ID'),
             "doc_advice_order_num": medical_order_list[0].get('序号'),
             "bill_dept_id": medical_order_list[0].get('开嘱科室ID'),
-            "bill_dept_code": medical_order_list[0].get('开嘱科室编码'),
+            "bill_dept_code": medical_order_list[0].get('开嘱科室编码', ''),
             "execution_dept_id": medical_order_list[0].get('执行科室ID'),
             "bill_people": medical_order_list[0].get('开嘱医生'),
         }
@@ -74,14 +85,20 @@ def query_medical_order(patient_id, register_time, db_source):
 
 def has_medical_order_been_stopped(doc_advice_id, db_source):
     data = None
-    sql = f"select * from 病人医嘱记录 where ID = {doc_advice_id} "
-    medical_order = call_third_systems_obtain_data('orcl_db_read', sql, db_source)
+    if db_source == 'nshis':
+        sql = f"select tingzhusj 停嘱时间 from df_lc_zhuyuan.yz_bingrenyz where yizhuid = '{doc_advice_id}' "
+        medical_order = global_tools.call_new_his(sql)
+    else:
+        sql = f"select 停嘱时间 from 病人医嘱记录 where ID = {doc_advice_id} "
+        medical_order = call_third_systems_obtain_data('orcl_db_read', sql, db_source)
     if medical_order and medical_order[0].get('停嘱时间'):
         return True
     return False
 
 
-def query_patient_info(patient_type, patient_id, comp_type):
+
+
+def query_patient_info1(patient_type, patient_id, comp_type):
     """
     根据患者住院号查询患者信息
     ⚠️ 注意： 查询门诊患者，需要根据 就诊卡号/身份证号 查询
@@ -98,7 +115,7 @@ def query_patient_info(patient_type, patient_id, comp_type):
               "a.联系人电话, a.住院医师, a.主页ID, a.病人ID, zd.名称 诊断 from 病案主页 a left join 部门表 bm " \
               "on a.出院科室id=bm.id left join (select distinct 病人ID, 主页ID, jb.名称 from 病人诊断记录 t " \
               "join 疾病编码目录 jb on t.疾病id = jb.id where t.记录来源 = 3 and t.诊断次序 = 1 and t.诊断类型 = 2) zd " \
-              f"on a.病人id=zd.病人id and a.主页id=zd.主页id where a.住院号='{patient_id}' and a.出院日期 is null "
+              f"on a.病人id=zd.病人id and a.主页id=zd.主页id where a.住院号='{patient_id}' "
         patient_infos = call_third_systems_obtain_data('orcl_db_read', sql, db_source)
         if not patient_infos:
             raise Exception('未找到该住院号对应的患者信息，请仔细核对住院号是否正确')
@@ -115,7 +132,7 @@ def query_patient_info(patient_type, patient_id, comp_type):
         # 门诊
         sql = 'select a.*, bm.编码 执行部门编码, bm.名称 执行部门名称, b.联系人电话 ' \
               'from 病人挂号记录 a left join 病人信息 b on a.病人id=b.病人id join 部门表 bm on a.执行部门id = bm.id ' \
-              f"where ( b.就诊卡号 = '{patient_id}' or b.身份证号 = '{patient_id}' or a.ID = '{patient_id}' ) order by a.登记时间 desc "
+              f"where ( b.就诊卡号 = '{patient_id}' or b.身份证号 = '{patient_id}'  or a.ID = '{patient_id}' ) order by a.登记时间 desc "
         patient_infos = call_third_systems_obtain_data('orcl_db_read', sql, db_source)
         if not patient_infos:
             raise Exception('未找到该住院号对应的患者信息，请仔细核对住院号是否正确')
@@ -127,6 +144,108 @@ def query_patient_info(patient_type, patient_id, comp_type):
             "patient_dept_code": patient_infos[0].get('执行部门编码'), "diagnosis": "",
             "patient_phone": patient_infos[0].get('联系人电话'), "course_of_treatment": ""
         }
+    return data
+
+
+
+def query_patient_info(patient_type, patient_id, comp_type):
+    """
+    根据患者住院号查询患者信息
+    ⚠️ 注意： 查询门诊患者，需要根据 就诊卡号/身份证号 查询
+    :param patient_type:
+    :param patient_id:
+    :param comp_type:
+    :return:
+    """
+    db_source = "nshis" if int(comp_type) == 12 else "kfhis"
+    data = {}
+
+    if db_source == 'nshis':
+        # 总院用 新 his
+        if int(patient_type) == 3:
+            sql = f"""
+                select a.xingming 姓名, a.xingbiemc 性别, a.nianling 年龄, a.zhuyuanhao 住院号, a.dangqianksid 科室ID, 
+                b.zuzhimc 科室, b.zuzhibm 科室编码, a.dangqiancwbm 床号, a.lianxirdh 联系人电话, a.zhuyuanysxm 住院医师, 
+                a.zhuyuancs 主页ID, a.bingrenid 病人ID, c.zhenduanmc 诊断 from df_jj_zhuyuan.zy_bingrenxx a
+                join df_zhushuju.gy_zuzhidy b on a.dangqianksid=b.zuzhiid join df_jj_zhuyuan.zy_zhenduanzl c 
+                on a.bingrenzyid=c.bingrenzyid and a.bingrenid=c.bingrenid and c.zhenduanlb=131
+                where a.zhuyuanhao='{patient_id}' and (a.chuyuanrq is null or a.chuyuanrq<sysdate)
+            """
+            patient_infos = global_tools.call_new_his(sql)
+            if not patient_infos:
+                raise Exception('未找到该住院号对应的患者信息，请仔细核对住院号是否正确')
+            data = {
+                "sick_id": patient_infos[0].get('病人ID'), "homepage_id": patient_infos[0].get('主页ID'),
+                "doctor_name": patient_infos[0].get('住院医师'), "patient_name": patient_infos[0].get('姓名'),
+                "patient_id": patient_id, "patient_sex": patient_infos[0].get('性别'),
+                "patient_age": patient_infos[0].get('年龄'), "patient_dept": patient_infos[0].get('科室'),
+                "patient_dept_id": patient_infos[0].get('科室ID'),
+                "patient_dept_code": patient_infos[0].get('科室编码'),
+                "diagnosis": patient_infos[0].get('诊断'), "patient_phone": patient_infos[0].get('联系人电话'),
+                "course_of_treatment": "", "patient_bed": patient_infos[0].get('床号')
+            }
+        elif int(patient_type) == 1:
+            # 门诊
+            sql = f"""
+                select a.bingrenid 病人ID,a.xingming 姓名, a.guahaoysxm 执行人, a.xingbiemc 性别, a.nianling 年龄, 
+                a.jiuzhenksmc 执行部门名称, a.jiuzhenksid 执行部门ID, b.zuzhibm 执行部门编码, a.xianzhuzhidh 联系人电话, 
+                c.zhenduanmc 诊断  from df_lc_menzhen.zj_jiuzhenxx a 
+                join df_zhushuju.gy_zuzhidy b on a.jiuzhenksid=b.zuzhiid
+                left join df_lc_menzhen.zj_zhenduan c on a.jiuzhenid=c.jiuzhenid and a.bingrenid=c.bingrenid 
+                and c.zhenduanlb='101' left join df_jj_menzhen.mz_guahaoyy d  on a.bingrenid = d.bingrenid
+                where a.jiuzhenkh='{patient_id}'  or d.shenfenzh='{patient_id}'  or a.bingrenid='{patient_id}'
+                order by a.chuangjiansj desc
+            """
+            patient_infos = global_tools.call_new_his(sql)
+            if not patient_infos:
+                raise Exception('未找到该住院号对应的患者信息，请仔细核对住院号是否正确')
+            data = {
+                "sick_id": patient_infos[0].get('病人ID'), "patient_name": patient_infos[0].get('姓名'),
+                "doctor_name": patient_infos[0].get('执行人'), "patient_id": patient_id,
+                "patient_sex": patient_infos[0].get('性别'),
+                "patient_age": patient_infos[0].get('年龄').replace('岁', ''),
+                "patient_dept": patient_infos[0].get('执行部门名称'),
+                "patient_dept_id": patient_infos[0].get('执行部门ID'),
+                "patient_dept_code": patient_infos[0].get('执行部门编码'), "diagnosis": "",
+                "patient_phone": patient_infos[0].get('联系人电话'), "course_of_treatment": ""
+            }
+    else:
+        # 康复中医院用 老his
+        if int(patient_type) == 3:
+            # 住院
+            sql = "select a.姓名,a.性别,a.年龄,a.住院号, a.出院科室id 科室ID, bm.名称 科室, bm.编码 科室编码, a.出院病床 床号, " \
+                  "a.联系人电话, a.住院医师, a.主页ID, a.病人ID, zd.名称 诊断 from 病案主页 a left join 部门表 bm " \
+                  "on a.出院科室id=bm.id left join (select distinct 病人ID, 主页ID, jb.名称 from 病人诊断记录 t " \
+                  "join 疾病编码目录 jb on t.疾病id = jb.id where t.记录来源 = 3 and t.诊断次序 = 1 and t.诊断类型 = 2) zd " \
+                  f"on a.病人id=zd.病人id and a.主页id=zd.主页id where a.住院号='{patient_id}' and (a.出院日期 is null or a.出院日期<sysdate) "
+            patient_infos = call_third_systems_obtain_data('orcl_db_read', sql, db_source)
+            if not patient_infos:
+                raise Exception('未找到该住院号对应的患者信息，请仔细核对住院号是否正确')
+            data = {
+                "sick_id": patient_infos[0].get('病人ID'), "homepage_id": patient_infos[0].get('主页ID'),
+                "doctor_name": patient_infos[0].get('住院医师'), "patient_name": patient_infos[0].get('姓名'),
+                "patient_id": patient_id, "patient_sex": patient_infos[0].get('性别'),
+                "patient_age": patient_infos[0].get('年龄'), "patient_dept": patient_infos[0].get('科室'),
+                "patient_dept_id": patient_infos[0].get('科室ID'), "patient_dept_code": patient_infos[0].get('科室编码'),
+                "diagnosis": patient_infos[0].get('诊断'), "patient_phone": patient_infos[0].get('联系人电话'),
+                "course_of_treatment": "", "patient_bed": patient_infos[0].get('床号')
+            }
+        elif int(patient_type) == 1:
+            # 门诊
+            sql = 'select a.*, bm.编码 执行部门编码, bm.名称 执行部门名称, b.联系人电话 ' \
+                  'from 病人挂号记录 a left join 病人信息 b on a.病人id=b.病人id join 部门表 bm on a.执行部门id = bm.id ' \
+                  f"where ( b.就诊卡号 = '{patient_id}' or b.身份证号 = '{patient_id}' or a.ID = '{patient_id}' ) order by a.登记时间 desc "
+            patient_infos = call_third_systems_obtain_data('orcl_db_read', sql, db_source)
+            if not patient_infos:
+                raise Exception('未找到该住院号对应的患者信息，请仔细核对住院号是否正确')
+            data = {
+                "sick_id": patient_infos[0].get('病人ID'), "patient_name": patient_infos[0].get('姓名'),
+                "doctor_name": patient_infos[0].get('执行人'), "patient_id": patient_id,
+                "patient_sex": patient_infos[0].get('性别'), "patient_age": patient_infos[0].get('年龄').replace('岁', ''),
+                "patient_dept": patient_infos[0].get('执行部门名称'), "patient_dept_id": patient_infos[0].get('执行部门ID'),
+                "patient_dept_code": patient_infos[0].get('执行部门编码'), "diagnosis": "",
+                "patient_phone": patient_infos[0].get('联系人电话'), "course_of_treatment": ""
+            }
     return data
 
 
@@ -601,8 +720,8 @@ def hbot_charge(json_data):
     pay_num = json_data.get('pay_num')
 
     redis_client = redis.Redis(connection_pool=pool)
-    # 尝试设置键，只有当键不存在时才设置成功.  ex=300 表示过期时间 300 秒（5 分钟），nx=True 表示不存在时才设置
-    if not redis_client.set(f"hbot_charge:{rid}:{tid}", pay_num, ex=300, nx=True):
+    # 尝试设置键，只有当键不存在时才设置成功.  ex=120 表示过期时间 120 秒（2 分钟），nx=True 表示不存在时才设置
+    if not redis_client.set(f"hbot_charge:{rid}:{tid}", pay_num, ex=120, nx=True):
         raise Exception('扣费失败：当前患者今天的治疗，10分钟内已扣过一次费，请勿重复扣费')
 
     db = DbUtil(global_config.DB_HOST, global_config.DB_USERNAME, global_config.DB_PASSWORD,
@@ -621,15 +740,22 @@ def hbot_charge(json_data):
     if int(register_record.get('patient_type')) != 3:
         del db
         raise Exception("扣费失败：本系统暂时仅支持对住院患者进行扣款, 门诊患者请刷就诊卡。")
+    if int(register_record.get('medical_order_status')) == 0:
+        del db
+        raise Exception("扣费失败：请先联系医生开医嘱, 再进行扣费")
 
     # 查询是否扣过费（上次扣费因超时报错，但其实扣款成功）
     sick_id = register_record.get('patient_info')
     sick_id = json.loads(sick_id)
     sick_id = sick_id.get('sick_id')
-    db_source = 'nshis' if int(register_record.get('comp_type')) == 12 else 'kfhis'
-    sql = f"select * from 住院费用记录 where 病人ID = {sick_id} and 收费细目ID = 18248 and 记录性质 < 10 " \
-          f"and 记录状态 = 1 and 发生时间 >= SYSDATE - INTERVAL '30' MINUTE order by 发生时间 desc"
-    charge_list = call_third_systems_obtain_data('orcl_db_read', sql, db_source)
+    sql = f"""
+        select a.bingrenid,a.jifeiid as NO ,a.shuliang as 数次 from df_jj_zhuyuan.zy_feiyong1 a
+        left join (select b.bingrenzyid ,b.yuanfeiyid from df_jj_zhuyuan.zy_feiyong1 b where b.jiaoyilx=-1 
+        and b.shuliang<0 and b.xiangmuid=18248 ) t  on a.bingrenzyid=t.bingrenzyid and a.feiyongid=t.yuanfeiyid 
+        where a.jiaoyilx=1 and a.xiangmuid=18248 and t.bingrenzyid is null and a.bingrenid = '{sick_id}' 
+        and jifeirq >= SYSDATE - INTERVAL '30' MINUTE order by jifeirq desc 
+    """
+    charge_list = global_tools.call_new_his(sql)
     if charge_list:
         # 如果已经扣过费了直接更新治疗记录
         update_sql = f"update nsyy_gyl.hbot_treatment_record " \
@@ -641,19 +767,24 @@ def hbot_charge(json_data):
         return
 
     patient_id, homepage_id, doc_advice_id, bill_dept_code, bill_people = '', '', '', '', ''
-    if not register_record.get('medical_order_info'):
-        # 如果不存在医嘱，查询患者信息（患者信息需要重新查，防止患者换科室）
-        patient_info = query_patient_info(int(register_record.get('patient_type')),
-                                          int(register_record.get('patient_id')),
-                                          int(register_record.get('comp_type')))
-        patient_id, homepage_id = patient_info.get('sick_id'), patient_info.get('homepage_id')
-        bill_dept_code, bill_people = patient_info.get('patient_dept_code'), patient_info.get('doctor_name')
-        doc_advice_id = 0
-    else:
-        medical_order_info = json.loads(register_record.get('medical_order_info'))
-        patient_id, homepage_id = medical_order_info.get('patient_id'), medical_order_info.get('homepage_id')
-        bill_dept_code, bill_people = medical_order_info.get('bill_dept_code'), medical_order_info.get('bill_people')
-        doc_advice_id = medical_order_info.get('doc_advice_id')
+    try:
+        if not register_record.get('medical_order_info'):
+            # 如果不存在医嘱，查询患者信息（患者信息需要重新查，防止患者换科室）
+            patient_info = query_patient_info(int(register_record.get('patient_type')),
+                                              int(register_record.get('patient_id')),
+                                              int(register_record.get('comp_type')))
+            patient_id, homepage_id = patient_info.get('sick_id'), patient_info.get('homepage_id')
+            bill_dept_code, bill_people = patient_info.get('patient_dept_code'), patient_info.get('doctor_name')
+            doc_advice_id = 0
+        else:
+            medical_order_info = json.loads(register_record.get('medical_order_info'))
+            patient_id, homepage_id = medical_order_info.get('patient_id'), medical_order_info.get('homepage_id')
+            bill_dept_code, bill_people = medical_order_info.get('bill_dept_code'), medical_order_info.get(
+                'bill_people')
+            doc_advice_id = medical_order_info.get('doc_advice_id')
+    except Exception as e:
+        redis_client.delete(f"hbot_charge:{rid}:{tid}")
+        raise Exception(f"扣费失败：获取患者信息失败，错误信息：{e}")
 
     # 总院 comp——id 使用 0， 康复中医院 使用 32
     comp_id, executor, executor_code, execution_dept_code = 0, "刘春敏", "0392", "0421"
@@ -743,7 +874,8 @@ def hbot_run_everyday():
                 db.execute(update_sql, need_commit=True)
 
         # 如果存在医嘱状态 查看医嘱是否停止（正常停止/转科自动停止）
-        if register_record.get('medical_order_status') == hbot_config.medical_order_status['ordered']:
+        if register_record.get('medical_order_status') == hbot_config.medical_order_status['ordered']\
+                and register_record.get('medical_order_info'):
             doc_advice_id = json.loads(register_record.get('medical_order_info')).get('doc_advice_id')
             if has_medical_order_been_stopped(doc_advice_id, db_source):
                 patient_info_sql = ''
@@ -829,35 +961,13 @@ def data_statistics(json_data):
     """
     start_date = json_data.get('start_date')
     end_date = json_data.get('end_date')
-    db = DbUtil(global_config.DB_HOST, global_config.DB_USERNAME, global_config.DB_PASSWORD,
-                global_config.DB_DATABASE_GYL)
-    query_sql = f"""
-        select a.register_id, a.patient_id, a.execution_status, a.pay_status, a.pay_num, a.pay_no, 
-        b.patient_info, b.comp_type from nsyy_gyl.hbot_treatment_record a join nsyy_gyl.hbot_register_record b 
-        on a.register_id = b.register_id where a.record_date >= '{start_date}' and a.record_date <= '{end_date}' 
-    """
-    records = db.query_all(query_sql)
-    del db
-    for record in records:
-        record['patient_info'] = json.loads(record['patient_info'])
-        record['dept_name'] = record['patient_info'].get('patient_dept')
-
-    data = []
-    group_sorted = sorted(records, key=lambda x: x["dept_name"])
-    for key, group in groupby(group_sorted, key=lambda x: x['dept_name']):
-        group_list = list(group)
-        num_of_people = sum(1 for item in group_list if item["pay_status"] == 1)
-        amount_of_money = sum(
-            item["pay_num"] * (97 if int(item["comp_type"]) == 12 else 92)
-            for item in group_list
-            if item["pay_status"] == 1
-        )
-        data.append({
-            "dept_name": key,
-            "num_of_people": num_of_people,
-            "amount_of_money": amount_of_money
-        })
-    return data
+    try:
+        people_total, price_total = huizong.query_report(start_date, end_date)
+    except Exception as e:
+        print(datetime.now(), '高压氧报表查询异常', e)
+        people_total = []
+        price_total = []
+    return people_total, price_total
 
 
 def sign_first_evaluation(json_data):
