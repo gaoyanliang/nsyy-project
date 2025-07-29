@@ -59,7 +59,7 @@ def assembling_header(admission_record: str, data: dict):
 
     admission_record = admission_record + xml_header.xml_header_authenticator4 \
         .replace('{显示医师名称}', '医师签名') \
-        .replace('{签名时间}', sign_doc.get('signtime', '/') if sign_doc else '/') \
+        .replace('{签名时间}', str(sign_doc.get('signtime', '/')) if sign_doc else '/') \
         .replace('{医师id}', '/') \
         .replace('{医师名字}', sign_doc.get('displayinfo', '/') if sign_doc else '/') \
         .replace('{职称编码}', '/') \

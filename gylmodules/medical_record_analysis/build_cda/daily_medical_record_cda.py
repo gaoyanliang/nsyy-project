@@ -43,12 +43,12 @@ def assembling_header(admission_record: str, data: dict):
         .replace('{pat_name}', data.get('pat_name', '/')) \
         .replace('{pat_sex_no}', '1') \
         .replace('{pat_sex}', data.get('pat_sex', '/')) \
-        .replace('{pat_birth_time}', get_birthday_from_id(data.get('pat_id_card', '/'))) \
+        .replace('{pat_birth_time}', str(get_birthday_from_id(data.get('pat_id_card', '/')))) \
         .replace('{pat_age}', data.get('pat_age', '/'))
 
     # 文档创作者
     admission_record = admission_record + xml_header.xml_header_author \
-        .replace('{文档创作时间}', data.get('文档创建时间', '/')) \
+        .replace('{文档创作时间}', str(data.get('文档创建时间', '/'))) \
         .replace('{文档创作者id}', '/') \
         .replace('{文档创作者}', data.get('文档作者', '/'))
 
@@ -58,7 +58,7 @@ def assembling_header(admission_record: str, data: dict):
         .replace('{医疗卫生机构名称}', data.get('hospital_name'))
 
     admission_record = admission_record + xml_header.xml_header_authenticator4 \
-        .replace('{签名时间}', sign_doc.get('signtime', '/') if sign_doc else '/') \
+        .replace('{签名时间}', str(sign_doc.get('signtime', '/')) if sign_doc else '/') \
         .replace('{医师id}', '/') \
         .replace('{显示医师名称}', '医师签名') \
         .replace('{医师名字}', sign_doc.get('displayinfo', '/') if sign_doc else '/') \
@@ -77,7 +77,7 @@ def assembling_header(admission_record: str, data: dict):
 
     # 病床号、病房、病区、科室和医院的关联
     admission_record = admission_record + xml_header.xml_header_encompassing_encounter \
-        .replace('{入院时间}', data.get('pat_time', '/')) \
+        .replace('{入院时间}', str(data.get('pat_time', '/'))) \
         .replace('{pat_bed_no}', data.get('pat_bed', '/') if data.get('pat_bed') else '/') \
         .replace('{pat_bed}', data.get('pat_bed', '/') if data.get('pat_bed') else '/') \
         .replace('{pat_room_no}', '/') \
