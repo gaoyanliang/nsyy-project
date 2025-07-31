@@ -866,7 +866,7 @@ def create_cv_by_system(json_data, cv_source):
         cvd['instrna'] = json_data.get('INSTRNA', '') if json_data.get('INSTRNA') else ''
     if json_data.get('REPORTID') or json_data.get('RESULTID'):
         cvd['report_id'] = json_data.get('RESULTID', '0') if int(cv_source) == 3 else json_data.get('REPORTID', '0')
-    if int(cv_source) != 3 or (int(cv_source) == 3 and '床旁' in cvd['cv_name']):
+    if int(cv_source) != 3 or (int(cv_source) == 3 and '床旁' in cvd['cv_name']) or int(cvd['alert_dept_id']) == 1000800:
         cvd['jianchasj'] = cvd['alertdt']
     if json_data.get('RPT_ITEMID'):
         cvd['rpt_item_id'] = json_data.get('RPT_ITEMID', '0') if json_data.get('RPT_ITEMID') else '0'
