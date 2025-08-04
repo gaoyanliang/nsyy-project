@@ -1,7 +1,6 @@
 import concurrent.futures
 import json
 import logging
-import time
 from collections import defaultdict
 from datetime import datetime, timedelta
 
@@ -20,7 +19,6 @@ from gylmodules.critical_value.critical_value import write_cache, \
 from apscheduler.schedulers.background import BackgroundScheduler
 
 from gylmodules.critical_value.cv_manage import fetch_cv_record
-from gylmodules.hyperbaric_oxygen_therapy.hbot_server import hbot_run_everyday
 from gylmodules.questionnaire.sq_server import fetch_ai_result
 from gylmodules.utils.db_utils import DbUtil
 from gylmodules.utils.event_loop import GlobalEventLoop
@@ -275,6 +273,16 @@ def re_alert_fail_ip_log():
     del db
 
 
+def auto_shift_change():
+    url = "http://127.0.0.1:6092/gyl/scs/shift_change"
+    if global_config.run_in_local:
+        url = "http://127.0.0.1:8080/gyl/scs/shift_change"
+    response = requests.post(url)
+    if response.status_code != 200:
+        logger.error("交接班任务执行失败", response.text)
+
+
+
 def schedule_task():
     # ====================== 危机值系统定时任务 ======================
     logger.info("=============== 注册定时任务 =====================")
@@ -310,11 +318,14 @@ def schedule_task():
     logger.info("3. 消息模块定时任务 ")
     gylmodule_scheduler.add_job(flush_msg_cache, trigger='date', run_date=datetime.now())
 
-    logger.info("4. 高压氧模块定时任务 ")
-    gylmodule_scheduler.add_job(hbot_run_everyday, 'cron', hour=4, minute=30, id='hbot_run_everyday')
+    # logger.info("4. 高压氧模块定时任务 ")
+    # gylmodule_scheduler.add_job(hbot_run_everyday, 'cron', hour=4, minute=30, id='hbot_run_everyday')
 
     logger.info("6. 问卷调查模块定时任务 ")
     gylmodule_scheduler.add_job(fetch_ai_result, trigger='interval', seconds=20 * 60, id='fetch_ai_result')
+
+    logger.info("7. 交接班模块定时任务 ")
+    gylmodule_scheduler.add_job(auto_shift_change, trigger='cron', minute='*/10')
 
     # ======================  Start ======================
     gylmodule_scheduler.start()

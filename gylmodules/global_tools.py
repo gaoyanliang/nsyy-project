@@ -2,6 +2,7 @@ import json
 import threading
 import traceback
 import logging
+import time
 from logging.handlers import RotatingFileHandler
 
 from functools import wraps, lru_cache
@@ -10,12 +11,10 @@ from typing import Callable, Any
 import requests
 import psycopg2
 
-from time import time
 from psycopg2.extras import RealDictCursor
 from flask import Blueprint, jsonify, request
 
 from gylmodules import global_config
-
 
 DB_CONFIG = {
     "dbname": "df_his",
@@ -27,11 +26,11 @@ DB_CONFIG = {
 
 
 def setup_logging(
-    log_file='app.log',
-    level=logging.INFO,
-    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
-    max_bytes=10 * 1024 * 1024,  # 10MB
-    backup_count=5
+        log_file='app.log',
+        level=logging.INFO,
+        format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
+        max_bytes=10 * 1024 * 1024,  # 10MB
+        backup_count=5
 ):
     """
     全局日志配置函数
@@ -84,14 +83,63 @@ def setup_logging(
 logger = logging.getLogger(__name__)
 
 
-def call_new_his(sql: str, clobl: list = None):
+def call_yangcheng_sign_serve(param: dict, ts_sign: bool = False):
+    """
+    调用 杨程 部署的签名服务器，进行签名
+    :param param:
+    :param ts_sign:
+    :return:
+    """
+    max_retries, retry_count, retry_delay = 3, 0, 1
+    while retry_count < max_retries:
+        try:
+            sign_serve_url = "http://192.168.3.45:8087/yun_signer/opera_sign" \
+                if not ts_sign else "http://192.168.3.45:8087/signer/opera_sign"
+            response = requests.post(sign_serve_url, timeout=10, json=param)
+            data = json.loads(response.text)
+            if int(data.get('code')) != 20000:
+                raise Exception(data)
+            return data.get('data')
+        except Exception as e:
+            retry_count += 1
+            if retry_count <= max_retries:
+                sleep_time = retry_delay * (2 ** (retry_count - 1))  # 指数退避
+                logging.warning(
+                    f"签名服务器连接失败，第 {retry_count}/{max_retries} 次重试..."
+                    f"错误: {str(e)}，{sleep_time}秒后重试"
+                )
+                time.sleep(sleep_time)
+            else:
+                logging.error(f"签名服务器连接失败，已达最大重试次数 {max_retries}。最后错误: {str(e)}\n")
+                return {}
+
+
+def upload_sign_file(base64_str, is_pdf: bool = False):
+    """
+    将签名后的 pdf 以及图片上传至服务器
+    :param base64_str:
+    :param is_pdf:
+    :return:
+    """
+    param = {"type": "save", "b64file": base64_str}
+    if is_pdf:
+        param['fext'] = 'pdf'
+    response = requests.post("http://192.168.3.12:6080/b64pic_process", timeout=10, json=param)
+    data = json.loads(response.text)
+    if int(data.get('code')) != 20000:
+        raise Exception(data)
+    return data.get('download_path')
+
+
+def call_new_his(sql: str, sys: str = 'newzt', clobl: list = None):
     """
     调用新 his 查询数据
     :param sql:
+    :param sys:
     :param clobl:
     :return:
     """
-    param = {"key": "o4YSo4nmde9HbeUPWY_FTp38mB1c", "sys": "newzt", "sql": sql}
+    param = {"key": "o4YSo4nmde9HbeUPWY_FTp38mB1c", "sys": sys, "sql": sql}
     if clobl:
         param['clobl'] = clobl
 
@@ -102,7 +150,7 @@ def call_new_his(sql: str, clobl: list = None):
     data = []
     err_data = ''
     try:
-        response = requests.post(query_oracle_url, json=param, timeout=15)
+        response = requests.post(query_oracle_url, json=param, timeout=30)
         err_data = response.text
         if response.status_code != 200 or not response.text.strip():
             logger.info(f"oracle_sql 请求失败，服务器未返回数据：{response.status_code}  {err_data}  {param}")
@@ -117,17 +165,31 @@ def call_new_his(sql: str, clobl: list = None):
 
 def call_new_his_pg(sql):
     results = []
-    try:
-        # 使用 `with` 语句确保自动关闭连接
-        with psycopg2.connect(**DB_CONFIG) as conn:
-            with conn.cursor(cursor_factory=RealDictCursor) as cur:
-                cur.execute(sql)
-                datas = cur.fetchall()
-                for row in datas:
-                    results.append(dict(row))
+    max_retries = 3
+    retry_count = 0
+    retry_delay = 1
+    while retry_count < max_retries:
+        try:
+            # 使用 `with` 语句确保自动关闭连接
+            with psycopg2.connect(**DB_CONFIG) as conn:
+                with conn.cursor(cursor_factory=RealDictCursor) as cur:
+                    cur.execute(sql)
+                    datas = cur.fetchall()
+                    for row in datas:
+                        results.append(dict(row))
 
-    except Exception as e:
-        logger.error(f'PG 数据库查询失败 {str(e)}  {sql}')
+            return results
+        except Exception as e:
+            retry_count += 1
+            if retry_count < max_retries:
+                sleep_time = retry_delay * (2 ** (retry_count - 1))  # 指数退避
+                logging.warning(f"数据库连接失败，第 {retry_count}/{max_retries} 次重试..."
+                                f"错误: {str(e)}，{sleep_time}秒后重试")
+                time.sleep(sleep_time)
+            else:
+                logging.error(f"数据库操作失败，已达最大重试次数 {max_retries}。"
+                              f"最后错误: {str(e)}\nSQL: {sql}")
+                return []
 
     return results
 
@@ -182,6 +244,7 @@ def api_response(func):
         except Exception as e:
             logger.debug(f"{request.url} 系统异常： {str(e)} , param = {json_data} {traceback.print_exc()}")
             return jsonify({'code': 50000, 'res': str(e)})
+
     return wrapper
 
 
@@ -194,7 +257,9 @@ def validate_params(*required_params):
             if missing:
                 raise KeyError(f"Missing params: {', '.join(missing)}")
             return func(json_data, *args, **kwargs)
+
         return wrapper
+
     return decorator
 
 
@@ -229,13 +294,15 @@ def timed_lru_cache(seconds: int, maxsize: int = 128):
     def wrapper_cache(func: Callable) -> Callable:
         func = lru_cache(maxsize=maxsize)(func)
         func.lifetime = seconds
-        func.expire_time = time() + func.lifetime
+        func.expire_time = time.time() + func.lifetime
 
         @wraps(func)
         def wrapped_func(*args: Any, **kwargs: Any) -> Any:
-            if time() > func.expire_time:
+            if time.time() > func.expire_time:
                 func.cache_clear()
-                func.expire_time = time() + func.lifetime
+                func.expire_time = time.time() + func.lifetime
             return func(*args, **kwargs)
+
         return wrapped_func
+
     return wrapper_cache
