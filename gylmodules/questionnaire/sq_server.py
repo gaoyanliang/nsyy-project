@@ -465,7 +465,7 @@ def query_test_result(card_no, visit_date):
         and jc.bingrenid = '{card_no}' WHERE yj.bingrenid = '{card_no}' 
         AND yj.kaidanrq  >= to_date('{visit_date}','yyyy-mm-dd')  and yj.zuofeibz=0
     """
-    test_results = global_tools.call_new_his(sql, ['img_result'])
+    test_results = global_tools.call_new_his(sql, clobl=['img_result'])
     return test_results
 
 
