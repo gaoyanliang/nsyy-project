@@ -294,6 +294,85 @@ def fetch_all_vehicles():
     return df
 
 
+def enter_system_management():
+    """处理会新开标签页的系统管理菜单"""
+    try:
+        # 1. 确保在主文档中
+        driver.switch_to.default_content()
+        time.sleep(1)  # 等待页面稳定
+
+        # 2. 获取当前窗口句柄（用于后续切换回来）
+        main_window = driver.current_window_handle
+
+        # 3. 定位菜单图标（根据图片中的三横线图标）
+        menu_icon = WebDriverWait(driver, 20).until(
+            EC.element_to_be_clickable((By.XPATH, "//i[contains(@class, 'h-icon-menu_leftbar')]"))
+        )
+
+        # 4. 点击展开菜单
+        menu_icon.click()
+        print("✅ 已展开主菜单")
+
+        # 5. 定位系统管理菜单项
+        system_menu = WebDriverWait(driver, 10).until(
+            EC.element_to_be_clickable((By.XPATH, "//li[contains(text(), '系统管理')]"))
+        )
+
+        # 6. 获取当前窗口数
+        original_windows = driver.window_handles
+
+        # 7. 点击系统管理（使用JS确保点击生效）
+        driver.execute_script("arguments[0].click();", system_menu)
+        print("✅ 已点击系统管理")
+
+        # 8. 等待新标签页打开（关键修正）
+        WebDriverWait(driver, 10).until(lambda d: len(d.window_handles) > len(original_windows))
+        new_window = [window for window in driver.window_handles if window not in original_windows][0]
+
+        # 9. 切换到新标签页
+        driver.switch_to.window(new_window)
+        print("✅ 已切换到新标签页")
+
+        # 10. 验证是否进入系统管理
+        WebDriverWait(driver, 15).until(
+            EC.presence_of_element_located(
+                (By.XPATH, "//*[contains(text(), '用户管理') or contains(text(), '系统设置')]"))
+        )
+        print("✅ 成功进入系统管理页面")
+        return True
+
+    except Exception as e:
+        print(f"❌ 操作失败: {str(e)}")
+        print("当前窗口数量:", len(driver.window_handles))
+        print("当前URL:", driver.current_url)
+        driver.save_screenshot("new_tab_fail.png")
+        return False
+
+
+def xitong_guanli():
+    """
+    登陆成功之后进入系统管理页面 维护人员信息
+    :return:
+    """
+    try:
+        # 访问网址
+        driver.get("http://tingchechang.nsyy.com.cn/")
+
+        # 登录
+        login()
+
+        # 进入系统管理
+        enter_system_management()
+
+    except Exception as e:
+        print(f"❌ 发生错误: {str(e)}", e.__class__, traceback.print_exc())
+        driver.save_screenshot("error.png")
+    finally:
+        driver.quit()
+
+
+
+
 try:
     # 访问网址
     driver.get("http://tingchechang.nsyy.com.cn/")
@@ -301,16 +380,19 @@ try:
     # 登录
     login()
 
-    # 切换到停车场出入口页面
-    switch_to_parking_page()
+    # 进入系统管理
+    enter_system_management()
 
-    # 切换到信息查询页面
-    switch_to_info_query()
+    # # 切换到停车场出入口页面
+    # switch_to_parking_page()
+    #
+    # # 切换到信息查询页面
+    # switch_to_info_query()
     #
     # # 进入 库内车辆查询
     # export_parking_vehicles()
 
-    data = fetch_all_vehicles()
+    # data = fetch_all_vehicles()
 
 except Exception as e:
     print(f"❌ 发生错误: {str(e)}", e.__class__, traceback.print_exc())
