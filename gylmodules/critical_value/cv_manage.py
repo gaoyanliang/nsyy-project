@@ -185,7 +185,7 @@ def query_cv_medical_record(patient_type, patient_id):
             AND t2.zuofeibz = 0 AND t2.menzhenzybz = 1
             AND (a.jiuzhenkh = '{patient_id}' or a.bingrenid = '{patient_id}' or a.jiuzhenid = '{patient_id}')
         """
-    data = global_tools.call_new_his(sql, ['CONTENT'])
+    data = global_tools.call_new_his(sql=sql, clobl=['CONTENT'])
     if not data:
         return []
     ret_data = []
