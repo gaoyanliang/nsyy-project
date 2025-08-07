@@ -54,7 +54,7 @@ def query_shift_change_date(json_data):
         # 护士交接班
         shift_classes = f"{shift_type}-{shift_classes}"
         query_sql = f"select * from nsyy_gyl.scs_patients where shift_date = '{shift_date}' " \
-                    f"and shift_classes = '{shift_classes}' and patient_ward_id = {dept_id}"
+                    f"and patient_ward_id = {dept_id}"
         patients = db.query_all(query_sql)
 
         patient_count_list = db.query_all(f"select * from nsyy_gyl.scs_patient_count where shift_date = '{shift_date}' "
@@ -100,7 +100,12 @@ def query_shift_change_date(json_data):
     del db
 
     patients = merge_ret_patient_list(patients, is_archived)
-    sorted_patients = sorted(patients, key=lambda x: (x['patient_type'], x['bed_no']))
+
+    def get_patient_type_key(patient):
+        """返回用于排序的元组：(patient_type优先级, bed_no)未定义的类型排最后"""
+        return (PATIENT_TYPE_ORDER.get(patient['patient_type'], float('inf')),  int(patient['bed_no']))
+
+    sorted_patients = sorted(patients, key=get_patient_type_key)
     return {
         'patient_count': patient_count,
         'patient_bed_info': patient_bed_info,
