@@ -8,6 +8,7 @@ from typing import Tuple, Dict, List
 
 from gylmodules import global_config, global_tools
 from gylmodules.shift_change import shift_change_config
+from gylmodules.shift_change.shift_change_config import PATIENT_TYPE_ORDER
 from gylmodules.utils.db_utils import DbUtil
 from datetime import datetime, timedelta
 
@@ -45,9 +46,9 @@ def query_shift_change_date(json_data):
 
         count_info = db.query_all(f"select * from nsyy_gyl.scs_patient_count where shift_date = '{shift_date}' "
                                   f"and shift_classes = '{shift_classes}' and patient_dept_id = {dept_id}")
-        patient_count = {}
-        for item in patient_count:
-            patient_count[item.get('patient_type')] = item.get('count')
+        patient_count = {"1": {}, "2": {}, "3": {}}
+        for item in count_info:
+            patient_count[item['shift_classes'].split("-")[1]][item.get('patient_type')] = item.get('count')
         patient_bed_info = []
     else:
         # 护士交接班
@@ -57,7 +58,7 @@ def query_shift_change_date(json_data):
         patients = db.query_all(query_sql)
 
         patient_count_list = db.query_all(f"select * from nsyy_gyl.scs_patient_count where shift_date = '{shift_date}' "
-                                          f"and shift_classes = '{shift_classes}' and patient_ward_id = {dept_id}")
+                                          f" and patient_ward_id = {dept_id}")
 
         shift_info_list = db.query_all(f"select * from nsyy_gyl.scs_shift_info where shift_date = '{shift_date}'"
                                        f" and dept_id = {dept_id}")
@@ -99,10 +100,11 @@ def query_shift_change_date(json_data):
     del db
 
     patients = merge_ret_patient_list(patients, is_archived)
+    sorted_patients = sorted(patients, key=lambda x: (x['patient_type'], x['bed_no']))
     return {
         'patient_count': patient_count,
         'patient_bed_info': patient_bed_info,
-        'patients': patients,
+        'patients': sorted_patients,
         'shift_info': shift_info
     }
 
@@ -158,7 +160,8 @@ def update_shift_change_data(json_data):
     """更新/新增交接班患者数据"""
     shift_type = json_data.get('shift_type')
     shift_classes = json_data.get('shift_classes')
-    dept_id = int(json_data.get('patient_dept_id')) if json_data.get('patient_dept_id') else int(json_data.get('patient_ward_id'))
+    dept_id = int(json_data.get('patient_dept_id')) if json_data.get('patient_dept_id') else int(
+        json_data.get('patient_ward_id'))
     db = DbUtil(global_config.DB_HOST, global_config.DB_USERNAME, global_config.DB_PASSWORD,
                 global_config.DB_DATABASE_GYL)
     if db.query_one(f"select * from nsyy_gyl.scs_shift_info where shift_date = '{json_data.get('shift_date')}' "
@@ -180,7 +183,8 @@ def update_shift_change_data(json_data):
                         patient_name, patient_sex, patient_age, zhenduan, patient_type, patient_dept_id, patient_dept,
                         patient_ward_id, patient_ward, doctor_name, patient_info, create_at) 
                         VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)"""
-        args = (json_data.get('shift_date'), json_data.get('shift_classes'), json_data.get('bingrenzyid', ''),
+        args = (json_data.get('shift_date'), f"{json_data.get('shift_type')}-{json_data.get('shift_classes')}",
+                json_data.get('bingrenzyid', ''),
                 json_data.get('zhuyuanhao', ''), json_data.get('bed_no', ''), json_data.get('patient_name', ''),
                 json_data.get('patient_sex', ''), json_data.get('patient_age', ''), json_data.get('zhenduan', ''),
                 json_data.get('patient_type'), json_data.get('patient_dept_id', '0'),
@@ -317,11 +321,6 @@ def aicu_shift_change(reg_sqls, shift_classes, time_slot):
                                               global_tools.call_new_his_pg, reg_sqls.get(14).get('sql_nhis')
                                               .replace("{start_time}", shift_start)
                                               .replace("{end_time}", shift_end)),
-            "chuangwei_info1": executor.submit(timed_execution, "AICU/CCU 特殊患者床位信息 3 ",
-                                               global_tools.call_new_his_pg, reg_sqls.get(8).get('sql_nhis')),
-            "chuangwei_info2": executor.submit(timed_execution, "AICU/CCU 特殊患者床位信息 4 ",
-                                               global_tools.call_new_his, reg_sqls.get(8).get('sql_ydhl'), 'ydhl',
-                                               None),
             "pg_patients": executor.submit(timed_execution, "AICU/CCU 护理单元患者情况 pg 5 ",
                                            global_tools.call_new_his_pg, reg_sqls.get(15).get('sql_base')
                                            .replace("{start_time}", shift_start)
@@ -331,13 +330,21 @@ def aicu_shift_change(reg_sqls, shift_classes, time_slot):
                                              .replace("{start_time}", shift_start)
                                              .replace("{end_time}", shift_end), 'ydhl', None)
         }
+        if int(shift_classes) == 3:
+            tasks["chuangwei_info1"] = executor.submit(timed_execution, "AICU/CCU 特殊患者床位信息 3 ",
+                                                       global_tools.call_new_his_pg, reg_sqls.get(8).get('sql_nhis'))
+            tasks["chuangwei_info2"] = executor.submit(timed_execution, "AICU/CCU 特殊患者床位信息 4 ",
+                                                       global_tools.call_new_his, reg_sqls.get(8).get('sql_ydhl'),
+                                                       'ydhl',
+                                                       None)
+
         # 获取结果（会自动等待所有任务完成）
         results = {name: future.result() for name, future in tasks.items()}
         # 解包结果
         patient_count = results["patient_count"]
         teshu_patients = results["teshu_patients"]
-        chuangwei_info1 = results["chuangwei_info1"]
-        chuangwei_info2 = results["chuangwei_info2"]
+        chuangwei_info1 = results.get("chuangwei_info1", [])
+        chuangwei_info2 = results.get("chuangwei_info2", [])
         pg_patients = results["pg_patients"]
         ydhl_patients = results["ydhl_patients"]
 
@@ -378,7 +385,7 @@ def aicu_shift_change(reg_sqls, shift_classes, time_slot):
 
     all_patients = merge_patient_cv_data(all_cvs, all_patient_info, 2, ["1000965", "1001120"])
     save_data(f"2-{shift_classes}", all_patients, patient_count, chuangwei_info1 + chuangwei_info2)
-    logger.debug(f"AICU/CCU 交接班数据查询完成 ✅ 总耗时: {time.time() - start}")
+    logger.info(f"AICU/CCU 交接班数据查询完成 ✅ 总耗时: {time.time() - start}")
 
 
 def ob_gyn_shift_change(reg_sqls, shift_classes, time_slot):
@@ -412,11 +419,6 @@ def ob_gyn_shift_change(reg_sqls, shift_classes, time_slot):
                                               global_tools.call_new_his_pg, reg_sqls.get(16).get('sql_nhis')
                                               .replace("{start_time}", shift_start)
                                               .replace("{end_time}", shift_end)),
-            "chuangwei_info1": executor.submit(timed_execution, "妇产科 特殊患者床位信息 3 ",
-                                               global_tools.call_new_his_pg, reg_sqls.get(9).get('sql_nhis')),
-            "chuangwei_info2": executor.submit(timed_execution, "妇产科 特殊患者床位信息 4 ",
-                                               global_tools.call_new_his, reg_sqls.get(9).get('sql_ydhl'), 'ydhl',
-                                               None),
             "pg_patients": executor.submit(timed_execution, "妇产科 护理单元患者情况 pg 5 ",
                                            global_tools.call_new_his_pg, reg_sqls.get(17).get('sql_base')
                                            .replace("{start_time}", shift_start)
@@ -426,13 +428,20 @@ def ob_gyn_shift_change(reg_sqls, shift_classes, time_slot):
                                              .replace("{start_time}", shift_start)
                                              .replace("{end_time}", shift_end), 'ydhl', None)
         }
+        if int(shift_classes) == 3:
+            tasks["chuangwei_info1"] = executor.submit(timed_execution, "妇产科 特殊患者床位信息 3 ",
+                                               global_tools.call_new_his_pg, reg_sqls.get(9).get('sql_nhis'))
+            tasks["chuangwei_info2"] = executor.submit(timed_execution, "妇产科 特殊患者床位信息 4 ",
+                                               global_tools.call_new_his, reg_sqls.get(9).get('sql_ydhl'), 'ydhl',
+                                               None)
+
         # 获取结果（会自动等待所有任务完成）
         results = {name: future.result() for name, future in tasks.items()}
         # 解包结果
         patient_count = results["patient_count"]
         teshu_patients = results["teshu_patients"]
-        chuangwei_info1 = results["chuangwei_info1"]
-        chuangwei_info2 = results["chuangwei_info2"]
+        chuangwei_info1 = results.get("chuangwei_info1", [])
+        chuangwei_info2 = results.get("chuangwei_info2", [])
         pg_patients = results["pg_patients"]
         ydhl_patients = results["ydhl_patients"]
 
@@ -466,7 +475,7 @@ def ob_gyn_shift_change(reg_sqls, shift_classes, time_slot):
 
     all_patients = merge_patient_cv_data(all_cvs, all_patient_info, 2, ["1000961"])
     save_data(f"2-{shift_classes}", all_patient_info, patient_count, chuangwei_info1 + chuangwei_info2)
-    logger.debug(f"妇产科 交接班数据查询完成 ✅ 总耗时: {time.time() - start}")
+    logger.info(f"妇产科 交接班数据查询完成 ✅ 总耗时: {time.time() - start}")
 
 
 def icu_shift_change(reg_sqls, shift_classes, time_slot):
@@ -500,23 +509,25 @@ def icu_shift_change(reg_sqls, shift_classes, time_slot):
                                               global_tools.call_new_his_pg, reg_sqls.get(18).get('sql_nhis')
                                               .replace("{start_time}", shift_start)
                                               .replace("{end_time}", shift_end)),
-            "chuangwei_info1": executor.submit(timed_execution, "重症科室 特殊患者床位信息 3 ",
-                                               global_tools.call_new_his_pg, reg_sqls.get(10).get('sql_nhis')),
-            "chuangwei_info2": executor.submit(timed_execution, "重症科室 特殊患者床位信息 4 ",
-                                               global_tools.call_new_his, reg_sqls.get(10).get('sql_ydhl'), 'ydhl',
-                                               None),
             # "temp_patients": executor.submit(timed_execution, "AICU/CCU 护理单元患者情况 5 ",
             #                                  global_tools.call_new_his_pg, reg_sqls.get(15).get('sql_base')
             #                                  .replace("{start_time}", shift_start)
             #                                  .replace("{end_time}", shift_end))
         }
+        if int(shift_classes) == 3:
+            tasks["chuangwei_info1"] = executor.submit(timed_execution, "重症科室 特殊患者床位信息 3 ",
+                                               global_tools.call_new_his_pg, reg_sqls.get(10).get('sql_nhis'))
+            tasks["chuangwei_info2"] = executor.submit(timed_execution, "重症科室 特殊患者床位信息 4 ",
+                                               global_tools.call_new_his, reg_sqls.get(10).get('sql_ydhl'), 'ydhl',
+                                               None)
+
         # 获取结果（会自动等待所有任务完成）
         results = {name: future.result() for name, future in tasks.items()}
         # 解包结果
         patient_count = results["patient_count"]
         teshu_patients = results["teshu_patients"]
-        chuangwei_info1 = results["chuangwei_info1"]
-        chuangwei_info2 = results["chuangwei_info2"]
+        chuangwei_info1 = results.get("chuangwei_info1", [])
+        chuangwei_info2 = results.get("chuangwei_info2", [])
         # temp_patients = results["temp_patients"]
 
     if all_cvs:
@@ -526,7 +537,7 @@ def icu_shift_change(reg_sqls, shift_classes, time_slot):
 
     all_patients = merge_patient_cv_data(all_cvs, teshu_patients, 2, ["1000962"])
     save_data(f"2-{shift_classes}", all_patients, patient_count, chuangwei_info1 + chuangwei_info2)
-    logger.debug(f"重症科室 交接班数据查询完成 ✅ 耗时: {time.time() - start}")
+    logger.info(f"重症科室 交接班数据查询完成 ✅ 耗时: {time.time() - start}")
 
 
 def general_dept_shift_change(reg_sqls, shift_classes, time_slot, dept_list):
@@ -564,11 +575,6 @@ def general_dept_shift_change(reg_sqls, shift_classes, time_slot, dept_list):
                                                global_tools.call_new_his_pg, reg_sqls.get(11).get('sql_nhis')
                                                .replace("{start_time}", shift_start)
                                                .replace("{end_time}", shift_end)),
-            "chuangwei_info1": executor.submit(timed_execution, "普通病区 特殊患者床位信息 3 ",
-                                               global_tools.call_new_his_pg, reg_sqls.get(4).get('sql_nhis')),
-            "chuangwei_info2": executor.submit(timed_execution, "普通病区 特殊患者床位信息 4 ",
-                                               global_tools.call_new_his, reg_sqls.get(4).get('sql_ydhl'), 'ydhl',
-                                               None),
             "teshu_ydhl_patients": executor.submit(timed_execution, "普通病区 患者信息(特殊处理) ydhl 5 ",
                                                    global_tools.call_new_his, reg_sqls.get(13).get('sql_ydhl')
                                                    .replace("{start_time}", shift_start)
@@ -590,13 +596,20 @@ def general_dept_shift_change(reg_sqls, shift_classes, time_slot, dept_list):
                                              , 'ydhl', None)
 
         }
+        if int(shift_classes) == 3:
+            tasks["chuangwei_info1"] = executor.submit(timed_execution, "普通病区 特殊患者床位信息 3 ",
+                                               global_tools.call_new_his_pg, reg_sqls.get(4).get('sql_nhis'))
+            tasks["chuangwei_info2"] = executor.submit(timed_execution, "普通病区 特殊患者床位信息 4 ",
+                                               global_tools.call_new_his, reg_sqls.get(4).get('sql_ydhl'), 'ydhl',
+                                               None)
+
         # 获取结果（会自动等待所有任务完成）
         results = {name: future.result() for name, future in tasks.items()}
         # 解包结果
         patient_count = results["patient_count"]
         siwang_patients = results["siwang_patients"]
-        chuangwei_info1 = results["chuangwei_info1"]
-        chuangwei_info2 = results["chuangwei_info2"]
+        chuangwei_info1 = results.get("chuangwei_info1", [])
+        chuangwei_info2 = results.get("chuangwei_info2", [])
         teshu_ydhl_patients = results["teshu_ydhl_patients"]
         teshu_pg_patients = results["teshu_pg_patients"]
         ydhl_patients = results["ydhl_patients"]
@@ -643,7 +656,7 @@ def general_dept_shift_change(reg_sqls, shift_classes, time_slot, dept_list):
     patient_count_list = fill_missing_types(patient_count, shift_change_config.ward_people_count, 2)
     all_patients = merge_patient_cv_data(all_cvs, all_patient_info, 2, dept_list)
     save_data(f"2-{shift_classes}", all_patients, patient_count_list, chuangwei_info1 + chuangwei_info2)
-    logger.debug(f"普通科室 通用交接班数据查询完成 ✅ 耗时: {time.time() - start}")
+    logger.info(f"普通科室 通用交接班数据查询完成 ✅ 耗时: {time.time() - start}")
 
 
 def get_complete_time_slot(shift_slot: str) -> tuple:
@@ -699,7 +712,8 @@ def merge_patient_records(patient_list):
 
         # 合并patient_type（去重）
         types = {p[9] for p in patients if p[9]}
-        merged_type = ', '.join(types) if types else base_patient[9]
+        sorted_types = sorted(types, key=lambda x: PATIENT_TYPE_ORDER.get(x, float('inf')))
+        merged_type = ', '.join(sorted_types) if sorted_types else base_patient[9]
 
         # 按时间排序后合并info
         try:
@@ -791,12 +805,19 @@ def merge_patient_cv_data(cv_list, patient_list, shift_type, dept_list):
                 patient.get('所在病区') if patient.get('所在病区') else '',
                 patient.get('主治医生姓名') if patient.get('主治医生姓名') else '',
                 patient.get('患者情况') if patient.get('患者情况') else '',
+
+                sex = '未知'
+                if str(cv.get('patient_gender')) == 1:
+                    sex = '男'
+                if str(cv.get('patient_gender')) == 2:
+                    sex = '女'
+
                 patient_dict[(zhuyuanhao, dpid)].append({
                     'bingrenzyid': '',
                     '住院号': zhuyuanhao,
                     '床号': cv.get('patient_bed_num'),
                     '姓名': cv.get('patient_name'),
-                    '性别': cv.get('patient_gender'),
+                    '性别': sex,
                     '年龄': cv.get('patient_age'),
                     '主要诊断': '',
                     '患者类别': '危急值',
@@ -892,11 +913,13 @@ def save_data(shift_classes, patients, patient_count, patient_bed_info):
 
     if patient_bed_info:
         bed_info_list = [
-            (today_date, shift_classes, item.get('患者类别'), item.get('所在病区id'), item.get('所在病区'),
-             item.get('患者信息'), datetime.now().strftime('%Y-%m-%d %H:%M:%S')) for item in patient_bed_info]
+            (today_date, shift_classes, item.get('患者类别'), shift_change_config.his_dept_dict.get(item.get('所在病区'), 0),
+             item.get('所在病区'), item.get('患者信息'),
+             datetime.now().strftime('%Y-%m-%d %H:%M:%S')) for item in patient_bed_info]
         insert_sql = f"""INSERT INTO nsyy_gyl.scs_patient_bed_info(shift_date, shift_classes, 
                         patient_type, patient_ward_id, patient_ward, patient_info, create_at)
-                        VALUES (%s, %s, %s, %s, %s, %s, %s) ON DUPLICATE KEY UPDATE patient_info = VALUES(patient_info)"""
+                        VALUES (%s, %s, %s, %s, %s, %s, %s) 
+                        ON DUPLICATE KEY UPDATE patient_info = VALUES(patient_info)"""
         db.execute_many(insert_sql, bed_info_list, need_commit=True)
     del db
 
@@ -1125,10 +1148,10 @@ def create_or_update_shift_config(json_data):
 
     if json_data.get('id'):
         args = (json_data.get('shift_type'), json_data.get('dept_id'), json_data.get('dept_name'),
-                         json_data.get('early_shift'), json_data.get('early_shift_slot'),
-                         json_data.get('middle_shift'), json_data.get('middle_shift_slot'),
-                         json_data.get('night_shift'), json_data.get('night_shift_slot'),
-                         json_data.get('shift_status'), json_data.get('id'))
+                json_data.get('early_shift'), json_data.get('early_shift_slot'),
+                json_data.get('middle_shift'), json_data.get('middle_shift_slot'),
+                json_data.get('night_shift'), json_data.get('night_shift_slot'),
+                json_data.get('shift_status'), json_data.get('id'))
         db.execute("UPDATE nsyy_gyl.scs_shift_config SET shift_type=%s, dept_id=%s, dept_name=%s, "
                    "early_shift=%s, early_shift_slot=%s, middle_shift=%s, middle_shift_slot=%s,"
                    "night_shift=%s, night_shift_slot=%s, shift_status=%s WHERE id=%s",
