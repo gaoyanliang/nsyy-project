@@ -1,213 +1,7 @@
-# import time
-# import traceback
-# from asyncio import as_completed
-# from concurrent.futures import ThreadPoolExecutor
-#
-# import pandas as pd
-# import requests
-# from selenium import webdriver
-# from selenium.webdriver import ActionChains
-# from selenium.webdriver.common.by import By
-# from selenium.webdriver.support.ui import WebDriverWait
-# from selenium.webdriver.support import expected_conditions as EC
-# from selenium.webdriver.chrome.options import Options
-# from selenium.common.exceptions import ElementClickInterceptedException, StaleElementReferenceException
-# from tqdm import tqdm
-#
-# # Chrome 基础配置
-# chrome_options = Options()
-# chrome_options.add_argument("--start-maximized")   # 默认全屏
-# chrome_options.add_argument("--disable-extensions")
-# chrome_options.add_argument("--disable-popup-blocking")
-#
-# # 强化配置（解决证书和资源加载问题）
-# chrome_options.add_argument("--ignore-certificate-errors")  # 忽略证书错误
-# chrome_options.add_argument("--ignore-ssl-errors")         # 忽略SSL错误
-# chrome_options.add_argument("--disable-notifications")     # 禁用通知
-#
-# # 屏蔽资源加载错误
-# chrome_options.add_argument("--blink-settings=imagesEnabled=false")
-# chrome_options.add_argument("--disable-stylesheets")
-# chrome_options.add_experimental_option("excludeSwitches", ["enable-logging"])  # 禁用控制台日志
-#
-# # 启动浏览器
-# driver = webdriver.Chrome(options=chrome_options)
-# wait = WebDriverWait(driver, 20)  # Firefox()  Chrome()
-# actions = ActionChains(driver)
-#
-# # 备用全屏方案（如果最大化不够）
-# try:
-#     driver.maximize_window()  # 双重保障
-# except:
-#     driver.set_window_size(1920, 1080)
-#
-#
-# def login():
-#     """登录函数"""
-#     # 等待并输入用户名
-#     username = WebDriverWait(driver, 15).until(
-#         EC.visibility_of_element_located((By.XPATH, "//input[@placeholder='请输入用户名']"))
-#     )
-#     username.clear()
-#     username.send_keys("admin1")
-#
-#     # 等待并输入密码
-#     password = WebDriverWait(driver, 15).until(
-#         EC.visibility_of_element_located((By.XPATH, "//input[@placeholder='请输入密码' and @type='password']"))
-#     )
-#     password.clear()
-#     password.send_keys("Lg20252025")
-#
-#     # 点击登录
-#     login_btn = WebDriverWait(driver, 15).until(
-#         EC.element_to_be_clickable((By.XPATH, "//button[contains(@class, 'login-btn')]"))
-#     )
-#     try:
-#         login_btn.click()
-#     except:
-#         driver.execute_script("arguments[0].click();", login_btn)  # JS点击
-#
-#     # 验证登录
-#     WebDriverWait(driver, 20).until(EC.text_to_be_present_in_element((By.XPATH, "//span[@class='username']"), "admin1"))
-#     print(datetime.now(), "✅ 登录成功")
-#
-#
-# def switch_to_parking_page():
-#     """进入停车场出入口页面"""
-#
-#     # 点击"停车场出入口"菜单
-#     parking_menu = WebDriverWait(driver, 20).until(EC.element_to_be_clickable(
-#         (By.XPATH, "//div[@class='sub-nav-title' and contains(text(), '停车场出入口')]")))
-#
-#     # 确保元素完全可见
-#     driver.execute_script("""arguments[0].scrollIntoView({behavior: 'smooth',
-#                        block: 'center', inline: 'center'});""", parking_menu)
-#     # 等待动画效果完成
-#     time.sleep(0.5)
-#     try:
-#         parking_menu.click()
-#     except ElementClickInterceptedException:
-#         # 处理可能的遮挡
-#         driver.execute_script("arguments[0].click();", parking_menu)
-#     except StaleElementReferenceException:
-#         # 处理元素过期
-#         parking_menu = wait.until(EC.element_to_be_clickable(
-#             (By.XPATH, "//*[contains(@class, 'sub-nav') and contains(., '停车场出入口')]")))
-#         parking_menu.click()
-#
-#     try:
-#         iframes = driver.find_elements(By.TAG_NAME, "iframe")
-#         for index, iframe in enumerate(iframes):
-#             print(datetime.now(), f"iframe {index}: {iframe.get_attribute('outerHTML')}")
-#         # 切换到iframe
-#         WebDriverWait(driver, 10).until(EC.frame_to_be_available_and_switch_to_it((By.ID, "iframe000505")))
-#         # 尝试定位车辆管理元素
-#         WebDriverWait(driver, 10).until(EC.presence_of_element_located((By.XPATH, "//span[@title='车辆管理']")))
-#         print(datetime.now(), "✅ 成功进入停车场出入口页面")
-#         driver.switch_to.default_content()  # 切换回主文档
-#     except Exception as e:
-#         print(datetime.now(), "❌ 未找到停车场出入口菜单", e.__class__)
-#         driver.switch_to.default_content()  # 确保切换回主文档
-#         # 检查整个DOM结构
-#         # print(datetime.now(), driver.execute_script("return document.documentElement.outerHTML;"))
-#
-#
-#     # 强制显示元素
-#     driver.execute_script("""const items = document.querySelectorAll('li.el-menu-item');
-#         items.forEach(item => item.style.display = 'block');""")
-#     # 等待元素渲染
-#     time.sleep(0.5)  # 必要等待
-#     # print(datetime.now(), driver.execute_script("return document.documentElement.outerHTML;"))
-#
-#     # 打印所有菜单项的文本内容
-#     all_items = driver.execute_script("""return Array.from(document.querySelectorAll('li.el-menu-item'))
-#             .map(item => item.textContent.trim());""")
-#     print(datetime.now(), "所有菜单项文本:", all_items)
-#
-#
-# def switch_to_info_query():
-#     """专为海康威视停车场系统设计的菜单切换方案"""
-#     try:
-#         # 确保在主文档中
-#         driver.switch_to.default_content()
-#
-#         # 切换到内容iframe（根据图片中的iframe000505）
-#         WebDriverWait(driver, 10).until(EC.frame_to_be_available_and_switch_to_it((By.ID, "iframe000505")))
-#
-#         # 在iframe内查找菜单（关键步骤）
-#         menu_xpath = "//li[contains(@class,'el-menu-item') and contains(.,'信息查询')]"
-#         menu = WebDriverWait(driver, 20).until(
-#             EC.element_to_be_clickable((By.XPATH, menu_xpath))
-#         )
-#
-#         # 高亮元素（调试用）
-#         driver.execute_script("""
-#             arguments[0].style.outline = '3px solid red';
-#             arguments[0].scrollIntoView({block: 'center'});
-#         """, menu)
-#
-#         # 6. 特殊点击处理（海康系统需要）
-#         driver.execute_script("""
-#             // 先触发鼠标悬停
-#             arguments[0].dispatchEvent(new MouseEvent('mouseover', {bubbles: true}));
-#
-#             // 再触发点击
-#             const clickEvent = new MouseEvent('click', {
-#                 view: window,
-#                 bubbles: true,
-#                 cancelable: true
-#             });
-#             arguments[0].dispatchEvent(clickEvent);
-#
-#             // 兼容性处理
-#             if (arguments[0].querySelector('a')) {
-#                 arguments[0].querySelector('a').click();
-#             }
-#         """, menu)
-#
-#         # 7. 等待内容更新
-#         time.sleep(2)  # 必须等待
-#         WebDriverWait(driver, 10).until(EC.presence_of_element_located((By.XPATH,
-#                                                                         "//*[contains(text(), '过车记录查询')]")))
-#
-#         print(datetime.now(), "✅ 成功切换到信息查询页面")
-#         cookies = {c['name']: c['value'] for c in driver.get_cookies()}
-#         print(datetime.now(), cookies)
-#         return True
-#
-#     except Exception as e:
-#         print(datetime.now(), f"❌ 切换失败: {str(e)}", e.__class__)
-#
-#         # 获取诊断信息
-#         print(datetime.now(), "当前页面HTML:", driver.execute_script("return document.documentElement.outerHTML"))
-#         driver.save_screenshot("hik_fail.png")
-#         return False
-#
-#
-# try:
-#     # 访问网址
-#     driver.get("http://tingchechang.nsyy.com.cn/")
-#
-#     # 登录
-#     login()
-#
-#     # 切换到停车场出入口页面
-#     switch_to_parking_page()
-#
-#     # 切换到信息查询页面
-#     switch_to_info_query()
-#
-# except Exception as e:
-#     print(datetime.now(), f"❌ 发生错误: {str(e)}", e.__class__, traceback.print_exc())
-#     driver.save_screenshot("error.png")
-# finally:
-#     driver.quit()
-#
-
-
 import time
 import traceback
 from datetime import datetime
+from urllib.parse import quote
 
 import pandas as pd
 import requests
@@ -250,31 +44,28 @@ actions = ActionChains(driver)
 driver.execute_script("Object.defineProperty(navigator, 'webdriver', {get: () => undefined})")
 
 
+"""登录函数"""
+
+
 def login():
-    """登录函数"""
     try:
         # 访问登录页面
         driver.get("http://tingchechang.nsyy.com.cn/")
         print(datetime.now(), "✅ 已访问登录页面")
 
         # 输入用户名
-        username = wait.until(
-            EC.visibility_of_element_located((By.XPATH, "//input[@placeholder='请输入用户名']"))
-        )
+        username = wait.until(EC.visibility_of_element_located((By.XPATH, "//input[@placeholder='请输入用户名']")))
         username.clear()
         username.send_keys("admin1")
 
         # 输入密码
         password = wait.until(
-            EC.visibility_of_element_located((By.XPATH, "//input[@placeholder='请输入密码' and @type='password']"))
-        )
+            EC.visibility_of_element_located((By.XPATH, "//input[@placeholder='请输入密码' and @type='password']")))
         password.clear()
         password.send_keys("Lg20252025")
 
         # 点击登录按钮
-        login_btn = wait.until(
-            EC.element_to_be_clickable((By.XPATH, "//button[contains(@class, 'login-btn')]"))
-        )
+        login_btn = wait.until(EC.element_to_be_clickable((By.XPATH, "//button[contains(@class, 'login-btn')]")))
         try:
             login_btn.click()
         except:
@@ -290,8 +81,10 @@ def login():
         return False
 
 
+"""进入停车场出入口页面"""
+
+
 def switch_to_parking_page():
-    """进入停车场出入口页面"""
     try:
         # 点击菜单
         parking_menu = wait.until(EC.element_to_be_clickable(
@@ -315,36 +108,7 @@ def switch_to_parking_page():
         return False
 
 
-def switch_to_info_query1():
-    """切换到信息查询页面"""
-    try:
-        # 确保在主文档
-        driver.switch_to.default_content()
-
-        # 切换到iframe
-        wait.until(EC.frame_to_be_available_and_switch_to_it((By.ID, "iframe000505")))
-
-        # 定位并点击信息查询菜单
-        menu = wait.until(EC.element_to_be_clickable(
-            (By.XPATH, "//li[contains(@class,'el-menu-item') and contains(.,'信息查询')]")))
-
-        # 使用ActionChains模拟鼠标操作
-        actions.move_to_element(menu).pause(0.5).click().perform()
-
-        # 等待页面加载
-        wait.until(EC.presence_of_element_located(
-            (By.XPATH, "//*[contains(text(), '过车记录查询')]")))
-
-        print(datetime.now(), "✅ 已切换到信息查询页面")
-
-        cookies = {c['name']: c['value'] for c in driver.get_cookies()}
-        for c in cookies:
-            print(datetime.now(), c)
-        return True
-    except Exception as e:
-        print(datetime.now(), f"❌ 切换信息查询失败: {str(e)}")
-        driver.save_screenshot("info_query_fail.png")
-        return False
+"""切换至信息查询菜单 获取指定cookie"""
 
 
 def switch_to_info_query():
@@ -406,8 +170,10 @@ def switch_to_info_query():
         return False
 
 
+"""获取所有超时车辆数据（停车时长超过 7 天）"""
+
+
 def fetch_all_timeout_cars():
-    """自动分页获取所有超时车辆数据（带进度条和错误重试）"""
     # 1. 获取实时认证
     cookies = {c['name']: c['value'] for c in driver.get_cookies()}
     token = driver.execute_script("return localStorage.getItem('token')")
@@ -472,6 +238,7 @@ def fetch_all_timeout_cars():
     selected_columns = {
         "车牌号": "plateNo",
         "入场时间": "inTimeFront",
+        "停车库ID": "parkingId",
         "停车库": "parkingName",
         "识别准确度": "plateBelieveString",
         "放行结果": "releaseResultName",
@@ -495,8 +262,10 @@ def fetch_all_timeout_cars():
     return df
 
 
+"""获取会员车辆列表"""
+
+
 def fetch_all_vip_cars():
-    """获取会员车辆列表"""
     # 1. 获取实时认证
     cookies = {c['name']: c['value'] for c in driver.get_cookies()}
     token = driver.execute_script("return localStorage.getItem('token')")
@@ -565,10 +334,12 @@ def fetch_all_vip_cars():
 
         # 构建结果字典
         return {
+            "车辆信息ID": vehicle['vehicleId'],
             "车牌号": vehicle['plateNo'],
             "人员ID": vehicle['personId'],
             "姓名": vehicle['personName'],
             "卡号": vehicle['cardNo'] or "",
+            "车辆分组ID": vehicle['vehicleGroup'],
             "车辆分组": vehicle['vehicleGroupName'],
             "停车场": validity.get('parkName', ''),
             "有效期开始": function_time.get('startTime', ''),
@@ -588,8 +359,10 @@ def fetch_all_vip_cars():
     return df
 
 
+"""获取指定日期过往车辆记录 支持按车牌号查询"""
+
+
 def fetch_all_car_past_records(begin_date, end_date, plateNo):
-    """获取指定日期过往车辆记录"""
     # 1. 获取实时认证
     cookies = {c['name']: c['value'] for c in driver.get_cookies()}
     token = driver.execute_script("return localStorage.getItem('token')")
@@ -670,6 +443,7 @@ def fetch_all_car_past_records(begin_date, end_date, plateNo):
             "车辆类型": vehicle['vehicleTypeString'],
             "停车类型": vehicle['stopTypeName'],
             "车道名称": vehicle['roadwayName'],
+            "停车场ID": vehicle['parkId'],
             "停车场": vehicle['parkName'],
             "出入口名称": vehicle['entranceName'],
             "车辆颜色": vehicle['vehicleColorString'],
@@ -692,7 +466,205 @@ def fetch_all_car_past_records(begin_date, end_date, plateNo):
     return df
 
 
-def main():
+"""车辆包期充值"""
+
+
+def save_vehicle_recharge():
+    # 1. 准备认证信息（复用之前的逻辑）
+    cookies = {c['name']: c['value'] for c in driver.get_cookies()}
+    token = driver.execute_script("return localStorage.getItem('token')")
+
+    headers = {
+        "Accept": "application/json, text/plain, */*",
+        "Accept-Language": "zh-CN,zh;q=0.9",
+        "Content-Type": "application/x-www-form-urlencoded;charset=UTF-8",
+        "Origin": "http://tingchechang.nsyy.com.cn",
+        "REGION_ID": "root000000",
+        "Referer": "http://tingchechang.nsyy.com.cn/pms/application/recharge/addContract/57ce44f14fd549a09fe5c4ffa8c9b13f",
+        "X-Requested-With": "XMLHttpRequest",
+        "X-Token": token,
+        "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/138.0.0.0 Safari/537.36"
+    }
+
+    # 2. 准备POST数据（从curl命令中解析出的原始数据）
+    post_params = {
+        'accountId': '',
+        'personId': '',
+        'vehicleId': '9a6ae2b7c865437983a7a335b1eab849',
+        'parkId': '36716d9a-e37a-11eb-a77d-bb0a9f242da1',
+        'phaseRuleId': '47785fbc-ed03-11eb-ac31-8b3ffff81cd1',
+        'num': '1',
+        'prevTimeStr': '[]',
+        'newTimeStr': '[{"startTime":"2025-08-06","endTime":"2025-08-29"}]',
+        'accountFlag': '0',
+        'money': '0',
+        'chargeType': '1',
+        'payment': '1',
+        'chargeCode': ''
+    }
+
+    # 3. 发送POST请求
+    url = "http://tingchechang.nsyy.com.cn/pms/action/vehicleCharge/saveVehicleRecharge"
+
+    try:
+        response = requests.post(
+            url,
+            headers=headers,
+            cookies=cookies,
+            data=post_params,  # 注意使用data而不是json
+            verify=False  # 对应curl的--insecure参数
+        )
+
+        # 4. 处理响应
+        if response.status_code == 200:
+            result = response.json()
+            if result.get("code") == "0":
+                print("✅ 充值信息保存成功", result)
+                return True
+            else:
+                print(f"❌ 保存失败: {result}")
+                return False
+        else:
+            print(f"❌ 请求失败，状态码: {response.status_code}")
+            return False
+
+    except Exception as e:
+        print(f"❌ 请求异常: {str(e)}")
+        return False
+
+
+"""车辆包期退款 - 删除包期"""
+
+
+def save_vehicle_refund(plateNo, vehicleId, parkId):
+    """
+
+    :return: bool 是否成功
+    """
+    # 1. 从浏览器获取认证信息
+    cookies = {c['name']: c['value'] for c in driver.get_cookies()}
+
+    headers = {
+        "Accept": "application/json, text/plain, */*",
+        "Accept-Language": "zh-CN,zh;q=0.9",
+        "Content-Type": "application/x-www-form-urlencoded;charset=UTF-8",
+        "Origin": "http://tingchechang.nsyy.com.cn",
+        "Proxy-Connection": "keep-alive",
+        "REGION_ID": "root000000",
+        "REGION_NAME": quote("根节点"),  # URL编码中文
+        "Referer": f"http://tingchechang.nsyy.com.cn/pms/application/recharge/vehicleRefund/{vehicleId}/{parkId}",
+        "SCENE_HEADER": "default",
+        "X-Requested-With": "XMLHttpRequest",
+        "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/138.0.0.0 Safari/537.36"
+    }
+
+    # 2. 构建表单数据（严格匹配cURL格式）
+    form_data = {
+        "vehicleId": vehicleId,
+        "plateNo": quote(plateNo),  # 车牌号需要URL编码
+        "cardNo": "",
+        "parkId": parkId,
+        "personId": "",
+        "money": "0",
+        "accountFlag": ""
+    }
+
+    # 3. 发送请求
+    url = "http://tingchechang.nsyy.com.cn/pms/action/vehicleCharge/saveVehicleRefund"
+
+    try:
+        response = requests.post(
+            url,
+            headers=headers,
+            cookies=cookies,
+            data=form_data,  # 注意使用data而不是json
+            verify=False,
+            timeout=10
+        )
+
+        # 4. 处理响应
+        if response.status_code == 200:
+            result = response.json()
+            if result.get("code") == "0":
+                print(f"✅ 车辆[{plateNo}]退款申请成功", result)
+                return True
+            else:
+                print(f"❌ 退款失败: {result}")
+                return False
+        else:
+            print(f"❌ HTTP错误 [{response.status_code}]")
+            return False
+
+    except requests.exceptions.Timeout:
+        print("⏰ 请求超时，请检查网络连接")
+        return False
+    except Exception as e:
+        print(f"❌ 请求异常: {type(e).__name__}: {str(e)}")
+        return False
+
+
+"""新增车辆记录(仅车辆信息 不包含人员信息)"""
+
+
+def save_or_update_vehicle(plateNo):
+    """
+    保存或更新车辆信息（表单格式POST请求）
+    :param plateNo: 车牌号
+    :return: bool 是否成功
+    """
+    # 1. 从浏览器获取认证信息
+    cookies = {c['name']: c['value'] for c in driver.get_cookies()}
+    headers = {
+        "Accept": "application/json, text/plain, */*",
+        "Accept-Language": "zh-CN,zh;q=0.9",
+        "Content-Type": "application/x-www-form-urlencoded;charset=UTF-8",
+        "Origin": "http://tingchechang.nsyy.com.cn",
+        "REGION_ID": "root000000",
+        "REGION_NAME": quote("根节点"),  # URL编码中文
+        "Referer": "http://tingchechang.nsyy.com.cn/pms/application/vehicle/vehicle/create",
+        "SCENE_HEADER": "default",
+        "X-Requested-With": "XMLHttpRequest",
+        "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/138.0.0.0 Safari/537.36"
+    }
+
+    # 2. 构建表单数据（严格匹配cURL格式）
+    form_data = {
+        "plateNo": plateNo,  # 车牌号需要URL编码
+        "vehicleGroup": "d4f655fe-63b7-11f0-a7b1-cf4bd39c4672",
+        "plateType": "8", "plateColor": "0", "vehicleType": "0", "vehicleColor": "0", "isFreeScene": "false",
+        "vehicleId": "", "personName": "", "personId": "", "orgIndexCode": "", "cardNo": "",
+        "mark": "", "parkIds": "", "prevTimeStr": "[]", "newTimeStr": "[]"}
+
+    # 3. 发送请求
+    url = "http://tingchechang.nsyy.com.cn/pms/action/vehicleInfo/saveOrUpdateVehicleInfo"
+
+    try:
+        response = requests.post(url, headers=headers, cookies=cookies, data=form_data,  # 注意使用data而不是json
+                                 verify=False, timeout=10)
+
+        # 4. 处理响应
+        if response.status_code == 200:
+            result = response.json()
+            if result.get("code") == "0":
+                print(f"✅ 车辆[{plateNo}]信息保存成功")
+                return True
+            else:
+                print(f"❌ 保存失败: {result.get('msg', '未知错误')}")
+                return False
+        else:
+            print(f"❌ HTTP错误 [{response.status_code}]")
+            return False
+
+    except requests.exceptions.Timeout:
+        print("⏰ 请求超时，请检查网络连接")
+        return False
+    except Exception as e:
+        print(f"❌ 请求异常: {type(e).__name__}: {str(e)}")
+        return False
+
+
+# 抓取车辆数据
+def fetch_data():
     try:
         if login():
             if switch_to_parking_page():
@@ -708,5 +680,60 @@ def main():
         print(datetime.now(), "✅ 浏览器已关闭")
 
 
+# 添加车辆信息
+def add_new_car_info(car_no):
+    """
+    新增车辆信息
+    :return:
+    """
+    try:
+        if login():
+            if switch_to_parking_page():
+                if switch_to_info_query():
+                    success = save_or_update_vehicle(car_no)
+                    print("操作结果:", success)
+    except Exception as e:
+        print(datetime.now(), f"❌ 主流程错误: {str(e)}")
+        traceback.print_exc()
+    finally:
+        driver.quit()
+        print(datetime.now(), "✅ 浏览器已关闭")
+
+
+# 车辆充值
+def vehicle_recharge():
+    try:
+        if login():
+            if switch_to_parking_page():
+                if switch_to_info_query():
+                    save_vehicle_recharge()
+    except Exception as e:
+        print(datetime.now(), f"❌ 主流程错误: {str(e)}")
+        traceback.print_exc()
+    finally:
+        driver.quit()
+        print(datetime.now(), "✅ 浏览器已关闭")
+
+
+# 退费删除包期
+def vehicle_refund(plateNo, vehicleId, parkId):
+    try:
+        if login():
+            if switch_to_parking_page():
+                if switch_to_info_query():
+                    save_vehicle_refund(plateNo, vehicleId, parkId)
+    except Exception as e:
+        print(datetime.now(), f"❌ 主流程错误: {str(e)}")
+        traceback.print_exc()
+    finally:
+        driver.quit()
+        print(datetime.now(), "✅ 浏览器已关闭")
+
+
 if __name__ == "__main__":
-    main()
+    start_time = time.time()
+    fetch_data()
+    # add_new_car_info('京CTEST1')
+    # vehicle_recharge()
+    # vehicle_refund("京CTEST1", "9a6ae2b7c865437983a7a335b1eab849", "36716d9a-e37a-11eb-a77d-bb0a9f242da1")
+    print("总耗时: ", time.time() - start_time, " s")

@@ -3,6 +3,7 @@ import time
 import traceback
 from asyncio import as_completed
 from concurrent.futures import ThreadPoolExecutor
+from datetime import datetime
 
 import pandas as pd
 import requests
@@ -339,6 +340,19 @@ def enter_system_management():
                 (By.XPATH, "//*[contains(text(), '用户管理') or contains(text(), '系统设置')]"))
         )
         print("✅ 成功进入系统管理页面")
+
+        iframes = driver.find_elements(By.TAG_NAME, "iframe")
+        for index, iframe in enumerate(iframes):
+            print(f"iframe {index}: {iframe.get_attribute('outerHTML')}")
+
+        # 切换到内容iframe
+        WebDriverWait(driver, 10).until(EC.frame_to_be_available_and_switch_to_it((By.ID, "iseframe")))
+        # 尝试定位元素
+        element = WebDriverWait(driver, 10).until(EC.presence_of_element_located(
+                (By.XPATH, "//span[contains(@class, 'el-form-item__label-text') and text()='性别']")))
+        for c in driver.get_cookies():
+            print('cookie: ', c['name'], c['value'])
+
         return True
 
     except Exception as e:
@@ -371,32 +385,31 @@ def xitong_guanli():
         driver.quit()
 
 
+def test():
+    try:
+        # 访问网址
+        driver.get("http://tingchechang.nsyy.com.cn/")
 
+        # 登录
+        login()
 
-try:
-    # 访问网址
-    driver.get("http://tingchechang.nsyy.com.cn/")
+        # 进入系统管理
+        enter_system_management()
 
-    # 登录
-    login()
+        # # 切换到停车场出入口页面
+        # switch_to_parking_page()
+        #
+        # # 切换到信息查询页面
+        # switch_to_info_query()
+        #
+        # # 进入 库内车辆查询
+        # export_parking_vehicles()
 
-    # 进入系统管理
-    enter_system_management()
+        # data = fetch_all_vehicles()
 
-    # # 切换到停车场出入口页面
-    # switch_to_parking_page()
-    #
-    # # 切换到信息查询页面
-    # switch_to_info_query()
-    #
-    # # 进入 库内车辆查询
-    # export_parking_vehicles()
-
-    # data = fetch_all_vehicles()
-
-except Exception as e:
-    print(f"❌ 发生错误: {str(e)}", e.__class__, traceback.print_exc())
-    driver.save_screenshot("error.png")
-finally:
-    driver.quit()
+    except Exception as e:
+        print(f"❌ 发生错误: {str(e)}", e.__class__, traceback.print_exc())
+        driver.save_screenshot("error.png")
+    finally:
+        driver.quit()
 
