@@ -42,12 +42,6 @@ def new_shift_bed_data(json_data):
     return shift_change_server.update_shift_change_bed_data(json_data)
 
 
-@shift_change.route('/submit_shift_data', methods=['POST', 'GET'])
-@api_response
-def submit_shift_data(json_data):
-    return shift_change_server.submit_shift_change(json_data)
-
-
 @shift_change.route('/query_shift_config', methods=['POST', 'GET'])
 @api_response
 def query_shift_config():
@@ -63,13 +57,13 @@ def shift_config(json_data):
 @shift_change.route('/shift_info', methods=['POST', 'GET'])
 @api_response
 def get_shift_info(json_data):
-    return shift_change_server.shift_info(json_data.get('dept_id'))
+    return shift_change_server.query_shift_info(json_data)
 
 
-@shift_change.route('/save_sign_info', methods=['POST'])
+@shift_change.route('/sign', methods=['POST'])
 @api_response
 def save_doc_sign_info(json_data):
-    return shift_change_server.save_sign_info(json_data)
+    return shift_change_server.save_shift_info(json_data)
 
 
 @shift_change.route('/query_patient_info', methods=['POST'])

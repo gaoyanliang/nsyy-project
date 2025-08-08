@@ -2,6 +2,7 @@ import json
 import logging
 import time
 import traceback
+import uuid
 from collections import defaultdict
 from concurrent.futures import ThreadPoolExecutor
 from typing import Tuple, Dict, List
@@ -33,11 +34,10 @@ def query_shift_change_date(json_data):
     db = DbUtil(global_config.DB_HOST, global_config.DB_USERNAME, global_config.DB_PASSWORD,
                 global_config.DB_DATABASE_GYL)
     if int(shift_type) == 1:
-        shift_info = db.query_one(f"select * from nsyy_gyl.scs_shift_info where shift_date = '{shift_date}' "
-                                  f"and shift_classes = '{shift_classes}' and dept_id = {dept_id}")
-        shift_info = shift_info.get('shift_info') if shift_info else {}
         # 医生交接班
         shift_classes = f"{shift_type}-{shift_classes}"
+        shift_info = db.query_one(f"select * from nsyy_gyl.scs_shift_info where shift_date = '{shift_date}' "
+                                  f"and shift_classes = '{shift_classes}' and dept_id = {dept_id} and archived = 1")
         is_archived = [shift_classes] if shift_info else []
 
         query_sql = f"select * from nsyy_gyl.scs_patients where shift_date = '{shift_date}' " \
@@ -61,13 +61,14 @@ def query_shift_change_date(json_data):
                                           f" and patient_ward_id = {dept_id}")
 
         shift_info_list = db.query_all(f"select * from nsyy_gyl.scs_shift_info where shift_date = '{shift_date}'"
-                                       f" and dept_id = {dept_id}")
+                                       f" and dept_id = {dept_id} and archived = 1")
 
         is_archived = []
         shift_info = {"1": {}, "2": {}, "3": {}}
         for item in shift_info_list:
-            is_archived.append(f"2-{item['shift_classes']}")
-            shift_info[item['shift_classes']] = json.loads(item.get('shift_info')) if item.get('shift_info') else {}
+            is_archived.append(item['shift_classes'])
+            shift_info[item['shift_classes'].split("-")[1]] = json.loads(item.get('shift_info')) \
+                if item.get('shift_info') else {}
 
         patient_count = {"1": {}, "2": {}, "3": {}}
         for item in patient_count_list:
@@ -102,15 +103,18 @@ def query_shift_change_date(json_data):
     patients = merge_ret_patient_list(patients, is_archived)
 
     def get_patient_type_key(patient):
-        """返回用于排序的元组：(patient_type优先级, bed_no)未定义的类型排最后"""
-        return (PATIENT_TYPE_ORDER.get(patient['patient_type'], float('inf')),  int(patient['bed_no']))
+        """返回用于排序的元组：(类型1优先级, 类型2优先级, ..., bed_no)"""
+        types = [t.strip() for t in patient['patient_type'].split(',')]
+        priorities = [PATIENT_TYPE_ORDER.get(t, float('inf')) for t in types]
+        max_types = 14  # 假设最多14个类型
+        priorities += [float('inf')] * (max_types - len(priorities))
+        return tuple(priorities + [int(patient['bed_no'])])
 
     sorted_patients = sorted(patients, key=get_patient_type_key)
     return {
         'patient_count': patient_count,
         'patient_bed_info': patient_bed_info,
         'patients': sorted_patients,
-        'shift_info': shift_info
     }
 
 
@@ -170,7 +174,7 @@ def update_shift_change_data(json_data):
     db = DbUtil(global_config.DB_HOST, global_config.DB_USERNAME, global_config.DB_PASSWORD,
                 global_config.DB_DATABASE_GYL)
     if db.query_one(f"select * from nsyy_gyl.scs_shift_info where shift_date = '{json_data.get('shift_date')}' "
-                    f"and dept_id = {dept_id} and shift_classes = '{shift_classes}' "):
+                    f"and dept_id = {dept_id} and shift_classes = '{shift_classes}' and archived = 1"):
         del db
         raise Exception("该班次已归档无法在修改或新增数据")
 
@@ -228,23 +232,19 @@ def update_shift_change_bed_data(json_data):
     del db
 
 
-def submit_shift_change(json_data):
+def query_patient_info(zhuyuanhao):
     """
-    提交本班次的交接班数据
-    :param json_data:
+    根据住院号查询患者信息
+    :param zhuyuanhao:
     :return:
     """
-    insert_sql = f"""INSERT INTO nsyy_gyl.scs_shift_info(shift_date, shift_classes, dept_id, dept_name, shift_info,  
-                    create_at) VALUES (%s, %s, %s, %s, %s, %s) ON DUPLICATE KEY UPDATE shift_date = VALUES(shift_date), 
-                    shift_classes = VALUES(shift_classes), dept_id = VALUES(dept_id), dept_name = VALUES(dept_name), 
-                    create_at = VALUES(create_at)"""
-    args = (json_data.get('shift_date'), json_data.get('shift_classes'), json_data.get('dept_id'),
-            json_data.get('dept_name'), json.dumps(json_data.get('shift_info'), default=str, ensure_ascii=False),
-            datetime.now().strftime('%Y-%m-%d %H:%M:%S'))
-    db = DbUtil(global_config.DB_HOST, global_config.DB_USERNAME, global_config.DB_PASSWORD,
-                global_config.DB_DATABASE_GYL)
-    db.execute(insert_sql, args, need_commit=True)
-    del db
+    sql = f"""select zb.xingming patient_name, zb.dangqiancwbm bed_no, zb.zhuyuanhao zhuyuanhao, 
+    zb.xingbiemc patient_sex, zb.nianling patient_age, zb.bingrenzyid, zb.zhuzhiysxm doctor_name from
+	df_jj_zhuyuan.zy_bingrenxx zb where zb.zaiyuanzt = 0 and zb.quxiaorybz = 0 and zb.yingerbz = 0
+	and zb.zhuyuanhao = '{zhuyuanhao}'"""
+
+    patient_info_list = global_tools.call_new_his_pg(sql)
+    return patient_info_list[0] if patient_info_list else {}
 
 
 # ============================= 查询交接班数据 =============================
@@ -435,10 +435,11 @@ def ob_gyn_shift_change(reg_sqls, shift_classes, time_slot):
         }
         if int(shift_classes) == 3:
             tasks["chuangwei_info1"] = executor.submit(timed_execution, "妇产科 特殊患者床位信息 3 ",
-                                               global_tools.call_new_his_pg, reg_sqls.get(9).get('sql_nhis'))
+                                                       global_tools.call_new_his_pg, reg_sqls.get(9).get('sql_nhis'))
             tasks["chuangwei_info2"] = executor.submit(timed_execution, "妇产科 特殊患者床位信息 4 ",
-                                               global_tools.call_new_his, reg_sqls.get(9).get('sql_ydhl'), 'ydhl',
-                                               None)
+                                                       global_tools.call_new_his, reg_sqls.get(9).get('sql_ydhl'),
+                                                       'ydhl',
+                                                       None)
 
         # 获取结果（会自动等待所有任务完成）
         results = {name: future.result() for name, future in tasks.items()}
@@ -521,10 +522,11 @@ def icu_shift_change(reg_sqls, shift_classes, time_slot):
         }
         if int(shift_classes) == 3:
             tasks["chuangwei_info1"] = executor.submit(timed_execution, "重症科室 特殊患者床位信息 3 ",
-                                               global_tools.call_new_his_pg, reg_sqls.get(10).get('sql_nhis'))
+                                                       global_tools.call_new_his_pg, reg_sqls.get(10).get('sql_nhis'))
             tasks["chuangwei_info2"] = executor.submit(timed_execution, "重症科室 特殊患者床位信息 4 ",
-                                               global_tools.call_new_his, reg_sqls.get(10).get('sql_ydhl'), 'ydhl',
-                                               None)
+                                                       global_tools.call_new_his, reg_sqls.get(10).get('sql_ydhl'),
+                                                       'ydhl',
+                                                       None)
 
         # 获取结果（会自动等待所有任务完成）
         results = {name: future.result() for name, future in tasks.items()}
@@ -603,10 +605,11 @@ def general_dept_shift_change(reg_sqls, shift_classes, time_slot, dept_list):
         }
         if int(shift_classes) == 3:
             tasks["chuangwei_info1"] = executor.submit(timed_execution, "普通病区 特殊患者床位信息 3 ",
-                                               global_tools.call_new_his_pg, reg_sqls.get(4).get('sql_nhis'))
+                                                       global_tools.call_new_his_pg, reg_sqls.get(4).get('sql_nhis'))
             tasks["chuangwei_info2"] = executor.submit(timed_execution, "普通病区 特殊患者床位信息 4 ",
-                                               global_tools.call_new_his, reg_sqls.get(4).get('sql_ydhl'), 'ydhl',
-                                               None)
+                                                       global_tools.call_new_his, reg_sqls.get(4).get('sql_ydhl'),
+                                                       'ydhl',
+                                                       None)
 
         # 获取结果（会自动等待所有任务完成）
         results = {name: future.result() for name, future in tasks.items()}
@@ -736,7 +739,7 @@ def merge_patient_records(patient_list):
             latest_time = base_patient[16]
 
         # 构建合并后的新元组（保持原始结构）
-        merged_patient = (
+        base_patient = (
             base_patient[0],  # shift_date
             base_patient[1],  # shift_classes
             base_patient[2],  # bingrenzyid
@@ -918,7 +921,8 @@ def save_data(shift_classes, patients, patient_count, patient_bed_info):
 
     if patient_bed_info:
         bed_info_list = [
-            (today_date, shift_classes, item.get('患者类别'), shift_change_config.his_dept_dict.get(item.get('所在病区'), 0),
+            (today_date, shift_classes, item.get('患者类别'),
+             shift_change_config.his_dept_dict.get(item.get('所在病区'), 0),
              item.get('所在病区'), item.get('患者信息'),
              datetime.now().strftime('%Y-%m-%d %H:%M:%S')) for item in patient_bed_info]
         insert_sql = f"""INSERT INTO nsyy_gyl.scs_patient_bed_info(shift_date, shift_classes, 
@@ -1182,76 +1186,132 @@ def query_shift_config():
     return shift_configs
 
 
-def shift_info(dept_id):
+def query_shift_info(json_data):
+    shift_date = json_data.get('shift_date')
+    shift_type = json_data.get('shift_type')
+    shift_classes = json_data.get('shift_classes')
+    dept_id = json_data.get('dept_id')
+
     db = DbUtil(global_config.DB_HOST, global_config.DB_USERNAME, global_config.DB_PASSWORD,
                 global_config.DB_DATABASE_GYL)
     shift_config = db.query_one(f"select * from nsyy_gyl.scs_shift_config where dept_id = '{str(dept_id)}' ")
+
+    shift_info = db.query_one(f"select * from nsyy_gyl.scs_shift_info where shift_date = '{shift_date}' "
+                              f"and shift_classes = '{shift_type}-{shift_classes}' and dept_id = {int(dept_id)}")
+    if shift_info:
+        shift_info.pop('outgoing_data')
+        shift_info.pop('incoming_data')
+        shift_info.pop('head_nurse_data')
     del db
     return {"bed_info_list": shift_change_config.bed_info_list,
             "patient_type_list": shift_change_config.patient_type_list,
-            "dept_shift_config": shift_config}
+            "dept_shift_config": shift_config,
+            "shift_info": shift_info}
 
 
-def save_sign_info(json_data):
+# ============================= 签名相关 =============================
+
+
+def save_shift_info(json_data):
     """
     后端直接触发 医生/护士 签名， 随后保存签名返回信息
     :param json_data:
     :return:
     """
     shift_date = json_data.get('shift_date')
+    shift_type = json_data.get('shift_type')
     shift_classes = json_data.get('shift_classes')
     dept_id = json_data.get('dept_id')
     dept_name = json_data.get('dept_name')
-    biz_sn = json_data.get('biz_sn')
-
-    sign_msg = json_data.get('sign_msg')  # 文件摘要
+    sign_type = json_data.get('sign_type')  # 1=交班人 2=接班人 3=护士长
     user_id = json_data.get('user_id', "")  # 医生/护士 云医签 id
     user_name = json_data.get('user_name')
 
-    if not user_id:
-        raise Exception('医生/护士不存在, 请先联系信息科配置【云医签】', user_name)
+    sign_img = ''
+    params = (shift_date, f"{shift_type}-{shift_classes}", dept_id, dept_name, 1,
+              datetime.now().strftime("%Y-%m-%d %H:%M:%S"))
+    if int(sign_type) != 4:
+        # 获取医生签名图片
+        sign_img = get_doctor_sign_img(user_id)
 
-    try:
-        # 构造签名数据bizSn 业务流水号 需要唯一 登记记录签名用 register_id 治疗记录签名用 register_id + patient_id + record_date
-        sign_param = {"type": "sign_push", "user_id": user_id, "bizSn": biz_sn, "msg": sign_msg, "desc": "交接班签名"}
-        sign_ret = global_tools.call_yangcheng_sign_serve(sign_param)
+        # 签名业务字段 随机生成 保证唯一即可
+        biz_sn = uuid.uuid4().__str__()
+        # 文件摘要
+        sign_msg = f"{dept_name} - {shift_date} {shift_classes} 交班"
 
-        # 时间戳签名
-        ts_sign_param = {"sign_org": sign_msg, "type": "ts_gene"}
-        ts_sign_ret = global_tools.call_yangcheng_sign_serve(ts_sign_param, ts_sign=True)
-    except Exception as e:
-        raise Exception('签名服务器异常', e)
+        if not user_id:
+            raise Exception('医生/护士不存在, 请先联系信息科配置【云医签】', user_name)
+        try:
+            sign_param = {"type": "sign_push", "user_id": user_id, "bizSn": biz_sn, "msg": sign_msg, "desc": "交接班签名"}
+            sign_ret = global_tools.call_yangcheng_sign_serve(sign_param)
 
-    save_sign_info = dict()
-    save_sign_info['shift_date'] = shift_date
-    save_sign_info['shift_classes'] = shift_classes
-    save_sign_info['dept_id'] = dept_id
-    save_sign_info['dept_name'] = dept_name
-    save_sign_info['doc_id'] = user_id
-    save_sign_info['doctor_name'] = user_name
-    save_sign_info['doc_sign'] = json.dumps(sign_ret, default=str)
-    save_sign_info['doc_ts_sign'] = json.dumps(ts_sign_ret, default=str)
-    save_sign_info['sign_time'] = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+            # 时间戳签名
+            ts_sign_param = {"sign_org": sign_msg, "type": "ts_gene"}
+            ts_sign_ret = global_tools.call_yangcheng_sign_serve(ts_sign_param, ts_sign=True)
+        except Exception as e:
+            raise Exception('签名服务器异常', e)
 
+        sign_data = {"sign_ret": sign_ret, "ts_sign_ret": ts_sign_ret}
+        params = (shift_date, f"{shift_type}-{shift_classes}", dept_id, dept_name, user_name,
+                  user_id, datetime.now().strftime("%Y-%m-%d %H:%M:%S"), json.dumps(sign_data), sign_img)
+
+    if int(sign_type) == 1:
+        insert_sql = """INSERT INTO nsyy_gyl.scs_shift_info (shift_date, shift_classes, dept_id, dept_name, 
+        outgoing, outgoing_user_id, outgoing_time, outgoing_data, outgoing_img)
+            VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s) ON DUPLICATE KEY UPDATE outgoing = VALUES(outgoing), 
+            outgoing_user_id = VALUES(outgoing_user_id), outgoing_time = VALUES(outgoing_time), 
+            outgoing_data = VALUES(outgoing_data), outgoing_img = VALUES(outgoing_img)
+        """
+    elif int(sign_type) == 2:
+        insert_sql = """INSERT INTO nsyy_gyl.scs_shift_info (shift_date, shift_classes, dept_id, dept_name, 
+        incoming, incoming_user_id, incoming_time, incoming_data, incoming_img)
+            VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s) ON DUPLICATE KEY UPDATE incoming = VALUES(incoming), 
+            incoming_user_id = VALUES(incoming_user_id), incoming_time = VALUES(incoming_time), 
+            incoming_data = VALUES(incoming_data), incoming_img = VALUES(incoming_img)
+        """
+    elif int(sign_type) == 3:
+        insert_sql = """INSERT INTO nsyy_gyl.scs_shift_info (shift_date, shift_classes, dept_id, dept_name, 
+        head_nurse, head_nurse_user_id, head_nurse_time, head_nurse_data, head_nurse_img)
+            VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s) ON DUPLICATE KEY UPDATE head_nurse = VALUES(head_nurse), 
+            head_nurse_user_id = VALUES(head_nurse_user_id), head_nurse_time = VALUES(head_nurse_time), 
+            head_nurse_data = VALUES(head_nurse_data), head_nurse_img = VALUES(head_nurse_img)
+        """
+    elif int(sign_type) == 4:
+        insert_sql = """INSERT INTO nsyy_gyl.scs_shift_info (shift_date, shift_classes, dept_id, dept_name, 
+        archived, archived_time) VALUES (%s, %s, %s, %s, %s, %s) ON DUPLICATE KEY UPDATE archived = VALUES(archived), 
+            archived_time = VALUES(archived_time) """
+    else:
+        raise Exception('签名类型错误 1=交班人 2=接班人 3=护士长 4=归档')
     db = DbUtil(global_config.DB_HOST, global_config.DB_USERNAME, global_config.DB_PASSWORD,
                 global_config.DB_DATABASE_GYL)
-    insert_sql = """
-            INSERT INTO nsyy_gyl.scs_sign_info (shift_date, shift_classes, dept_id, dept_name, doc_id, doc_name, 
-            doc_sign, doc_ts_sign, sign_time) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s) ON DUPLICATE KEY UPDATE 
-            shift_date = VALUES(shift_date), shift_classes = VALUES(shift_classes), dept_id = VALUES(dept_id), 
-            dept_name = VALUES(dept_name), doc_id = VALUES(doc_id), doc_name = VALUES(doc_name), 
-            doc_sign = VALUES(doc_sign), doc_ts_sign = VALUES(doc_ts_sign), sign_time = VALUES(sign_time)  
-    """
-    db.execute(insert_sql, tuple(save_sign_info.values()), need_commit=True)
+    db.execute(insert_sql, params, need_commit=True)
     del db
-    return biz_sn
+    return sign_img
 
 
-def query_patient_info(zhuyuanhao):
-    sql = f"""select zb.xingming patient_name, zb.dangqiancwbm bed_no, zb.zhuyuanhao zhuyuanhao, 
-    zb.xingbiemc patient_sex, zb.nianling patient_age, zb.bingrenzyid, zb.zhuzhiysxm doctor_name from
-	df_jj_zhuyuan.zy_bingrenxx zb where zb.zaiyuanzt = 0 and zb.quxiaorybz = 0 and zb.yingerbz = 0
-	and zb.zhuyuanhao = '{zhuyuanhao}'"""
+def get_doctor_sign_img(user_id):
+    """
+    获取医生签名图片，如果是首次签名，从云医签中获取签名
+    :param user_id:
+    :return:
+    """
+    db = DbUtil(global_config.DB_HOST, global_config.DB_USERNAME, global_config.DB_PASSWORD,
+                global_config.DB_DATABASE_GYL)
+    record = db.query_one(f"select * from nsyy_gyl.scs_doc_sign_img where user_id = '{user_id}'")
+    if record:
+        del db
+        return record.get('sign_img')
 
-    patient_info_list = global_tools.call_new_his_pg(sql)
-    return patient_info_list[0] if patient_info_list else {}
+    img_base64 = global_tools.fetch_yun_sign_img(user_id)
+    sign_img = None
+    if img_base64:
+        sign_img = global_tools.upload_sign_file(img_base64, is_pdf=False)
+
+    if not sign_img:
+        raise Exception('云医签获取签名图片失败, 请先配置云医签')
+
+    db.execute("insert into nsyy_gyl.scs_doc_sign_img (user_id, sign_img) values (%s, %s)",
+               (user_id, sign_img), need_commit=True)
+    del db
+
+    return sign_img
