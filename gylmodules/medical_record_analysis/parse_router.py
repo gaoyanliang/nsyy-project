@@ -16,7 +16,6 @@ def query_record_and_parse():
         json_data = json.loads(request.get_data().decode('utf-8'))
         cda, structure = parse_server.query_record_and_parse(json_data)
     except Exception as e:
-        logger.error(f"query_record_and_parse Exception occurred: {e.__str__()}")
         return jsonify({'code': 50000, 'res': e.__str__()})
 
     ordered_data = convert_to_ordered_dict(structure)
