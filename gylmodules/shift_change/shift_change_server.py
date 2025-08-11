@@ -698,12 +698,14 @@ def merge_patient_records(patient_list):
     - 其他字段保留第一条记录的值
     """
 
+    patient_list = sorted(patient_list, key=lambda x: PATIENT_TYPE_ORDER.get(x[9], float('inf')))
+
     # 使用复合键分组
     def key_func(x):
         # shift_date, shift_classes, zhuyuanhao, ward_id
         return (x[0], x[1], x[3], x[12])
 
-    # 分组
+    # 分组s
     groups = defaultdict(list)
     for patient in patient_list:
         groups[key_func(patient)].append(patient)
