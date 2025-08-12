@@ -16,27 +16,16 @@ from flask import Blueprint, jsonify, request
 
 from gylmodules import global_config
 
-DB_CONFIG = {
-    "dbname": "df_his",
-    "user": "ogg",
-    "password": "nyogg@2024",
-    "host": "192.168.8.57",
-    "port": "6000"
-}
+DB_CONFIG = {"dbname": "df_his", "user": "ogg", "password": "nyogg@2024", "host": "192.168.8.57", "port": "6000"}
 
 
-def setup_logging(
-        log_file='app.log',
-        level=logging.INFO,
-        format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
-        max_bytes=10 * 1024 * 1024,  # 10MB
-        backup_count=5
-):
+def setup_logging(log_file='app.log', level=logging.INFO, backup_count=5, max_bytes=10 * 1024 * 1024,  # 10MB
+                  formats='%(asctime)s - %(name)s - %(levelname)s - %(message)s'):
     """
     全局日志配置函数
     :param log_file: 日志文件路径
     :param level: 日志级别（默认INFO）
-    :param format: 日志格式
+    :param formats: 日志格式
     :param max_bytes: 单个日志文件最大大小
     :param backup_count: 备份文件数量
     """
@@ -51,7 +40,7 @@ def setup_logging(
     # 控制台Handler
     if global_config.run_in_local:
         console_handler = logging.StreamHandler()
-        console_handler.setFormatter(logging.Formatter(format))
+        console_handler.setFormatter(logging.Formatter(formats))
         logger.addHandler(console_handler)
 
     if not global_config.run_in_local:
@@ -62,7 +51,7 @@ def setup_logging(
             backupCount=backup_count,
             delay=False,  # 禁用延迟打开文件（Python 3.6+）
         )
-        file_handler.setFormatter(logging.Formatter(format))
+        file_handler.setFormatter(logging.Formatter(formats))
         file_handler.flush()  # 立即刷新缓冲区（可选，但建议添加）
 
         # 添加Handler
@@ -76,59 +65,12 @@ def setup_logging(
     logging.getLogger("hpack").setLevel(logging.WARNING)
     logging.getLogger("httpx").setLevel(logging.WARNING)
     logging.getLogger("hyper").setLevel(logging.WARNING)
+    logging.getLogger("selenium").setLevel(logging.WARNING)
 
     return logger
 
 
 logger = logging.getLogger(__name__)
-
-
-def call_yangcheng_sign_serve(param: dict, ts_sign: bool = False):
-    """
-    调用 杨程 部署的签名服务器，进行签名
-    :param param:
-    :param ts_sign:
-    :return:
-    """
-    max_retries, retry_count, retry_delay = 3, 0, 1
-    while retry_count < max_retries:
-        try:
-            sign_serve_url = "http://192.168.3.45:8087/yun_signer/opera_sign" \
-                if not ts_sign else "http://192.168.3.45:8087/signer/opera_sign"
-            response = requests.post(sign_serve_url, timeout=10, json=param)
-            data = json.loads(response.text)
-            if int(data.get('code')) != 20000:
-                raise Exception(data)
-            return data.get('data')
-        except Exception as e:
-            retry_count += 1
-            if retry_count <= max_retries:
-                sleep_time = retry_delay * (2 ** (retry_count - 1))  # 指数退避
-                logging.warning(
-                    f"签名服务器连接失败，第 {retry_count}/{max_retries} 次重试..."
-                    f"错误: {str(e)}，{sleep_time}秒后重试"
-                )
-                time.sleep(sleep_time)
-            else:
-                logging.error(f"签名服务器连接失败，已达最大重试次数 {max_retries}。最后错误: {str(e)}\n")
-                return {}
-
-
-def upload_sign_file(base64_str, is_pdf: bool = False):
-    """
-    将签名后的 pdf 以及图片上传至服务器
-    :param base64_str:
-    :param is_pdf:
-    :return:
-    """
-    param = {"type": "save", "b64file": base64_str}
-    if is_pdf:
-        param['fext'] = 'pdf'
-    response = requests.post("http://192.168.3.12:6080/b64pic_process", timeout=10, json=param)
-    data = json.loads(response.text)
-    if int(data.get('code')) != 20000:
-        raise Exception(data)
-    return data.get('download_path')
 
 
 def call_new_his(sql: str, sys: str = 'newzt', clobl: list = None):
@@ -153,7 +95,7 @@ def call_new_his(sql: str, sys: str = 'newzt', clobl: list = None):
         response = requests.post(query_oracle_url, json=param, timeout=30)
         err_data = response.text
         if response.status_code != 200 or not response.text.strip():
-            logger.info(f"oracle_sql 请求失败，服务器未返回数据：{response.status_code}  {err_data}  {param}")
+            logger.error(f"oracle_sql 请求失败，服务器未返回数据：{response.status_code}  {err_data}  {param}")
             return []
         data = json.loads(response.text)
         data = data.get('data', [])
@@ -165,9 +107,7 @@ def call_new_his(sql: str, sys: str = 'newzt', clobl: list = None):
 
 def call_new_his_pg(sql):
     results = []
-    max_retries = 3
-    retry_count = 0
-    retry_delay = 1
+    max_retries, retry_count, retry_delay = 3, 0, 1
     while retry_count < max_retries:
         try:
             # 使用 `with` 语句确保自动关闭连接
@@ -187,8 +127,7 @@ def call_new_his_pg(sql):
                                 f"错误: {str(e)}，{sleep_time}秒后重试")
                 time.sleep(sleep_time)
             else:
-                logging.error(f"数据库操作失败，已达最大重试次数 {max_retries}。"
-                              f"最后错误: {str(e)}\nSQL: {sql}")
+                logging.error(f"数据库操作失败，已达最大重试次数 {max_retries}。最后错误: {str(e)}\nSQL: {sql}")
                 return []
 
     return results
@@ -242,7 +181,8 @@ def api_response(func):
         except KeyError as e:
             return jsonify({'code': 50000, 'res': f'Missing parameter: {e}'})
         except Exception as e:
-            logger.debug(f"{request.url} 系统异常： {str(e)} , param = {json_data} {traceback.print_exc()}")
+            if global_config.run_in_local:
+                logger.debug(f"{request.url} 系统异常： {str(e)} , param = {json_data} {traceback.print_exc()}")
             return jsonify({'code': 50000, 'res': str(e)})
 
     return wrapper
@@ -263,33 +203,6 @@ def validate_params(*required_params):
     return decorator
 
 
-# def timed_lru_cache(seconds: int, maxsize: int = 128):
-#     """
-#     自定义带过期时间的缓存装饰器
-#     :param seconds:
-#     :param maxsize:
-#     :return:
-#     """
-#     def wrapper(func):
-#         func = lru_cache(maxsize=maxsize)(func)
-#         func.expiration = {}  # {args: expiration_time}
-#
-#         @wraps(func)
-#         def wrapped(*args, **kwargs):
-#             now = time()
-#             # 清理过期缓存（可选）
-#             expired_keys = [k for k, t in func.expiration.items() if t < now]
-#             for key in expired_keys:
-#                 func.cache_remove(key)
-#                 del func.expiration[key]
-#             # 调用函数并记录过期时间
-#             result = func(*args, **kwargs)
-#             func.expiration[args] = now + seconds
-#             return result
-#         return wrapped
-#     return wrapper
-
-
 def timed_lru_cache(seconds: int, maxsize: int = 128):
     def wrapper_cache(func: Callable) -> Callable:
         func = lru_cache(maxsize=maxsize)(func)
@@ -306,3 +219,126 @@ def timed_lru_cache(seconds: int, maxsize: int = 128):
         return wrapped_func
 
     return wrapper_cache
+
+
+# ==========================================
+# ============== 签名          ==============
+# ==========================================
+
+def upload_sign_file(base64_str, is_pdf: bool = False):
+    """
+    将签名后的 pdf 以及图片上传至服务器
+    :param base64_str:
+    :param is_pdf:
+    :return:
+    """
+    param = {"type": "save", "b64file": base64_str}
+    if is_pdf:
+        param['fext'] = 'pdf'
+    url = "http://192.168.124.53:6080/b64pic_process" if global_config.run_in_local \
+        else "http://192.168.3.12:6080/b64pic_process"
+    response = requests.post(url, timeout=10, json=param)
+    data = json.loads(response.text)
+    if int(data.get('code')) != 20000:
+        raise Exception(data)
+    return data.get('download_path')
+
+
+def encrypt_data(data: str, url_encode=False) -> str:
+    """
+    使用私钥加密数据并用Base64编码
+    鉴权需要：使用应用私钥对“appId=xxx&id=xxx”进行参数签名，得到Base64编码格式签名值后进行URLEncode(UTF-8)传输。
+    :param data:
+    :param url_encode:
+    :return:
+    """
+    import base64
+    from urllib.parse import quote
+    from cryptography.hazmat.primitives import hashes
+    from cryptography.hazmat.primitives.asymmetric import padding
+    from cryptography.hazmat.primitives import serialization
+
+    CONSTANT = {
+        'sign_ca': 'MIIBsjCCAVagAwIBAgINX4AzdCiIohv0Mn2yGDAMBggqgRzPVQGDdQUAMEAxCzAJBgNVBAYTAkNOMRQwEgYDVQQDDAtTTTIgUk9PVCBDQTELMAkGA1UECAwCU0gxDjAMBgNVBAoMBVNIRUNBMB4XDTE4MDYwNDA5MDczOVoXDTIwMDYwNDA5MDczOVowWTELMAkGA1UEBhMCQ04xCzAJBgNVBAgMAlNIMQswCQYDVQQHDAJTSDENMAsGA1UECgwEc2lnbjENMAsGA1UECwwEc2lnbjESMBAGA1UEAwwJc2lnbl90ZXN0MFkwEwYHKoZIzj0CAQYIKoEcz1UBgi0DQgAE/XSK6MQlAeaGb8ZdiK6tzqALW1r6mubTb8POeFRpoCcX7rk34AbXFXRB5G17Er0TXY/VKtpXdlxY6GiMh2gtQqMaMBgwCQYDVR0TBAIwADALBgNVHQ8EBAMCBsAwDAYIKoEcz1UBg3UFAANIADBFAiA/HuCgtS03qEzL5tKy0Qmb8/UbQIc7akq5WctWvhzGWQIhAJe/76Z752H7Ug+Dpe7mgSiQ7VZ3n9Z/LOaEG7nS0VE5',
+        'yun_private_key': "MIIEvgIBADANBgkqhkiG9w0BAQEFAASCBKgwggSkAgEAAoIBAQDbM4E/CLLZEt5Dw4W0F7HCGk8WdmZqhtA2jgCgvNVEt7nbOmY2HPjUf2PgjMbxO2cWbDQIh22Hy+v3MKxm2QJPC0OWKbpSg3HklbaVWvMOCDsGJ8VLDWMp3Q7reRR1E6AuXhE9yu6+6ZhqfAxpE6EFfYChvn24r8wVjPDtRmXd9lRHwn+um5GVhDUeNDXx2see+0fBlxRxaTdXbxrLmfdjFx9g+M/vdm7l5jj9QV0kJvqv5DTXHl+E4xKUdxZkGIMBdkLR+ynORA0vef+eBgYMg8GiR6oP/4Hi/sZuF2qQ9wScPIl6wjcah+S0asEED3IMNoc9thAqYIw1AgtduG8nAgMBAAECggEAfdWFXqApu3+fZJs7h/UKMHlV6XkytfiKUqcWKS/95iLqaLWPs4TSO3qd5WwrUJRfS3n2LOdBs3EXFqI0dh4huyqmM+/kbDXVDfn8BKVfXjDPYWs3USxwProONJMfcU5A6B1MHIMAp0wGGSr5HOEN0M8JJtDp7znMGJr+O9fr5ozQG17jLax0ApJOXBpvuZpb9PB6k+GgvtV1En+YO583lkXbKegtzE1pd/Zzo/HFpr2AVKjlYjzX2S1QEj+L7OxvibpOavq1H7eEkUSzZJOnbfDLT2tFrQvOjUIr1H4JSoQJwDUFtj2twWkUew1yQ2A53htYVgwJXVA4edOs287IcQKBgQD0kLDlTW8o8uijO7xkGb/hBC+T38tGEmN3HL0elF/GJbF91ZdyLA4TSxbDNmlU/ShawKtuu8NhYw25H2e3mWddoj6MLrgGQQJB3FISDA9ON9InswN/ADISKAufm+YgubVyHAaSAPbNrDU/AyUyibtiB7d4LtnK35ph9di6DxVHGwKBgQDlcziI6lP8bC7Tv+w/Efhgq0l0In3/tuiL5xqX07i8GLX0naJyYLTemJ6wGjsG4hkE3ysYsUju0mOxE0uP3OKEOdkkoYo0ZZwFNmC2z+6pVwa0L1/lYZU04KDdJpVNieuhFot5FHA+qfO5jBQiE3s8DeDZunDfOoOaxB7xXei85QKBgFFv6OfCPDS3hk3ss1Pl2yYTncAw8mBX+TUNpdAL+kRiAtNzD2YeU2WLSH4inTqGvixSIgPSlEHWmRg+4+uYMnpUb12ApRi4BwdlVRLbXzFdlyZPDuf4abPwD8bLQ/s7u7bOrEVr+sMMCAL+iiFlCbef+DEV8MIEaUUbd1qlcSFnAoGBAMmEu7eMTr0Y6ruxCTWPe9yzM20bShxHsdAF5lZIbixNa6lutRjNlK0Xz++M6iCufRjJRFmIgyy1fTctYiT088D76ZmBgxdn0nLFgoWs88iolUu1e/zDCr+JNd9lnqWeJ2OwoEh0SezPaS6iN6CCCa8B5WR0meOEyccozqBgQSN9AoGBAI7CPKUxJsPAt3SXHOyOlVIPjVpuyZvYBvqLL2aKWIC5eP1gN4VkjyoIgi++zTS3GquYWQQxl4lvz+MPG7OZo2U+eRU3YwrBddsx9H4sX6QqgZ9XQdz35Le9yDa18I4A0q5GhWlvlXr+iCR3sP6/yeeCrHL4idn7/ttJBK8j9aDy"
+    }
+    private_key_bytes = base64.b64decode(CONSTANT['yun_private_key'])
+    private_key = serialization.load_der_private_key(private_key_bytes, password=None)
+
+    signature = private_key.sign(data.encode('utf-8'), padding.PKCS1v15(), hashes.SHA256())
+    sign = base64.b64encode(signature).decode()
+    return sign if not url_encode else quote(sign)
+
+
+def fetch_yun_sign_img(user_id: str):
+    from requests.adapters import HTTPAdapter
+    from urllib3.util.retry import Retry
+    from urllib.parse import unquote
+    """获取医生/护士 云医签 签名图片"""
+
+    try:
+        # 创建支持重试的 Session
+        session = requests.Session()
+        adapter = HTTPAdapter(max_retries=Retry(
+            total=3, backoff_factor=1,  # 最大重试次数 指数退避因子（1s, 2s, 4s）
+            status_forcelist=[500, 502, 503, 504],  # 遇到这些状态码时重试
+            allowed_methods=["POST"]  # 仅对 POST 请求重试
+        ))
+        session.mount("http://", adapter)
+        session.mount("https://", adapter)
+
+        # 构造请求URL和参数  发送请求（自动重试逻辑已内置）
+        params = {'appId': 11, 'id': user_id, 'sign': encrypt_data(f'appId=11&id={user_id}', url_encode=True)}
+        response = session.post('http://192.168.3.181:8080/openapi/v1/user/seal', data=params, timeout=10)
+        response.raise_for_status()  # 检查HTTP错误
+
+        resp_data = response.json()
+
+        if resp_data.get('ret', '') != 'success':
+            logger.error(f"请求云医签医生/护理签名 API 业务错误: {resp_data}")
+            return None
+
+        logger.info("获取签名图片成功")
+        scale_seal = unquote(resp_data.get('data', {}).get('scaleSeal'))
+        return scale_seal
+
+    except requests.exceptions.RequestException as e:
+        logger.error(f"请求失败: {str(e)}")
+        return None
+    except ValueError as e:
+        logger.error(f"响应解析失败: {str(e)}")
+        return None
+    except Exception as e:
+        logger.error(f"未知错误: {str(e)}", exc_info=True)
+        return None
+
+
+def call_yangcheng_sign_serve(param: dict, ts_sign: bool = False):
+    """
+    调用 杨程 部署的签名服务器，进行签名
+    :param param:
+    :param ts_sign:
+    :return:
+    """
+    max_retries, retry_count, retry_delay = 3, 0, 1
+    while retry_count < max_retries:
+        try:
+            sign_serve_url = "http://192.168.3.45:8087/yun_signer/opera_sign" \
+                if not ts_sign else "http://192.168.3.45:8087/signer/opera_sign"
+            response = requests.post(sign_serve_url, timeout=10, json=param)
+            data = json.loads(response.text)
+            if int(data.get('code')) != 20000:
+                raise Exception(data)
+            return data.get('data')
+        except Exception as e:
+            retry_count += 1
+            if retry_count <= max_retries:
+                sleep_time = retry_delay * (2 ** (retry_count - 1))  # 指数退避
+                logging.warning(
+                    f"签名服务器连接失败，第 {retry_count}/{max_retries} 次重试..."
+                    f"错误: {str(e)}，{sleep_time}秒后重试"
+                )
+                time.sleep(sleep_time)
+            else:
+                logging.error(f"签名服务器连接失败，已达最大重试次数 {max_retries}。最后错误: {str(e)}\n")
+                return {}
