@@ -570,7 +570,8 @@ def general_dept_shift_change(reg_sqls, shift_classes, time_slot, dept_list):
     del db
 
     patient_count, siwang_patients, chuangwei_info1, chuangwei_info2, \
-        teshu_ydhl_patients, teshu_pg_patients, ydhl_patients, pg_patients = [], [], [], [], [], [], [], []
+        teshu_ydhl_patients, teshu_pg_patients, ydhl_patients, pg_patients,\
+        eye_pg_patients, eye_ydhl_patients = [], [], [], [], [], [], [], [], [], []
     with ThreadPoolExecutor(max_workers=12) as executor:
         # 提交所有任务（添加时间统计）
         tasks = {
@@ -596,9 +597,20 @@ def general_dept_shift_change(reg_sqls, shift_classes, time_slot, dept_list):
                                            global_tools.call_new_his_pg, reg_sqls.get(12).get('sql_base')
                                            .replace("{start_time}", shift_start)
                                            .replace("{end_time}", shift_end)
+                                           .replace("{特殊病区}",  """'ICU护理单元','CCU护理单元','AICU护理单元','妇产科护理单元','眼科护理单元'""")
                                            .replace("{病区id}", ', '.join(f"'{item}'" for item in dept_list))),
             "ydhl_patients": executor.submit(timed_execution, "普通病区 患者信息 ydhl 8",
                                              global_tools.call_new_his, reg_sqls.get(12).get('sql_ydhl')
+                                             .replace("{特殊病区}",
+                                                      """'ICU护理单元','CCU护理单元','AICU护理单元','妇产科护理单元','眼科护理单元'""")
+                                             .replace("{start_time}", shift_start).replace("{end_time}", shift_end)
+                                             , 'ydhl', None),
+            "eye_pg_patients": executor.submit(timed_execution, "眼科病区 患者信息 pg 9",
+                                           global_tools.call_new_his_pg, reg_sqls.get(19).get('sql_base')
+                                           .replace("{start_time}", shift_start)
+                                           .replace("{end_time}", shift_end)),
+            "eye_ydhl_patients": executor.submit(timed_execution, "眼科病区 患者信息 ydhl 10",
+                                             global_tools.call_new_his, reg_sqls.get(19).get('sql_ydhl')
                                              .replace("{start_time}", shift_start).replace("{end_time}", shift_end)
                                              , 'ydhl', None)
 
@@ -622,6 +634,9 @@ def general_dept_shift_change(reg_sqls, shift_classes, time_slot, dept_list):
         teshu_pg_patients = results["teshu_pg_patients"]
         ydhl_patients = results["ydhl_patients"]
         pg_patients = results["pg_patients"]
+        eye_pg_patients = results["eye_pg_patients"]
+        eye_ydhl_patients = results["eye_ydhl_patients"]
+
 
     all_patient_info = siwang_patients
     teshu_pg_patient_dict = {}
@@ -655,6 +670,36 @@ def general_dept_shift_change(reg_sqls, shift_classes, time_slot, dept_list):
                         tmp_info = tmp_info + (
                             str(ydhl_patient.get("患者情况", '')) if ydhl_patient.get("患者情况", '') else '')
                         continue
+                else:
+                    tmp_info = tmp_info + (
+                        str(ydhl_patient.get("患者情况", '')) if ydhl_patient.get("患者情况", '') else '')
+        patient['患者情况'] = tmp_info
+        all_patient_info.append(patient)
+
+    groups = defaultdict(list)
+    for patient in eye_ydhl_patients:
+        groups[key_func(patient)].append(patient)
+
+    for patient in eye_pg_patients:
+        key = (patient.get("病人id"), str(patient.get("主页id")), '病危重') if patient.get("患者类别") in ['病危',
+                                                                                                           '病重'] \
+            else (patient.get("病人id"), str(patient.get("主页id")), patient.get("患者类别"))
+        tmp_info = patient.get("患者情况", '') if patient.get("患者情况", '') else ''
+        ydhl_list = groups.get(key)
+        if ydhl_list:
+            for ydhl_patient in ydhl_list:
+                if patient.get("患者类别") == '转入':
+                    if ydhl_patient.get("所在病区") == patient.get("所在病区"):
+                        tmp_info = tmp_info + (
+                            str(ydhl_patient.get("患者情况", '')) if ydhl_patient.get("患者情况", '') else '')
+                        continue
+                elif patient.get("患者类别") == '入院':
+                    split_info = tmp_info.split('###')
+                    if len(split_info) == 1:
+                        tmp_info = tmp_info + (
+                            str(ydhl_patient.get("患者情况", '')) if ydhl_patient.get("患者情况", '') else '')
+                    else:
+                        tmp_info = split_info[0] + str(ydhl_patient.get("患者情况", '')).replace('***', split_info[1])
                 else:
                     tmp_info = tmp_info + (
                         str(ydhl_patient.get("患者情况", '')) if ydhl_patient.get("患者情况", '') else '')
