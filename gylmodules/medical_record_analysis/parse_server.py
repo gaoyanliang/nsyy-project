@@ -2,6 +2,7 @@ import json
 import logging
 import requests
 
+from datetime import datetime
 from gylmodules import global_config, global_tools
 from gylmodules.medical_record_analysis import parse_cda
 from gylmodules.medical_record_analysis.anew_his_record import parse_new_his_xml
@@ -55,7 +56,7 @@ def query_record_and_parse(json_data):
             cda = parse_homepage_record(data)
         except Exception as e:
             cda = 'cda 生成失败，请联系信息科人工处理'
-            logger.error(f'住院病案首页 cda 生成失败，pat_no={pat_no}, pat_page={pat_page}')
+            print(datetime.now(), f'住院病案首页 cda 生成失败，pat_no={pat_no}, pat_page={pat_page}')
 
         # 解析cda ，获取结构
         try:
@@ -63,7 +64,7 @@ def query_record_and_parse(json_data):
                 structure = parse_cda.parse_cda_xml_document_by_str(cda)
         except Exception as e:
             structure = 'cda 结构解析失败，请联系信息科人工处理'
-            logger.error(f'住院病案首页 cda 结构解析失败，请联系信息科人工处理, {e}')
+            print(datetime.now(), f'住院病案首页 cda 结构解析失败，请联系信息科人工处理, {e}')
         return cda, structure
 
     param = {
@@ -98,7 +99,7 @@ def query_record_and_parse(json_data):
                 break
         except Exception as e:
             cda = 'cda 生成失败，请联系信息科人工处理'
-            logger.error(f'{pat_no} {pat_page} {file_name} cda 生成失败，请联系信息科人工处理 {e}')
+            print(datetime.now(), f'{pat_no} {pat_page} {file_name} cda 生成失败，请联系信息科人工处理 {e}')
 
         # 解析cda ，获取结构
         try:
@@ -111,7 +112,7 @@ def query_record_and_parse(json_data):
                     structure = parse_cda.parse_cda_xml_document_by_str(cda)
         except Exception as e:
             structure = 'cda 结构解析失败，请联系信息科人工处理'
-            logger.error(f'{pat_no} {pat_page} {file_name} cda 结构解析失败，请联系信息科人工处理 {e}')
+            print(datetime.now(), f'{pat_no} {pat_page} {file_name} cda 结构解析失败，请联系信息科人工处理 {e}')
     except Exception as e:
         if cur_record:
             cur_record.pop('CONTENT')
@@ -137,7 +138,7 @@ def query_new_his_record_and_parse(json_data):
             cda = parse_homepage_record(data)
         except Exception as e:
             cda = 'cda 生成失败，请联系信息科人工处理'
-            logger.error(f'住院病案首页 cda 生成失败，binglijlid={binglijlid}')
+            print(datetime.now(), f'住院病案首页 cda 生成失败，binglijlid={binglijlid}')
 
         # 解析cda ，获取结构
         structure = {}
@@ -146,7 +147,7 @@ def query_new_his_record_and_parse(json_data):
                 structure = parse_cda.parse_cda_xml_document_by_str(cda)
         except Exception as e:
             structure = 'cda 结构解析失败，请联系信息科人工处理'
-            logger.error(f'住院病案首页 cda 结构解析失败，请联系信息科人工处理 {e}')
+            print(datetime.now(), f'住院病案首页 cda 结构解析失败，请联系信息科人工处理 {e}')
         return cda, structure
 
     # TODO  根据病历记录id 查询病历 xml数据
@@ -210,7 +211,7 @@ def query_new_his_record_and_parse(json_data):
                 break
         except Exception as e:
             cda = 'cda 生成失败，请联系信息科人工处理'
-            logger.error(f'binglijlid={binglijlid} {file_name} cda 生成失败，请联系信息科人工处理 {e}')
+            print(datetime.now(), f'binglijlid={binglijlid} {file_name} cda 生成失败，请联系信息科人工处理 {e}')
 
         # 解析cda ，获取结构
         try:
@@ -223,7 +224,7 @@ def query_new_his_record_and_parse(json_data):
                     structure = parse_cda.parse_cda_xml_document_by_str(cda)
         except Exception as e:
             structure = 'cda 结构解析失败，请联系信息科人工处理'
-            logger.error(f'cda 结构解析失败，请联系信息科人工处理 {e}')
+            print(datetime.now(), f'cda 结构解析失败，请联系信息科人工处理 {e}')
     except Exception as e:
         if cur_record:
             cur_record.pop('WENJIANNR')
