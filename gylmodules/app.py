@@ -8,6 +8,7 @@ from gylmodules.critical_value.critical_value_router import cv
 from gylmodules.global_tools import setup_logging
 from gylmodules.hospital_class.hosp_class_router import hosp_class
 from gylmodules.hyperbaric_oxygen_therapy.hbot_router import hbot
+from gylmodules.parking.parking_router import parking
 from gylmodules.pre_hospital_system.phs_router import phs
 from gylmodules.questionnaire.question_router import question
 from gylmodules.composite_appointment.composite_appointment_router import appt
@@ -109,7 +110,13 @@ gylroute.register_blueprint(hosp_class)
 # === 12. 交接班系统路由 ===
 # ============================
 logger.info('12. 交接班系统路由')
-gylroute.register_blueprint(shift_change)
+gylroute.register_blueprint(parking)
 
+
+# ============================
+# === 13. 停车场系统路由 ===
+# ============================
+logger.info('13. 停车场系统路由')
+gylroute.register_blueprint(shift_change)
 
 logger.info("=============== End 路由注册完成 =====================")
