@@ -12,7 +12,7 @@ def run_shift_change():
     return shift_change_server.timed_shift_change()
 
 
-@shift_change.route('/single_shift_change', methods=['POST'])
+@shift_change.route('/refresh_shift_data', methods=['POST'])
 @api_response
 def single_run_shift_change(json_data):
     return shift_change_server.single_run_shift_change(json_data)

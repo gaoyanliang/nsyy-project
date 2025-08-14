@@ -706,9 +706,15 @@ def general_dept_shift_change(reg_sqls, shift_classes, time_slot, dept_list):
         patient['患者情况'] = tmp_info
         all_patient_info.append(patient)
 
-    patient_count_list = fill_missing_types(patient_count, shift_change_config.ward_people_count, 2)
-    all_patients = merge_patient_cv_data(all_cvs, all_patient_info, 2, dept_list)
-    save_data(f"2-{shift_classes}", all_patients, patient_count_list, chuangwei_info1 + chuangwei_info2)
+    filtered_patient_count = [dept for dept in patient_count if dept['所在病区id'] in dept_list]
+    patient_count_list = fill_missing_types(filtered_patient_count, shift_change_config.ward_people_count, 2)
+
+    chuangwei_info_list = chuangwei_info1 + chuangwei_info2
+    filtered_chuangwei_info = [dept for dept in chuangwei_info_list if dept['所在病区id'] in dept_list]
+
+    filtered_patients = [dept for dept in all_patient_info if dept['所在病区id'] in dept_list]
+    all_patients = merge_patient_cv_data(all_cvs, filtered_patients, 2, dept_list)
+    save_data(f"2-{shift_classes}", all_patients, patient_count_list, filtered_chuangwei_info)
     logger.info(f"普通科室 通用交接班数据查询完成 ✅ 耗时: {time.time() - start}")
 
 
@@ -774,11 +780,7 @@ def merge_patient_records(patient_list):
         try:
             sorted_patients = sorted(patients,
                                      key=lambda x: datetime.strptime(x[16], '%Y-%m-%d %H:%M:%S'))
-            merged_info = '\n\n--------\n\n'.join(
-                f"{p[16]}:\n{p[15]}"
-                for p in sorted_patients
-                if p[15]
-            )
+            merged_info = '\n\n--------\n\n'.join(f"{p[15]}" for p in sorted_patients if p[15])
             latest_time = sorted_patients[-1][16]
         except (IndexError, ValueError) as e:
             logger.warning(f"处理记录时出错: {e}")
@@ -992,11 +994,21 @@ def check_shift_time(shift_slot: str) -> bool:
     if not start or not end:
         return False
 
-    # 计算交班前20分钟的时间窗口
-    end_dt = datetime.combine(datetime.today(), end)
-    reminder_time = (end_dt - timedelta(minutes=20)).time()
+    input_time = datetime.strptime(end_str, "%H:%M").time()
+    now = datetime.now()
+    current_time = now.time()
 
-    return reminder_time <= datetime.now().time() <= end
+    # 创建时间范围（前后2分钟）
+    time_min = (now - timedelta(minutes=2)).time()
+    time_max = (now + timedelta(minutes=2)).time()
+
+    # 处理跨日情况（如23:59-00:01）
+    if time_min > time_max:
+        # 当前时间接近午夜，范围跨越两天
+        return input_time >= time_min or input_time <= time_max
+    else:
+        # 正常情况
+        return time_min <= input_time <= time_max
 
 
 def upcoming_shifts_grouped() -> Dict[Tuple[str, str], List[Dict]]:
@@ -1137,16 +1149,31 @@ def balanced_split_three(lst, piece):
 
 
 def single_run_shift_change(json_data):
+    shift_type = json_data.get('shift_type')
+    shift_date = json_data.get('shift_date')
+    shift_classes = json_data.get('shift_classes')
+    time_slot = json_data.get('time_slot')
+    dept_id = json_data.get('dept_id')
+    dept_list = [str(dept_id)]
+
+    if not dept_id:
+        raise Exception("请选择科室")
+    input_date = datetime.strptime(shift_date, "%Y-%m-%d").date()
+    today = datetime.now().date()
+    previous_day = today - timedelta(days=1)
+    if input_date != previous_day and int(shift_classes) == 3:
+        raise Exception("仅支持刷新前一天的晚班")
+    if input_date != today and int(shift_classes) in [1, 2]:
+        raise Exception("仅支持刷新当天的早班 和 中班")
+
     db = DbUtil(global_config.DB_HOST, global_config.DB_USERNAME, global_config.DB_PASSWORD,
                 global_config.DB_DATABASE_GYL)
     all_sqls = db.query_all("select * from nsyy_gyl.scs_reg_sql")
+    shift_info = db.query_one(f"select * from nsyy_gyl.scs_shift_info "
+                              f"where shift_classes = '{shift_type}-{shift_classes}' "
+                              f"and shift_date = '{shift_date}' and dept_id = {int(dept_id)}")
     del db
     reg_sqls = {item.get('sid'): item for item in all_sqls}
-
-    shift_type = json_data.get('shift_type')
-    shift_classes = json_data.get('shift_classes')
-    time_slot = json_data.get('time_slot')
-    dept_list = json_data.get('dept_list')
 
     try:
 
@@ -1154,17 +1181,20 @@ def single_run_shift_change(json_data):
             # 医生交接班
             doctor_shift_change(reg_sqls, shift_classes, time_slot, dept_list)
         elif shift_type == 2:
+            if len(dept_list) == 1 and ('1000965' in dept_list or '1001120' in dept_list):
+                # AICU/CCU交接班
+                aicu_shift_change(reg_sqls, shift_classes, time_slot)
+                return
+            if len(dept_list) == 1 and '1000961' in dept_list:
+                # 妇产科交接班
+                ob_gyn_shift_change(reg_sqls, shift_classes, time_slot)
+                return
+            if len(dept_list) == 1 and '1000962' in dept_list:
+                # 妇产科交接班
+                icu_shift_change(reg_sqls, shift_classes, time_slot)
+                return
             # 普通护理交接班
             general_dept_shift_change(reg_sqls, shift_classes, time_slot, dept_list)
-        elif shift_type == 3:
-            # AICU/CCU交接班
-            aicu_shift_change(reg_sqls, shift_classes, time_slot)
-        elif shift_type == 4:
-            # 妇产科交接班
-            ob_gyn_shift_change(reg_sqls, shift_classes, time_slot)
-        elif shift_type == 5:
-            # ICU 重症交接班
-            icu_shift_change(reg_sqls, shift_classes, time_slot)
         else:
             raise Exception("未知的交接班类型")
     except Exception as e:
