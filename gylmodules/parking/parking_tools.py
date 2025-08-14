@@ -679,8 +679,23 @@ def delete_vip_car(vehicle_id):
 
 
 if __name__ == "__main__":
+    start_t = time.time()
     start_time = time.time()
     # fetch_data()
-    add_new_car_and_recharge('京CTEST911', "36716d9a-e37a-11eb-a77d-bb0a9f242da1", "2025-08-11", "2025-09-11")
+    # add_new_car_and_recharge('京CTEST911', "36716d9a-e37a-11eb-a77d-bb0a9f242da1", "2025-08-11", "2025-09-11")
 
-    print("总耗时: ", time.time() - start_time, " s")
+    driver = getDriver()
+    print(f"打开浏览器耗时 {time.time() - start_time}")
+    start_time = time.time()
+    login(driver)
+    print(f"登陆耗时 {time.time() - start_time}")
+    start_time = time.time()
+    switch_to_parking_page(driver)
+    print(f"切换到停车页面耗时 {time.time() - start_time}")
+    start_time = time.time()
+    switch_to_info_query(driver)
+    print(f"切换到信息查询页面耗时 {time.time() - start_time}")
+    start_time = time.time()
+    driver.quit()
+    logger.debug("浏览器关闭耗时 ", time.time() - start_time)
+    print("总耗时: ", time.time() - start_t, " s")

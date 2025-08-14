@@ -570,7 +570,7 @@ def general_dept_shift_change(reg_sqls, shift_classes, time_slot, dept_list):
     del db
 
     patient_count, siwang_patients, chuangwei_info1, chuangwei_info2, \
-        teshu_ydhl_patients, teshu_pg_patients, ydhl_patients, pg_patients,\
+        teshu_ydhl_patients, teshu_pg_patients, ydhl_patients, pg_patients, \
         eye_pg_patients, eye_ydhl_patients = [], [], [], [], [], [], [], [], [], []
     with ThreadPoolExecutor(max_workers=12) as executor:
         # 提交所有任务（添加时间统计）
@@ -597,7 +597,8 @@ def general_dept_shift_change(reg_sqls, shift_classes, time_slot, dept_list):
                                            global_tools.call_new_his_pg, reg_sqls.get(12).get('sql_base')
                                            .replace("{start_time}", shift_start)
                                            .replace("{end_time}", shift_end)
-                                           .replace("{特殊病区}",  """'ICU护理单元','CCU护理单元','AICU护理单元','妇产科护理单元','眼科护理单元'""")
+                                           .replace("{特殊病区}",
+                                                    """'ICU护理单元','CCU护理单元','AICU护理单元','妇产科护理单元','眼科护理单元'""")
                                            .replace("{病区id}", ', '.join(f"'{item}'" for item in dept_list))),
             "ydhl_patients": executor.submit(timed_execution, "普通病区 患者信息 ydhl 8",
                                              global_tools.call_new_his, reg_sqls.get(12).get('sql_ydhl')
@@ -606,13 +607,13 @@ def general_dept_shift_change(reg_sqls, shift_classes, time_slot, dept_list):
                                              .replace("{start_time}", shift_start).replace("{end_time}", shift_end)
                                              , 'ydhl', None),
             "eye_pg_patients": executor.submit(timed_execution, "眼科病区 患者信息 pg 9",
-                                           global_tools.call_new_his_pg, reg_sqls.get(19).get('sql_base')
-                                           .replace("{start_time}", shift_start)
-                                           .replace("{end_time}", shift_end)),
+                                               global_tools.call_new_his_pg, reg_sqls.get(19).get('sql_base')
+                                               .replace("{start_time}", shift_start)
+                                               .replace("{end_time}", shift_end)),
             "eye_ydhl_patients": executor.submit(timed_execution, "眼科病区 患者信息 ydhl 10",
-                                             global_tools.call_new_his, reg_sqls.get(19).get('sql_ydhl')
-                                             .replace("{start_time}", shift_start).replace("{end_time}", shift_end)
-                                             , 'ydhl', None)
+                                                 global_tools.call_new_his, reg_sqls.get(19).get('sql_ydhl')
+                                                 .replace("{start_time}", shift_start).replace("{end_time}", shift_end)
+                                                 , 'ydhl', None)
 
         }
         if int(shift_classes) == 3:
@@ -636,7 +637,6 @@ def general_dept_shift_change(reg_sqls, shift_classes, time_slot, dept_list):
         pg_patients = results["pg_patients"]
         eye_pg_patients = results["eye_pg_patients"]
         eye_ydhl_patients = results["eye_ydhl_patients"]
-
 
     all_patient_info = siwang_patients
     teshu_pg_patient_dict = {}
@@ -848,45 +848,26 @@ def merge_patient_cv_data(cv_list, patient_list, shift_type, dept_list):
                                                         f"{cv.get('cv_result') if cv.get('cv_result') else ''} {cv.get('cv_unit') if cv.get('cv_unit') else ''}, " \
                                                         f"遵医嘱给予 {cv.get('method') if cv.get('method') else ''} 处理"
             else:
-                patient.get('bingrenzyid') if patient.get('bingrenzyid') else '0',
-                patient.get('住院号') if patient.get('住院号') else '0',
-                patient.get('床号') if patient.get('床号') else '0',
-                patient.get('姓名') if patient.get('姓名') else '0',
-                patient.get('性别') if patient.get('性别') else '0',
-                patient.get('年龄') if patient.get('年龄') else '0',
-                patient.get('主要诊断') if patient.get('主要诊断') else '',
-                patient.get('患者类别') if patient.get('患者类别') else '',
-                patient.get('所在科室id') if patient.get('所在科室id') else '',
-                patient.get('所在科室') if patient.get('所在科室') else '',
-                patient.get('所在病区id') if patient.get('所在病区id') else '',
-                patient.get('所在病区') if patient.get('所在病区') else '',
-                patient.get('主治医生姓名') if patient.get('主治医生姓名') else '',
-                patient.get('患者情况') if patient.get('患者情况') else '',
-
                 sex = '未知'
-                if str(cv.get('patient_gender')) == 1:
+                if str(cv.get('patient_gender')) == '1':
                     sex = '男'
-                if str(cv.get('patient_gender')) == 2:
+                if str(cv.get('patient_gender')) == '2':
                     sex = '女'
 
-                patient_dict[(zhuyuanhao, dpid)].append({
-                    'bingrenzyid': '',
-                    '住院号': zhuyuanhao,
-                    '床号': cv.get('patient_bed_num'),
-                    '姓名': cv.get('patient_name'),
-                    '性别': sex,
-                    '年龄': cv.get('patient_age'),
-                    '主要诊断': '',
-                    '患者类别': '危急值',
-                    '所在科室id': cv.get('dept_id') if cv.get('dept_id') else '',
-                    '所在科室': cv.get('dept_name') if cv.get('dept_name') else '',
-                    '所在病区id': cv.get('ward_id') if cv.get('ward_id') else '',
-                    '所在病区': cv.get('ward_name') if cv.get('ward_name') else '',
-                    '主治医生姓名': cv.get('req_docno'),
-                    '患者情况': f"  {cv.get('alertdt')} 接危急值系统报 {cv.get('cv_name')} "
-                                f"{cv.get('cv_result') if cv.get('cv_result') else ''} {cv.get('cv_unit') if cv.get('cv_unit') else ''}, "
-                                f"遵医嘱给予 {cv.get('method') if cv.get('method') else ''} 处理"
-                })
+                p = {'bingrenzyid': '', '住院号': zhuyuanhao, '床号': cv.get('patient_bed_num'),
+                     '姓名': cv.get('patient_name'), '性别': sex, '年龄': cv.get('patient_age'),
+                     '主要诊断': '', '患者类别': '危急值', '主治医生姓名': cv.get('req_docno'),
+                     '患者情况': f"{cv.get('alertdt')} 接危急值系统报 {cv.get('cv_name')} "
+                                 f"{cv.get('cv_result') if cv.get('cv_result') else ''} {cv.get('cv_unit') if cv.get('cv_unit') else ''}, "
+                                 f"遵医嘱给予 {cv.get('method') if cv.get('method') else ''} 处理"
+                     }
+                if int(shift_type) == 1:
+                    p['所在科室id'] = cv.get('dept_id') if cv.get('dept_id') else ''
+                    p['所在科室'] = cv.get('dept_name') if cv.get('dept_name') else ''
+                else:
+                    p['所在病区id'] = cv.get('ward_id') if cv.get('ward_id') else ''
+                    p['所在病区'] = cv.get('ward_name') if cv.get('ward_name') else ''
+                patient_dict[(zhuyuanhao, dpid)].append(p)
 
         ret_list = []
         for l in patient_dict.values():
@@ -1319,7 +1300,8 @@ def save_shift_info(json_data):
         if not user_id:
             raise Exception('医生/护士不存在, 请先联系信息科配置【云医签】', user_name)
         try:
-            sign_param = {"type": "sign_push", "user_id": user_id, "bizSn": biz_sn, "msg": sign_msg, "desc": "交接班签名"}
+            sign_param = {"type": "sign_push", "user_id": user_id, "bizSn": biz_sn, "msg": sign_msg,
+                          "desc": "交接班签名"}
             sign_ret = global_tools.call_yangcheng_sign_serve(sign_param)
 
             # 时间戳签名
