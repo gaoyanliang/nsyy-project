@@ -987,23 +987,22 @@ def merge_patient_shuhou_data(shuhou_list, patient_list, shoushu_list):
                 ps = patient_dict.get(str(patient.get('bingrenzyid')))
                 ps[0]['患者情况'] = ps[0]['患者情况'] + shuhou_dict.get(str(patient.get('bingrenzyid')), [{}])[0].get('患者情况', '')
             else:
-                logger.warning(f"未找到病人(当前患者上一班没有手术): bingrenzyid {patient.get('bingrenzyid')}")
-                # p_shuhou = shuhou_dict.get(str(patient.get('bingrenzyid')), '')
-                # if not p_shuhou:
-                #     continue
-                #
-                # p_shuhou = p_shuhou[0]
-                # p = {'bingrenzyid': patient.get('bingrenzyid'), '住院号': patient.get('zhuyuanhao'),
-                #      '床号': p_shuhou.get('床号', ''), '姓名': patient.get('patient_name'),
-                #      '性别': patient.get('patient_sex'), '年龄': patient.get('patient_age'),
-                #      '主要诊断': patient.get('zhenduan'), '患者类别': '术后', '主治医生姓名': patient.get('doctor_name'),
-                #      '患者情况': p_shuhou.get('患者情况', '')
-                #      }
-                #
-                # dept_name = p_shuhou.get('所在病区', '')
-                # p['所在病区id'] = shift_change_config.his_dept_dict.get(dept_name, '0')
-                # p['所在病区'] = dept_name
-                # patient_dict[str(patient.get('bingrenzyid'))].append(p)
+                p_shuhou = shuhou_dict.get(str(patient.get('bingrenzyid')), '')
+                if not p_shuhou:
+                    continue
+
+                p_shuhou = p_shuhou[0]
+                p = {'bingrenzyid': patient.get('bingrenzyid'), '住院号': patient.get('zhuyuanhao'),
+                     '床号': p_shuhou.get('床号', ''), '姓名': patient.get('patient_name'),
+                     '性别': patient.get('patient_sex'), '年龄': patient.get('patient_age'),
+                     '主要诊断': patient.get('zhenduan'), '患者类别': patient.get('patient_type'),
+                     '主治医生姓名': patient.get('doctor_name'), '患者情况': p_shuhou.get('患者情况', '')
+                     }
+
+                dept_name = p_shuhou.get('所在病区', '')
+                p['所在病区id'] = shift_change_config.his_dept_dict.get(dept_name, '0')
+                p['所在病区'] = dept_name
+                patient_dict[str(patient.get('bingrenzyid'))].append(p)
 
         ret_list = []
         for l in patient_dict.values():
