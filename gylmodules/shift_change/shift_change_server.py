@@ -142,7 +142,7 @@ def merge_ret_patient_list(patient_list, is_archived):
 
     # 1. 按患者分组并找出最新记录
     for record in patient_list:
-        patient_id = record['bingrenzyid']
+        patient_id = record['zhuyuanhao']
         patients[patient_id]['records'].append(record)
 
         # 更新最新记录（根据create_at时间判断）
@@ -159,15 +159,23 @@ def merge_ret_patient_list(patient_list, is_archived):
         patient_info = {'1': None, '2': None, '3': None}
 
         # 填充各班次信息
+        types = []
         for record in data['records']:
+            types.append(record.get('patient_type'))
             shift_class = record['shift_classes'].split('-')[1]
             patient_info[shift_class] = {'id': record['id'], 'info': record['patient_info'],
                                          'is_archived': 1 if record['shift_classes'] in is_archived else 0}
 
+        types = ','.join(types).replace(' ', '')
+        types = types.split(',')
+        types = list(set(types))
+        sorted_types = sorted(types, key=lambda x: PATIENT_TYPE_ORDER.get(x, float('inf')))
         # 创建合并后的记录
         merged_record = latest.copy()
         merged_record['patient_info'] = patient_info
+        merged_record['patient_type'] = ','.join(sorted_types)
         merged.append(merged_record)
+        types = []
 
     return merged
 
@@ -279,7 +287,23 @@ def postoperative_situation(shift_classes, dept_list, zhuyuanhao_list):
 
     start_time = time.time()
     result = global_tools.call_new_his(sql=sql, sys='ydhl', clobl=None)
-    logger.info(f"术后信息查询：科室 {dept_str} 术前数量 {zhuyuanhao_list} 术后数量 {len(result)} 术后护理执行时间: {time.time() - start_time} s")
+    logger.info(f"术后信息查询: 术后数量 {len(result)} 执行时间: {time.time() - start_time} s")
+    return result
+
+
+def discharge_situation():
+    sql = """select 住院号,疾病转归 from (select report_id,住院号,疾病转归 from (
+    select t2.item_name, t2.item_value, t.report_id from kyeecis.docs_eval_report_rec t
+    join kyeecis.docs_eval_report_detail_rec t2  on t.report_id = t2.report_id
+    where t2.item_name in ('疾病转归', '住院号') and t2.enabled_value = 'Y' and t.theme_code = '出院小结'
+    and t.create_time > sysdate - 1) pivot (max(item_value) 
+    for item_name in ('疾病转归' as 疾病转归, '住院号' as 住院号)))"""
+    start_time = time.time()
+    result = global_tools.call_new_his(sql=sql, sys='ydhl', clobl=None)
+    logger.info(f"出院信息查询：数量 {len(result)} 执行时间: {time.time() - start_time} s")
+    if not result:
+        return None
+    result = {item.get('住院号'): item.get('疾病转归') for item in result}
     return result
 
 
@@ -614,7 +638,7 @@ def general_dept_shift_change(reg_sqls, shift_classes, time_slot, dept_list, sho
 
     patient_count, siwang_patients, chuangwei_info1, chuangwei_info2, \
         teshu_ydhl_patients, teshu_pg_patients, ydhl_patients, pg_patients, \
-        eye_pg_patients, eye_ydhl_patients, shuhou_patients = [], [], [], [], [], [], [], [], [], [], []
+        eye_pg_patients, eye_ydhl_patients, shuhou_patients, chuyuan_ydhl = [], [], [], [], [], [], [], [], [], [], [], []
     with ThreadPoolExecutor(max_workers=12) as executor:
         # 提交所有任务（添加时间统计）
         tasks = {
@@ -656,7 +680,8 @@ def general_dept_shift_change(reg_sqls, shift_classes, time_slot, dept_list, sho
             "eye_ydhl_patients": executor.submit(timed_execution, "眼科病区 患者信息 ydhl 10",
                                                  global_tools.call_new_his, reg_sqls.get(19).get('sql_ydhl')
                                                  .replace("{start_time}", shift_start).replace("{end_time}", shift_end)
-                                                 , 'ydhl', None)
+                                                 , 'ydhl', None),
+            "chuyuan_ydhl": executor.submit(discharge_situation)
 
         }
         if int(shift_classes) == 3:
@@ -687,6 +712,12 @@ def general_dept_shift_change(reg_sqls, shift_classes, time_slot, dept_list, sho
         eye_pg_patients = results["eye_pg_patients"]
         eye_ydhl_patients = results["eye_ydhl_patients"]
         shuhou_patients = results.get("shuhou_patients", [])
+        chuyuan_ydhl = results["chuyuan_ydhl"]
+
+    if chuyuan_ydhl:
+        for patient in siwang_patients:
+            if patient.get('患者类别') == '出院':
+                patient['患者情况'] = patient['患者情况'].replace('###', chuyuan_ydhl.get(patient.get('住院号'), ''))
 
     all_patient_info = siwang_patients
     teshu_pg_patient_dict = {}
@@ -954,25 +985,25 @@ def merge_patient_shuhou_data(shuhou_list, patient_list, shoushu_list):
 
             if patient_dict.get(str(patient.get('bingrenzyid'))):
                 ps = patient_dict.get(str(patient.get('bingrenzyid')))
-                ps[0]['患者类别'] = ps[0]['患者类别'] + ', 术后'
                 ps[0]['患者情况'] = ps[0]['患者情况'] + shuhou_dict.get(str(patient.get('bingrenzyid')), [{}])[0].get('患者情况', '')
             else:
-                p_shuhou = shuhou_dict.get(str(patient.get('bingrenzyid')), '')
-                if not p_shuhou:
-                    continue
-
-                p_shuhou = p_shuhou[0]
-                p = {'bingrenzyid': patient.get('bingrenzyid'), '住院号': patient.get('zhuyuanhao'),
-                     '床号': p_shuhou.get('床号', ''), '姓名': patient.get('patient_name'),
-                     '性别': patient.get('patient_sex'), '年龄': patient.get('patient_age'),
-                     '主要诊断': patient.get('zhenduan'), '患者类别': '术后', '主治医生姓名': patient.get('doctor_name'),
-                     '患者情况': p_shuhou.get('患者情况', '')
-                     }
-
-                dept_name = p_shuhou.get('所在病区', '')
-                p['所在病区id'] = shift_change_config.his_dept_dict.get(dept_name, '0')
-                p['所在病区'] = dept_name
-                patient_dict[str(patient.get('bingrenzyid'))].append(p)
+                logger.warning(f"未找到病人(当前患者上一班没有手术): bingrenzyid {patient.get('bingrenzyid')}")
+                # p_shuhou = shuhou_dict.get(str(patient.get('bingrenzyid')), '')
+                # if not p_shuhou:
+                #     continue
+                #
+                # p_shuhou = p_shuhou[0]
+                # p = {'bingrenzyid': patient.get('bingrenzyid'), '住院号': patient.get('zhuyuanhao'),
+                #      '床号': p_shuhou.get('床号', ''), '姓名': patient.get('patient_name'),
+                #      '性别': patient.get('patient_sex'), '年龄': patient.get('patient_age'),
+                #      '主要诊断': patient.get('zhenduan'), '患者类别': '术后', '主治医生姓名': patient.get('doctor_name'),
+                #      '患者情况': p_shuhou.get('患者情况', '')
+                #      }
+                #
+                # dept_name = p_shuhou.get('所在病区', '')
+                # p['所在病区id'] = shift_change_config.his_dept_dict.get(dept_name, '0')
+                # p['所在病区'] = dept_name
+                # patient_dict[str(patient.get('bingrenzyid'))].append(p)
 
         ret_list = []
         for l in patient_dict.values():
