@@ -827,7 +827,7 @@ def get_complete_time_slot(shift_slot: str) -> tuple:
         start_datetime = datetime.combine(today - timedelta(days=1), start_time)
         end_datetime = datetime.combine(today, end_time)
 
-    return start_datetime.strftime('%Y-%m-%d %H:%M:%S'), end_datetime.strftime('%Y-%m-%d %H:%M:%S')
+    return f"{start_datetime.strftime('%Y-%m-%d %H:%M')}:01.000", f"{end_datetime.strftime('%Y-%m-%d %H:%M')}:00.999"
 
 
 def merge_patient_records(patient_list):

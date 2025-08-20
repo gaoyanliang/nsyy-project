@@ -1,4 +1,6 @@
 import json
+import logging
+
 import requests
 import time
 import concurrent.futures
@@ -16,6 +18,8 @@ DB_CONFIG = {
     "port": "6000"
 }
 
+logger = logging.getLogger(__name__)
+
 
 def call_third_systems_obtain_data(type: str, sql: str, db_source: str):
     param = {"type": type, "db_source": db_source, "randstr": "XPFDFZDF7193CIONS1PD7XCJ3AD4ORRC", "sql": sql}
@@ -29,8 +33,7 @@ def call_third_systems_obtain_data(type: str, sql: str, db_source: str):
             data = data.get('data')
         except Exception as e:
             data = []
-            print(datetime.now(),
-                  '调用第三方系统方法失败：type = orcl_db_read ' + ' param = ' + str(param) + "   " + e.__str__())
+            logger.error(f'高压氧查询失败: param={param}, e = {e.__str__()}')
     else:
         # 根据住院号/门诊号查询 病人id 主页id
         from tools import orcl_db_read
@@ -38,8 +41,7 @@ def call_third_systems_obtain_data(type: str, sql: str, db_source: str):
             data = orcl_db_read(param)
         except Exception as e:
             data = []
-            print(datetime.now(),
-                  '调用第三方系统方法失败：type = orcl_db_read ' + ' param = ' + str(param) + "   " + e.__str__())
+            logger.error(f'高压氧查询失败: param={param}, e = {e.__str__()}')
 
     return data
 
@@ -148,7 +150,7 @@ def query_report(start_date, end_date):
             menzhen_data = future_menzhen.result()
             kangfu_data = future_kangfu.result()
         except Exception as e:
-            print(f"费用查询失败: {e}")
+            logger.error(f'高压氧费用查询失败: {e}')
             return [], []  # 查询失败时返回空数据
             # 可以在这里执行额外的清理操作，或者重新抛出异常
 
@@ -241,7 +243,8 @@ def query_report(start_date, end_date):
     for d in price_total:
         d['sort_num'] = i
         i = i + 1
-    print(datetime.now(), '总耗时：', time.time() - start_time, start_date, end_date)
+
+    logger.info(f'高压氧报表查询完成, 耗时: {time.time() - start_time}, {start_date} - {end_date}')
     return people_total, price_total
 
 
@@ -255,6 +258,6 @@ def safe_postgres_query(sql):
                 results = cur.fetchall()
 
     except Exception as e:
-        print(datetime.now(), '高压氧门诊费用记录查询失败', e)
+        logger.error(f'高压氧门诊费用记录查询失败, {e.__str__()}')
 
     return results
