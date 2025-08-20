@@ -167,13 +167,19 @@ def merge_ret_patient_list(patient_list, is_archived):
                                          'is_archived': 1 if record['shift_classes'] in is_archived else 0}
 
         types = ','.join(types).replace(' ', '')
-        types = types.split(',')
-        types = list(set(types))
-        sorted_types = sorted(types, key=lambda x: PATIENT_TYPE_ORDER.get(x, float('inf')))
+
+        items = types.split(',')
+        seen = set()
+        result = []
+        for item in items:
+            if item not in seen:
+                seen.add(item)
+                result.append(item)
+        types = ','.join(result)
         # 创建合并后的记录
         merged_record = latest.copy()
         merged_record['patient_info'] = patient_info
-        merged_record['patient_type'] = ','.join(sorted_types)
+        merged_record['patient_type'] = types
         merged.append(merged_record)
         types = []
 
@@ -297,13 +303,13 @@ def discharge_situation():
     join kyeecis.docs_eval_report_detail_rec t2  on t.report_id = t2.report_id
     where t2.item_name in ('疾病转归', '住院号') and t2.enabled_value = 'Y' and t.theme_code = '出院小结'
     and t.create_time > sysdate - 1) pivot (max(item_value) 
-    for item_name in ('疾病转归' as 疾病转归, '住院号' as 住院号)))"""
+    for item_name in ('疾病转归' as 疾病转归, '住院号' as 住院号))) where 疾病转归 is not null"""
     start_time = time.time()
     result = global_tools.call_new_his(sql=sql, sys='ydhl', clobl=None)
     logger.info(f"出院信息查询：数量 {len(result)} 执行时间: {time.time() - start_time} s")
     if not result:
         return None
-    result = {item.get('住院号'): item.get('疾病转归') for item in result}
+    result = {item.get('住院号'): str(item.get('疾病转归', '')) for item in result}
     return result
 
 
@@ -791,6 +797,8 @@ def general_dept_shift_change(reg_sqls, shift_classes, time_slot, dept_list, sho
     patient_count_list = fill_missing_types(filtered_patient_count, shift_change_config.ward_people_count, 2)
 
     chuangwei_info_list = chuangwei_info1 + chuangwei_info2
+    for item in chuangwei_info_list:
+        item['所在病区id'] = str(shift_change_config.his_dept_dict.get(item['所在病区'], ''))
     filtered_chuangwei_info = [dept for dept in chuangwei_info_list if dept['所在病区id'] in dept_list]
 
     filtered_patients = [dept for dept in all_patient_info if dept['所在病区id'] in dept_list]
@@ -894,6 +902,27 @@ def merge_patient_records(patient_list):
     return merged_records
 
 
+def query_cv_zhenduan(zhuyuanhao_list):
+    start_time = time.time()
+    id_list = ','.join(f"'{zhuyuanhao}'" for zhuyuanhao in zhuyuanhao_list)
+    sql = f"""
+    select zb.zhuyuanhao 住院号,case when (xpath('string(//node[@name="初步诊断"])', 
+    wb2.wenjiannr::xml))[1]::text ~ '2[\.、]' then regexp_replace((xpath('string(//node[@name="初步诊断"])', 
+    wb2.wenjiannr::xml))[1]::text, '2[\.、].*$', '\1') else (xpath('string(//node[@name="初步诊断"])', 
+    wb2.wenjiannr::xml))[1]::text end as 主要诊断 from df_bingli.ws_binglijl wb 
+    join df_bingli.ws_binglijlnr wb2 on wb.binglijlid =wb2.binglijlid
+    join df_jj_zhuyuan.zy_bingrenxx zb on zb.bingrenzyid=wb.bingrenzyid and zb.zaiyuanzt=0 and zb.rukebz=1 
+    and zb.yingerbz=0 and zb.quxiaorybz=0 where wb.binglimc = '首次病程记录'  and wb.zuofeibz=0 and wb.wenshuzt=2
+    and zb.zhuyuanhao in ({id_list})
+    """
+    ret = global_tools.call_new_his_pg(sql)
+    if not ret:
+        return {}
+    ret = {str(r.get("住院号")): r.get('主要诊断', '') for r in ret}
+    logger.info(f"查询危机值数据完成 ✅ 耗时: {time.time() - start_time}")
+    return ret
+
+
 def merge_patient_cv_data(cv_list, patient_list, shift_type, dept_list):
     """
     合并交接班危机值数据
@@ -906,6 +935,11 @@ def merge_patient_cv_data(cv_list, patient_list, shift_type, dept_list):
     try:
         if not cv_list or not patient_list:
             return patient_list
+
+        # 查询危机值患者诊断
+        zhuyuanhao_list = [str(cv.get('patient_treat_id')) for cv in cv_list if cv.get('patient_treat_id')]
+        cv_zhenduan = query_cv_zhenduan(zhuyuanhao_list)
+
         cv_dict = {(str(cv.get('patient_treat_id')), str(cv.get('dept_id'))): cv for cv in cv_list if
                    cv.get('dept_id') and cv.get('patient_treat_id')}
         if int(shift_type) == 2:
@@ -938,7 +972,7 @@ def merge_patient_cv_data(cv_list, patient_list, shift_type, dept_list):
 
                 p = {'bingrenzyid': '', '住院号': zhuyuanhao, '床号': cv.get('patient_bed_num'),
                      '姓名': cv.get('patient_name'), '性别': sex, '年龄': cv.get('patient_age'),
-                     '主要诊断': '', '患者类别': '危急值', '主治医生姓名': cv.get('req_docno'),
+                     '主要诊断': cv_zhenduan.get(zhuyuanhao, ''), '患者类别': '危急值', '主治医生姓名': cv.get('req_docno'),
                      '患者情况': f"{cv.get('alertdt')} 接危急值系统报 {cv.get('cv_name')} "
                                  f"{cv.get('cv_result') if cv.get('cv_result') else ''} {cv.get('cv_unit') if cv.get('cv_unit') else ''}, "
                                  f"遵医嘱给予 {cv.get('method') if cv.get('method') else ''} 处理"
@@ -1172,7 +1206,7 @@ def upcoming_shifts_grouped() -> Dict[Tuple[str, str], List[Dict]]:
 
 def timed_shift_change():
     """ 定时执行交接班 """
-    if datetime.now().hour in [1, 2, 3, 4, 5, 9, 10, 11, 12, 15, 22, 23, 24]:
+    if datetime.now().hour in [1, 2, 3, 4, 5, 9, 10, 11, 12, 13, 15, 24]:
         # 以上时间不在交班时间段内
         return
 
@@ -1222,7 +1256,7 @@ def timed_shift_change():
             try:
                 doctor_shift_change(reg_sqls, shift_classes, time_slot, dept_list)
             except Exception as e:
-                logger.warning(f"医生 {time_slot} 交班异常: {e}", traceback.print_exc())
+                logger.warning(f"医生 {time_slot} 交班异常: {e}")
 
     if nursing_shift_groups:
         for time_slot, dept_list in nursing_shift_groups.items():
@@ -1232,14 +1266,14 @@ def timed_shift_change():
                     shoushu = [item for item in shoushu_patients if item.get('patient_ward_id') == 1000961]
                     ob_gyn_shift_change(reg_sqls, shift_classes, time_slot, shoushu)
                 except Exception as e:
-                    logger.warning(f"妇产科 {time_slot} 交接班异常: {e}", traceback.print_exc())
+                    logger.warning(f"妇产科 {time_slot} 交接班异常: {e}")
 
             if '1000962' in dept_list:
                 # ICU 重症
                 try:
                     icu_shift_change(reg_sqls, shift_classes, time_slot)
                 except Exception as e:
-                    logger.warning(f"重症 ICU {time_slot} 交接班异常: {e}", traceback.print_exc())
+                    logger.warning(f"重症 ICU {time_slot} 交接班异常: {e}")
 
             if '1000965' in dept_list or '1001120' in dept_list:
                 # AICU CCU
@@ -1247,7 +1281,7 @@ def timed_shift_change():
                     shoushu = [item for item in shoushu_patients if item.get('patient_ward_id') in (1000965, 1001120)]
                     aicu_shift_change(reg_sqls, shift_classes, time_slot, shoushu)
                 except Exception as e:
-                    logger.warning(f"AICU/CCU {time_slot} 交接班异常: {e}", traceback.print_exc())
+                    logger.warning(f"AICU/CCU {time_slot} 交接班异常: {e}")
 
             dept_id_list = [dept_id for dept_id in dept_list if
                             dept_id not in ['1000961', '1000962', '1000965', '1001120']]
@@ -1255,7 +1289,7 @@ def timed_shift_change():
                 shoushu = [item for item in shoushu_patients if str(item.get('patient_ward_id')) in dept_id_list]
                 general_dept_shift_change(reg_sqls, shift_classes, time_slot, dept_id_list, shoushu)
             except Exception as e:
-                logger.warning(f"护理 {time_slot} 交班异常: {e}", traceback.print_exc())
+                logger.warning(f"护理 {time_slot} 交班异常: {e}")
 
 
 def single_run_shift_change(json_data):
@@ -1318,7 +1352,7 @@ def single_run_shift_change(json_data):
         else:
             raise Exception("未知的交接班类型")
     except Exception as e:
-        logger.warning(f"{time_slot} 交班异常: {e}", traceback.print_exc())
+        logger.warning(f"{time_slot} 交班异常: {e}")
 
 
 def fill_missing_types(data, dept_people_count, shift_type):
