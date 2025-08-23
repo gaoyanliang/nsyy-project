@@ -309,7 +309,8 @@ def discharge_situation():
     logger.info(f"出院信息查询：数量 {len(result)} 执行时间: {time.time() - start_time} s")
     if not result:
         return None
-    result = {item.get('住院号'): str(item.get('疾病转归', '')) for item in result}
+    result = {item.get('住院号'): '自动' if str(item.get('疾病转归', '')).strip() == '自动出院' else str(
+        item.get('疾病转归', '')) for item in result}
     return result
 
 
@@ -660,7 +661,7 @@ def general_dept_shift_change(reg_sqls, shift_classes, time_slot, dept_list, sho
                                                    global_tools.call_new_his, reg_sqls.get(13).get('sql_ydhl')
                                                    .replace("{start_time}", shift_start)
                                                    .replace("{end_time}", shift_end),
-                                                   'ydhl', None),
+                                                   'ydhl', ['患者情况']),
             "teshu_pg_patients": executor.submit(timed_execution, "普通病区 患者信息(特殊处理) pg 6",
                                                  global_tools.call_new_his_pg, reg_sqls.get(13).get('sql_nhis')
                                                  .replace("{start_time}", shift_start)
@@ -1019,7 +1020,8 @@ def merge_patient_shuhou_data(shuhou_list, patient_list, shoushu_list):
 
             if patient_dict.get(str(patient.get('bingrenzyid'))):
                 ps = patient_dict.get(str(patient.get('bingrenzyid')))
-                ps[0]['患者情况'] = ps[0]['患者情况'] + shuhou_dict.get(str(patient.get('bingrenzyid')), [{}])[0].get('患者情况', '')
+                ps[0]['患者情况'] = str(ps[0]['患者情况']) + str(shuhou_dict.get(str(patient.get('bingrenzyid')),
+                                                                                 [{}])[0].get('患者情况', ''))
             else:
                 p_shuhou = shuhou_dict.get(str(patient.get('bingrenzyid')), '')
                 if not p_shuhou:

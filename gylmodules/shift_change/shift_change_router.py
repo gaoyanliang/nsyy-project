@@ -72,6 +72,10 @@ def query_patient_info(json_data):
     return shift_change_server.query_patient_info(json_data.get('zhuyuanhao'))
 
 
+@shift_change.route('/vip_list', methods=['POST'])
+@api_response
+def vip_list():
+    return {"dept_list": [722, 655, 2246, 10000, 2586], "pers_list": [9926, 110100]}
 
 
 
