@@ -56,7 +56,7 @@ def query_record_and_parse(json_data):
             cda = parse_homepage_record(data)
         except Exception as e:
             cda = 'cda 生成失败，请联系信息科人工处理'
-            print(datetime.now(), f'住院病案首页 cda 生成失败，pat_no={pat_no}, pat_page={pat_page}')
+            print(datetime.now(), f'住院病案首页 cda 生成失败，pat_no={pat_no}, pat_page={pat_page}, {e.__str__()}')
 
         # 解析cda ，获取结构
         try:

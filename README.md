@@ -102,3 +102,22 @@ apns = APNs(
     use_sandbox=True,  # 开发环境=True，生产环境=False
 )
 ```
+
+
+## github 免登录
+
+# 1. 检查是否已存在SSH密钥
+ls ~/.ssh/id_rsa.pub
+
+# 2. 如果没有，生成新的SSH密钥
+ssh-keygen -t rsa -b 4096 -C "your_email@example.com"
+
+# 3. 将公钥添加到GitHub
+cat ~/.ssh/id_rsa.pub
+# 复制输出内容，到GitHub Settings > SSH and GPG keys > New SSH key
+
+# 4. 修改远程仓库URL为SSH格式
+git remote set-url origin git@github.com:gaoyanliang/nsyy-project.git
+
+# 5. 再次尝试推送
+git push origin main
