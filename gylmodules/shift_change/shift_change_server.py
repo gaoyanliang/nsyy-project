@@ -1135,7 +1135,7 @@ def save_data(shift_classes, patients, patient_count, patient_bed_info):
 
 
 def check_shift_time(shift_slot: str) -> bool:
-    """检查当前时间是否在交班前20分钟内"""
+    """检查当前时间是否到交班时间了"""
     if not shift_slot:
         return False
 
@@ -1151,8 +1151,8 @@ def check_shift_time(shift_slot: str) -> bool:
     current_time = now.time()
 
     # 创建时间范围（前后2分钟）
-    time_min = (now - timedelta(minutes=2)).time()
-    time_max = (now + timedelta(minutes=2)).time()
+    time_min = (now - timedelta(minutes=5)).time()
+    time_max = (now + timedelta(minutes=5)).time()
 
     # 处理跨日情况（如23:59-00:01）
     if time_min > time_max:
@@ -1208,10 +1208,6 @@ def upcoming_shifts_grouped() -> Dict[Tuple[str, str], List[Dict]]:
 
 def timed_shift_change():
     """ 定时执行交接班 """
-    if datetime.now().hour in [1, 2, 3, 4, 5, 9, 10, 11, 12, 13, 15, 24]:
-        # 以上时间不在交班时间段内
-        return
-
     shift_groups = []
     try:
         shift_groups = upcoming_shifts_grouped()
@@ -1220,7 +1216,7 @@ def timed_shift_change():
         return
 
     if not shift_groups:
-        logger.debug(f"没有即将交班科室")
+        logger.info(f"没有即将交班科室")
         return
 
     doctor_shift_groups = defaultdict(list)
