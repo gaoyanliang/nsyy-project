@@ -314,7 +314,7 @@ def discharge_situation():
     return result
 
 
-def doctor_shift_change(reg_sqls, shift_classes, time_slot, dept_id_list):
+def doctor_shift_change(reg_sqls, shift_classes, time_slot, dept_id_list, flush: bool = False):
     """
     医生交接班数据查询
     :param reg_sqls:
@@ -353,13 +353,15 @@ def doctor_shift_change(reg_sqls, shift_classes, time_slot, dept_id_list):
     filtered_patients = [dept for dept in patients if dept['所在科室id'] in dept_id_list]
     filtered_patient_count = [dept for dept in patient_count if dept['所在科室id'] in dept_id_list]
     all_patients = merge_patient_cv_data(all_cvs, filtered_patients, 1, dept_id_list)
-
-    patient_count_list = fill_missing_types(filtered_patient_count, shift_change_config.dept_people_count, 1)
+    if flush:
+        patient_count_list = []
+    else:
+        patient_count_list = fill_missing_types(filtered_patient_count, shift_change_config.dept_people_count, 1)
     save_data(f"1-{shift_classes}", all_patients, patient_count_list, None)
     logger.info(f"医生交接班数据查询完成 ✅ 总耗时 {time.time() - start_time} 秒")
 
 
-def aicu_shift_change(reg_sqls, shift_classes, time_slot, shoushu):
+def aicu_shift_change(reg_sqls, shift_classes, time_slot, shoushu, flush: bool = False):
     """
     AICU 1000965 CCU 1001120  交班信息查询
     :param reg_sqls:
@@ -453,16 +455,18 @@ def aicu_shift_change(reg_sqls, shift_classes, time_slot, shoushu):
 
     if all_cvs:
         patient_count.append({"患者类别": '危急值', "人数": len(all_cvs), "所在科室id": 0, "所在科室": '',
-                              "所在病区id": 1001120, "所在病区": 'CCU/AICU护理单元'})
+                              "所在病区id": '1001120', "所在病区": 'AICU/CCU护理单元'})
         patient_count = fill_missing_types(patient_count, shift_change_config.ward_people_count, 2)
 
     all_patients = merge_patient_cv_data(all_cvs, all_patient_info, 2, ["1000965", "1001120"])
     all_patients = merge_patient_shuhou_data(shuhou_patients, all_patients, shoushu)
+    if flush:
+        patient_count = []
     save_data(f"2-{shift_classes}", all_patients, patient_count, chuangwei_info1 + chuangwei_info2)
     logger.info(f"AICU/CCU 交接班数据查询完成 ✅ 总耗时: {time.time() - start}")
 
 
-def ob_gyn_shift_change(reg_sqls, shift_classes, time_slot, shoushu):
+def ob_gyn_shift_change(reg_sqls, shift_classes, time_slot, shoushu, flush: bool = False):
     """
     妇产科 1000961 交班信息查询
     :param reg_sqls:
@@ -549,16 +553,18 @@ def ob_gyn_shift_change(reg_sqls, shift_classes, time_slot, shoushu):
 
     if all_cvs:
         patient_count.append({"患者类别": '危急值', "人数": len(all_cvs), "所在科室id": 0, "所在科室": '',
-                              "所在病区id": 1000961, "所在病区": '妇产科护理单元'})
+                              "所在病区id": '1000961', "所在病区": '妇产科护理单元'})
         patient_count = fill_missing_types(patient_count, shift_change_config.ward_people_count + ['顺生'], 2)
 
     all_patients = merge_patient_cv_data(all_cvs, all_patient_info, 2, ["1000961"])
     all_patients = merge_patient_shuhou_data(shuhou_patients, all_patients, shoushu)
+    if flush:
+        patient_count = []
     save_data(f"2-{shift_classes}", all_patient_info, patient_count, chuangwei_info1 + chuangwei_info2)
     logger.info(f"妇产科 交接班数据查询完成 ✅ 总耗时: {time.time() - start}")
 
 
-def icu_shift_change(reg_sqls, shift_classes, time_slot):
+def icu_shift_change(reg_sqls, shift_classes, time_slot, flush: bool = False):
     """
     重症科室 1000962 交班信息查询
     :param reg_sqls:
@@ -613,15 +619,17 @@ def icu_shift_change(reg_sqls, shift_classes, time_slot):
 
     if all_cvs:
         patient_count.append({"患者类别": '危急值', "人数": len(all_cvs), "所在科室id": 0, "所在科室": '',
-                              "所在病区id": 1000962, "所在病区": 'ICU护理单元'})
+                              "所在病区id": '1000962', "所在病区": 'ICU护理单元'})
         patient_count = fill_missing_types(patient_count, shift_change_config.ward_people_count, 2)
 
     all_patients = merge_patient_cv_data(all_cvs, teshu_patients, 2, ["1000962"])
+    if flush:
+        patient_count = []
     save_data(f"2-{shift_classes}", all_patients, patient_count, chuangwei_info1 + chuangwei_info2)
     logger.info(f"重症科室 交接班数据查询完成 ✅ 耗时: {time.time() - start}")
 
 
-def general_dept_shift_change(reg_sqls, shift_classes, time_slot, dept_list, shoushu):
+def general_dept_shift_change(reg_sqls, shift_classes, time_slot, dept_list, shoushu, flush: bool = False):
     """
     普通科室交接班数据查询
     :param reg_sqls:
@@ -805,6 +813,8 @@ def general_dept_shift_change(reg_sqls, shift_classes, time_slot, dept_list, sho
     filtered_patients = [dept for dept in all_patient_info if dept['所在病区id'] in dept_list]
     all_patients = merge_patient_cv_data(all_cvs, filtered_patients, 2, dept_list)
     all_patients = merge_patient_shuhou_data(shuhou_patients, all_patients, shoushu)
+    if flush:
+        patient_count_list = []
     save_data(f"2-{shift_classes}", all_patients, patient_count_list, filtered_chuangwei_info)
     logger.info(f"普通科室 通用交接班数据查询完成 ✅ 耗时: {time.time() - start}")
 
@@ -1328,25 +1338,25 @@ def single_run_shift_change(json_data):
 
         if shift_type == 1:
             # 医生交接班
-            doctor_shift_change(reg_sqls, shift_classes, time_slot, dept_list)
+            doctor_shift_change(reg_sqls, shift_classes, time_slot, dept_list, True)
         elif shift_type == 2:
             if len(dept_list) == 1 and ('1000965' in dept_list or '1001120' in dept_list):
                 # AICU/CCU交接班
                 shoushu = [item for item in shoushu_patients if item.get('patient_ward_id') in (1000965, 1001120)]
-                aicu_shift_change(reg_sqls, shift_classes, time_slot, shoushu)
+                aicu_shift_change(reg_sqls, shift_classes, time_slot, shoushu, True)
                 return
             if len(dept_list) == 1 and '1000961' in dept_list:
                 # 妇产科交接班
                 shoushu = [item for item in shoushu_patients if item.get('patient_ward_id') == 1000961]
-                ob_gyn_shift_change(reg_sqls, shift_classes, time_slot, shoushu)
+                ob_gyn_shift_change(reg_sqls, shift_classes, time_slot, shoushu, True)
                 return
             if len(dept_list) == 1 and '1000962' in dept_list:
                 # 重症 ICU 交接班
-                icu_shift_change(reg_sqls, shift_classes, time_slot)
+                icu_shift_change(reg_sqls, shift_classes, time_slot, True)
                 return
             # 普通护理交接班
             shoushu = [item for item in shoushu_patients if str(item.get('patient_ward_id')) in dept_list]
-            general_dept_shift_change(reg_sqls, shift_classes, time_slot, dept_list, shoushu)
+            general_dept_shift_change(reg_sqls, shift_classes, time_slot, dept_list, shoushu, True)
         else:
             raise Exception("未知的交接班类型")
     except Exception as e:
