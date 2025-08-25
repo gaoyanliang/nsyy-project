@@ -19,6 +19,7 @@ from gylmodules.critical_value.critical_value import write_cache, \
 from apscheduler.schedulers.background import BackgroundScheduler
 
 from gylmodules.critical_value.cv_manage import fetch_cv_record
+from gylmodules.parking.parking_server import auto_freeze_car, auto_fetch_data
 from gylmodules.questionnaire.sq_server import fetch_ai_result
 from gylmodules.utils.db_utils import DbUtil
 from gylmodules.utils.event_loop import GlobalEventLoop
@@ -282,6 +283,12 @@ def auto_shift_change():
         logger.error("交接班任务执行失败", response.text)
 
 
+def auto_tingchechang():
+    url = "http://127.0.0.1:6092/gyl/parking/auto_op_vip"
+    if global_config.run_in_local:
+        url = "http://127.0.0.1:8080/gyl/parking/auto_op_vip"
+    response = requests.post(url)
+
 
 def schedule_task():
     # ====================== 危机值系统定时任务 ======================
@@ -299,7 +306,7 @@ def schedule_task():
         gylmodule_scheduler.add_job(re_alert_fail_ip_log, 'cron', hour=2, minute=20, id='re_alert_fail_ip_log')
 
         logger.info("    1.4 每日同步危急值处理报告")
-        gylmodule_scheduler.add_job(fetch_cv_record, 'cron', hour=3, minute=20, id='fetch_cv_record')
+        gylmodule_scheduler.add_job(fetch_cv_record, 'cron', hour=2, minute=40, id='fetch_cv_record')
 
         logger.info("    1.5 危机值部门信息更新 ")
         gylmodule_scheduler.add_job(regular_update_dept_info, trigger='interval', seconds=6 * 60 * 60,
@@ -326,6 +333,11 @@ def schedule_task():
 
     logger.info("7. 交接班模块定时任务 ")
     gylmodule_scheduler.add_job(auto_shift_change, trigger='cron', minute='0,30')
+
+    logger.info("8. 停车场模块定时任务 ")
+    gylmodule_scheduler.add_job(auto_tingchechang, trigger='cron', minute='*/7')
+    gylmodule_scheduler.add_job(auto_freeze_car, trigger='cron', minute='*/26')
+    gylmodule_scheduler.add_job(auto_fetch_data, 'cron', hour=3, minute=40)
 
     # ======================  Start ======================
     gylmodule_scheduler.start()

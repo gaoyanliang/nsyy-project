@@ -1,13 +1,14 @@
+import threading
 import time
 import logging
 from urllib.parse import quote
 
 import requests
 from selenium import webdriver
-from selenium.webdriver import ActionChains
 from selenium.webdriver.common.by import By
 from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
+from selenium.webdriver.chrome.service import Service
 from selenium.webdriver.chrome.options import Options
 from selenium.common.exceptions import ElementClickInterceptedException, StaleElementReferenceException
 
@@ -15,46 +16,153 @@ from selenium.common.exceptions import ElementClickInterceptedException, StaleEl
 logger = logging.getLogger(__name__)
 
 
+# 线程局部存储
+thread_local = threading.local()
+
+
+# def getDriver():
+#     # Chrome 无头模式配置
+#     chrome_options = Options()
+#     chrome_options.add_argument("--headless=new")  # Chrome 114+推荐的无头模式
+#     chrome_options.add_argument("--disable-gpu")  # 禁用GPU加速
+#     chrome_options.add_argument("--no-sandbox")  # Linux系统需要
+#     chrome_options.add_argument("--disable-dev-shm-usage")  # 防止内存不足
+#     chrome_options.add_argument("--window-size=1920,1080")  # 设置窗口大小
+#
+#     # 性能优化
+#     chrome_options.add_argument('--remote-debugging-port=9222')
+#     chrome_options.add_argument('--disable-software-rasterizer')
+#     chrome_options.add_argument('--disable-extensions')
+#
+#     # 强化配置（解决证书和资源加载问题）
+#     chrome_options.add_argument("--ignore-certificate-errors")
+#     chrome_options.add_argument("--ignore-ssl-errors")
+#     chrome_options.add_argument("--disable-notifications")
+#
+#     # 屏蔽资源加载错误
+#     chrome_options.add_argument("--blink-settings=imagesEnabled=false")
+#     chrome_options.add_argument("--disable-stylesheets")
+#     chrome_options.add_experimental_option("excludeSwitches", ["enable-logging"])
+#
+#     # 防止被检测为自动化工具
+#     chrome_options.add_argument("--disable-blink-features=AutomationControlled")
+#     chrome_options.add_experimental_option("useAutomationExtension", False)
+#
+#     # # 启动无头浏览器
+#     # driver = webdriver.Chrome(options=chrome_options)
+#     # # # 使用WebDriver Manager自动管理驱动
+#     # # from webdriver_manager.chrome import ChromeDriverManager
+#     # # driver = webdriver.Chrome(ChromeDriverManager().install(), options=chrome_options)
+#     #
+#     # # actions = ActionChains(driver)
+#     #
+#     # # 隐藏WebDriver特征
+#     # driver.execute_script("Object.defineProperty(navigator, 'webdriver', {get: () => undefined})")
+#
+#     # 启动浏览器
+#     thread_local.driver = webdriver.Chrome(options=chrome_options)
+#     thread_local.driver.execute_script("Object.defineProperty(navigator, 'webdriver', {get: () => undefined})")
+#
+#     return thread_local.driver
+
+
 def getDriver():
-    # Chrome 无头模式配置
-    chrome_options = Options()
-    chrome_options.add_argument("--headless=new")  # Chrome 114+推荐的无头模式
-    chrome_options.add_argument("--disable-gpu")  # 禁用GPU加速
-    chrome_options.add_argument("--no-sandbox")  # Linux系统需要
-    chrome_options.add_argument("--disable-dev-shm-usage")  # 防止内存不足
-    chrome_options.add_argument("--window-size=1920,1080")  # 设置窗口大小
+    """为每个线程创建独立的WebDriver实例，增强稳定性"""
+    if not hasattr(thread_local, 'driver'):
+        # Chrome 无头模式配置 - 增强稳定性版本
+        chrome_options = Options()
 
-    # 性能优化
-    chrome_options.add_argument('--remote-debugging-port=9222')
-    chrome_options.add_argument('--disable-software-rasterizer')
-    chrome_options.add_argument('--disable-extensions')
+        # 基本配置
+        chrome_options.add_argument("--headless=new")
+        chrome_options.add_argument("--disable-gpu")
+        chrome_options.add_argument("--no-sandbox")
+        chrome_options.add_argument("--disable-dev-shm-usage")
+        chrome_options.add_argument("--window-size=1920,1080")
 
-    # 强化配置（解决证书和资源加载问题）
-    chrome_options.add_argument("--ignore-certificate-errors")
-    chrome_options.add_argument("--ignore-ssl-errors")
-    chrome_options.add_argument("--disable-notifications")
+        # 稳定性增强配置
+        chrome_options.add_argument("--disable-software-rasterizer")
+        chrome_options.add_argument("--disable-extensions")
+        chrome_options.add_argument("--disable-notifications")
+        chrome_options.add_argument("--disable-blink-features=AutomationControlled")
+        chrome_options.add_argument("--disable-features=VizDisplayCompositor")
 
-    # 屏蔽资源加载错误
-    chrome_options.add_argument("--blink-settings=imagesEnabled=false")
-    chrome_options.add_argument("--disable-stylesheets")
-    chrome_options.add_experimental_option("excludeSwitches", ["enable-logging"])
+        # 内存和性能优化
+        chrome_options.add_argument("--memory-pressure-off")
+        chrome_options.add_argument("--disable-background-timer-throttling")
+        chrome_options.add_argument("--disable-backgrounding-occluded-windows")
+        chrome_options.add_argument("--disable-renderer-backgrounding")
 
-    # 防止被检测为自动化工具
-    chrome_options.add_argument("--disable-blink-features=AutomationControlled")
-    chrome_options.add_experimental_option("useAutomationExtension", False)
+        # 网络和SSL配置
+        chrome_options.add_argument("--ignore-certificate-errors")
+        chrome_options.add_argument("--ignore-ssl-errors")
+        chrome_options.add_argument("--disable-web-security")
+        chrome_options.add_argument("--allow-running-insecure-content")
 
-    # 启动无头浏览器
-    driver = webdriver.Chrome(options=chrome_options)
-    # # 使用WebDriver Manager自动管理驱动
-    # from webdriver_manager.chrome import ChromeDriverManager
-    # driver = webdriver.Chrome(ChromeDriverManager().install(), options=chrome_options)
+        # 日志和调试禁用
+        chrome_options.add_argument("--log-level=3")
+        chrome_options.add_argument("--silent")
+        chrome_options.add_experimental_option("excludeSwitches",
+                                               ["enable-logging", "enable-automation", "ignore-certificate-errors"])
 
-    # actions = ActionChains(driver)
+        # 防止崩溃
+        chrome_options.add_argument("--disable-crash-reporter")
+        chrome_options.add_argument("--disable-hang-monitor")
+        chrome_options.add_argument("--no-first-run")
+        chrome_options.add_argument("--no-default-browser-check")
 
-    # 隐藏WebDriver特征
-    driver.execute_script("Object.defineProperty(navigator, 'webdriver', {get: () => undefined})")
+        # 用户代理
+        chrome_options.add_argument(
+            "--user-agent=Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36")
 
-    return driver
+        try:
+            # 添加重试机制
+            for attempt in range(3):
+                try:
+                    thread_local.driver = webdriver.Chrome(options=chrome_options)
+
+                    # 隐藏WebDriver特征
+                    thread_local.driver.execute_script(
+                        "Object.defineProperty(navigator, 'webdriver', {get: () => undefined})")
+                    thread_local.driver.execute_cdp_cmd('Page.addScriptToEvaluateOnNewDocument', {
+                        'source': '''
+                            Object.defineProperty(navigator, 'webdriver', {
+                                get: () => undefined
+                            })
+                            window.chrome = {runtime: {}};
+                        '''
+                    })
+
+                    # 设置超时时间
+                    thread_local.driver.set_page_load_timeout(30)
+                    thread_local.driver.set_script_timeout(30)
+                    thread_local.driver.implicitly_wait(10)
+
+                    logger.debug(f"✅ WebDriver 创建成功 (尝试 {attempt + 1})")
+                    break
+
+                except Exception as e:
+                    if attempt == 2:
+                        raise e
+                    logger.warning(f"⚠️ WebDriver 创建失败，重试 {attempt + 1}/3: {e}")
+                    time.sleep(2)
+
+        except Exception as e:
+            logger.error(f"❌ WebDriver 创建失败: {e}")
+            raise
+
+    return thread_local.driver
+
+
+def cleanup_driver():
+    """清理线程的driver"""
+    if hasattr(thread_local, 'driver'):
+        try:
+            thread_local.driver.quit()
+        except Exception as e:
+            logger.debug(f"清理driver时发生错误: {e}")
+        finally:
+            if hasattr(thread_local, 'driver'):
+                del thread_local.driver
 
 
 """登录函数"""
@@ -215,7 +323,7 @@ def fetch_all_timeout_cars(driver):
 
     # 2. 获取第一页数据（确定总页数）
     first_page_params = {
-        "time": int(time.time() * 1000), "plateNo": "", "parkDay": "7",  # 超过 7 天的数据
+        "time": int(time.time() * 1000), "plateNo": "",
         "plateBelieve": 100, "pageNo": 1, "pageSize": 100
     }
 
@@ -303,7 +411,7 @@ def fetch_all_vip_cars(driver):
 
         # 计算剩余天数（如果已经过期则显示0）
         left_days = function_time.get('leftDays', 0)
-        if left_days and left_days < 0:
+        if left_days and left_days <= 0:
             left_days = 0
 
         # 构建结果字典
@@ -315,7 +423,8 @@ def fetch_all_vip_cars(driver):
             "park_name": validity.get('parkName', ''),
             "start_date": function_time.get('startTime', ''),
             "end_date": function_time.get('endTime', ''),
-            "vip_status": 1 if int(left_days) > 0 else 2
+            "vip_status": 1 if int(left_days) > 0 else 2,
+            "left_days": int(left_days)
         }
 
     all_vip_cars = []
@@ -582,8 +691,8 @@ def fetch_data(start_date, end_date, is_fetch_vip):
 
         return timeout_cars, vip_cars, past_records
     finally:
-        driver.quit()
         logger.debug("✅ 浏览器已关闭")
+        cleanup_driver()
 
 
 # 添加车辆信息 & 会员包期充值
@@ -610,8 +719,8 @@ def add_new_car_and_recharge(car_no, park_id, start_date, end_date):
             # 会员包期充值失败，删除车辆信息
             delete_vehicle(driver, vehicle_id)
     finally:
-        driver.quit()
         logger.debug("✅ 浏览器已关闭")
+        cleanup_driver()
 
 
 # 添加会员包期
@@ -625,8 +734,8 @@ def add_vip_card(vehicle_id, park_id, start_date, end_date):
         success, result = vehicle_recharge(driver, vehicle_id, park_id, start_date, end_date)
         return success, result
     finally:
-        driver.quit()
         logger.debug("✅ 浏览器已关闭")
+        cleanup_driver()
 
 
 # 移除会员包期
@@ -640,8 +749,8 @@ def remove_vip_card(plate_no, vehicle_id, park_id):
         success, result = vehicle_refund(driver, plate_no, vehicle_id, park_id)
         return success, result
     finally:
-        driver.quit()
         logger.debug("✅ 浏览器已关闭")
+        cleanup_driver()
 
 
 # 重置会员包期
@@ -659,8 +768,8 @@ def reset_vip_card(plate_no, vehicle_id, park_id, start_date, end_date):
         success, result = vehicle_recharge(driver, vehicle_id, park_id, start_date, end_date)
         return success, result
     finally:
-        driver.quit()
         logger.debug("✅ 浏览器已关闭")
+        cleanup_driver()
 
 
 # 删除会员车辆
@@ -674,8 +783,8 @@ def delete_vip_car(vehicle_id):
         success, result = delete_vehicle(driver, vehicle_id)
         return success, result
     finally:
-        driver.quit()
         logger.debug("✅ 浏览器已关闭")
+        cleanup_driver()
 
 
 if __name__ == "__main__":

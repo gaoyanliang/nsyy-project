@@ -1,4 +1,7 @@
 import json
+import logging
+import re
+import time
 from itertools import groupby
 
 from gylmodules import global_config, global_tools
@@ -8,50 +11,68 @@ from gylmodules.shift_change.shift_change_config import PATIENT_TYPE_ORDER
 from gylmodules.utils.db_utils import DbUtil
 from datetime import datetime, timedelta
 
-"""查询会员车辆列表"""
+logger = logging.getLogger(__name__)
+
+"""查询预警/停用清单"""
 
 
-def query_vip_list(key, page_no, page_size):
+def query_timeout_list(type, page_no, page_size):
     db = DbUtil(global_config.DB_HOST, global_config.DB_USERNAME, global_config.DB_PASSWORD,
                 global_config.DB_DATABASE_GYL)
-    condition_sql = ""
-    if key:
-        condition_sql = f"where plate_no like '%{key}%' or person_name like '%{key}%' or dept_name like '%{key}%'"
+    condition_sql = f" and park_time >= {parking_config.warning_day} "
+    if str(type) == 'shutdown_list':
+        condition_sql = f" and vip_status > 3 "
     # 查询总数
-    total = db.query_one(f"SELECT COUNT(*) FROM nsyy_gyl.parking_vip_cars {condition_sql}")
+    total = db.query_one(f"SELECT COUNT(*) FROM nsyy_gyl.parking_vip_cars where deleted = 0 and is_svip = 0 {condition_sql} "
+                         f"order by create_at desc")
     total = total.get('COUNT(*)')
 
     # 分页查询数据
-    vip_list = db.query_all(f"SELECT * FROM nsyy_gyl.parking_vip_cars {condition_sql} "
+    vip_list = db.query_all(f"SELECT * FROM nsyy_gyl.parking_vip_cars where deleted = 0 and is_svip = 0 {condition_sql} "
+                            f"order by create_at desc "
                             f"LIMIT {page_size} OFFSET {(page_no - 1) * page_size}")
     del db
 
     return {"list": vip_list, "total": total}
 
 
-"""允许车辆长时间停放 SVIP"""
+"""提醒车主超时"""
 
 
-def add_svip(json_data):
+def reminder_person(car_id):
     db = DbUtil(global_config.DB_HOST, global_config.DB_USERNAME, global_config.DB_PASSWORD,
                 global_config.DB_DATABASE_GYL)
-    car_id = json_data.get('car_id')
-    svip = json_data.get('svip')
-    update_sql = f"update nsyy_gyl.parking_vip_cars set is_svip = {svip}  where id = {car_id}"
-    db.execute(update_sql, need_commit=True)
-
-    operater = json_data.get('operater')
-    operater_id = json_data.get('operater_id')
-    # 新增操作记录
-    operate_log = {"operater": operater, "operater_id": operater_id,
-                   "log": f"{'新增' if svip else '取消'} SVIP 记录",
-                   "param": f"{json.dumps(json_data, ensure_ascii=False, default=str)}",
-                   "op_time": datetime.now().strftime("%Y-%m-%d %H:%M:%S")}
-    insert_sql = f"INSERT INTO nsyy_gyl.parking_vip_cars ({','.join(operate_log.keys())}) " \
-                 f"VALUES {str(tuple(operate_log.values()))}"
-    db.execute(sql=insert_sql, need_commit=True)
-
+    delete_sql = f"update nsyy_gyl.parking_vip_cars SET reminder_time = " \
+                 f"'{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}' WHERE id = {car_id}"
+    db.execute(sql=delete_sql, need_commit=True)
     del db
+
+
+"""查询会员车辆列表"""
+
+
+def query_vip_list(key, dept_id, start_date, end_date, page_no, page_size, type):
+    db = DbUtil(global_config.DB_HOST, global_config.DB_USERNAME, global_config.DB_PASSWORD,
+                global_config.DB_DATABASE_GYL)
+    condition_sql = " and vehicle_group = 'VIP' " if str(type) == "VIP" else " and vehicle_group != 'VIP' "
+    if key:
+        condition_sql = condition_sql + f" and (plate_no like '%{key}%' or person_name like '%{key}%')"
+    if dept_id:
+        condition_sql = condition_sql + f" and dept_id = '{dept_id}'"
+    if start_date and end_date:
+        condition_sql = condition_sql + f" and start_date between '{start_date}' and '{end_date}'"
+    # 查询总数
+    total = db.query_one(f"SELECT COUNT(*) FROM nsyy_gyl.parking_vip_cars where deleted = 0 {condition_sql} "
+                         f"order by create_at desc")
+    total = total.get('COUNT(*)')
+
+    # 分页查询数据
+    vip_list = db.query_all(f"SELECT * FROM nsyy_gyl.parking_vip_cars where deleted = 0 {condition_sql} "
+                            f"order by create_at desc "
+                            f"LIMIT {page_size} OFFSET {(page_no - 1) * page_size}")
+    del db
+
+    return {"list": vip_list, "total": total}
 
 
 """查询出入库记录"""
@@ -75,41 +96,107 @@ def query_inout_records(page_no, page_size, start_date, end_date):
     return {"list": inout_list, "total": total}
 
 
-"""新增会员车辆"""
+"""新增/移除/冻结/恢复/重置 会员车辆"""
 
 
-def add_vip_car(json_data):
-    # 添加车辆信息 & 会员包期
-    park_id = parking_config.park_id_dict.get(json_data.get('park_name'))
-    vehicle_id = parking_tools.add_new_car_and_recharge(json_data.get('plate_no'), park_id,
-                                                        json_data.get('start_date'), json_data.get('end_date'))
-    if not vehicle_id:
-        raise Exception("会员车辆添加失败!")
-
-    operater = json_data.pop('operater')
-    operater_id = json_data.pop('operater_id')
-    json_data['vip_status'] = 1
-    json_data['vehicle_id'] = vehicle_id
-    json_data['create_at'] = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+def operate_vip_car(type, json_data):
     db = DbUtil(global_config.DB_HOST, global_config.DB_USERNAME, global_config.DB_PASSWORD,
                 global_config.DB_DATABASE_GYL)
-    # 新增会员记录
-    fileds = ','.join(json_data.keys())
-    args = str(tuple(json_data.values()))
-    insert_sql = f"INSERT INTO nsyy_gyl.parking_vip_cars ({fileds}) VALUES {args}"
-    last_rowid = db.execute(sql=insert_sql, need_commit=True)
+    if type == 'add':
+        # 新增会员记录
+        operator = json_data.pop('operater')
+        operator_id = json_data.pop('operater_id')
+        if json_data.get('vehicle_group', '') == "VIP":
+            enable_add = db.query_all(f"select * from nsyy_gyl.parking_authorize where user_id = '{operator}' "
+                                      f"and dept_id = '{json_data.get('dept_id', '')}'")
+            if not enable_add:
+                del db
+                raise Exception('您没有权限添加临时VIP车辆，请联系总务科添加权限后重试')
 
-    log = "新增会员车辆记录"
-    if last_rowid == -1:
-        log = f"会员车辆添加失败!, {insert_sql}"
+        json_data['vip_status'] = 0
+        json_data['create_at'] = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        fileds = ','.join(json_data.keys())
+        args = str(tuple(json_data.values()))
+        insert_sql = f"INSERT INTO nsyy_gyl.parking_vip_cars ({fileds}) VALUES {args}"
+        last_rowid = db.execute(sql=insert_sql, need_commit=True)
+        if last_rowid == -1:
+            del db
+            raise Exception('会员车辆添加失败!')
 
-    # 新增操作记录
-    operate_log = {"operater": operater, "operater_id": operater_id,
-                   "log": log, "param": f"{json.dumps(json_data, ensure_ascii=False, default=str)}",
-                   "op_time": datetime.now().strftime("%Y-%m-%d %H:%M:%S")}
+        operate_log = {"operater": operator, "operater_id": operator_id,
+                       "log": "add_vip_car", "param": f"{json.dumps(json_data, ensure_ascii=False, default=str)}",
+                       "create_at": datetime.now().strftime("%Y-%m-%d %H:%M:%S")}
+    elif type == 'remove':
+        vip_car = db.query_one(f"select * from nsyy_gyl.parking_vip_cars where id = {json_data.get('car_id')}")
+        if not vip_car:
+            del db
+            raise Exception("会员车辆不存在!")
+
+        delete_sql = f"update nsyy_gyl.parking_vip_cars SET deleted = 1, " \
+                     f"plate_no = '{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}-{vip_car.get('plate_no')}' " \
+                     f"WHERE id = {json_data.get('car_id')}"
+        db.execute(sql=delete_sql, need_commit=True)
+
+        json_data['vehicle_id'] = vip_car.get('vehicle_id')
+        if vip_car.get('vehicle_id', ''):
+            operate_log = {"operater": json_data.get('operater', ''), "operater_id": json_data.get('operater_id', ''),
+                           "log": "remove_vip_car",
+                           "param": f"{json.dumps(json_data, ensure_ascii=False, default=str)}",
+                           "create_at": datetime.now().strftime("%Y-%m-%d %H:%M:%S")}
+        else:
+            operate_log = {"operater": json_data.get('operater', ''), "operater_id": json_data.get('operater_id', ''),
+                           "log": "remove_vip_car",
+                           "param": f"{json.dumps(json_data, ensure_ascii=False, default=str)}",
+                           "op_result": "成功", "op_time": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+                           "create_at": datetime.now().strftime("%Y-%m-%d %H:%M:%S")}
+    elif type == 'operate':
+        # 操作（renew 续费/ freeze 冻结/ restore 恢复 / reset 重置包期）会员车辆
+        operate_type = json_data.get('operate_type')
+        vip_car = db.query_one(f"select * from nsyy_gyl.parking_vip_cars where id = {json_data.get('car_id')}")
+        if not vip_car:
+            del db
+            raise Exception("会员车辆不存在!")
+
+        vip_status = 3 if operate_type == 'freeze' else 1
+        update_sql = f"update nsyy_gyl.parking_vip_cars set vip_status = {vip_status}, " \
+                     f"extended_days = {json_data.get('extended_days', 0)}, " \
+                     f"start_date = '{json_data.get('start_date', '')}', end_date = '{json_data.get('end_date', '')}'" \
+                     f" where id = {json_data.get('car_id')}"
+        db.execute(update_sql, need_commit=True)
+
+        json_data['vehicle_id'] = vip_car.get('vehicle_id', '')
+        json_data['park_name'] = vip_car.get('park_name', '')
+        json_data['plate_no'] = vip_car.get('plate_no', '')
+        if vip_car.get('vehicle_id', ''):
+            operate_log = {"operater": json_data.get('operater', ''), "operater_id": json_data.get('operater_id', ''),
+                           "log": f"{operate_type}_vip_car",
+                           "param": f"{json.dumps(json_data, ensure_ascii=False, default=str)}",
+                           "create_at": datetime.now().strftime("%Y-%m-%d %H:%M:%S")}
+        else:
+            operate_log = {"operater": json_data.get('operater', ''), "operater_id": json_data.get('operater_id', ''),
+                           "log": f"{operate_type}_vip_car",
+                           "param": f"{json.dumps(json_data, ensure_ascii=False, default=str)}",
+                           "op_result": "成功", "op_time": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+                           "create_at": datetime.now().strftime("%Y-%m-%d %H:%M:%S")}
+
+    elif type == 'ignore':
+        update_sql = f"update nsyy_gyl.parking_vip_cars set extended_days = {json_data.get('extended_days', 0)} " \
+                     f" where id = {json_data.get('car_id')}"
+        db.execute(update_sql, need_commit=True)
+
+        operate_log = {"operater": json_data.get('operater', ''), "operater_id": json_data.get('operater_id', ''),
+                       "log": f"超时忽略 {json_data.get('extended_days', 0)} 天",
+                       "param": f"{json.dumps(json_data, ensure_ascii=False, default=str)}",
+                       "op_result": "成功", "op_time": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+                       "create_at": datetime.now().strftime("%Y-%m-%d %H:%M:%S")}
+    else:
+        raise Exception('操作类型错误!')
+
     insert_sql = f"INSERT INTO nsyy_gyl.parking_operation_logs ({','.join(operate_log.keys())}) " \
                  f"VALUES {str(tuple(operate_log.values()))}"
-    db.execute(sql=insert_sql, need_commit=True)
+    last_rowid = db.execute(sql=insert_sql, need_commit=True)
+    if last_rowid == -1:
+        logger.warning(f"会员车辆操作记录添加失败! {json_data}")
     del db
 
 
@@ -117,12 +204,14 @@ def add_vip_car(json_data):
 
 
 def update_vip_car(json_data):
-    car_id = json_data.get('car_id')
+    car_id = json_data.get('id')
     update_condition = []
     if json_data.get('plate_no'):
         update_condition.append(f"plate_no = '{json_data.get('plate_no')}'")
     if json_data.get('person_name'):
         update_condition.append(f"person_name = '{json_data.get('person_name')}'")
+    if json_data.get('person_phone'):
+        update_condition.append(f"person_phone = '{json_data.get('person_phone')}'")
     if json_data.get('dept_name'):
         update_condition.append(f"dept_name = '{json_data.get('dept_name')}'")
     if json_data.get('dept_id'):
@@ -131,6 +220,14 @@ def update_vip_car(json_data):
         update_condition.append(f"vehicle_group = '{json_data.get('vehicle_group')}'")
     if json_data.get('park_name'):
         update_condition.append(f"park_name = '{json_data.get('park_name')}'")
+    if json_data.get('extended_days'):
+        update_condition.append(f"extended_days = {json_data.get('extended_days')}")
+    if json_data.get('svip'):
+        update_condition.append(f"svip = {json_data.get('svip')}")
+    if json_data.get('pay_amount'):
+        update_condition.append(f"pay_amount = {json_data.get('pay_amount')}")
+    if json_data.get('pay_time'):
+        update_condition.append(f"pay_time = '{json_data.get('pay_time')}'")
 
     if update_condition:
         db = DbUtil(global_config.DB_HOST, global_config.DB_USERNAME, global_config.DB_PASSWORD,
@@ -139,118 +236,88 @@ def update_vip_car(json_data):
         db.execute(update_sql, need_commit=True)
 
         # 新增操作记录
-        operate_log = {"operater": json_data.get('operater'), "operater_id": json_data.get('operater_id'),
+        operate_log = {"operater": json_data.get('operater', ''), "operater_id": json_data.get('operater_id', ''),
                        "log": f"更新会员车辆信息", "param": f"{json.dumps(json_data, ensure_ascii=False, default=str)}",
-                       "op_time": datetime.now().strftime("%Y-%m-%d %H:%M:%S")}
+                       "op_result": "成功", "op_time": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+                       "create_at": datetime.now().strftime("%Y-%m-%d %H:%M:%S")}
         insert_sql = f"INSERT INTO nsyy_gyl.parking_operation_logs ({','.join(operate_log.keys())}) " \
                      f"VALUES {str(tuple(operate_log.values()))}"
         db.execute(sql=insert_sql, need_commit=True)
         del db
 
 
-"""移除会员车辆"""
+# =============================================== 定时任务 ===============================================
 
 
-def remove_vip_car(json_data):
-    car_id = json_data.get('car_id')
-    db = DbUtil(global_config.DB_HOST, global_config.DB_USERNAME, global_config.DB_PASSWORD,
-                global_config.DB_DATABASE_GYL)
-    vip_car = db.query_one(f"select * from nsyy_gyl.parking_vip_cars where id = {car_id}")
-    if not vip_car or not vip_car.get('vehicle_id', ''):
-        del db
-        raise Exception("会员车辆不存在!")
+def calculate_entry_time(parking_minutes):
+    """
+    根据当前时间和停放时长计算入场时间
+    :param parking_minutes: 停放时长（分钟）
+    :return: 入场时间字符串（格式：YYYY-MM-DD HH:MM:SS）
+    """
+    # 获取当前时间
+    current_time = datetime.now()
 
-    success, result = parking_tools.delete_vip_car(vip_car.get('vehicle_id'))
-    if not success:
-        raise Exception("会员车辆移除失败!")
+    # 计算入场时间（当前时间减去停放时长）
+    entry_time = current_time - timedelta(minutes=parking_minutes)
 
-    delete_sql = f"DELETE FROM nsyy_gyl.parking_vip_cars WHERE id = {car_id}"
-    db.execute(sql=delete_sql, need_commit=True)
-
-    # 新增操作记录
-    operate_log = {"operater": json_data.get('operater'), "operater_id": json_data.get('operater_id'),
-                   "log": "移除会员车辆", "param": f"{json.dumps(json_data, ensure_ascii=False, default=str)}",
-                   "op_time": datetime.now().strftime("%Y-%m-%d %H:%M:%S")}
-    insert_sql = f"INSERT INTO nsyy_gyl.parking_operation_logs ({','.join(operate_log.keys())}) " \
-                 f"VALUES {str(tuple(operate_log.values()))}"
-    db.execute(sql=insert_sql, need_commit=True)
-    del db
-
-
-"""操作（renew 续费/ freeze 冻结/ restore 恢复 / reset 重置包期）会员车辆"""
-
-
-def operate_vip_car(json_data):
-    car_id = json_data.get('car_id')
-    db = DbUtil(global_config.DB_HOST, global_config.DB_USERNAME, global_config.DB_PASSWORD,
-                global_config.DB_DATABASE_GYL)
-    vip_car = db.query_one(f"select * from nsyy_gyl.parking_vip_cars where id = {car_id}")
-    if not vip_car or not vip_car.get('vehicle_id', ''):
-        del db
-        raise Exception("会员车辆不存在!")
-
-    operate_type = json_data.get('operate_type')
-    vip_status = 1
-    start_date = json_data.get('start_date', '')
-    end_date = json_data.get('end_date', '')
-    if operate_type in ['renew', 'restore']:
-        # 续费/恢复 都需要充值
-        success, result = parking_tools.add_vip_card(vip_car['vehicle_id'],
-                                                     parking_config.park_id_dict.get(vip_car['park_name']),
-                                                     start_date, end_date)
-    elif operate_type == 'freeze':
-        # 冻结会员车辆
-        success, result = parking_tools.remove_vip_card(vip_car['plate_no'], vip_car['vehicle_id'],
-                                                        parking_config.park_id_dict.get(vip_car['park_name']))
-        vip_status = 3
-    elif operate_type == 'reset':
-        # 重置会员车辆包期， 需要先删除包期，再新增包期
-        success, result = parking_tools.reset_vip_card(vip_car['plate_no'], vip_car['vehicle_id'],
-                                                       parking_config.park_id_dict.get(vip_car['park_name']),
-                                                       start_date, end_date)
-    else:
-        del db
-        raise Exception("操作类型错误! renew 续费/ freeze 冻结/ restore 恢复")
-
-    if success:
-        operate_log = {"operater": json_data.get('operater'), "operater_id": json_data.get('operater_id'),
-                       "log": f"{operate_type} 会员车辆 {vip_car} 会员包期, {result} ",
-                       "param": f"{json.dumps(json_data, ensure_ascii=False, default=str)}",
-                       "op_time": datetime.now().strftime("%Y-%m-%d %H:%M:%S")}
-        update_sql = f"update nsyy_gyl.parking_vip_cars set vip_status = {vip_status}, " \
-                     f"start_date = '{start_date}', end_date = '{end_date}'  where id = {car_id}"
-        db.execute(update_sql, need_commit=True)
-    else:
-        operate_log = {"operater": json_data.get('operater'), "operater_id": json_data.get('operater_id'),
-                       "log": f"{operate_type} 会员车辆 {vip_car} 异常, {result} ",
-                       "param": f"{json.dumps(json_data, ensure_ascii=False, default=str)}",
-                       "op_time": datetime.now().strftime("%Y-%m-%d %H:%M:%S")}
-    insert_sql = f"INSERT INTO nsyy_gyl.parking_operation_logs ({','.join(operate_log.keys())}) " \
-                 f"VALUES {str(tuple(operate_log.values()))}"
-    db.execute(sql=insert_sql, need_commit=True)
-    del db
+    # 格式化输出
+    return entry_time.strftime('%Y-%m-%d %H:%M:%S')
 
 
 """自动抓取数据"""
 
 
-def auto_fetch_data(start_date, end_date):
-    timeout_cars, vip_cars, past_records = parking_tools.fetch_data(start_date, end_date, is_fetch_vip=False)
+def time_str_to_minutes(time_str):
+    """
+    将包含天、小时、分钟的时间字符串转换为总分钟数
+    """
+    days, hours, minutes = 0, 0, 0
+    # 使用正则表达式提取数字和单位
+    pattern = r'(\d+)\s*(天|小时|分钟)'
+    matches = re.findall(pattern, time_str)
+
+    for value, unit in matches:
+        num = int(value)
+        if unit == '天':
+            days = num
+        elif unit == '小时':
+            hours = num
+        elif unit == '分钟':
+            minutes = num
+
+    # 计算总分钟数
+    total_minutes = days * 24 * 60 + hours * 60 + minutes
+    return total_minutes
+
+
+def auto_fetch_data():
+    start_date = f"{(datetime.today() - timedelta(days=1)).date()}"
+    end_date = start_date
+    timeout_cars, vip_cars, past_records = parking_tools.fetch_data(start_date, end_date, is_fetch_vip=True)
 
     vip_car_no_list = [vip_car.get('plate_no') for vip_car in vip_cars]
     db = DbUtil(global_config.DB_HOST, global_config.DB_USERNAME, global_config.DB_PASSWORD,
                 global_config.DB_DATABASE_GYL)
-    db.execute("update nsyy_gyl.parking_vip_cars set park_time = '0'", need_commit=True)
+    db.execute("update nsyy_gyl.parking_vip_cars set park_time_str = NULL, park_time = 0", need_commit=True)
+    all_cars = db.query_all("select plate_no from nsyy_gyl.parking_vip_cars where deleted = 0")
+    all_cars = [car.get('plate_no') for car in all_cars]
+
+    for car in vip_cars:
+        car['violated'] = 0 if car['plate_no'] in all_cars else 1
 
     if vip_cars:
         args = []
         for vip_car in vip_cars:
-            args.append((vip_car.get('vehicle_id'), vip_car.get('plate_no'), vip_car.get('person_name'),
-                         vip_car.get('vehicle_group'), vip_car.get('park_name'), vip_car.get('start_time'),
-                         vip_car.get('end_time'), vip_car.get('vip_status')))
+            args.append((
+                vip_car['vehicle_id'], vip_car['plate_no'], vip_car['person_name'], vip_car['vehicle_group'],
+                vip_car['park_name'], vip_car['start_date'], vip_car['end_date'], vip_car['vip_status'],
+                vip_car['violated'], vip_car['left_days'], f"{vip_car['start_date']} 00:00:00"
+            ))
         insert_sql = """INSERT INTO nsyy_gyl.parking_vip_cars (vehicle_id, plate_no, person_name, vehicle_group, 
-            park_name, start_date, end_date, vip_status) VALUES (%s, %s, %s, %s, %s, %s, %s, %s)
-            ON DUPLICATE KEY UPDATE vehicle_id = VALUES(vehicle_id), plate_no = VALUES(plate_no)"""
+            park_name, start_date, end_date, vip_status, violated, left_days, create_at) 
+            VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s) ON DUPLICATE KEY UPDATE vehicle_id = VALUES(vehicle_id), 
+            plate_no = VALUES(plate_no), violated = VALUES(violated), left_days = VALUES(left_days)"""
         db.execute_many(insert_sql, args, need_commit=True)
 
     if past_records:
@@ -279,26 +346,174 @@ def auto_fetch_data(start_date, end_date):
 
         if plate_no_list:
             # 执行更新
-            sql = f"UPDATE nsyy_gyl.parking_vip_cars SET park_time = {case_sql} " \
+            sql = f"UPDATE nsyy_gyl.parking_vip_cars SET park_time_str = {case_sql} " \
                   f"WHERE plate_no IN ({', '.join(['%s'] * len(plate_no_list))})"
-
             # 合并参数：先park_time_list，后plate_no_list
             params = park_time_list + plate_no_list
             db.execute(sql, params, need_commit=True)
+
+    all_cars = db.query_all("select plate_no, park_time_str from nsyy_gyl.parking_vip_cars "
+                            "where deleted = 0 and park_time_str is not null")
+
+    if all_cars:
+        park_time_list = []
+        plate_no_list = []
+        case_sql = " CASE plate_no "
+        for car in all_cars:
+            case_sql += f" WHEN '{car.get('plate_no')}' THEN %s "
+            park_time_list.append(time_str_to_minutes(car.get('park_time_str')))
+            plate_no_list.append(car.get('plate_no'))
+        case_sql += " END "
+
+        if plate_no_list:
+            # 执行更新
+            sql = f"UPDATE nsyy_gyl.parking_vip_cars SET park_time = {case_sql} " \
+                  f"WHERE plate_no IN ({', '.join(['%s'] * len(plate_no_list))})"
+            # 合并参数：先park_time_list，后plate_no_list
+            params = park_time_list + plate_no_list
+            db.execute(sql, params, need_commit=True)
+
+        entry_time_list = []
+        plate_no_list = []
+        case_sql = " CASE plate_no "
+        for car in all_cars:
+            case_sql += f" WHEN '{car.get('plate_no')}' THEN %s "
+            entry_time_list.append(calculate_entry_time(time_str_to_minutes(car.get('park_time_str'))))
+            plate_no_list.append(car.get('plate_no'))
+        case_sql += " END "
+
+        if plate_no_list:
+            # 执行更新
+            sql = f"UPDATE nsyy_gyl.parking_vip_cars SET entry_time = {case_sql} " \
+                  f"WHERE plate_no IN ({', '.join(['%s'] * len(plate_no_list))})"
+            # 合并参数：先park_time_list，后plate_no_list
+            params = entry_time_list + plate_no_list
+            db.execute(sql, params, need_commit=True)
     del db
+
+
+def auto_freeze_car():
+    # 因为执行冻结操作比较耗时，一次仅执行一个
+    db = DbUtil(global_config.DB_HOST, global_config.DB_USERNAME, global_config.DB_PASSWORD,
+                global_config.DB_DATABASE_GYL)
+    record = db.query_one(f"select * from nsyy_gyl.parking_vip_cars "
+                          f"where vehicle_group = '员工车辆' and park_time >= {10 * 24 * 60} limit 1")
+    del db
+    if not record:
+        return
+
+    if global_config.run_in_local and record.get('id') > 4800:
+        operate_vip_car("operate", {
+            "car_id": record.get('id'),
+            "operate_type": "freeze",
+            "operater_id": "auto",
+            "operater": "auto"
+        })
+
+
+def auto_asynchronous_execution():
+    def asynchronous_run():
+        db = DbUtil(global_config.DB_HOST, global_config.DB_USERNAME, global_config.DB_PASSWORD,
+                    global_config.DB_DATABASE_GYL)
+        operate_record = db.query_one(f"select * from nsyy_gyl.parking_operation_logs "
+                                      f"where op_result is null order by create_at limit 1")
+
+        if not operate_record:
+            del db
+            return
+
+        try:
+            log_type = operate_record.get('log')
+            param = json.loads(operate_record.get('param'))
+            if log_type == 'add_vip_car':
+                park_id = parking_config.park_id_dict.get(param.get('park_name'))
+                vehicle_id = parking_tools.add_new_car_and_recharge(param.get('plate_no'), park_id,
+                                                                    param.get('start_date'), param.get('end_date'))
+                if not vehicle_id:
+                    logger.error(f"自动任务 - 新增会员车辆失败, op_log_id = {operate_record.get('id')} 稍后重试")
+                    del db
+                    return
+                db.execute(f"update nsyy_gyl.parking_vip_cars set vehicle_id = '{vehicle_id}', vip_status = 1 "
+                           f"where plate_no = '{param.get('plate_no')}'", need_commit=True)
+            elif log_type == 'remove_vip_car':
+                success, result = parking_tools.delete_vip_car(param.get('vehicle_id'))
+                if not success:
+                    logger.error(f"自动任务 - 移除会员车辆失败, op_log_id = {operate_record.get('id')} 稍后重试")
+                    del db
+                    return
+            elif log_type == 'reset_vip_car':
+                # 重置会员车辆包期， 需要先删除包期，再新增包期
+                success, result = parking_tools.reset_vip_card(param.get('plate_no'), param.get('vehicle_id'),
+                                                               parking_config.park_id_dict.get(param.get('park_name')),
+                                                               param.get('start_date'), param.get('end_date'))
+                if not success:
+                    logger.error(f"自动任务 - 冻结会员车辆失败, op_log_id = {operate_record.get('id')} 稍后重试")
+                    del db
+                    return
+            elif log_type == 'freeze_vip_car':
+                success, result = parking_tools.remove_vip_card(param.get('plate_no'), param.get('vehicle_id'),
+                                                                parking_config.park_id_dict.get(param.get('park_name')))
+                if not success:
+                    logger.error(f"自动任务 - 冻结会员车辆失败, op_log_id = {operate_record.get('id')} 稍后重试")
+                    del db
+                    return
+            elif log_type == 'renew_vip_car' or log_type == 'restore_vip_car':
+                # 续费/恢复 都需要充值
+                success, result = parking_tools.add_vip_card(param.get('vehicle_id'),
+                                                             parking_config.park_id_dict.get(param.get('park_name')),
+                                                             param.get('start_date'), param.get('end_date'))
+                if not success:
+                    logger.error(f"自动任务 - 续费/恢复会员车辆失败, op_log_id = {operate_record.get('id')} 稍后重试")
+                    del db
+                    return
+            else:
+                logger.warning(f"自动任务 - 无效操作类型: {operate_record}")
+
+            db.execute(f"update nsyy_gyl.parking_operation_logs set op_result = '成功', "
+                       f"op_time = '{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}' "
+                       f"where id = {operate_record.get('id')}", need_commit=True)
+            del db
+            return
+        except Exception as e:
+            logger.error(f"自动任务 - 异常: {e.__str__()[:100]}")
+
+    global_tools.start_thread(asynchronous_run)
+
+
+#  =============================================== 报表 & 授权管理 ===============================================
 
 
 """报表"""
 
 
-def calculate_parking_duration(start_date, end_date):
+def calculate_parking_fee(parking_minutes):
+    """
+    计算停车费用
+    :param parking_minutes: 停车时长（分钟）
+    :return: 应收费用（元）
+    """
+    # 免费时段
+    if parking_minutes <= 30:
+        return 0
+
+    # 首段收费（30-120分钟）
+    if parking_minutes <= 120:
+        return 3
+
+    # 超出120分钟后的循环收费
+    extra_minutes = parking_minutes - 120
+    # 每60分钟1元，不足60分钟按60分钟计算
+    extra_charge = (extra_minutes + 59) // 60  # 等价于 math.ceil(extra_minutes / 60)
+
+    return 3 + extra_charge
+
+
+def calculate_parking_duration(type, start_date, end_date):
     """
     计算每辆车每次的停车时长
     """
     db = DbUtil(global_config.DB_HOST, global_config.DB_USERNAME, global_config.DB_PASSWORD,
                 global_config.DB_DATABASE_GYL)
-
-    # 分页查询数据
     inout_list = db.query_all(f"SELECT b.person_name, b.dept_id, b.dept_name, b.vehicle_group, a.* "
                               f"FROM nsyy_gyl.parking_inout_records a join nsyy_gyl.parking_vip_cars b "
                               f"on a.plate_no = b.plate_no where a.cross_date "
@@ -340,6 +555,7 @@ def calculate_parking_duration(start_date, end_date):
                 'in_time': None,
                 'out_time': out_record['time'].strftime('%Y-%m-%d %H:%M:%S'),
                 'duration_hours': None,
+                'amount': 0,
                 'park_name': out_record['data'].get('park_name')
             })
 
@@ -362,7 +578,8 @@ def calculate_parking_duration(start_date, end_date):
                     'dept_name': out_record['data'].get('dept_name'),
                     'in_time': in_record['time'].strftime('%Y-%m-%d %H:%M:%S'),
                     'out_time': out_record['time'].strftime('%Y-%m-%d %H:%M:%S'),
-                    'duration_hours': round(duration, 2),
+                    'duration_hours': duration,
+                    'amount': calculate_parking_fee(duration),
                     'park_name': in_record['data'].get('park_name')
                 })
                 i += 1
@@ -377,9 +594,7 @@ def calculate_parking_duration(start_date, end_date):
                     'in_time': None,
                     'out_time': out_record['time'].strftime('%Y-%m-%d %H:%M:%S'),
                     'duration_hours': None,
-                    'status': '只有出场记录',
-                    'in_entrance': None,
-                    'out_entrance': out_record['data'].get('entrance_name'),
+                    'amount': 0,
                     'park_name': out_record['data'].get('park_name')
                 })
                 j += 1
@@ -395,6 +610,7 @@ def calculate_parking_duration(start_date, end_date):
                 'in_time': in_record['time'].strftime('%Y-%m-%d %H:%M:%S'),
                 'out_time': None,
                 'duration_hours': None,
+                'amount': 0,
                 'park_name': in_record['data'].get('park_name')
             })
             i += 1
@@ -410,8 +626,77 @@ def calculate_parking_duration(start_date, end_date):
                 'in_time': None,
                 'out_time': out_record['time'].strftime('%Y-%m-%d %H:%M:%S'),
                 'duration_hours': None,
+                'amount': 0,
                 'park_name': out_record['data'].get('park_name')
             })
             j += 1
 
+    if str(type) == 'summary':
+        from collections import defaultdict
+        record_dict = defaultdict(list)
+        dept_ids = set()
+        for item in results:
+            dept_id = item.get('dept_id')
+            record_dict[dept_id].append(item)
+
+        ret = []
+        for dept_id, record_list in record_dict.items():
+            record_list = list(record_list)
+            sum = 0.0
+            for item in record_list:
+                sum += item.get('amount')
+            ret.append({
+                "dept_id": dept_id,
+                "dept_name": record_list[0].get('dept_name'),
+                "amount": sum,
+            })
+        return ret
+
     return results
+
+
+"""授权管理"""
+
+
+def person_authorize(json_data):
+    is_delete = json_data.get('is_delete')
+    db = DbUtil(global_config.DB_HOST, global_config.DB_USERNAME, global_config.DB_PASSWORD,
+                global_config.DB_DATABASE_GYL)
+    if int(is_delete) == 1:
+        delete_sql = f"delete from nsyy_gyl.parking_authorize where id = {json_data.get('id')}"
+        db.execute(sql=delete_sql, need_commit=True)
+    else:
+        if json_data.get('id'):
+            update_sql = f"""
+            UPDATE nsyy_gyl.parking_authorize SET dept_id = '{json_data.get('dept_id')}', 
+            dept_name = '{json_data.get('dept_name')}',  user_id = '{json_data.get('user_id')}', 
+            user_name = '{json_data.get('user_name')}', 
+            create_at = '{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}' WHERE id = {json_data.get('id')};
+            """
+            db.execute(sql=update_sql, need_commit=True)
+        else:
+            insert_sql = """INSERT INTO nsyy_gyl.parking_authorize (dept_id, dept_name, user_id, user_name, create_at)
+                    VALUES (%s, %s, %s, %s, %s) """
+            db.execute(insert_sql, args=(json_data.get('dept_id'), json_data.get('dept_name'),
+                                         json_data.get('user_id'), json_data.get('user_name'),
+                                         datetime.now().strftime('%Y-%m-%d %H:%M:%S')), need_commit=True)
+
+    operate_log = {"operater": json_data.get('operater', ''), "operater_id": json_data.get('operater_id', ''),
+                   "log": f"维护授权列表", "param": f"{json.dumps(json_data, ensure_ascii=False, default=str)}",
+                   "op_result": '成功', "op_time": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+                   "create_at": datetime.now().strftime("%Y-%m-%d %H:%M:%S")}
+    insert_sql = f"INSERT INTO nsyy_gyl.parking_operation_logs ({','.join(operate_log.keys())}) " \
+                 f"VALUES {str(tuple(operate_log.values()))}"
+    db.execute(sql=insert_sql, need_commit=True)
+    del db
+
+
+"""查询授权列表"""
+
+
+def query_person_authorize():
+    db = DbUtil(global_config.DB_HOST, global_config.DB_USERNAME, global_config.DB_PASSWORD,
+                global_config.DB_DATABASE_GYL)
+    records = db.query_all("select * from nsyy_gyl.parking_authorize")
+    del db
+    return records

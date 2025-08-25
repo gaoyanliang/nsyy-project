@@ -168,11 +168,7 @@ def api_response(func):
                 json_data = json.loads(request.get_data().decode('utf-8'))
 
             # 本地调试时 打印
-            if request.url.__contains__("gyl/parking") and not (request.url.endswith("list") or
-                                                                request.url.__contains__("gyl/parking/query")):
-                logger.info(f"请求 {request.url} 参数：{json_data}")
-            else:
-                logger.debug(f"请求 {request.url} 参数：{json_data}")
+            logger.debug(f"请求 {request.url} 参数：{json_data}")
 
             if not json_data:
                 result = func(*args, **kwargs)
