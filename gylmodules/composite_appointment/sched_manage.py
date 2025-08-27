@@ -53,7 +53,14 @@ def query_doc_bynum_or_name(key):
                     where (d.name like '%{key}%' or d.emp_nub = '{key}') and d.his_status = 1 
                     and sd.shift_date = '{str(datetime.now().date())}' and sd.status = 1 """
     docl = db.query_all(query_sql)
-    del db
+    #
+    # ret_doc = []
+    # for d in docl:
+    #     if d.get('name') not in appt_config.doctor_name_list:
+    #         continue
+    #     ret_doc.append(d)
+    #
+    # del db
 
     return docl
 
@@ -74,7 +81,8 @@ def get_schedule(start_date, end_date, query_by, pid, rid: int = 45):
         if pid:
             query_sql = f"""SELECT s.dsid, s.did, s.shift_date, s.shift_type, s.status,
                          d.his_name FROM nsyy_gyl.appt_schedules_doctor s
-                        JOIN nsyy_gyl.appt_schedules ss ON s.did = ss.did 
+                        JOIN nsyy_gyl.appt_schedules ss ON s.did = ss.did and s.shift_date = ss.shift_date 
+                        and s.shift_type = ss.shift_type 
                         JOIN nsyy_gyl.appt_doctor d ON s.did = d.id WHERE s.shift_date 
                         BETWEEN '{start_date}' AND '{end_date}' and ss.pid = {int(pid)} 
                         ORDER BY d.his_name, s.shift_date"""
@@ -455,7 +463,7 @@ def query_proj_info(proj_type: int):
                 global_config.DB_DATABASE_GYL)
     docs = db.query_all(f"""
         SELECT d.*, s.pid FROM nsyy_gyl.appt_doctor d JOIN nsyy_gyl.appt_schedules s ON d.id = s.did
-        WHERE s.pid IN ({ids_str}) AND d.his_status = 1
+        WHERE s.pid IN ({ids_str}) AND d.his_status = 1 GROUP BY d.id, s.pid
     """)
     del db
 

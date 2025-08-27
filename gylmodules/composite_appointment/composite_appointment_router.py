@@ -66,15 +66,22 @@ def sign_in(json_data):
 @appt.route('/query_projs', methods=['GET', 'POST'])
 @api_response
 def get_all_project(json_data):
-    raise Exception('系统升级中，请先用自助机挂号或诊间挂号，谢谢')
+    # raise Exception('系统升级中，请先用自助机挂号或诊间挂号，谢谢')
     return ca_server.query_all_appt_project(int(json_data.get('type')), json_data.get('pid'))
 
 
 @appt.route('/query_today_projs', methods=['GET', 'POST'])
 @api_response
 def query_today_projs(json_data):
-    raise Exception('系统升级中，请先用自助机挂号或诊间挂号，谢谢')
+    # raise Exception('系统升级中，请先用自助机挂号或诊间挂号，谢谢')
     return ca_server.query_all_appt_project(int(json_data.get('type')), json_data.get('pid'), only_today=True)
+
+
+@appt.route('/query_doc_by_empno', methods=['POST', 'GET'])
+@api_response
+def query_doc_by_empno(json_data):
+    # raise Exception('系统升级中，请先用自助机挂号或诊间挂号，谢谢')
+    return sched_manage.query_doc_bynum_or_name(json_data.get('key'))
 
 
 """
@@ -213,13 +220,6 @@ def refund():
 @api_response
 def query_proj_info(json_data):
     return sched_manage.query_proj_info(int(json_data.get('type')))
-
-
-@appt.route('/query_doc_by_empno', methods=['POST', 'GET'])
-@api_response
-def query_doc_by_empno(json_data):
-    raise Exception('系统升级中，请先用自助机挂号或诊间挂号，谢谢')
-    return sched_manage.query_doc_bynum_or_name(json_data.get('key'))
 
 
 @appt.route('/query_doc', methods=['POST', 'GET'])

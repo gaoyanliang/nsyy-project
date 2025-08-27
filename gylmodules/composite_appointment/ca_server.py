@@ -1420,6 +1420,11 @@ def query_all_appt_project(type: int, target_pid: int, only_today: bool = False)
                         total = sum(int(v) for k, v in room_quantity.items() if int(k) >= current_slot)
                         if 'doc_id' in rinfo:
                             rinfo['doctor'] = doctor_map.get(str(rinfo['doc_id']))
+                            rinfo['price'] = float(doctor_map.get(str(rinfo['doc_id']))['fee']) if doctor_map.get(str(rinfo['doc_id'])) else 0
+
+                            # # TODO 暂时仅开放部分医生
+                            # if rinfo.get('doctor').get('name') not in appt_config.doctor_name_list:
+                            #     continue
 
                         # 转换字典
                         # {'5': 3, '6': 3}
@@ -1474,123 +1479,6 @@ def query_all_appt_project(type: int, target_pid: int, only_today: bool = False)
             filtered_data.append(item)
 
     return filtered_data
-
-
-# def query_all_appt_project(type: int, only_today: bool = False):
-#     """
-#     查询所有预约项目（优化版）
-#     """
-#     # 预计算公共参数
-#     redis_client = redis.Redis(connection_pool=pool)
-#     current_date = datetime.now().date()
-#     today_str = str(current_date)
-#     current_hour = datetime.now().hour
-#     current_slot = appt_config.appt_slot_dict[current_hour]
-#
-#     # 1. 批量获取并预处理项目数据
-#     proj_raw = redis_client.hvals(APPT_PROJECTS_KEY)
-#     proj_list = [json.loads(p) for p in proj_raw if int(json.loads(p).get('proj_type', 0)) == int(type)]
-#
-#     # 2. 批量获取剩余数量数据
-#     project_ids = [str(p['id']) for p in proj_list]
-#     remaining_data = redis_client.hmget(APPT_REMAINING_RESERVATION_QUANTITY_KEY, project_ids)
-#     remaining_map = {pid: json.loads(data) for pid, data in zip(project_ids, remaining_data) if data}
-#
-#     # 3. 预加载医生数据
-#     all_doctor_ids = set()
-#     for data in remaining_map.values():
-#         for date_slots in data.values():
-#             for slot_info in date_slots.values():
-#                 for rid_info in slot_info.values():
-#                     if 'doc_id' in rid_info and rid_info['doc_id']:
-#                         all_doctor_ids.add(str(rid_info['doc_id']))
-#     if all_doctor_ids:
-#         doctors = redis_client.hmget(APPT_DOCTORS_KEY, list(all_doctor_ids))
-#         doctor_map = {did: json.loads(d) for did, d in zip(all_doctor_ids, doctors) if d}
-#
-#     # 4. 并行处理每个项目
-#     result = []
-#     for proj in proj_list:
-#         pid = str(proj['id'])
-#         bookable_data = remaining_map.get(pid, {})
-#
-#         # 5. 使用生成器处理时间段
-#         def process_slots():
-#             for date_key, slots in bookable_data.items():
-#                 # 只返回当天的数据
-#                 if date_key != today_str and only_today:
-#                     continue
-#                 for period, rooms in slots.items():
-#                     # 时间有效性检查
-#                     if date_key == today_str and not if_the_current_time_period_is_available(period):
-#                         continue
-#
-#                     # 处理房间数据
-#                     valid_rooms = []
-#                     for rid, rinfo in rooms.items():
-#                         # 房间有效性检查
-#                         room_quantity = room_dict.get(str(rid), {}).get(date_key, {}).get(str(period), {})
-#                         if not room_quantity:
-#                             continue
-#
-#                         # 计算剩余数量
-#                         total = sum(int(v) for k, v in room_quantity.items() if int(k) >= current_slot)
-#                         if 'doc_id' in rinfo:
-#                             rinfo['doctor'] = doctor_map.get(str(rinfo['doc_id']))
-#
-#                         # 转换字典
-#                         # {'5': 3, '6': 3}
-#                         # 改为
-#                         # {'5': {"name": "8:00-9:00", "count": 3}, '6': {"name": "9:00-10:00", "count": 3}}
-#                         transformed_dict = {
-#                             k: {
-#                                 "name": appt_config.APPT_PERIOD_INFO[int(k)],
-#                                 "count": v
-#                             }
-#                             for k, v in room_quantity.items()
-#                         }
-#                         yield {
-#                             'date': date_key,
-#                             'period': period,
-#                             'rid': rid,
-#                             'quantity': total,
-#                             'detail': {**rinfo, 'hourly_quantity': transformed_dict}
-#                         }
-#
-#         # 6. 分组处理优化
-#         sorted_slots = sorted(process_slots(), key=lambda x: (x['date'], x['period']))
-#         grouped_data = []
-#         for key, group in groupby(sorted_slots, key=lambda x: (x['date'], x['period'])):
-#             date_period, period = key
-#             group_list = list(group)
-#             group_list[0].pop('date')
-#             group_list[0].pop('period')
-#             grouped_data.append({
-#                 "date": date_period,
-#                 "period": int(period),
-#                 "list": [{
-#                     "date": date_period,
-#                     "period": int(period),
-#                     'rid': item['rid'],
-#                     'quantity': item['quantity'],
-#                     **item['detail']
-#                 } for item in group_list]
-#             })
-#
-#         # 7. 构建最终结果
-#         result.append({
-#             **proj,
-#             'bookable_list': grouped_data,
-#         })
-#
-#     # 创建新列表，只保留非空的 bookable_list
-#     filtered_data = []
-#     for item in result:
-#         all_empty = all(len(bookable["list"]) == 0 for bookable in item["bookable_list"])
-#         if not all_empty:
-#             filtered_data.append(item)
-#
-#     return filtered_data
 
 
 def query_proj_info(type: int):
@@ -2119,8 +2007,8 @@ def cache_proj_7day_schedule(proj, all_schedule=None):
                 doctor = json.loads(doc_info) if doc_info else {'fee': 0}
                 time_slot[item['rid']] = {
                     'doc_id': item['did'],
-                    'doctor': doctor,
-                    'price': float(doctor.get('fee', 0)),
+                    # 'doctor': doctor,
+                    # 'price': float(doctor.get('fee', 0)),
                     'room': room,
                     'rid': item.get('rid'),
                     'proj_name': proj.get('proj_name'),
