@@ -379,11 +379,11 @@ def auto_create_appt_by_auto_reg(id_card_list, medical_card_list, rid):
     # 查询病人当天的挂号记录 不存在自助挂号记录 直接返回
     sql = f"""
         select mzgh.guahaoid "NO", mzgh.shoufeiid id, brxx.jiuzhenkh 就诊卡号, brxx.shenfenzh 身份证号,
-	           brxx.bingrenid "病人ID", mzgh.bingrenxm 姓名, mzgh.guahaoks 执行部门ID, mzgh.guahaoysxm 执行人,
+	           brxx.bingrenid "病人ID", mzgh.bingrenxm 姓名, mzgh.guahaoks "执行部门ID", mzgh.guahaoysxm 执行人,
 	        case when mzgh.zuofeibz = 1 or mzgh.jiaoyilx =-1 then -1
 		         when zj.jiuzhenzt=-1 then -2
 		         when mzgh.zuofeibz = 0 and mzgh.jiaoyilx = 1 then 1 
-		    else null
+		    else -3
 	        end as 记录状态 from df_jj_menzhen.mz_guahao mzgh 
 	        join df_lc_menzhen.zj_jiuzhenxx zj on mzgh.guahaoid=zj.guahaoid and zj.zuofeibz=0
             join df_bingrenzsy.gy_bingrenxx brxx on mzgh.bingrenid = brxx.bingrenid
@@ -621,7 +621,7 @@ def query_appt_record(json_data):
         try:
             auto_create_appt_by_auto_reg(id_card_list, medical_card_list, json_data.get('target_rid', 0))
         except Exception as e:
-            logger.error(f"自动创建预约失败 {e}")
+            logger.error(f"自动创建预约失败 {e}, {json_data}")
 
     is_completed = int(json_data.get('is_completed')) if json_data.get('is_completed') else 0
     condition_sql = ''
