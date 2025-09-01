@@ -52,4 +52,4 @@ if __name__ == '__main__':
     t = threading.Thread(target=start_schedule_work)
     t.setDaemon
     t.start()
-    socketio.run(server_app, host='0.0.0.0', port=8080, debug=True, use_reloader=True)
+    socketio.run(server_app, host='0.0.0.0', port=8080, debug=False, use_reloader=True)
