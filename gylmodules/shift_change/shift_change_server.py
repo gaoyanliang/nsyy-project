@@ -207,6 +207,7 @@ def update_shift_change_data(json_data):
         set_condition = []
         for key, value in json_data.items():
             if key in ['zhenduan', 'patient_type', 'doctor_name', 'patient_info']:
+                value = value.replace("%", "%%")
                 set_condition.append(f"{key} = '{value}'")
         sql = f"UPDATE nsyy_gyl.scs_patients SET {','.join(set_condition)} where id = {json_data.get('id')}"
         args = ()
@@ -1394,6 +1395,24 @@ def fill_missing_types(data, dept_people_count, shift_type):
 
 def create_or_update_shift_config(json_data):
     """新增或者更新交接班配置"""
+
+    try:
+        # 如果开启对应的交班班次 必须设置交班时间段
+        slots = []
+        if json_data.get('early_shift'):
+            slots.append(json_data.get('early_shift_slot'))
+        if json_data.get('middle_shift'):
+            slots.append(json_data.get('middle_shift_slot'))
+        if json_data.get('night_shift'):
+            slots.append(json_data.get('night_shift_slot'))
+
+        for shift_slot in slots:
+            start_str, end_str = shift_slot.split('-')
+            start = datetime.strptime(start_str.strip(), '%H:%M').time()
+            end = datetime.strptime(end_str.strip(), '%H:%M').time()
+    except:
+        raise Exception("时间格式错误")
+
     db = DbUtil(global_config.DB_HOST, global_config.DB_USERNAME, global_config.DB_PASSWORD,
                 global_config.DB_DATABASE_GYL)
 
