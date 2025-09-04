@@ -1985,7 +1985,7 @@ def query_shenqingdan_info(record_data):
         patient_name = record_data.get('patient_name', 'unknown')
 
         if not report_id:
-            logger.warning("缺少必要参数: report_id")
+            # logger.warning("缺少必要参数: report_id")
             return None
 
         SQL_SOURCE_3_WITH_REPORT = f"""
@@ -2002,7 +2002,7 @@ def query_shenqingdan_info(record_data):
     else:
         report_id = record_data.get('report_id')
         if not report_id:
-            logger.warning("缺少必要参数: report_id")
+            # logger.warning("缺少必要参数: report_id")
             return None
 
         SQL_SOURCE_OTHER_WITH_REPORT = f"""
