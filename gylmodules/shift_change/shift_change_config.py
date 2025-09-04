@@ -15,7 +15,11 @@ bed_info_list = [
     "未结算人员",
     "多耐患者",
     "过敏史患者",
+    '气管切开护理患者',
+    '气管插管护理患者',
+    '补充说明',
 ]
+
 
 default_bed_info_list = {
     "管路滑脱高风险患者": {"patient_type": "管路滑脱高风险患者", "patient_info": ""},
@@ -32,6 +36,9 @@ default_bed_info_list = {
     "未结算人员": {"patient_type": "未结算人员", "patient_info": ""},
     "多耐患者": {"patient_type": "多耐患者", "patient_info": ""},
     "过敏史患者": {"patient_type": "过敏史患者", "patient_info": ""},
+    "气管切开护理患者": {"patient_type": "气管切开护理患者", "patient_info": ""},
+    "气管插管护理患者": {"patient_type": "气管插管护理患者", "patient_info": ""},
+    "补充说明": {"patient_type": "补充说明", "patient_info": ""},
 }
 
 patient_type_list = [

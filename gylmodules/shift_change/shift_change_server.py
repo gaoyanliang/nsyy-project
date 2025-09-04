@@ -642,6 +642,12 @@ def general_dept_shift_change(reg_sqls, shift_classes, time_slot, dept_list, sho
     :param dept_list:
     :return:
     """
+    if int(shift_classes) == 1:
+        trunc = '17.5'
+    elif int(shift_classes) == 2:
+        trunc = '21.5'
+    else:
+        trunc = '7'
     if not dept_list:
         return
     start_time = time.time()
@@ -690,7 +696,9 @@ def general_dept_shift_change(reg_sqls, shift_classes, time_slot, dept_list, sho
                                              global_tools.call_new_his, reg_sqls.get(12).get('sql_ydhl')
                                              .replace("{特殊病区}",
                                                       """'ICU护理单元','CCU护理单元','AICU护理单元','妇产科护理单元','眼科护理单元'""")
-                                             .replace("{start_time}", shift_start).replace("{end_time}", shift_end)
+                                             .replace("{trunc}", trunc)
+                                             .replace("{start_time}", shift_start)
+                                             .replace("{end_time}", shift_end)
                                              , 'ydhl', None),
             "eye_pg_patients": executor.submit(timed_execution, "眼科病区 患者信息 pg 9",
                                                global_tools.call_new_his_pg, reg_sqls.get(19).get('sql_base')
@@ -715,7 +723,6 @@ def general_dept_shift_change(reg_sqls, shift_classes, time_slot, dept_list, sho
                     dept_set.add(item.get('patient_ward_id'))
                 tasks["shuhou_patients"] = executor.submit(postoperative_situation, 3, list(dept_set),
                                                            [item.get('bingrenzyid') for item in shoushu])
-
 
         # 获取结果（会自动等待所有任务完成）
         results = {name: future.result() for name, future in tasks.items()}
@@ -1222,6 +1229,9 @@ def upcoming_shifts_grouped() -> Dict[Tuple[str, str], List[Dict]]:
 
 def timed_shift_change():
     """ 定时执行交接班 """
+    if datetime.now().hour in [0, 1, 2, 3, 4, 5, 9, 10, 11, 12, 15, 19, 23]:
+        return
+
     shift_groups = []
     try:
         shift_groups = upcoming_shifts_grouped()
@@ -1322,6 +1332,10 @@ def single_run_shift_change(json_data):
     if input_date != today and int(shift_classes) in [1, 2]:
         raise Exception("仅支持刷新当天的早班 和 中班")
 
+    shift_start, shift_end = get_complete_time_slot(time_slot)
+    if datetime.now().strftime("%Y-%m-%d %H:%M:%S.999") < shift_end:
+        raise Exception("请勿刷新未开始或未结束的班次")
+
     shoushu_patients = []
     db = DbUtil(global_config.DB_HOST, global_config.DB_USERNAME, global_config.DB_PASSWORD,
                 global_config.DB_DATABASE_GYL)
@@ -1401,10 +1415,16 @@ def create_or_update_shift_config(json_data):
         slots = []
         if json_data.get('early_shift'):
             slots.append(json_data.get('early_shift_slot'))
+        else:
+            json_data['early_shift_slot'] = ''
         if json_data.get('middle_shift'):
             slots.append(json_data.get('middle_shift_slot'))
+        else:
+            json_data['middle_shift_slot'] = ''
         if json_data.get('night_shift'):
             slots.append(json_data.get('night_shift_slot'))
+        else:
+            json_data['night_shift_slot'] = ''
 
         for shift_slot in slots:
             start_str, end_str = shift_slot.split('-')

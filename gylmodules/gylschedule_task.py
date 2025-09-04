@@ -331,8 +331,9 @@ def schedule_task():
     logger.info("6. 问卷调查模块定时任务 ")
     gylmodule_scheduler.add_job(fetch_ai_result, trigger='interval', seconds=20 * 60, id='fetch_ai_result')
 
-    logger.info("7. 交接班模块定时任务 ")
-    gylmodule_scheduler.add_job(auto_shift_change, trigger='cron', minute='0,30')
+    # 改用 cron 执行
+    # logger.info("7. 交接班模块定时任务 ")
+    # gylmodule_scheduler.add_job(auto_shift_change, trigger='cron', minute='0,30')
 
     logger.info("8. 停车场模块定时任务 ")
     gylmodule_scheduler.add_job(auto_tingchechang, trigger='cron', minute='*/7')

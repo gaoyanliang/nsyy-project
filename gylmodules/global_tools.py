@@ -298,7 +298,7 @@ def fetch_yun_sign_img(user_id: str):
             logger.error(f"请求云医签医生/护理签名 API 业务错误: {resp_data}")
             return None
 
-        logger.info("获取签名图片成功")
+        # logger.info("获取签名图片成功")
         scale_seal = unquote(resp_data.get('data', {}).get('scaleSeal'))
         return scale_seal
 
