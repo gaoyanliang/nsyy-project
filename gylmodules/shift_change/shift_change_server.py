@@ -7,13 +7,19 @@ from collections import defaultdict
 from concurrent.futures import ThreadPoolExecutor
 from typing import Tuple, Dict, List
 
+import redis
+
 from gylmodules import global_config, global_tools
+from gylmodules.composite_appointment import appt_config
 from gylmodules.shift_change import shift_change_config
 from gylmodules.shift_change.shift_change_config import PATIENT_TYPE_ORDER
 from gylmodules.utils.db_utils import DbUtil
 from datetime import datetime, timedelta
 
 logger = logging.getLogger(__name__)
+pool = redis.ConnectionPool(host=appt_config.APPT_REDIS_HOST, port=appt_config.APPT_REDIS_PORT,
+                            db=appt_config.APPT_REDIS_DB, decode_responses=True)
+
 
 
 def delete_shift_data(record_id):
@@ -362,7 +368,7 @@ def doctor_shift_change(reg_sqls, shift_classes, time_slot, dept_id_list, flush:
     else:
         patient_count_list = fill_missing_types(filtered_patient_count, shift_change_config.dept_people_count, 1)
     save_data(f"1-{shift_classes}", all_patients, patient_count_list, None)
-    logger.info(f"医生交接班数据查询完成 ✅ 总耗时 {time.time() - start_time} 秒")
+    logger.info(f"医生 {','.join(dept_id_list)} 交接班数据查询完成 ✅ 总耗时 {time.time() - start_time} 秒")
 
 
 def aicu_shift_change(reg_sqls, shift_classes, time_slot, shoushu, flush: bool = False):
@@ -827,7 +833,7 @@ def general_dept_shift_change(reg_sqls, shift_classes, time_slot, dept_list, sho
     if flush:
         patient_count_list = []
     save_data(f"2-{shift_classes}", all_patients, patient_count_list, filtered_chuangwei_info)
-    logger.info(f"普通科室 通用交接班数据查询完成 ✅ 耗时: {time.time() - start}")
+    logger.info(f"普通科室 {','.join(dept_list)} 通用交接班数据查询完成 ✅ 耗时: {time.time() - start}")
 
 
 def get_complete_time_slot(shift_slot: str) -> tuple:
@@ -941,7 +947,7 @@ def query_cv_zhenduan(zhuyuanhao_list):
     if not ret:
         return {}
     ret = {str(r.get("住院号")): r.get('主要诊断', '') for r in ret}
-    logger.info(f"查询危机值数据完成 ✅ 耗时: {time.time() - start_time}")
+    logger.info(f"查询危机值数据完成耗时: {time.time() - start_time}")
     return ret
 
 
@@ -1229,7 +1235,7 @@ def upcoming_shifts_grouped() -> Dict[Tuple[str, str], List[Dict]]:
 
 def timed_shift_change():
     """ 定时执行交接班 """
-    if datetime.now().hour in [0, 1, 2, 3, 4, 5, 9, 10, 11, 12, 15, 19, 23]:
+    if datetime.now().hour in [0, 1, 2, 3, 4, 5, 9, 10, 11, 12, 23]:
         return
 
     shift_groups = []
@@ -1339,6 +1345,11 @@ def single_run_shift_change(json_data):
     shoushu_patients = []
     db = DbUtil(global_config.DB_HOST, global_config.DB_USERNAME, global_config.DB_PASSWORD,
                 global_config.DB_DATABASE_GYL)
+    dshift_config = db.query_one(f"select * from nsyy_gyl.scs_shift_config where dept_id = '{dept_id}'")
+    if dshift_config and int(shift_type) != int(dshift_config.get('shift_type')):
+        del db
+        raise Exception("交班类型和科室不匹配，请选择正确的科室")
+
     all_sqls = db.query_all("select * from nsyy_gyl.scs_reg_sql")
     shift_info = db.query_one(f"select * from nsyy_gyl.scs_shift_info "
                               f"where shift_classes = '{shift_type}-{shift_classes}' "
@@ -1352,8 +1363,12 @@ def single_run_shift_change(json_data):
     del db
     reg_sqls = {item.get('sid'): item for item in all_sqls}
 
-    try:
+    redis_client = redis.Redis(connection_pool=pool)
+    # 尝试设置键，只有当键不存在时才设置成功.  ex=600 表示过期时间 600 秒（10 分钟），nx=True 表示不存在时才设置
+    if not redis_client.set(f"shift_change:{str(dept_id)}", dept_id, ex=600, nx=True):
+        raise Exception('请先歇一歇，给系统一点反应时间（10分钟刷一次）')
 
+    try:
         if shift_type == 1:
             # 医生交接班
             doctor_shift_change(reg_sqls, shift_classes, time_slot, dept_list, True)
@@ -1379,6 +1394,7 @@ def single_run_shift_change(json_data):
             raise Exception("未知的交接班类型")
     except Exception as e:
         logger.warning(f"{time_slot} 交班异常: {e}")
+        redis_client.delete(f"shift_change:{dept_id}")
 
 
 def fill_missing_types(data, dept_people_count, shift_type):
