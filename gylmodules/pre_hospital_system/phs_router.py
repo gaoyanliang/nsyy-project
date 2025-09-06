@@ -37,7 +37,7 @@ def query_patient_info(json_data):
 @api_response
 @validate_params('start_date', 'end_date')
 def query_patient_list(json_data):
-    return phs_server.query_patient_list(json_data.get('key'), json_data.get('start_date'),
+    return phs_server.query_patient_list(json_data.get('key'), json_data.get('bingli', 0), json_data.get('start_date'),
                                          json_data.get('end_date'), json_data.get('page_number'),
                                          json_data.get('page_size'))
 

@@ -1,6 +1,11 @@
+import logging
+
 from gylmodules import global_config
 from gylmodules.utils.db_utils import DbUtil
 from datetime import datetime
+
+
+logger = logging.getLogger(__name__)
 
 
 def patient_registration(json_data):
@@ -9,6 +14,12 @@ def patient_registration(json_data):
     :param json_data:
     :return:
     """
+    operater = json_data.pop('operater', '')
+    operater_id = json_data.pop('operater_id', '')
+    if not operater or operater not in ['admin', '屈元韦', '孙瑞莲', '张晓丽']:
+        logger.info(f"操作用户不存在! 登记急救患者信息仅允许调度人员操作 {json_data}")
+        raise Exception("操作用户不存在! 急救登记仅允许调度人员操作")
+
     db = DbUtil(global_config.DB_HOST, global_config.DB_USERNAME, global_config.DB_PASSWORD,
                 global_config.DB_DATABASE_GYL)
 
@@ -96,7 +107,7 @@ def query_patient_info(register_id, record_id):
     return data
 
 
-def query_patient_list(key, start_date, end_date, page_number, page_size):
+def query_patient_list(key, bingli, start_date, end_date, page_number, page_size):
     """
     查询急救患者列表
     :param key:
@@ -107,12 +118,29 @@ def query_patient_list(key, start_date, end_date, page_number, page_size):
     db = DbUtil(global_config.DB_HOST, global_config.DB_USERNAME, global_config.DB_PASSWORD,
                 global_config.DB_DATABASE_GYL)
 
-    condition_sql = f"create_at BETWEEN '{start_date}' AND '{end_date}' "
+    condition_sql = f"a.create_at BETWEEN '{start_date}' AND '{end_date}' "
     if key:
-        condition_sql = condition_sql + f"AND patient_name LIKE '%{key}%' "
+        condition_sql = condition_sql + f"AND (a.patient_name LIKE '%{key}%' " \
+                                        f"or a.yisheng LIKE '%{key}%' or a.hushi LIKE '%{key}%') "
 
-    query_sql = f"SELECT * FROM nsyy_gyl.phs_patient_registration WHERE {condition_sql} " \
-                f"and status = 1 order by create_at desc"
+    if bingli:
+        query_sql = f"""
+                select a.*, case when b.register_id is null then 0 else 1 end as bingli1, 
+                case when c.register_id is null then 0 else 1 end as bingli2 
+                from nsyy_gyl.phs_patient_registration a 
+                left join (select DISTINCT register_id from  nsyy_gyl.phs_record_data where record_id = 1) b on a.register_id = b.register_id
+                left join (select DISTINCT register_id from  nsyy_gyl.phs_record_data where record_id = 2) c on a.register_id = c.register_id
+                WHERE {condition_sql} and a.status = 1 and (b.register_id is null or c.register_id is null) order by a.create_at desc
+                """
+    else:
+        query_sql = f"""
+                select a.*, case when b.register_id is null then 0 else 1 end as bingli1, 
+                case when c.register_id is null then 0 else 1 end as bingli2 
+                from nsyy_gyl.phs_patient_registration a 
+                left join (select DISTINCT register_id from  nsyy_gyl.phs_record_data where record_id = 1) b on a.register_id = b.register_id
+                left join (select DISTINCT register_id from  nsyy_gyl.phs_record_data where record_id = 2) c on a.register_id = c.register_id
+                WHERE {condition_sql} and a.status = 1 order by a.create_at desc
+                """
     data = db.query_all(query_sql)
     del db
 
