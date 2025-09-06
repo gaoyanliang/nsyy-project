@@ -215,23 +215,21 @@ def update_shift_change_data(json_data):
                 value = value.replace("%", "%%")
                 set_condition.append(f"{key} = '{value}'")
         sql = f"UPDATE nsyy_gyl.scs_patients SET {','.join(set_condition)} where id = {json_data.get('id')}"
-        args = ()
+        db.execute(sql, need_commit=True)
     else:
-
         sql = f"""INSERT INTO nsyy_gyl.scs_patients(shift_date, shift_classes, bingrenzyid, zhuyuanhao, bed_no, 
                         patient_name, patient_sex, patient_age, zhenduan, patient_type, patient_dept_id, patient_dept,
-                        patient_ward_id, patient_ward, doctor_name, patient_info, create_at) 
-                        VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)"""
+                        patient_ward_id, patient_ward, doctor_name, patient_info, create_at, update_at) 
+                        VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)"""
         args = (json_data.get('shift_date'), f"{json_data.get('shift_type')}-{json_data.get('shift_classes')}",
                 json_data.get('bingrenzyid', ''),
                 json_data.get('zhuyuanhao', ''), json_data.get('bed_no', ''), json_data.get('patient_name', ''),
                 json_data.get('patient_sex', ''), json_data.get('patient_age', ''), json_data.get('zhenduan', ''),
                 json_data.get('patient_type'), json_data.get('patient_dept_id', '0'),
                 json_data.get('patient_dept', '0'), json_data.get('patient_ward_id'), json_data.get('patient_ward'),
-                json_data.get('doctor_name'), json_data.get('patient_info'),
-                datetime.now().strftime("%Y-%m-%d %H:%M:%S"))
-
-    db.execute(sql, args, need_commit=True)
+                json_data.get('doctor_name'), json_data.get('patient_info').replace("%", "%%"),
+                datetime.now().strftime("%Y-%m-%d %H:%M:%S"), datetime.now().strftime("%Y-%m-%d %H:%M:%S"))
+        db.execute(sql, args, need_commit=True)
     del db
 
 
@@ -339,7 +337,7 @@ def discharge_situation():
     for item_name in ('疾病转归' as 疾病转归, '住院号' as 住院号))) where 疾病转归 is not null"""
     start_time = time.time()
     result = global_tools.call_new_his(sql=sql, sys='ydhl', clobl=None)
-    logger.info(f"出院信息查询：数量 {len(result)} 执行时间: {time.time() - start_time} s")
+    logger.debug(f"出院信息查询：数量 {len(result)} 执行时间: {time.time() - start_time} s")
     if not result:
         return None
     result = {item.get('住院号'): '自动' if str(item.get('疾病转归', '')).strip() == '自动出院' else str(
