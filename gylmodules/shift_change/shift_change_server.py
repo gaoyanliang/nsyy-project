@@ -235,6 +235,30 @@ def update_shift_change_data(json_data):
     del db
 
 
+def update_patient_count(json_data):
+    """更新/新增交接班人数数据"""
+    shift_type = json_data.get('shift_type')
+    db = DbUtil(global_config.DB_HOST, global_config.DB_USERNAME, global_config.DB_PASSWORD,
+                global_config.DB_DATABASE_GYL)
+    if int(shift_type) == 1:
+        args = (json_data.get('shift_date'), f"{json_data.get('shift_type')}-{json_data.get('shift_classes')}",
+                json_data.get('patient_type'), int(json_data.get('dept_id')), json_data.get('dept_name'), 0, '0',
+                json_data.get('count'), datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+                datetime.now().strftime("%Y-%m-%d %H:%M:%S"))
+    else:
+        args = (json_data.get('shift_date'), f"{json_data.get('shift_type')}-{json_data.get('shift_classes')}",
+                json_data.get('patient_type'), 0, '0', int(json_data.get('dept_id')), json_data.get('dept_name'),
+                json_data.get('count'), datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+                datetime.now().strftime("%Y-%m-%d %H:%M:%S"))
+
+    insert_sql = f"""INSERT INTO nsyy_gyl.scs_patient_count(shift_date, shift_classes, patient_type, 
+                    patient_dept_id, patient_dept, patient_ward_id, patient_ward, count, create_at, update_at)
+                    VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s) ON DUPLICATE KEY UPDATE 
+                    count = VALUES(count), update_at = VALUES(update_at) """
+    db.execute(insert_sql, args, need_commit=True)
+    del db
+
+
 def update_shift_change_bed_data(json_data):
     """
     更新或新增交班床位信息
