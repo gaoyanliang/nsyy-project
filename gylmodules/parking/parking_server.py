@@ -317,6 +317,8 @@ def update_vip_car(json_data):
         update_condition.append(f"pay_amount = {json_data.get('pay_amount')}")
     if json_data.get('pay_time'):
         update_condition.append(f"pay_time = '{json_data.get('pay_time')}'")
+    if json_data.get('driver_license'):
+        update_condition.append(f"driver_license = '{json_data.get('driver_license')}'")
 
     if update_condition:
         db = DbUtil(global_config.DB_HOST, global_config.DB_USERNAME, global_config.DB_PASSWORD,
