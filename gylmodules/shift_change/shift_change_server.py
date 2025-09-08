@@ -686,7 +686,8 @@ def pain_shift_change(reg_sqls, shift_classes, time_slot, shoushu, flush: bool =
     del db
 
     patient_count_pg, patient_count_ydhl, siwang_patients, teshu_pg_patients, teshu_ydhl_patients, \
-        base_patients, pg_patients, ydhl_patients, chuyuan_ydhl, shuhou_patients = [], [], [], [], [], [], [], [], [], []
+        base_patients, pg_patients, ydhl_patients, \
+        chuyuan_ydhl, shuhou_patients, chuangwei_info1, chuangwei_info2 = [], [], [], [], [], [], [], [], [], [], [], []
     with ThreadPoolExecutor(max_workers=10) as executor:
         # 提交所有任务（添加时间统计）
         tasks = {
@@ -725,9 +726,15 @@ def pain_shift_change(reg_sqls, shift_classes, time_slot, shoushu, flush: bool =
                                              .replace("{end_time}", shift_end), 'ydhl', None),
             "chuyuan_ydhl": executor.submit(discharge_situation)
         }
-        if shoushu and int(shift_classes) == 3:
-            tasks["shuhou_patients"] = executor.submit(postoperative_situation, 3, ['1000973'],
-                                                       [item.get('bingrenzyid') for item in shoushu])
+        if int(shift_classes) == 3:
+            tasks["chuangwei_info1"] = executor.submit(timed_execution, "疼痛科特殊患者床位信息 9 ",
+                                                       global_tools.call_new_his_pg, reg_sqls.get(4).get('sql_nhis'))
+            tasks["chuangwei_info2"] = executor.submit(timed_execution, "疼痛科特殊患者床位信息 10 ",
+                                                       global_tools.call_new_his, reg_sqls.get(4).get('sql_ydhl'),
+                                                       'ydhl', None)
+            if shoushu:
+                tasks["shuhou_patients"] = executor.submit(postoperative_situation, 3, ['1000973'],
+                                                           [item.get('bingrenzyid') for item in shoushu])
 
         # 获取结果（会自动等待所有任务完成）
         results = {name: future.result() for name, future in tasks.items()}
@@ -742,6 +749,8 @@ def pain_shift_change(reg_sqls, shift_classes, time_slot, shoushu, flush: bool =
         ydhl_patients = results.get("ydhl_patients", [])
         chuyuan_ydhl = results["chuyuan_ydhl"]
         shuhou_patients = results.get("shuhou_patients", [])
+        chuangwei_info1 = results.get("chuangwei_info1", [])
+        chuangwei_info2 = results.get("chuangwei_info2", [])
 
     # 统计 预术/手术 人数， 一个人出现多个手术仅计算一次
     shoushu_count = []
@@ -889,7 +898,12 @@ def pain_shift_change(reg_sqls, shift_classes, time_slot, shoushu, flush: bool =
     all_patients = merge_patient_shuhou_data(shuhou_patients, all_patients, shoushu)
     if flush:
         patient_count = []
-    save_data(f"2-{shift_classes}", all_patients, patient_count, None)
+
+    chuangwei_info_list = chuangwei_info1 + chuangwei_info2
+    for item in chuangwei_info_list:
+        item['所在病区id'] = str(shift_change_config.his_dept_dict.get(item['所在病区'], ''))
+    filtered_chuangwei_info = [dept for dept in chuangwei_info_list if str(dept['所在病区id']) == '1000973']
+    save_data(f"2-{shift_classes}", all_patients, patient_count, filtered_chuangwei_info)
     logger.info(f"疼痛科 交接班数据查询完成 ✅ 总耗时: {time.time() - start}")
 
 
@@ -930,13 +944,13 @@ def general_dept_shift_change(reg_sqls, shift_classes, time_slot, dept_list, sho
             "patient_count": executor.submit(timed_execution, "普通病区 患者人数统计 1 ",
                                              global_tools.call_new_his_pg, reg_sqls.get(3).get('sql_nhis')
                                              .replace("{特殊病区}",
-                                                      """'ICU护理单元','CCU护理单元','AICU护理单元','妇产科护理单元','眼科护理单元','疼痛科护理单元'""")
+                                                      """'ICU护理单元','CCU护理单元','AICU护理单元','妇产科护理单元','疼痛科护理单元'""")
                                              .replace("{start_time}", shift_start)
                                              .replace("{end_time}", shift_end)),
             "siwang_patients": executor.submit(timed_execution, "普通病区 出院转出死亡患者情况 2 ",
                                                global_tools.call_new_his_pg, reg_sqls.get(11).get('sql_nhis')
                                                .replace("{特殊病区}",
-                                                        """'ICU护理单元','CCU护理单元','AICU护理单元','妇产科护理单元','眼科护理单元','疼痛科护理单元'""")
+                                                        """'ICU护理单元','CCU护理单元','AICU护理单元','妇产科护理单元','疼痛科护理单元'""")
                                                .replace("{start_time}", shift_start)
                                                .replace("{end_time}", shift_end)),
             "teshu_ydhl_patients": executor.submit(timed_execution, "普通病区 患者信息(特殊处理) ydhl 5 ",
@@ -1182,7 +1196,8 @@ def merge_patient_records(patient_list):
             base_patient[13],  # patient_ward
             base_patient[14],  # doctor_name
             merged_info,  # patient_info (合并后)
-            latest_time  # create_at (取最新)
+            latest_time,  # create_at (取最新)
+            datetime.now().strftime('%Y-%m-%d %H:%M:%S'),  # update_at
         )
         merged_records.append(base_patient)
 
