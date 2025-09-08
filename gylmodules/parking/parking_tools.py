@@ -1,3 +1,4 @@
+from datetime import datetime
 import threading
 import time
 import logging
@@ -20,52 +21,6 @@ logger = logging.getLogger(__name__)
 thread_local = threading.local()
 
 
-# def getDriver():
-#     # Chrome 无头模式配置
-#     chrome_options = Options()
-#     chrome_options.add_argument("--headless=new")  # Chrome 114+推荐的无头模式
-#     chrome_options.add_argument("--disable-gpu")  # 禁用GPU加速
-#     chrome_options.add_argument("--no-sandbox")  # Linux系统需要
-#     chrome_options.add_argument("--disable-dev-shm-usage")  # 防止内存不足
-#     chrome_options.add_argument("--window-size=1920,1080")  # 设置窗口大小
-#
-#     # 性能优化
-#     chrome_options.add_argument('--remote-debugging-port=9222')
-#     chrome_options.add_argument('--disable-software-rasterizer')
-#     chrome_options.add_argument('--disable-extensions')
-#
-#     # 强化配置（解决证书和资源加载问题）
-#     chrome_options.add_argument("--ignore-certificate-errors")
-#     chrome_options.add_argument("--ignore-ssl-errors")
-#     chrome_options.add_argument("--disable-notifications")
-#
-#     # 屏蔽资源加载错误
-#     chrome_options.add_argument("--blink-settings=imagesEnabled=false")
-#     chrome_options.add_argument("--disable-stylesheets")
-#     chrome_options.add_experimental_option("excludeSwitches", ["enable-logging"])
-#
-#     # 防止被检测为自动化工具
-#     chrome_options.add_argument("--disable-blink-features=AutomationControlled")
-#     chrome_options.add_experimental_option("useAutomationExtension", False)
-#
-#     # # 启动无头浏览器
-#     # driver = webdriver.Chrome(options=chrome_options)
-#     # # # 使用WebDriver Manager自动管理驱动
-#     # # from webdriver_manager.chrome import ChromeDriverManager
-#     # # driver = webdriver.Chrome(ChromeDriverManager().install(), options=chrome_options)
-#     #
-#     # # actions = ActionChains(driver)
-#     #
-#     # # 隐藏WebDriver特征
-#     # driver.execute_script("Object.defineProperty(navigator, 'webdriver', {get: () => undefined})")
-#
-#     # 启动浏览器
-#     thread_local.driver = webdriver.Chrome(options=chrome_options)
-#     thread_local.driver.execute_script("Object.defineProperty(navigator, 'webdriver', {get: () => undefined})")
-#
-#     return thread_local.driver
-
-
 def getDriver():
     """为每个线程创建独立的WebDriver实例，增强稳定性"""
     if not hasattr(thread_local, 'driver'):
@@ -82,15 +37,27 @@ def getDriver():
         # 稳定性增强配置
         chrome_options.add_argument("--disable-software-rasterizer")
         chrome_options.add_argument("--disable-extensions")
+        chrome_options.add_argument("--disable-plugins")
+        chrome_options.add_argument("--disable-plugins-discovery")
+        chrome_options.add_argument("--disable-default-apps")
         chrome_options.add_argument("--disable-notifications")
+        chrome_options.add_argument("--disable-translate")
+        chrome_options.add_argument("--disable-sync")
+        chrome_options.add_argument("--disable-background-networking")
         chrome_options.add_argument("--disable-blink-features=AutomationControlled")
         chrome_options.add_argument("--disable-features=VizDisplayCompositor")
+        chrome_options.add_argument("--safebrowsing-disable-auto-update")
+        chrome_options.add_argument("--disable-cloud-import")
+        chrome_options.add_argument("--dns-prefetch-disable")
 
         # 内存和性能优化
         chrome_options.add_argument("--memory-pressure-off")
         chrome_options.add_argument("--disable-background-timer-throttling")
         chrome_options.add_argument("--disable-backgrounding-occluded-windows")
         chrome_options.add_argument("--disable-renderer-backgrounding")
+
+        chrome_options.add_argument("--single-process")  # 单进程模式，显著加速启动
+        chrome_options.add_argument("--no-zygote")  # 禁用zygote进程
 
         # 网络和SSL配置
         chrome_options.add_argument("--ignore-certificate-errors")
@@ -101,6 +68,7 @@ def getDriver():
         # 日志和调试禁用
         chrome_options.add_argument("--log-level=3")
         chrome_options.add_argument("--silent")
+        # 实验性选项 - 显著提升启动速度
         chrome_options.add_experimental_option("excludeSwitches",
                                                ["enable-logging", "enable-automation", "ignore-certificate-errors"])
 
@@ -109,6 +77,9 @@ def getDriver():
         chrome_options.add_argument("--disable-hang-monitor")
         chrome_options.add_argument("--no-first-run")
         chrome_options.add_argument("--no-default-browser-check")
+
+        # 功能禁用
+        chrome_options.add_argument("--disable-features=IsolateOrigins,site-per-process")
 
         # 用户代理
         chrome_options.add_argument(
@@ -133,8 +104,8 @@ def getDriver():
                     })
 
                     # 设置超时时间
-                    thread_local.driver.set_page_load_timeout(30)
-                    thread_local.driver.set_script_timeout(30)
+                    thread_local.driver.set_page_load_timeout(20)
+                    thread_local.driver.set_script_timeout(20)
                     thread_local.driver.implicitly_wait(10)
 
                     logger.debug(f"✅ WebDriver 创建成功 (尝试 {attempt + 1})")
@@ -233,8 +204,20 @@ def switch_to_info_query(driver):
         # 确保在主文档中
         driver.switch_to.default_content()
 
-        # 切换到内容iframe（根据图片中的iframe000505）
-        WebDriverWait(driver, 10).until(EC.frame_to_be_available_and_switch_to_it((By.ID, "iframe000505")))
+        # 使用更快的iframe切换方式
+        try:
+            # 方法1：直接通过ID快速切换（最快）
+            iframe = driver.find_element(By.ID, "iframe000505")
+            driver.switch_to.frame(iframe)
+        except:
+            # 方法2：使用CSS选择器
+            iframe = WebDriverWait(driver, 15).until(
+                EC.presence_of_element_located((By.CSS_SELECTOR, "iframe[id='iframe000505']"))
+            )
+            driver.switch_to.frame(iframe)
+
+        # # 切换到内容iframe（根据图片中的iframe000505）
+        # WebDriverWait(driver, 10).until(EC.frame_to_be_available_and_switch_to_it((By.ID, "iframe000505")))
 
         # 在iframe内查找菜单（关键步骤）
         menu_xpath = "//li[contains(@class,'el-menu-item') and contains(.,'信息查询')]"
@@ -242,33 +225,33 @@ def switch_to_info_query(driver):
             EC.element_to_be_clickable((By.XPATH, menu_xpath))
         )
 
-        # 高亮元素（调试用）
-        driver.execute_script("""arguments[0].style.outline = '3px solid red';
-            arguments[0].scrollIntoView({block: 'center'});""", menu)
-
-        # 6. 特殊点击处理（海康系统需要）
-        driver.execute_script("""
-            // 先触发鼠标悬停
-            arguments[0].dispatchEvent(new MouseEvent('mouseover', {bubbles: true}));
-
-            // 再触发点击
-            const clickEvent = new MouseEvent('click', {view: window, bubbles: true, cancelable: true});
-            arguments[0].dispatchEvent(clickEvent);
-
-            // 兼容性处理
-            if (arguments[0].querySelector('a')) {
-                arguments[0].querySelector('a').click();
-            }
-        """, menu)
+        # # 高亮元素（调试用）
+        # driver.execute_script("""arguments[0].style.outline = '3px solid red';
+        #     arguments[0].scrollIntoView({block: 'center'});""", menu)
+        #
+        # # 6. 特殊点击处理（海康系统需要）
+        # driver.execute_script("""
+        #     // 先触发鼠标悬停
+        #     arguments[0].dispatchEvent(new MouseEvent('mouseover', {bubbles: true}));
+        #
+        #     // 再触发点击
+        #     const clickEvent = new MouseEvent('click', {view: window, bubbles: true, cancelable: true});
+        #     arguments[0].dispatchEvent(clickEvent);
+        #
+        #     // 兼容性处理
+        #     if (arguments[0].querySelector('a')) {
+        #         arguments[0].querySelector('a').click();
+        #     }
+        # """, menu)
 
         # 7. 等待内容更新
         time.sleep(2)  # 必须等待
-        WebDriverWait(driver, 10).until(EC.presence_of_element_located((By.XPATH,
-                                                                        "//*[contains(text(), '过车记录查询')]")))
+        # WebDriverWait(driver, 10).until(EC.presence_of_element_located((By.XPATH,
+        #                                                                 "//*[contains(text(), '过车记录查询')]")))
 
         logger.debug("✅ 成功切换到信息查询页面")
-        # cookies = {c['name']: c['value'] for c in driver.get_cookies()}
-        # print(datetime.now(), cookies)
+        # for c in driver.get_cookies():
+        #     print(c)
     except Exception as e:
         logger.error(f"❌ 切换至信息查询页面异常: {str(e)}")
         raise Exception("切换至信息查询页面异常", e.__str__())
@@ -804,6 +787,11 @@ if __name__ == "__main__":
     start_time = time.time()
     switch_to_info_query(driver)
     print(f"切换到信息查询页面耗时 {time.time() - start_time}")
+    start_time = time.time()
+    all_vip_car = fetch_all_vip_cars(driver)
+    print(f"抓取会员车辆耗时 {time.time() - start_time}, 数量 {len(all_vip_car)}")
+    # for item in all_vip_car:
+    #     print(item)
     start_time = time.time()
     driver.quit()
     logger.debug("浏览器关闭耗时 ", time.time() - start_time)

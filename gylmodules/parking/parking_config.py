@@ -15,3 +15,6 @@ warning_day = 7 * 24 * 60
 
 # 停用时间
 shutdown_day = 9 * 24 * 60
+
+enable_auto_freeze = False
+
