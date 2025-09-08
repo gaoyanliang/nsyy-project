@@ -54,10 +54,10 @@ def query_inout_records(json_data):
                                               json_data.get('start_date'), json_data.get('end_date'))
 
 
-# @parking.route('/add_vip_car', methods=['POST'])
-# @api_response
-# def add_vip_car(json_data):
-#     parking_server.operate_vip_car('add', json_data)
+@parking.route('/add_vip_car', methods=['POST'])
+@api_response
+def add_vip_car(json_data):
+    parking_server.operate_vip_car('add', json_data)
 
 
 @parking.route('/update_vip_car', methods=['POST'])

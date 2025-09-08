@@ -75,7 +75,7 @@ def approval_and_enable(json_data, type):
                    "create_at": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
                    "op_result": "成功", "op_time": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
                    'pay_amount': json_data.get('pay_amount', 0)}
-    if type == 'approval':
+    if type == 'enable':
         json_data['park_name'] = car.get('park_name')
         operate_log = {"operater": operator, "operater_id": operator_id, "plate_no": car_id,
                        "log": "enable_vip_car", "param": json.dumps(json_data, ensure_ascii=False, default=str),
@@ -178,7 +178,33 @@ def apply_vip_car(json_data):
 def operate_vip_car(type, json_data):
     db = DbUtil(global_config.DB_HOST, global_config.DB_USERNAME, global_config.DB_PASSWORD,
                 global_config.DB_DATABASE_GYL)
-    if type == 'remove':
+    if type == 'add':
+        # 新增临时会员记录
+        operator = json_data.pop('operater')
+        operator_id = json_data.pop('operater_id')
+        if json_data.get('vehicle_group', '') != "VIP":
+            del db
+            return
+        enable_add = db.query_all(f"select * from nsyy_gyl.parking_authorize where user_id = '{operator}' "
+                                  f"and dept_id = '{json_data.get('dept_id', '')}'")
+        if not enable_add:
+            del db
+            raise Exception('您没有权限添加临时VIP车辆，请联系总务科添加权限后重试')
+
+        json_data['vip_status'] = 0
+        json_data['create_at'] = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        fileds = ','.join(json_data.keys())
+        args = str(tuple(json_data.values()))
+        insert_sql = f"INSERT INTO nsyy_gyl.parking_vip_cars ({fileds}) VALUES {args}"
+        last_rowid = db.execute(sql=insert_sql, need_commit=True)
+        if last_rowid == -1:
+            del db
+            raise Exception('会员车辆添加失败!')
+
+        operate_log = {"operater": operator, "operater_id": operator_id,
+                       "log": "add_vip_car", "param": f"{json.dumps(json_data, ensure_ascii=False, default=str)}",
+                       "create_at": datetime.now().strftime("%Y-%m-%d %H:%M:%S")}
+    elif type == 'remove':
         vip_car = db.query_one(f"select * from nsyy_gyl.parking_vip_cars where id = {json_data.get('car_id')}")
         if not vip_car:
             del db
@@ -207,9 +233,9 @@ def operate_vip_car(type, json_data):
         # 操作（renew 续费/ freeze 冻结/ restore 恢复 / reset 重置包期）会员车辆
         operate_type = json_data.get('operate_type')
         vip_car = db.query_one(f"select * from nsyy_gyl.parking_vip_cars where id = {json_data.get('car_id')}")
-        if not vip_car:
+        if not vip_car or vip_car.get('vehicle_id', ''):
             del db
-            raise Exception("会员车辆不存在!")
+            raise Exception("会员车辆不存在 或 暂未添加成功，请稍后重试!")
 
         vip_status = 1
         if operate_type == 'freeze':
@@ -358,7 +384,29 @@ def time_str_to_minutes(time_str):
 def auto_fetch_data():
     start_date = f"{(datetime.today() - timedelta(days=1)).date()}"
     end_date = start_date
-    timeout_cars, vip_cars, past_records = parking_tools.fetch_data(start_date, end_date, is_fetch_vip=True)
+
+    max_retries = 3
+    retry_count = 0
+    is_success = False
+    while retry_count < max_retries:
+        try:
+            # 记录请求开始时间（用于计算耗时）
+            start_time = datetime.now()
+            timeout_cars, vip_cars, past_records = parking_tools.fetch_data(start_date, end_date, is_fetch_vip=True)
+            logger.info(f"成功获取到今停车场数据 | 耗时: {(datetime.now() - start_time).total_seconds():.2f}s")
+            is_success = True
+            if is_success:
+                break
+        except Exception as e:
+            last_exception = e
+            retry_count += 1
+            wait_time = 2 ** retry_count  # 指数退避（1, 2, 4秒...）
+            logger.exception("获取到今停车场数据异常 稍后重试")
+            if retry_count < max_retries:
+                time.sleep(wait_time)
+
+    if not is_success:
+        return
 
     vip_car_no_list = [vip_car.get('plate_no') for vip_car in vip_cars]
     db = DbUtil(global_config.DB_HOST, global_config.DB_USERNAME, global_config.DB_PASSWORD,
@@ -490,7 +538,17 @@ def auto_asynchronous_execution():
         try:
             log_type = operate_record.get('log')
             param = json.loads(operate_record.get('param'))
-            if log_type == 'enable_vip_car':
+            if log_type == 'add_vip_car':
+                park_id = parking_config.park_id_dict.get(param.get('park_name'))
+                vehicle_id = parking_tools.add_new_car_and_recharge(param.get('plate_no'), park_id,
+                                                                    param.get('start_date'), param.get('end_date'))
+                if not vehicle_id:
+                    logger.error(f"自动任务 - 新增临时VIP车辆失败, op_log_id = {operate_record.get('id')} 稍后重试")
+                    del db
+                    return
+                db.execute(f"update nsyy_gyl.parking_vip_cars set vehicle_id = '{vehicle_id}', vip_status = 1 "
+                           f"where plate_no = '{param.get('plate_no')}'", need_commit=True)
+            elif log_type == 'enable_vip_car':
                 park_id = parking_config.park_id_dict.get(param.get('park_name'))
                 vehicle_id = parking_tools.add_new_car_and_recharge(param.get('plate_no'), park_id,
                                                                     param.get('start_date'), param.get('end_date'))
@@ -533,6 +591,8 @@ def auto_asynchronous_execution():
                     return
             else:
                 logger.warning(f"自动任务 - 无效操作类型: {operate_record}")
+                del db
+                return
 
             db.execute(f"update nsyy_gyl.parking_operation_logs set op_result = '成功', "
                        f"op_time = '{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}' "
@@ -711,8 +771,8 @@ def calculate_parking_duration(type, start_date, end_date):
             for item in record_list:
                 sum += item.get('amount')
             ret.append({
-                "dept_id": dept_id,
-                "dept_name": record_list[0].get('dept_name'),
+                "dept_id": dept_id if dept_id else '0',
+                "dept_name": record_list[0].get('dept_name', '') if record_list[0].get('dept_name') else '',
                 "amount": sum,
             })
         return ret

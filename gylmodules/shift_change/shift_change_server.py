@@ -1159,8 +1159,11 @@ def merge_patient_records(patient_list):
             merged_records.append(patients[0])
             continue
 
-        # 合并字段
+        # 合并字段 如果有出院 诊断从出院中取
         base_patient = patients[0]
+        for item in patients:
+            if item[9] == '出院':
+                base_patient = item
 
         # 合并patient_type（去重）
         types = {p[9] for p in patients if p[9]}
