@@ -66,6 +66,12 @@ def update_vip_car(json_data):
     parking_server.update_vip_car(json_data)
 
 
+@parking.route('/update_plate_no', methods=['POST'])
+@api_response
+def update_plate_no(json_data):
+    parking_server.update_car_plate_no(json_data)
+
+
 @parking.route('/remove_vip_car', methods=['POST'])
 @api_response
 def remove_vip_car(json_data):

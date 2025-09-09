@@ -77,11 +77,45 @@ def approval_and_enable(json_data, type):
                    'pay_amount': json_data.get('pay_amount', 0)}
     if type == 'enable':
         json_data['park_name'] = car.get('park_name')
+        json_data['vehicle_group'] = car.get('vehicle_group')
         operate_log = {"operater": operator, "operater_id": operator_id, "plate_no": car_id,
                        "log": "enable_vip_car", "param": json.dumps(json_data, ensure_ascii=False, default=str),
                        "create_at": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
                        'pay_amount': json_data.get('pay_amount', 0)}
 
+    insert_sql = f"INSERT INTO nsyy_gyl.parking_operation_logs ({','.join(operate_log.keys())}) " \
+                 f"VALUES {str(tuple(operate_log.values()))}"
+    last_rowid = db.execute(sql=insert_sql, need_commit=True)
+    if last_rowid == -1:
+        logger.warning(f"会员车辆操作记录添加失败! {operate_log}")
+    del db
+
+
+"""更新车牌号"""
+
+
+def update_car_plate_no(json_data):
+    old_plate_no = json_data.get('old_plate_no')
+    new_plate_no = json_data.get('new_plate_no')
+    operator = json_data.pop('operater')
+    operator_id = json_data.pop('operater_id')
+    db = DbUtil(global_config.DB_HOST, global_config.DB_USERNAME, global_config.DB_PASSWORD,
+                global_config.DB_DATABASE_GYL)
+
+    car = db.query_one(f"SELECT * FROM nsyy_gyl.parking_vip_cars where plate_no = '{old_plate_no}'")
+    if not car:
+        del db
+        raise Exception("会员车辆不存在")
+
+    update_sql = f"update nsyy_gyl.parking_vip_cars SET plate_no = '{new_plate_no}' WHERE id = '{car.get('id')}'"
+    db.execute(sql=update_sql, need_commit=True)
+
+    json_data['park_name'] = car.get('park_name')
+    json_data['vehicle_group'] = car.get('vehicle_group')
+    json_data['vehicle_id'] = car.get('vehicle_id')
+    operate_log = {"operater": operator, "operater_id": operator_id, "plate_no": old_plate_no,
+                   "log": "update_plate_no", "param": json.dumps(json_data, ensure_ascii=False, default=str),
+                   "create_at": datetime.now().strftime("%Y-%m-%d %H:%M:%S"), 'pay_amount': 0}
     insert_sql = f"INSERT INTO nsyy_gyl.parking_operation_logs ({','.join(operate_log.keys())}) " \
                  f"VALUES {str(tuple(operate_log.values()))}"
     last_rowid = db.execute(sql=insert_sql, need_commit=True)
@@ -319,6 +353,8 @@ def update_vip_car(json_data):
         update_condition.append(f"pay_time = '{json_data.get('pay_time')}'")
     if json_data.get('driver_license'):
         update_condition.append(f"driver_license = '{json_data.get('driver_license')}'")
+    if json_data.get('relationship'):
+        update_condition.append(f"relationship = '{json_data.get('relationship')}'")
 
     if update_condition:
         db = DbUtil(global_config.DB_HOST, global_config.DB_USERNAME, global_config.DB_PASSWORD,
@@ -387,26 +423,29 @@ def auto_fetch_data():
     start_date = f"{(datetime.today() - timedelta(days=1)).date()}"
     end_date = start_date
 
-    max_retries = 3
-    retry_count = 0
-    is_success = False
-    while retry_count < max_retries:
-        try:
-            # 记录请求开始时间（用于计算耗时）
-            start_time = datetime.now()
-            timeout_cars, vip_cars, past_records = parking_tools.fetch_data(start_date, end_date, is_fetch_vip=True)
-            logger.info(f"成功获取到今停车场数据 | 耗时: {(datetime.now() - start_time).total_seconds():.2f}s")
-            is_success = True
-            if is_success:
-                break
-        except Exception as e:
-            last_exception = e
-            retry_count += 1
-            wait_time = 2 ** retry_count  # 指数退避（1, 2, 4秒...）
-            logger.exception("获取到今停车场数据异常 稍后重试")
-            if retry_count < max_retries:
-                time.sleep(wait_time)
+    def run():
+        max_retries = 3
+        retry_count = 0
+        is_success = False
+        while retry_count < max_retries:
+            try:
+                # 记录请求开始时间（用于计算耗时）
+                start_time = datetime.now()
+                timeout_cars, vip_cars, past_records = parking_tools.fetch_data(start_date, end_date, is_fetch_vip=True)
+                logger.info(f"成功获取到今停车场数据 | 耗时: {(datetime.now() - start_time).total_seconds():.2f}s")
+                is_success = True
+                if is_success:
+                    return is_success, timeout_cars, vip_cars, past_records
+            except Exception as e:
+                last_exception = e
+                retry_count += 1
+                wait_time = 2 ** retry_count  # 指数退避（1, 2, 4秒...）
+                logger.exception("获取到今停车场数据异常 稍后重试")
+                if retry_count < max_retries:
+                    time.sleep(wait_time)
+        return is_success, [], [], []
 
+    is_success, timeout_cars, vip_cars, past_records = run()
     if not is_success:
         return
 
@@ -543,7 +582,8 @@ def auto_asynchronous_execution():
             if log_type == 'add_vip_car':
                 park_id = parking_config.park_id_dict.get(param.get('park_name'))
                 vehicle_id = parking_tools.add_new_car_and_recharge(param.get('plate_no'), park_id,
-                                                                    param.get('start_date'), param.get('end_date'))
+                                                                    param.get('start_date'), param.get('end_date'),
+                                                                    param.get('vehicle_group', ''))
                 if not vehicle_id:
                     logger.error(f"自动任务 - 新增临时VIP车辆失败, op_log_id = {operate_record.get('id')} 稍后重试")
                     del db
@@ -553,7 +593,8 @@ def auto_asynchronous_execution():
             elif log_type == 'enable_vip_car':
                 park_id = parking_config.park_id_dict.get(param.get('park_name'))
                 vehicle_id = parking_tools.add_new_car_and_recharge(param.get('plate_no'), park_id,
-                                                                    param.get('start_date'), param.get('end_date'))
+                                                                    param.get('start_date'), param.get('end_date'),
+                                                                    param.get('vehicle_group', ''))
                 if not vehicle_id:
                     logger.error(f"自动任务 - 新增会员车辆失败, op_log_id = {operate_record.get('id')} 稍后重试")
                     del db
@@ -589,6 +630,14 @@ def auto_asynchronous_execution():
                                                              param.get('start_date'), param.get('end_date'))
                 if not success:
                     logger.error(f"自动任务 - 续费/恢复会员车辆失败, op_log_id = {operate_record.get('id')} 稍后重试")
+                    del db
+                    return
+            elif log_type == 'update_plate_no':
+                # 修改车牌号
+                success, result = parking_tools.update_car_plate_no(param.get('vehicle_id'), param.get('new_plate_no'),
+                                                                    param.get('vehicle_group', ''))
+                if not success:
+                    logger.error(f"自动任务 - 更新车辆车牌号失败, op_log_id = {operate_record.get('id')} 稍后重试")
                     del db
                     return
             else:
