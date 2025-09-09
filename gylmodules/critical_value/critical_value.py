@@ -67,7 +67,7 @@ def call_third_systems_obtain_data(type: str, param: dict):
 
     if type == 'get_dept_info_by_emp_num':
         # 使用列表推导式提取 "缺省" 值为 1 的元素
-        if data and len(data) > 0:
+        if data and isinstance(data, list) and len(data) > 0:
             result = [item for item in data if item.get("缺省") == 1]
             if result:
                 return result[0].get('HIS_DEPT_ID'), result[0].get('DEPT_NAME'), \
@@ -842,9 +842,9 @@ def create_cv_by_system(json_data, cv_source):
     # 解析危机值内容信息
     cvd['cv_name'] = json_data.get('RPT_ITEMNAME') if json_data.get('RPT_ITEMNAME') else ''
     cvd['cv_result'] = json_data.get('RESULT_STR') if json_data.get('RESULT_STR') else json_data.get('RPT_ITEMNAME')
+    cvd['cv_unit'] = json_data.get('RESULT_UNIT', '') if json_data.get('RESULT_UNIT') else ''
     if int(cv_source) == cv_config.CV_SOURCE_INSPECTION_SYSTEM:
         cvd['cv_flag'] = json_data.get('RESULT_FLAG') if json_data.get('RESULT_FLAG') else ''
-        cvd['cv_unit'] = json_data.get('RESULT_UNIT') if json_data.get('RESULT_UNIT') else ''
         # 结果参考值 H偏高 HH偏高报警 L偏低 LL偏低报警 P阳性 E错误
         cvd['cv_ref'] = json_data.get('RESULT_REF') if json_data.get('RESULT_REF') else ''
         # 复查标志 0无需复查 1需要复查 2已经复查
