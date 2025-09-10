@@ -21,16 +21,20 @@ pool = redis.ConnectionPool(host=appt_config.APPT_REDIS_HOST, port=appt_config.A
                             db=appt_config.APPT_REDIS_DB, decode_responses=True)
 
 
+"""删除科室交接班数据 患者信息"""
+
+
 def delete_shift_data(record_id):
-    """删除科室交接班数据 患者信息"""
     db = DbUtil(global_config.DB_HOST, global_config.DB_USERNAME, global_config.DB_PASSWORD,
                 global_config.DB_DATABASE_GYL)
     db.execute(f"delete from nsyy_gyl.scs_patients where id = {record_id}", need_commit=True)
     del db
 
 
+"""查询科室交接班数据"""
+
+
 def query_shift_change_date(json_data):
-    """查询科室交接班数据"""
     shift_type = json_data.get('shift_type')
     shift_classes = json_data.get('shift_classes')
     shift_date = json_data.get('shift_date')
@@ -68,10 +72,8 @@ def query_shift_change_date(json_data):
         query_sql = f"select * from nsyy_gyl.scs_patients where shift_date = '{shift_date}' " \
                     f"and patient_ward_id = {dept_id} and shift_classes in ({classes_str})"
         patients = db.query_all(query_sql)
-
         patient_count_list = db.query_all(f"select * from nsyy_gyl.scs_patient_count where shift_date = '{shift_date}' "
                                           f" and patient_ward_id = {dept_id}")
-
         shift_info_list = db.query_all(f"select * from nsyy_gyl.scs_shift_info where shift_date = '{shift_date}'"
                                        f" and dept_id = {dept_id} and archived = 1")
 
@@ -102,9 +104,8 @@ def query_shift_change_date(json_data):
             patient_bed_info = []
 
         total = {}
-        # 遍历所有分项
+        # 除了几个特殊类型，其他类型的人数要展示累计数量
         for key, values in patient_count.items():
-            # 只处理非空字典
             if isinstance(values, dict) and values:
                 for k, v in values.items():
                     if k in ['特护', '一级护理', '病危', '病重', '现有']:
@@ -126,11 +127,7 @@ def query_shift_change_date(json_data):
         return tuple(priorities + [int(patient['bed_no'])])
 
     sorted_patients = sorted(patients, key=get_patient_type_key)
-    return {
-        'patient_count': patient_count,
-        'patient_bed_info': patient_bed_info,
-        'patients': sorted_patients,
-    }
+    return {'patient_count': patient_count, 'patient_bed_info': patient_bed_info, 'patients': sorted_patients}
 
 
 def merge_ret_patient_list(patient_list, is_archived):
@@ -194,8 +191,10 @@ def merge_ret_patient_list(patient_list, is_archived):
     return merged
 
 
+"""更新/新增交接班患者数据"""
+
+
 def update_shift_change_data(json_data):
-    """更新/新增交接班患者数据"""
     shift_type = json_data.get('shift_type')
     shift_classes = json_data.get('shift_classes')
     dept_id = int(json_data.get('patient_dept_id')) if json_data.get('patient_dept_id') else int(
@@ -233,8 +232,10 @@ def update_shift_change_data(json_data):
     del db
 
 
+"""更新/新增交接班人数数据"""
+
+
 def update_patient_count(json_data):
-    """更新/新增交接班人数数据"""
     shift_type = json_data.get('shift_type')
     db = DbUtil(global_config.DB_HOST, global_config.DB_USERNAME, global_config.DB_PASSWORD,
                 global_config.DB_DATABASE_GYL)
@@ -257,12 +258,10 @@ def update_patient_count(json_data):
     del db
 
 
+"""更新或新增交班床位信息"""
+
+
 def update_shift_change_bed_data(json_data):
-    """
-    更新或新增交班床位信息
-    :param json_data:
-    :return:
-    """
     if 'id' in json_data:
         # 更新交班数据
         set_condition = []
@@ -284,22 +283,23 @@ def update_shift_change_bed_data(json_data):
     del db
 
 
-def query_patient_info(zhuyuanhao):
-    """
-    根据住院号查询患者信息
-    :param zhuyuanhao:
-    :return:
-    """
-    sql = f"""select zb.xingming patient_name, zb.dangqiancwbm bed_no, zb.zhuyuanhao zhuyuanhao, 
-    zb.xingbiemc patient_sex, zb.nianling patient_age, zb.bingrenzyid, zb.zhuzhiysxm doctor_name from
-	df_jj_zhuyuan.zy_bingrenxx zb where zb.zaiyuanzt = 0 and zb.quxiaorybz = 0 and zb.yingerbz = 0
-	and zb.zhuyuanhao = '{zhuyuanhao}'"""
+"""根据住院号查询患者信息"""
 
-    patient_info_list = global_tools.call_new_his_pg(sql)
+
+def query_patient_info(zhuyuanhao):
+    patient_info_list = global_tools.call_new_his_pg(f"""select zb.xingming patient_name, zb.dangqiancwbm bed_no, 
+    zb.zhuyuanhao zhuyuanhao, zb.xingbiemc patient_sex, zb.nianling patient_age, zb.bingrenzyid, 
+    zb.zhuzhiysxm doctor_name from df_jj_zhuyuan.zy_bingrenxx zb where zb.zaiyuanzt = 0 and zb.quxiaorybz = 0 
+    and zb.yingerbz = 0 and zb.zhuyuanhao = '{zhuyuanhao}'""")
     return patient_info_list[0] if patient_info_list else {}
 
 
+# ========================================================================
 # ============================= 查询交接班数据 =============================
+# ========================================================================
+
+
+"""查询当前交班时间前一天的所有做手术的患者列表"""
 
 
 def query_shoushu_patient_zhuyuanhao():
@@ -406,6 +406,9 @@ def query_shoushu_patient_zhuyuanhao():
     return patient_info_list
 
 
+"""查询术后情况，仅晚班"""
+
+
 def postoperative_situation(shift_classes, dept_list, zhuyuanhao_list):
     if int(shift_classes) != 3 or not zhuyuanhao_list:
         return []
@@ -433,6 +436,9 @@ def postoperative_situation(shift_classes, dept_list, zhuyuanhao_list):
     return result
 
 
+"""查询住院患者的出院类型"""
+
+
 def discharge_situation():
     sql = """select 住院号,疾病转归 from (select report_id,住院号,疾病转归 from (
     select t2.item_name, t2.item_value, t.report_id from kyeecis.docs_eval_report_rec t
@@ -450,18 +456,14 @@ def discharge_situation():
     return result
 
 
+"""医生交接班数据查询"""
+
+
 def doctor_shift_change(reg_sqls, shift_classes, time_slot, dept_id_list, flush: bool = False):
-    """
-    医生交接班数据查询
-    :param reg_sqls:
-    :param shift_classes:
-    :param time_slot:
-    :param dept_id_list:
-    :return:
-    """
     start_time = time.time()
     shift_start, shift_end = get_complete_time_slot(time_slot)
 
+    # 查询该班次是否有危急值
     db = DbUtil(global_config.DB_HOST, global_config.DB_USERNAME, global_config.DB_PASSWORD,
                 global_config.DB_DATABASE_GYL)
     query_sql = f"select * from nsyy_gyl.cv_info where patient_type = 3 " \
@@ -473,10 +475,10 @@ def doctor_shift_change(reg_sqls, shift_classes, time_slot, dept_id_list, flush:
     with ThreadPoolExecutor(max_workers=3) as executor:
         # 查询医生交接班 患者数据
         tasks = {
-            "patients": executor.submit(timed_execution, "医生交接班数据查询 1 ", global_tools.call_new_his_pg,
+            "patients": executor.submit(timed_execution, "医生交接班患者数据查询 1 ", global_tools.call_new_his_pg,
                                         reg_sqls.get(1).get('sql_nhis').replace("{start_time}", shift_start)
                                         .replace("{end_time}", shift_end)),
-            "patient_count": executor.submit(timed_execution, "医生交接班人数查询 2 ", global_tools.call_new_his_pg,
+            "patient_count": executor.submit(timed_execution, "医生交接班患者人数查询 2 ", global_tools.call_new_his_pg,
                                              reg_sqls.get(2).get('sql_nhis')
                                              .replace("{start_time}", shift_start).replace("{end_time}", shift_end))
         }
@@ -497,18 +499,15 @@ def doctor_shift_change(reg_sqls, shift_classes, time_slot, dept_id_list, flush:
     logger.info(f"医生 {','.join(dept_id_list)} 交接班数据查询完成 ✅ 总耗时 {time.time() - start_time} 秒")
 
 
+"""AICU 1000965 CCU 1001120  交班信息查询"""
+
+
 def aicu_shift_change(reg_sqls, shift_classes, time_slot, shoushu, flush: bool = False):
-    """
-    AICU 1000965 CCU 1001120  交班信息查询
-    :param reg_sqls:
-    :param shift_classes:
-    :param time_slot:
-    :return:
-    """
     start_time = time.time()
     start = start_time
     shift_start, shift_end = get_complete_time_slot(time_slot)
 
+    # 查询该班次是否有危急值
     db = DbUtil(global_config.DB_HOST, global_config.DB_USERNAME, global_config.DB_PASSWORD,
                 global_config.DB_DATABASE_GYL)
     query_sql = f"select * from nsyy_gyl.cv_info where patient_type = 3 " \
@@ -562,7 +561,7 @@ def aicu_shift_change(reg_sqls, shift_classes, time_slot, shoushu, flush: bool =
     start_time = time.time()
     all_patient_info = teshu_patients if teshu_patients else []
 
-    # 分组
+    # 合并患者信息
     def key_func(x):
         return (x.get("病人id"), x.get("主页id"), x.get("标识"))
 
@@ -602,14 +601,10 @@ def aicu_shift_change(reg_sqls, shift_classes, time_slot, shoushu, flush: bool =
     logger.info(f"AICU/CCU 交接班数据查询完成 ✅ 总耗时: {time.time() - start}")
 
 
+"""妇产科 1000961 交班信息查询"""
+
+
 def ob_gyn_shift_change(reg_sqls, shift_classes, time_slot, shoushu, flush: bool = False):
-    """
-    妇产科 1000961 交班信息查询
-    :param reg_sqls:
-    :param shift_classes:
-    :param time_slot:
-    :return:
-    """
     start_time = time.time()
     start = start_time
     shift_start, shift_end = get_complete_time_slot(time_slot)
@@ -666,7 +661,7 @@ def ob_gyn_shift_change(reg_sqls, shift_classes, time_slot, shoushu, flush: bool
 
     all_patient_info = teshu_patients if teshu_patients else []
 
-    # 分组
+    # 合并患者情况
     def key_func(x):
         return (x.get("病人id"), x.get("主页id"), x.get("标识"))
 
@@ -700,14 +695,10 @@ def ob_gyn_shift_change(reg_sqls, shift_classes, time_slot, shoushu, flush: bool
     logger.info(f"妇产科 交接班数据查询完成 ✅ 总耗时: {time.time() - start}")
 
 
+"""重症科室 1000962 交班信息查询"""
+
+
 def icu_shift_change(reg_sqls, shift_classes, time_slot, flush: bool = False):
-    """
-    重症科室 1000962 交班信息查询
-    :param reg_sqls:
-    :param shift_classes:
-    :param time_slot:
-    :return:
-    """
     start_time = time.time()
     start = start_time
     shift_start, shift_end = get_complete_time_slot(time_slot)
@@ -765,14 +756,10 @@ def icu_shift_change(reg_sqls, shift_classes, time_slot, flush: bool = False):
     logger.info(f"重症科室 交接班数据查询完成 ✅ 耗时: {time.time() - start}")
 
 
+"""疼痛科 1000973 交班信息查询"""
+
+
 def pain_shift_change(reg_sqls, shift_classes, time_slot, shoushu, flush: bool = False):
-    """
-    疼痛科 1000973 交班信息查询
-    :param reg_sqls:
-    :param shift_classes:
-    :param time_slot:
-    :return:
-    """
     if int(shift_classes) == 1:
         trunc = '17.5'
     elif int(shift_classes) == 2:
@@ -1012,15 +999,10 @@ def pain_shift_change(reg_sqls, shift_classes, time_slot, shoushu, flush: bool =
     logger.info(f"疼痛科 交接班数据查询完成 ✅ 总耗时: {time.time() - start}")
 
 
+"""普通科室交接班数据查询"""
+
+
 def general_dept_shift_change(reg_sqls, shift_classes, time_slot, dept_list, shoushu, flush: bool = False):
-    """
-    普通科室交接班数据查询
-    :param reg_sqls:
-    :param shift_classes:
-    :param time_slot:
-    :param dept_list:
-    :return:
-    """
     if int(shift_classes) == 1:
         trunc = '17.5'
     elif int(shift_classes) == 2:
@@ -1236,6 +1218,9 @@ def get_complete_time_slot(shift_slot: str) -> tuple:
     return f"{start_datetime.strftime('%Y-%m-%d %H:%M')}:01.000", f"{end_datetime.strftime('%Y-%m-%d %H:%M')}:00.999"
 
 
+"""护理交接班数据 同一个人有多条记录时，合并为一条"""
+
+
 def merge_patient_records(patient_list):
     """
     合并相同患者的记录（根据shift_date, shift_classes, zhuyuanhao, ward_id）
@@ -1315,19 +1300,22 @@ def merge_patient_records(patient_list):
     return merged_records
 
 
+"""查询危急值患者诊断"""
+
+
 def query_cv_zhenduan(zhuyuanhao_list):
     start_time = time.time()
     id_list = ','.join(f"'{zhuyuanhao}'" for zhuyuanhao in zhuyuanhao_list)
     sql = f"""
-    select zb.zhuyuanhao 住院号,case when (xpath('string(//node[@name="初步诊断"])', 
-    wb2.wenjiannr::xml))[1]::text ~ '2[\.、]' then regexp_replace((xpath('string(//node[@name="初步诊断"])', 
-    wb2.wenjiannr::xml))[1]::text, '2[\.、].*$', '\1') else (xpath('string(//node[@name="初步诊断"])', 
-    wb2.wenjiannr::xml))[1]::text end as 主要诊断 from df_bingli.ws_binglijl wb 
-    join df_bingli.ws_binglijlnr wb2 on wb.binglijlid =wb2.binglijlid
-    join df_jj_zhuyuan.zy_bingrenxx zb on zb.bingrenzyid=wb.bingrenzyid and zb.zaiyuanzt=0 and zb.rukebz=1 
-    and zb.yingerbz=0 and zb.quxiaorybz=0 where wb.binglimc = '首次病程记录'  and wb.zuofeibz=0 and wb.wenshuzt=2
-    and zb.zhuyuanhao in ({id_list})
-    """
+            select zb.zhuyuanhao 住院号,case when (xpath('string(//node[@name="初步诊断"])', 
+            wb2.wenjiannr::xml))[1]::text ~ '2[\.、]' then regexp_replace((xpath('string(//node[@name="初步诊断"])', 
+            wb2.wenjiannr::xml))[1]::text, '2[\.、].*$', '\1') else (xpath('string(//node[@name="初步诊断"])', 
+            wb2.wenjiannr::xml))[1]::text end as 主要诊断 from df_bingli.ws_binglijl wb 
+            join df_bingli.ws_binglijlnr wb2 on wb.binglijlid =wb2.binglijlid
+            join df_jj_zhuyuan.zy_bingrenxx zb on zb.bingrenzyid=wb.bingrenzyid and zb.zaiyuanzt=0 and zb.rukebz=1 
+            and zb.yingerbz=0 and zb.quxiaorybz=0 where wb.binglimc = '首次病程记录'  and wb.zuofeibz=0 and wb.wenshuzt=2
+            and zb.zhuyuanhao in ({id_list})
+            """
     ret = global_tools.call_new_his_pg(sql)
     if not ret:
         return {}
@@ -1336,15 +1324,10 @@ def query_cv_zhenduan(zhuyuanhao_list):
     return ret
 
 
+"""合并交接班危机值数据"""
+
+
 def merge_patient_cv_data(cv_list, patient_list, shift_type, dept_list):
-    """
-    合并交接班危机值数据
-    :param cv_list:
-    :param patient_list:
-    :param shift_type:
-    :param dept_list:
-    :return:
-    """
     try:
         if not cv_list or not patient_list:
             return patient_list
@@ -1408,14 +1391,10 @@ def merge_patient_cv_data(cv_list, patient_list, shift_type, dept_list):
         return patient_list
 
 
+"""合并交接班术后数据"""
+
+
 def merge_patient_shuhou_data(shuhou_list, patient_list, shoushu_list):
-    """
-    合并交接班术后数据
-    :param shuhou_list:
-    :param patient_list:
-    :param shoushu_list:
-    :return:
-    """
     try:
         if not shuhou_list or not shoushu_list:
             return patient_list
@@ -1472,15 +1451,10 @@ def timed_execution(log_info, func, *args):
     return result
 
 
+"""持久化交接班数据"""
+
+
 def save_data(shift_classes, patients, patient_count, patient_bed_info):
-    """
-    持久化交接班数据
-    :param shift_classes:
-    :param patients:
-    :param patient_count:
-    :param patient_bed_info:
-    :return:
-    """
     today_date = datetime.now().strftime("%Y-%m-%d")
     if str(shift_classes).endswith('-3'):
         # 晚班属于前一天的交班
@@ -1622,8 +1596,10 @@ def upcoming_shifts_grouped() -> Dict[Tuple[str, str], List[Dict]]:
     return shift_groups
 
 
+""" 定时执行交接班 """
+
+
 def timed_shift_change():
-    """ 定时执行交接班 """
     if datetime.now().hour in [0, 1, 2, 3, 4, 5, 9, 10, 11, 12, 23]:
         return
 
@@ -1713,6 +1689,9 @@ def timed_shift_change():
                 logger.warning(f"护理 {time_slot} 交班异常: {e}")
 
 
+"""单独执行某一个科室 某一个班次的交接班"""
+
+
 def single_run_shift_change(json_data):
     shift_type = json_data.get('shift_type')
     shift_date = json_data.get('shift_date')
@@ -1792,8 +1771,10 @@ def single_run_shift_change(json_data):
         redis_client.delete(f"shift_change:{dept_id}")
 
 
+"""sql 没有统计的患者类别，人数默认为 0"""
+
+
 def fill_missing_types(data, dept_people_count, shift_type):
-    # sql 没有统计的患者类别，人数默认为 0
     dept_map = defaultdict(dict)
 
     for item in data:
@@ -1815,12 +1796,15 @@ def fill_missing_types(data, dept_people_count, shift_type):
 
     return result
 
-
+# ====================================================================
 # ============================= 交接班配置 =============================
+# ====================================================================
+
+
+"""新增或者更新交接班配置"""
+
 
 def create_or_update_shift_config(json_data):
-    """新增或者更新交接班配置"""
-
     try:
         # 如果开启对应的交班班次 必须设置交班时间段
         slots = []
@@ -1869,8 +1853,10 @@ def create_or_update_shift_config(json_data):
     del db
 
 
+"""查询交接班配置"""
+
+
 def query_shift_config():
-    """查询交接班配置"""
     db = DbUtil(global_config.DB_HOST, global_config.DB_USERNAME, global_config.DB_PASSWORD,
                 global_config.DB_DATABASE_GYL)
     shift_configs = db.query_all("select * from nsyy_gyl.scs_shift_config")
@@ -1901,15 +1887,15 @@ def query_shift_info(json_data):
             "shift_info": shift_info}
 
 
+# ===================================================================
 # ============================= 签名相关 =============================
+# ===================================================================
+
+
+"""后端直接触发 医生/护士 签名， 随后保存签名返回信息"""
 
 
 def save_shift_info(json_data):
-    """
-    后端直接触发 医生/护士 签名， 随后保存签名返回信息
-    :param json_data:
-    :return:
-    """
     shift_date = json_data.get('shift_date')
     shift_type = json_data.get('shift_type')
     shift_classes = json_data.get('shift_classes')
@@ -1982,12 +1968,10 @@ def save_shift_info(json_data):
     return sign_img
 
 
+"""获取医生签名图片，如果是首次签名，从云医签中获取签名"""
+
+
 def get_doctor_sign_img(user_id):
-    """
-    获取医生签名图片，如果是首次签名，从云医签中获取签名
-    :param user_id:
-    :return:
-    """
     db = DbUtil(global_config.DB_HOST, global_config.DB_USERNAME, global_config.DB_PASSWORD,
                 global_config.DB_DATABASE_GYL)
     record = db.query_one(f"select * from nsyy_gyl.scs_doc_sign_img where user_id = '{user_id}'")
