@@ -301,6 +301,111 @@ def query_patient_info(zhuyuanhao):
 
 # ============================= 查询交接班数据 =============================
 
+
+def query_shoushu_patient_zhuyuanhao():
+    start_time = time.time()
+    cur_time = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    pg_sql = """select zb.bingrenzyid as "bingrenzyid",zb.bingrenid 病人id,zb.zhuyuancs 主页id,zb.zhuyuanhao 住院号
+                from df_jj_zhuyuan.zy_bingrenxx zb join (select distinct ss.bingrenzyid from df_shenqingdan.sm_shoushuxx ss 
+                where ss.zuofeibz=0 and ss.zhuangtaibz=7 and ss.jieshusj between (timestamp'{end_time}'-interval '1' day) and 
+                '{end_time}')ss on ss.bingrenzyid =zb.bingrenzyid where zb.quxiaorybz=0  and zb.yingerbz=0 
+                and zb.rukebz=1 and zb.zaiyuanzt=0"""
+
+    ydhl_sql = """with bingren as (select t.patient_id as 病人id, t.visit_id as 主页id,
+                t.dept_name 所在病区 from kyeecis.v_his_pats_in_hospital t where t.dept_name in ('疼痛科护理单元')
+                ) , ss as (select t2.patient_id as 病人id, t2.visit_id as 主页id, case 
+                when regexp_like(t3.item_value, '^\d{4}[-/\.]\d{1,2}[-/\.]\d{1,2} \d{1,2}:\d{1,2}:\d{1,2}$') then 
+                to_date(t3.item_value, 'yyyy/mm/dd hh24:mi:ss')
+                when regexp_like(t3.item_value, '^\d{4}[-/\.]\d{1,2}[-/\.]\d{1,2} \d{1,2}:\d{1,2}$')
+                then to_date(t3.item_value, 'yyyy-mm-dd hh24:mi:ss')
+                when regexp_like(t3.item_value, '^\d{4}[-/\.]\d{1,2}[-/\.]\d{1,2} [^\d]+ [^\d]+ \d{1,2}:\d{1,2}:\d{1,2}$') then 
+                to_date(regexp_replace(t3.item_value, '^(\d{4}[-/\.]\d{1,2}[-/\.]\d{1,2}) [^\d]+ [^\d]+ (\d{1,2}:\d{1,2}:\d{1,2})$', '\1 \2'),
+                                'yyyy/mm/dd hh24:mi:ss')
+                else null 
+                end as 手术结束时间
+                from kyeecis.docs_eval_report_rec t2
+                join kyeecis.docs_eval_report_detail_rec t3
+                on t2.report_id = t3.report_id and t3.enabled_value = 'Y'
+                where t2.theme_code = '介入手术护理单' and t2.enabled_value = 'Y' and t3.item_name = '手术结束时间'
+                and t2.create_time between timestamp '{end_time}'-2 and timestamp '{end_time}'+1
+                and (t2.patient_id,t2.visit_id) in (select 病人id,主页id from bingren)
+                )
+                select a.bingrenzyid as "bingrenzyid",ss.病人id as "病人id",ss.主页id as "主页id" ,a.inp_no 住院号,a.dept_name 所在病区
+                from ss
+                join kyeecis.v_his_pats_in_hospital a on a.patient_id=ss.病人id and a.visit_id = ss.主页id
+                where ss.手术结束时间 between timestamp '{end_time}'-1 and timestamp '{end_time}' 
+                """
+    pg_shoushu, ydhl_shoushu = [], []
+    with ThreadPoolExecutor(max_workers=3) as executor:
+        # 查询医生交接班 患者数据
+        tasks = {
+            "pg_shoushu": executor.submit(timed_execution, "查询手术患者列表 pg ", global_tools.call_new_his_pg,
+                                        pg_sql.replace("{end_time}", cur_time)),
+            "ydhl_shoushu": executor.submit(timed_execution, "查询手术患者列表 ydhl ", global_tools.call_new_his,
+                                             ydhl_sql.replace("{end_time}", cur_time), 'ydhl', None)
+        }
+        # 获取结果（会自动等待所有任务完成）
+        results = {name: future.result() for name, future in tasks.items()}
+        # 解包结果
+        pg_shoushu = results["pg_shoushu"]
+        ydhl_shoushu = results["ydhl_shoushu"]
+
+    # 先从pg和ydhl查询上个班次中做手术的患者， 然后在查询这些患者的基本信息
+    shoushu_set = set(item.get('bingrenzyid') for item in pg_shoushu + ydhl_shoushu)
+    if not shoushu_set:
+        return []
+
+    patient_info_sql = """
+            select y.bingrenzyid,y.dangqiancwbm 床号,y.xingming 姓名,y.zhuyuanhao 住院号,
+        y.xingbiemc 性别,y.nianling 年龄,y.dangqianbqmc 所在病区,y.dangqianbqid 所在病区id,
+        y.zhuzhiysxm 主治医生姓名,
+        coalesce(case when  (xpath('string(//node[@name="目前诊断"])', aa.wenjiannr::xml))[1]::text ~ '2[\.、]' 
+                  then regexp_replace((xpath('string(//node[@name="目前诊断"])', aa.wenjiannr::xml))[1]::text, '2[\.、].*$', '\1')
+                    else (xpath('string(//node[@name="目前诊断"])', aa.wenjiannr::xml))[1]::text
+                end ,x.主要诊断,case
+                    when  nullif((xpath('string(//node[@name="初步诊断"])', wb2.wenjiannr::xml))[1]::text,'')  is not null
+                    then case when (xpath('string(//node[@name="初步诊断"])', wb2.wenjiannr::xml))[1]::text ~ '2[\.、]' 
+                             then regexp_replace((xpath('string(//node[@name="初步诊断"])', wb2.wenjiannr::xml))[1]::text, '2[\.、].*$', '\1')
+                             else (xpath('string(//node[@name="初步诊断"])', wb2.wenjiannr::xml))[1]::text  end
+                    when  nullif((xpath('string(//node[@name="入院诊断"])', wb2.wenjiannr::xml))[1]::text,'')  is not null
+                    then case when (xpath('string(//node[@name="入院诊断"])', wb2.wenjiannr::xml))[1]::text ~ '2[\.、]' 
+                             then regexp_replace((xpath('string(//node[@name="入院诊断"])', wb2.wenjiannr::xml))[1]::text, '2[\.、].*$', '\1')
+                             else (xpath('string(//node[@name="入院诊断"])', wb2.wenjiannr::xml))[1]::text end
+                    when nullif ((xpath('string(//node[@name="初步诊断_中医病名名称"])', wb2.wenjiannr::xml))[1]::text,'')  is not null
+                    then (xpath('string(//node[@name="初步诊断_中医病名名称"])', wb2.wenjiannr::xml))[1]::text || '(中医诊断)'|| 
+                         (xpath('string(//node[@name="初步诊断_西医诊断名称"])', wb2.wenjiannr::xml))[1]::text || '(西医诊断)'
+                    else null end) as 主要诊断 from df_jj_zhuyuan.zy_bingrenxx y
+        left join df_bingli.ws_binglijl wb on wb.bingrenzyid =y.bingrenzyid and (wb.binglimc like '%入院记录%' or wb.binglimc='24小时入出院记录')  and wb.zuofeibz=0 and wb.wenshuzt=2
+        left join df_bingli.ws_binglijlnr wb2 on wb.binglijlid =wb2.binglijlid 
+        left join  (select wb.bingrenzyid, case
+            when (xpath('string(//node[@name="初步诊断"])', wb2.wenjiannr::xml))[1]::text ~ '2[\.、]' 
+            then regexp_replace((xpath('string(//node[@name="初步诊断"])', wb2.wenjiannr::xml))[1]::text, '2[\.、].*$', '\1')
+            else (xpath('string(//node[@name="初步诊断"])', wb2.wenjiannr::xml))[1]::text
+        end  as 主要诊断  from df_bingli.ws_binglijl wb
+        join df_bingli.ws_binglijlnr wb2 on wb.binglijlid =wb2.binglijlid
+        where wb.binglimc = '首次病程记录'  and wb.zuofeibz=0 and wb.wenshuzt=2
+        )x on y.bingrenzyid =x.bingrenzyid
+        left join (select wb.bingrenzyid,wb.jilusj,wb2.wenjiannr,row_number () over (partition by wb.bingrenzyid order by wb.jilusj desc) as rk
+        from df_bingli.ws_binglijl wb
+        join df_bingli.ws_binglijlnr wb2 on wb.binglijlid =wb2.binglijlid
+        where wb.binglimc ='转入记录'  and wb.zuofeibz=0 and wb.wenshuzt=2
+        )aa on aa.bingrenzyid =y.bingrenzyid and aa.rk=1 
+        where y.quxiaorybz=0 and y.yingerbz=0 and y.rukebz=1 and y.xingming not like '%测试%' and y.zaiyuanzt=0 and y.bingrenzyid in ({bingrenzyid})
+    """
+
+    patient_info_sql = patient_info_sql.replace('{bingrenzyid}', ','.join([f"'{item}'" for item in shoushu_set]))
+    patient_info_list = global_tools.call_new_his_pg(patient_info_sql)
+
+    shoushu_list = []
+    if patient_info_list:
+        for item in patient_info_list:
+            item['patient_ward_id'] = shift_change_config.his_dept_dict.get(item.get('所在病区'))
+            shoushu_list.append(item)
+
+    logger.info(f"查询手术患者列表耗时: {time.time() - start_time} , 数量 {len(shoushu_set)}")
+    return patient_info_list
+
+
 def postoperative_situation(shift_classes, dept_list, zhuyuanhao_list):
     if int(shift_classes) != 3 or not zhuyuanhao_list:
         return []
@@ -1328,8 +1433,10 @@ def merge_patient_shuhou_data(shuhou_list, patient_list, shoushu_list):
 
             if patient_dict.get(str(patient.get('bingrenzyid'))):
                 ps = patient_dict.get(str(patient.get('bingrenzyid')))
-                ps[0]['患者情况'] = str(ps[0]['患者情况']) + str(shuhou_dict.get(str(patient.get('bingrenzyid')),
-                                                                                 [{}])[0].get('患者情况', ''))
+                info = str(shuhou_dict.get(str(patient.get('bingrenzyid')), [{}])[0].get('患者情况', ''))
+                if info:
+                    ps[0]['患者情况'] = str(ps[0]['患者情况']).replace(info, '')
+                ps[0]['患者情况'] = str(ps[0]['患者情况']) + info
             else:
                 p_shuhou = shuhou_dict.get(str(patient.get('bingrenzyid')), '')
                 if not p_shuhou:
@@ -1339,7 +1446,7 @@ def merge_patient_shuhou_data(shuhou_list, patient_list, shoushu_list):
                 p = {'bingrenzyid': patient.get('bingrenzyid'), '住院号': patient.get('zhuyuanhao'),
                      '床号': p_shuhou.get('床号', ''), '姓名': patient.get('patient_name'),
                      '性别': patient.get('patient_sex'), '年龄': patient.get('patient_age'),
-                     '主要诊断': patient.get('zhenduan'), '患者类别': patient.get('patient_type'),
+                     '主要诊断': patient.get('zhenduan'), '患者类别': '',
                      '主治医生姓名': patient.get('doctor_name'), '患者情况': p_shuhou.get('患者情况', '')
                      }
 
@@ -1548,15 +1655,12 @@ def timed_shift_change():
         return
 
     shoushu_patients = []
+    if int(shift_classes) == 3:
+        shoushu_patients = query_shoushu_patient_zhuyuanhao()
+
     db = DbUtil(global_config.DB_HOST, global_config.DB_USERNAME, global_config.DB_PASSWORD,
                 global_config.DB_DATABASE_GYL)
     all_sqls = db.query_all("select * from nsyy_gyl.scs_reg_sql")
-    if int(shift_classes) == 3:
-        dd = datetime.today().date() - timedelta(days=1)
-        shoushu_patients = db.query_all(f"""SELECT * FROM nsyy_gyl.scs_patients WHERE 
-        shift_date = '{dd.strftime('%Y-%m-%d')}' and shift_classes in ('2-1', '2-2') and patient_type like '%手术%' and
-        bingrenzyid IN (SELECT bingrenzyid FROM nsyy_gyl.scs_patients where shift_date = '{dd.strftime('%Y-%m-%d')}' 
-        and shift_classes in ('2-1', '2-2') and patient_type like '%手术%' GROUP BY bingrenzyid)""")
     del db
     reg_sqls = {item.get('sid'): item for item in all_sqls}
 
@@ -1573,7 +1677,7 @@ def timed_shift_change():
             if '1000961' in dept_list:
                 # 妇产科
                 try:
-                    shoushu = [item for item in shoushu_patients if item.get('patient_ward_id') == 1000961]
+                    shoushu = [item for item in shoushu_patients if str(item.get('所在病区id')) == '1000961']
                     ob_gyn_shift_change(reg_sqls, shift_classes, time_slot, shoushu)
                 except Exception as e:
                     logger.warning(f"妇产科 {time_slot} 交接班异常: {e}")
@@ -1588,14 +1692,14 @@ def timed_shift_change():
             if '1000965' in dept_list or '1001120' in dept_list:
                 # AICU CCU
                 try:
-                    shoushu = [item for item in shoushu_patients if item.get('patient_ward_id') in (1000965, 1001120)]
+                    shoushu = [item for item in shoushu_patients if str(item.get('所在病区id')) in ('1000965', '1001120')]
                     aicu_shift_change(reg_sqls, shift_classes, time_slot, shoushu)
                 except Exception as e:
                     logger.warning(f"AICU/CCU {time_slot} 交接班异常: {e}")
 
             if '1000973' in dept_list:
                 try:
-                    shoushu = [item for item in shoushu_patients if item.get('patient_ward_id') == 1000973]
+                    shoushu = [item for item in shoushu_patients if str(item.get('所在病区id')) == '1000973']
                     pain_shift_change(reg_sqls, shift_classes, time_slot, shoushu)
                 except Exception as e:
                     logger.warning(f"疼痛科 {time_slot} 交接班异常: {e}")
@@ -1603,7 +1707,7 @@ def timed_shift_change():
             dept_id_list = [dept_id for dept_id in dept_list if
                             dept_id not in ['1000961', '1000962', '1000965', '1001120', '1000973']]
             try:
-                shoushu = [item for item in shoushu_patients if str(item.get('patient_ward_id')) in dept_id_list]
+                shoushu = [item for item in shoushu_patients if str(item.get('所在病区id')) in dept_id_list]
                 general_dept_shift_change(reg_sqls, shift_classes, time_slot, dept_id_list, shoushu)
             except Exception as e:
                 logger.warning(f"护理 {time_slot} 交班异常: {e}")
@@ -1631,7 +1735,6 @@ def single_run_shift_change(json_data):
     if datetime.now().strftime("%Y-%m-%d %H:%M:%S.999") < shift_end:
         raise Exception("请勿刷新未开始或未结束的班次")
 
-    shoushu_patients = []
     db = DbUtil(global_config.DB_HOST, global_config.DB_USERNAME, global_config.DB_PASSWORD,
                 global_config.DB_DATABASE_GYL)
     dshift_config = db.query_one(f"select * from nsyy_gyl.scs_shift_config where dept_id = '{dept_id}'")
@@ -1643,12 +1746,6 @@ def single_run_shift_change(json_data):
     shift_info = db.query_one(f"select * from nsyy_gyl.scs_shift_info "
                               f"where shift_classes = '{shift_type}-{shift_classes}' "
                               f"and shift_date = '{shift_date}' and dept_id = {int(dept_id)}")
-    if int(shift_classes) == 3:
-        dd = datetime.today().date() - timedelta(days=1)
-        shoushu_patients = db.query_all(f"""SELECT * FROM nsyy_gyl.scs_patients WHERE 
-        shift_date = '{dd.strftime('%Y-%m-%d')}' and shift_classes in ('2-1', '2-2') and patient_type like '%手术%' and
-        bingrenzyid IN (SELECT bingrenzyid FROM nsyy_gyl.scs_patients where shift_date = '{dd.strftime('%Y-%m-%d')}' 
-        and shift_classes in ('2-1', '2-2') and patient_type like '%手术%' GROUP BY bingrenzyid)""")
     del db
     reg_sqls = {item.get('sid'): item for item in all_sqls}
 
@@ -1657,6 +1754,10 @@ def single_run_shift_change(json_data):
     if not redis_client.set(f"shift_change:{str(dept_id)}", dept_id, ex=600, nx=True):
         raise Exception('请先歇一歇，给系统一点反应时间（10分钟刷一次）')
 
+    shoushu_patients = []
+    if int(shift_classes) == 3:
+        shoushu_patients = query_shoushu_patient_zhuyuanhao()
+
     try:
         if shift_type == 1:
             # 医生交接班
@@ -1664,12 +1765,12 @@ def single_run_shift_change(json_data):
         elif shift_type == 2:
             if len(dept_list) == 1 and ('1000965' in dept_list or '1001120' in dept_list):
                 # AICU/CCU交接班
-                shoushu = [item for item in shoushu_patients if item.get('patient_ward_id') in (1000965, 1001120)]
+                shoushu = [item for item in shoushu_patients if str(item.get('所在病区id')) in ('1000965', '1001120')]
                 aicu_shift_change(reg_sqls, shift_classes, time_slot, shoushu, True)
                 return
             if len(dept_list) == 1 and '1000961' in dept_list:
                 # 妇产科交接班
-                shoushu = [item for item in shoushu_patients if item.get('patient_ward_id') == 1000961]
+                shoushu = [item for item in shoushu_patients if str(item.get('所在病区id')) == '1000961']
                 ob_gyn_shift_change(reg_sqls, shift_classes, time_slot, shoushu, True)
                 return
             if len(dept_list) == 1 and '1000962' in dept_list:
@@ -1677,12 +1778,12 @@ def single_run_shift_change(json_data):
                 icu_shift_change(reg_sqls, shift_classes, time_slot, True)
                 return
             if len(dept_list) == 1 and '1000973' in dept_list:
-                shoushu = [item for item in shoushu_patients if item.get('patient_ward_id') == 1000973]
+                shoushu = [item for item in shoushu_patients if str(item.get('所在病区id')) == '1000973']
                 pain_shift_change(reg_sqls, shift_classes, time_slot, shoushu)
                 return
 
             # 普通护理交接班
-            shoushu = [item for item in shoushu_patients if str(item.get('patient_ward_id')) in dept_list]
+            shoushu = [item for item in shoushu_patients if str(item.get('所在病区id')) in dept_list]
             general_dept_shift_change(reg_sqls, shift_classes, time_slot, dept_list, shoushu, True)
         else:
             raise Exception("未知的交接班类型")
