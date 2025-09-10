@@ -1161,9 +1161,12 @@ def merge_patient_records(patient_list):
 
         # 合并字段 如果有出院 诊断从出院中取
         base_patient = patients[0]
+        bed = base_patient[4]
         for item in patients:
-            if item[9] == '出院':
+            if str(item[9]).__contains__('出院'):
                 base_patient = item
+            if str(item[9]).__contains__('转出'):
+                bed = item[4]
 
         # 合并patient_type（去重）
         types = {p[9] for p in patients if p[9]}
@@ -1187,7 +1190,7 @@ def merge_patient_records(patient_list):
             base_patient[1],  # shift_classes
             base_patient[2],  # bingrenzyid
             base_patient[3],  # zhuyuanhao
-            base_patient[4],  # bed_no
+            bed,  # bed_no
             base_patient[5],  # patient_name
             base_patient[6],  # patient_sex
             base_patient[7],  # patient_age
