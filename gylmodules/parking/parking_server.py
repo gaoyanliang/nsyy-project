@@ -103,9 +103,9 @@ def update_car_plate_no(json_data):
                 global_config.DB_DATABASE_GYL)
 
     car = db.query_one(f"SELECT * FROM nsyy_gyl.parking_vip_cars where plate_no = '{old_plate_no}'")
-    if not car:
+    if not car or not car.get('vehicle_id'):
         del db
-        raise Exception("会员车辆不存在")
+        raise Exception("会员车辆不存在 或 会员车辆未正式启用")
 
     update_sql = f"update nsyy_gyl.parking_vip_cars SET plate_no = '{new_plate_no}' WHERE id = '{car.get('id')}'"
     db.execute(sql=update_sql, need_commit=True)
@@ -355,6 +355,11 @@ def update_vip_car(json_data):
         update_condition.append(f"driver_license = '{json_data.get('driver_license')}'")
     if json_data.get('relationship'):
         update_condition.append(f"relationship = '{json_data.get('relationship')}'")
+
+    if json_data.get('new_plate_no'):
+        data = {"new_plate_no": json_data.get('new_plate_no'), "old_plate_no": json_data.get('plate_no'),
+                "operater": json_data.get('operater'), "operater_id": json_data.get('operater_id')}
+        update_car_plate_no(data)
 
     if update_condition:
         db = DbUtil(global_config.DB_HOST, global_config.DB_USERNAME, global_config.DB_PASSWORD,
