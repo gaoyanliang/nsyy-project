@@ -469,7 +469,7 @@ def auto_fetch_data():
             args.append((
                 vip_car['vehicle_id'], vip_car['plate_no'], vip_car['person_name'], vip_car['vehicle_group'],
                 vip_car['park_name'], vip_car['start_date'], vip_car['end_date'], vip_car['vip_status'],
-                vip_car['violated'], vip_car['left_days'], f"{vip_car['start_date']} 00:00:00"
+                vip_car['violated'], vip_car['left_days'], datetime.now().strftime("%Y-%m-%d %H:%M:%S")
             ))
         insert_sql = """INSERT INTO nsyy_gyl.parking_vip_cars (vehicle_id, plate_no, person_name, vehicle_group, 
             park_name, start_date, end_date, vip_status, violated, left_days, create_at) 
