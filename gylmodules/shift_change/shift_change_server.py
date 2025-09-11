@@ -1023,8 +1023,8 @@ def general_dept_shift_change(reg_sqls, shift_classes, time_slot, dept_list, sho
     del db
 
     patient_count, siwang_patients, chuangwei_info1, chuangwei_info2, \
-        teshu_ydhl_patients, teshu_pg_patients, ydhl_patients, pg_patients, \
-        eye_pg_patients, eye_ydhl_patients, shuhou_patients, chuyuan_ydhl = [], [], [], [], [], [], [], [], [], [], [], []
+        teshu_ydhl_patients, teshu_pg_patients, ydhl_patients_other, ydhl_patients_shoushu, pg_patients, \
+        eye_pg_patients, eye_ydhl_patients, shuhou_patients, chuyuan_ydhl = [], [], [], [], [], [], [], [], [], [], [], [], []
     with ThreadPoolExecutor(max_workers=12) as executor:
         # 提交所有任务（添加时间统计）
         tasks = {
@@ -1058,7 +1058,7 @@ def general_dept_shift_change(reg_sqls, shift_classes, time_slot, dept_list, sho
                                            .replace("{特殊病区}",
                                                     """'ICU护理单元','CCU护理单元','AICU护理单元','妇产科护理单元','眼科护理单元','疼痛科护理单元'""")
                                            .replace("{病区id}", ', '.join(f"'{item}'" for item in dept_list))),
-            "ydhl_patients": executor.submit(timed_execution, "普通病区 患者信息 ydhl 8",
+            "ydhl_patients_other": executor.submit(timed_execution, "普通病区 患者信息 ydhl 8 其他类型",
                                              global_tools.call_new_his, reg_sqls.get(12).get('sql_ydhl')
                                              .replace("{特殊病区}",
                                                       """'ICU护理单元','CCU护理单元','AICU护理单元','妇产科护理单元','眼科护理单元','疼痛科护理单元'""")
@@ -1066,6 +1066,13 @@ def general_dept_shift_change(reg_sqls, shift_classes, time_slot, dept_list, sho
                                              .replace("{start_time}", shift_start)
                                              .replace("{end_time}", shift_end)
                                              , 'ydhl', None),
+            "ydhl_patients_shoushu": executor.submit(timed_execution, "普通病区 患者信息 ydhl 8 手术类型",
+                                                   global_tools.call_new_his, reg_sqls.get(12).get('sql_zz')
+                                                   .replace("{特殊病区}",
+                                                            """'ICU护理单元','CCU护理单元','AICU护理单元','妇产科护理单元','眼科护理单元','疼痛科护理单元'""")
+                                                   .replace("{start_time}", shift_start)
+                                                   .replace("{end_time}", shift_end)
+                                                   , 'ydhl', None),
             "eye_pg_patients": executor.submit(timed_execution, "眼科病区 患者信息 pg 9",
                                                global_tools.call_new_his_pg, reg_sqls.get(19).get('sql_base')
                                                .replace("{start_time}", shift_start)
@@ -1099,7 +1106,8 @@ def general_dept_shift_change(reg_sqls, shift_classes, time_slot, dept_list, sho
         chuangwei_info2 = results.get("chuangwei_info2", [])
         teshu_ydhl_patients = results["teshu_ydhl_patients"]
         teshu_pg_patients = results["teshu_pg_patients"]
-        ydhl_patients = results["ydhl_patients"]
+        ydhl_patients_other = results["ydhl_patients_other"]
+        ydhl_patients_shoushu = results["ydhl_patients_shoushu"]
         pg_patients = results["pg_patients"]
         eye_pg_patients = results["eye_pg_patients"]
         eye_ydhl_patients = results["eye_ydhl_patients"]
@@ -1127,6 +1135,7 @@ def general_dept_shift_change(reg_sqls, shift_classes, time_slot, dept_list, sho
         return (x.get("病人id"), x.get("主页id"), x.get("标识"))
 
     groups = defaultdict(list)
+    ydhl_patients = ydhl_patients_other + ydhl_patients_shoushu
     for patient in ydhl_patients:
         groups[key_func(patient)].append(patient)
 
