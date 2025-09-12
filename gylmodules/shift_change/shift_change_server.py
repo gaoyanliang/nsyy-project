@@ -516,7 +516,7 @@ def aicu_shift_change(reg_sqls, shift_classes, time_slot, shoushu, flush: bool =
     del db
 
     patient_count, teshu_patients, chuangwei_info1, chuangwei_info2, pg_patients, \
-        ydhl_patients, shuhou_patients = [], [], [], [], [], [], []
+        ydhl_patients, shuhou_patients, chuyuan_ydhl = [], [], [], [], [], [], [], []
     with ThreadPoolExecutor(max_workers=5) as executor:
         # 提交所有任务（添加时间统计）
         tasks = {
@@ -535,7 +535,8 @@ def aicu_shift_change(reg_sqls, shift_classes, time_slot, shoushu, flush: bool =
             "ydhl_patients": executor.submit(timed_execution, "AICU/CCU 护理单元患者情况 ydhl 6 ",
                                              global_tools.call_new_his, reg_sqls.get(15).get('sql_ydhl')
                                              .replace("{start_time}", shift_start)
-                                             .replace("{end_time}", shift_end), 'ydhl', None)
+                                             .replace("{end_time}", shift_end), 'ydhl', None),
+            "chuyuan_ydhl": executor.submit(discharge_situation)
         }
         if int(shift_classes) == 3:
             tasks["chuangwei_info1"] = executor.submit(timed_execution, "AICU/CCU 特殊患者床位信息 3 ",
@@ -557,6 +558,12 @@ def aicu_shift_change(reg_sqls, shift_classes, time_slot, shoushu, flush: bool =
         pg_patients = results["pg_patients"]
         ydhl_patients = results["ydhl_patients"]
         shuhou_patients = results.get("shuhou_patients", [])
+        chuyuan_ydhl = results.get("chuyuan_ydhl")
+
+    if chuyuan_ydhl:
+        for patient in teshu_patients:
+            if patient.get('患者类别') == '出院':
+                patient['患者情况'] = patient['患者情况'].replace('###', chuyuan_ydhl.get(patient.get('住院号'), ''))
 
     start_time = time.time()
     all_patient_info = teshu_patients if teshu_patients else []
@@ -617,7 +624,7 @@ def ob_gyn_shift_change(reg_sqls, shift_classes, time_slot, shoushu, flush: bool
     del db
 
     patient_count, teshu_patients, chuangwei_info1, chuangwei_info2, pg_patients, \
-        ydhl_patients, shuhou_patients = [], [], [], [], [], [], []
+        ydhl_patients, shuhou_patients, chuyuan_ydhl = [], [], [], [], [], [], [], []
     with ThreadPoolExecutor(max_workers=5) as executor:
         # 提交所有任务（添加时间统计）
         tasks = {
@@ -636,7 +643,8 @@ def ob_gyn_shift_change(reg_sqls, shift_classes, time_slot, shoushu, flush: bool
             "ydhl_patients": executor.submit(timed_execution, "妇产科 护理单元患者情况 ydhl 6 ",
                                              global_tools.call_new_his, reg_sqls.get(17).get('sql_ydhl')
                                              .replace("{start_time}", shift_start)
-                                             .replace("{end_time}", shift_end), 'ydhl', None)
+                                             .replace("{end_time}", shift_end), 'ydhl', None),
+            "chuyuan_ydhl": executor.submit(discharge_situation)
         }
         if int(shift_classes) == 3:
             tasks["chuangwei_info1"] = executor.submit(timed_execution, "妇产科 特殊患者床位信息 3 ",
@@ -658,6 +666,12 @@ def ob_gyn_shift_change(reg_sqls, shift_classes, time_slot, shoushu, flush: bool
         pg_patients = results["pg_patients"]
         ydhl_patients = results["ydhl_patients"]
         shuhou_patients = results.get("shuhou_patients", [])
+        chuyuan_ydhl = results.get("chuyuan_ydhl")
+
+    if chuyuan_ydhl:
+        for patient in teshu_patients:
+            if patient.get('患者类别') == '出院':
+                patient['患者情况'] = patient['患者情况'].replace('###', chuyuan_ydhl.get(patient.get('住院号'), ''))
 
     all_patient_info = teshu_patients if teshu_patients else []
 
