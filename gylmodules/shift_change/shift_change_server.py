@@ -927,8 +927,12 @@ def pain_shift_change(reg_sqls, shift_classes, time_slot, shoushu, flush: bool =
             shoushu_patients.append(item)
             continue
 
-        item['患者情况'] = base_patient_dict.get(
-            (str(item.get('病人id')), str(item.get('主页id')), item.get('患者类别')), '')
+        if item.get('患者类别') in ['入院', '转入']:
+            item['患者情况'] = item.get('患者情况') + base_patient_dict.get(
+                (str(item.get('病人id')), str(item.get('主页id')), item.get('患者类别')), '')
+        else:
+            item['患者情况'] = base_patient_dict.get(
+                (str(item.get('病人id')), str(item.get('主页id')), item.get('患者类别')), '')
         all_patient_info.append(item)
 
     if ydhl_patients:
