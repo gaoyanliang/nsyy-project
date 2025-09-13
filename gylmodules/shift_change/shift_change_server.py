@@ -1489,6 +1489,10 @@ def save_data(shift_classes, patients, patient_count, patient_bed_info):
     db = DbUtil(global_config.DB_HOST, global_config.DB_USERNAME, global_config.DB_PASSWORD,
                 global_config.DB_DATABASE_GYL)
     if patients:
+        for item in patients:
+            if item.get('患者情况'):
+                item['患者情况'] = item.get('患者情况').replace(',瞳孔:,左侧形状:,直径:,对光反应:,边缘:,右侧形状:,直径:,对光反应:,边缘:', '')
+
         patient_list = [(today_date, shift_classes,
                          patient.get('bingrenzyid') if patient.get('bingrenzyid') else '0',
                          patient.get('住院号') if patient.get('住院号') else '0',
@@ -1498,9 +1502,9 @@ def save_data(shift_classes, patients, patient_count, patient_bed_info):
                          patient.get('年龄') if patient.get('年龄') else '0',
                          patient.get('主要诊断') if patient.get('主要诊断') else '',
                          patient.get('患者类别') if patient.get('患者类别') else '',
-                         patient.get('所在科室id') if patient.get('所在科室id') else '0',
+                         int(patient.get('所在科室id')) if patient.get('所在科室id') else 0,
                          patient.get('所在科室') if patient.get('所在科室') else '',
-                         patient.get('所在病区id') if patient.get('所在病区id') else '0',
+                         int(patient.get('所在病区id')) if patient.get('所在病区id') else 0,
                          patient.get('所在病区') if patient.get('所在病区') else '',
                          patient.get('主治医生姓名') if patient.get('主治医生姓名') else '',
                          patient.get('患者情况') if patient.get('患者情况') else '',
