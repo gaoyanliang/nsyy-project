@@ -208,13 +208,15 @@ def update_shift_change_data(json_data):
 
     if 'id' in json_data:
         # 更新交班数据
-        set_condition = []
+        set_fields = []
+        args = []
         for key, value in json_data.items():
             if key in ['zhenduan', 'patient_type', 'doctor_name', 'patient_info']:
-                value = value.replace("%", "%%")
-                set_condition.append(f"{key} = '{value}'")
-        sql = f"UPDATE nsyy_gyl.scs_patients SET {','.join(set_condition)} where id = {json_data.get('id')}"
-        db.execute(sql, need_commit=True)
+                set_fields.append(f"{key} = %s")
+                args.append(value)
+        args.append(json_data.get('id'))
+        sql = f"UPDATE nsyy_gyl.scs_patients SET {','.join(set_fields)} where id = %s"
+        db.execute(sql, args, need_commit=True)
     else:
         sql = f"""INSERT INTO nsyy_gyl.scs_patients(shift_date, shift_classes, bingrenzyid, zhuyuanhao, bed_no, 
                         patient_name, patient_sex, patient_age, zhenduan, patient_type, patient_dept_id, patient_dept,
@@ -226,7 +228,7 @@ def update_shift_change_data(json_data):
                 json_data.get('patient_sex', ''), json_data.get('patient_age', ''), json_data.get('zhenduan', ''),
                 json_data.get('patient_type'), json_data.get('patient_dept_id', '0'),
                 json_data.get('patient_dept', '0'), json_data.get('patient_ward_id'), json_data.get('patient_ward'),
-                json_data.get('doctor_name'), json_data.get('patient_info').replace("%", "%%"),
+                json_data.get('doctor_name'), json_data.get('patient_info').replace("%", "%"),
                 datetime.now().strftime("%Y-%m-%d %H:%M:%S"), datetime.now().strftime("%Y-%m-%d %H:%M:%S"))
         db.execute(sql, args, need_commit=True)
     del db
@@ -612,6 +614,12 @@ def aicu_shift_change(reg_sqls, shift_classes, time_slot, shoushu, flush: bool =
 
 
 def ob_gyn_shift_change(reg_sqls, shift_classes, time_slot, shoushu, flush: bool = False):
+    if int(shift_classes) == 1:
+        trunc = '17.5'
+    elif int(shift_classes) == 2:
+        trunc = '21.5'
+    else:
+        trunc = '7'
     start_time = time.time()
     start = start_time
     shift_start, shift_end = get_complete_time_slot(time_slot)
@@ -642,6 +650,7 @@ def ob_gyn_shift_change(reg_sqls, shift_classes, time_slot, shoushu, flush: bool
                                            .replace("{end_time}", shift_end)),
             "ydhl_patients": executor.submit(timed_execution, "妇产科 护理单元患者情况 ydhl 6 ",
                                              global_tools.call_new_his, reg_sqls.get(17).get('sql_ydhl')
+                                             .replace("{trunc}", trunc)
                                              .replace("{start_time}", shift_start)
                                              .replace("{end_time}", shift_end), 'ydhl', None),
             "chuyuan_ydhl": executor.submit(discharge_situation)
@@ -1097,6 +1106,7 @@ def general_dept_shift_change(reg_sqls, shift_classes, time_slot, dept_list, sho
                                                .replace("{end_time}", shift_end)),
             "eye_ydhl_patients": executor.submit(timed_execution, "眼科病区 患者信息 ydhl 10",
                                                  global_tools.call_new_his, reg_sqls.get(19).get('sql_ydhl')
+                                                 .replace("{trunc}", trunc)
                                                  .replace("{start_time}", shift_start).replace("{end_time}", shift_end)
                                                  , 'ydhl', None),
             "chuyuan_ydhl": executor.submit(discharge_situation)
