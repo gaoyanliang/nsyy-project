@@ -493,11 +493,8 @@ def doctor_shift_change(reg_sqls, shift_classes, time_slot, dept_id_list, flush:
     filtered_patients = [dept for dept in patients if dept['所在科室id'] in dept_id_list]
     filtered_patient_count = [dept for dept in patient_count if dept['所在科室id'] in dept_id_list]
     all_patients = merge_patient_cv_data(all_cvs, filtered_patients, 1, dept_id_list)
-    if flush:
-        patient_count_list = []
-    else:
-        patient_count_list = fill_missing_types(filtered_patient_count, shift_change_config.dept_people_count, 1)
-    save_data(f"1-{shift_classes}", all_patients, patient_count_list, None)
+    patient_count_list = fill_missing_types(filtered_patient_count, shift_change_config.dept_people_count, 1)
+    save_data(f"1-{shift_classes}", all_patients, patient_count_list, None, flush)
     logger.info(f"医生 {','.join(dept_id_list)} 交接班数据查询完成 ✅ 总耗时 {time.time() - start_time} 秒")
 
 
@@ -579,14 +576,17 @@ def aicu_shift_change(reg_sqls, shift_classes, time_slot, shoushu, flush: bool =
         groups[key_func(patient)].append(patient)
 
     for patient in pg_patients:
-        key = (patient.get("病人id"), str(patient.get("主页id")), '病危重') if patient.get("患者类别") in ['病危',
-                                                                                                           '病重'] \
-            else (patient.get("病人id"), str(patient.get("主页id")), patient.get("患者类别"))
+        if patient.get("患者类别") in ['病危', '病重']:
+            key = (patient.get("病人id"), str(patient.get("主页id")), '病危重')
+        elif patient.get("患者类别") in ['入院', '转入']:
+            key = (patient.get("病人id"), str(patient.get("主页id")), '新转入')
+        else:
+            key = (patient.get("病人id"), str(patient.get("主页id")), patient.get("患者类别"))
         tmp_info = patient.get("患者情况", '') if patient.get("患者情况", '') else ''
         ydhl_list = groups.get(key)
         if ydhl_list:
             for ydhl_patient in ydhl_list:
-                if patient.get("患者类别") == '转入':
+                if patient.get("患者类别") == '入院' or patient.get("患者类别") == '转入':
                     if ydhl_patient.get("转入时间") == patient.get("转入时间"):
                         tmp_info = tmp_info + (
                             str(ydhl_patient.get("患者情况", '')) if ydhl_patient.get("患者情况", '') else '')
@@ -604,9 +604,7 @@ def aicu_shift_change(reg_sqls, shift_classes, time_slot, shoushu, flush: bool =
 
     all_patients = merge_patient_cv_data(all_cvs, all_patient_info, 2, ["1000965", "1001120"])
     all_patients = merge_patient_shuhou_data(shuhou_patients, all_patients, shoushu)
-    if flush:
-        patient_count = []
-    save_data(f"2-{shift_classes}", all_patients, patient_count, chuangwei_info1 + chuangwei_info2)
+    save_data(f"2-{shift_classes}", all_patients, patient_count, chuangwei_info1 + chuangwei_info2, flush)
     logger.info(f"AICU/CCU 交接班数据查询完成 ✅ 总耗时: {time.time() - start}")
 
 
@@ -712,9 +710,7 @@ def ob_gyn_shift_change(reg_sqls, shift_classes, time_slot, shoushu, flush: bool
 
     all_patients = merge_patient_cv_data(all_cvs, all_patient_info, 2, ["1000961"])
     all_patients = merge_patient_shuhou_data(shuhou_patients, all_patients, shoushu)
-    if flush:
-        patient_count = []
-    save_data(f"2-{shift_classes}", all_patient_info, patient_count, chuangwei_info1 + chuangwei_info2)
+    save_data(f"2-{shift_classes}", all_patient_info, patient_count, chuangwei_info1 + chuangwei_info2, flush)
     logger.info(f"妇产科 交接班数据查询完成 ✅ 总耗时: {time.time() - start}")
 
 
@@ -773,9 +769,7 @@ def icu_shift_change(reg_sqls, shift_classes, time_slot, flush: bool = False):
         patient_count = fill_missing_types(patient_count, shift_change_config.ward_people_count, 2)
 
     all_patients = merge_patient_cv_data(all_cvs, teshu_patients, 2, ["1000962"])
-    if flush:
-        patient_count = []
-    save_data(f"2-{shift_classes}", all_patients, patient_count, chuangwei_info1 + chuangwei_info2)
+    save_data(f"2-{shift_classes}", all_patients, patient_count, chuangwei_info1 + chuangwei_info2, flush)
     logger.info(f"重症科室 交接班数据查询完成 ✅ 耗时: {time.time() - start}")
 
 
@@ -1015,14 +1009,11 @@ def pain_shift_change(reg_sqls, shift_classes, time_slot, shoushu, flush: bool =
 
     all_patients = merge_patient_cv_data(all_cvs, all_patient_info, 2, ["1000973"])
     all_patients = merge_patient_shuhou_data(shuhou_patients, all_patients, shoushu)
-    if flush:
-        patient_count = []
-
     chuangwei_info_list = chuangwei_info1 + chuangwei_info2
     for item in chuangwei_info_list:
         item['所在病区id'] = str(shift_change_config.his_dept_dict.get(item['所在病区'], ''))
     filtered_chuangwei_info = [dept for dept in chuangwei_info_list if str(dept['所在病区id']) == '1000973']
-    save_data(f"2-{shift_classes}", all_patients, patient_count, filtered_chuangwei_info)
+    save_data(f"2-{shift_classes}", all_patients, patient_count, filtered_chuangwei_info, flush)
     logger.info(f"疼痛科 交接班数据查询完成 ✅ 总耗时: {time.time() - start}")
 
 
@@ -1227,9 +1218,7 @@ def general_dept_shift_change(reg_sqls, shift_classes, time_slot, dept_list, sho
     filtered_patients = [dept for dept in all_patient_info if dept['所在病区id'] in dept_list]
     all_patients = merge_patient_cv_data(all_cvs, filtered_patients, 2, dept_list)
     all_patients = merge_patient_shuhou_data(shuhou_patients, all_patients, shoushu)
-    if flush:
-        patient_count_list = []
-    save_data(f"2-{shift_classes}", all_patients, patient_count_list, filtered_chuangwei_info)
+    save_data(f"2-{shift_classes}", all_patients, patient_count_list, filtered_chuangwei_info, flush)
     logger.info(f"普通科室 {','.join(dept_list)} 通用交接班数据查询完成 ✅ 耗时: {time.time() - start}")
 
 
@@ -1459,11 +1448,11 @@ def merge_patient_shuhou_data(shuhou_list, patient_list, shoushu_list):
                     continue
 
                 p_shuhou = p_shuhou[0]
-                p = {'bingrenzyid': patient.get('bingrenzyid'), '住院号': patient.get('zhuyuanhao'),
-                     '床号': p_shuhou.get('床号', ''), '姓名': patient.get('patient_name'),
-                     '性别': patient.get('patient_sex'), '年龄': patient.get('patient_age'),
-                     '主要诊断': patient.get('zhenduan'), '患者类别': '',
-                     '主治医生姓名': patient.get('doctor_name'), '患者情况': p_shuhou.get('患者情况', '')
+                p = {'bingrenzyid': patient.get('bingrenzyid'), '住院号': patient.get('住院号'),
+                     '床号': p_shuhou.get('床号', ''), '姓名': patient.get('姓名'),
+                     '性别': patient.get('性别'), '年龄': patient.get('年龄'),
+                     '主要诊断': patient.get('主要诊断'), '患者类别': '',
+                     '主治医生姓名': patient.get('主治医生姓名'), '患者情况': p_shuhou.get('患者情况', '')
                      }
 
                 dept_name = p_shuhou.get('所在病区', '')
@@ -1491,11 +1480,14 @@ def timed_execution(log_info, func, *args):
 """持久化交接班数据"""
 
 
-def save_data(shift_classes, patients, patient_count, patient_bed_info):
+def save_data(shift_classes, patients, patient_count, patient_bed_info, flush: bool = False):
     today_date = datetime.now().strftime("%Y-%m-%d")
     if str(shift_classes).endswith('-3'):
         # 晚班属于前一天的交班
         today_date = (datetime.now() - timedelta(days=1)).strftime("%Y-%m-%d")
+        if flush:
+            patient_count = []
+            patient_bed_info = []
     db = DbUtil(global_config.DB_HOST, global_config.DB_USERNAME, global_config.DB_PASSWORD,
                 global_config.DB_DATABASE_GYL)
     if patients:
@@ -1644,6 +1636,10 @@ def timed_shift_change():
     if datetime.now().hour in [0, 1, 2, 3, 4, 5, 9, 10, 11, 12, 23]:
         return
 
+    redis_client = redis.Redis(connection_pool=pool)
+    # 尝试设置键，只有当键不存在时才设置成功.  ex=600 表示过期时间 120 秒（2 分钟），nx=True 表示不存在时才设置
+    redis_client.set(f"timed_shift_change", 1, ex=180, nx=True)
+
     shift_groups = []
     try:
         shift_groups = upcoming_shifts_grouped()
@@ -1729,6 +1725,8 @@ def timed_shift_change():
             except Exception as e:
                 logger.warning(f"护理 {time_slot} 交班异常: {e}")
 
+    redis_client.delete(f"timed_shift_change")
+
 
 """单独执行某一个科室 某一个班次的交接班"""
 
@@ -1770,15 +1768,19 @@ def single_run_shift_change(json_data):
     reg_sqls = {item.get('sid'): item for item in all_sqls}
 
     redis_client = redis.Redis(connection_pool=pool)
+    if not redis_client.set(f"timed_shift_change", 2, ex=180, nx=True):
+        raise Exception("有正在执行的交接班任务，请稍后重试")
+
     # 尝试设置键，只有当键不存在时才设置成功.  ex=600 表示过期时间 600 秒（10 分钟），nx=True 表示不存在时才设置
     if not redis_client.set(f"shift_change:{str(dept_id)}", dept_id, ex=600, nx=True):
+        redis_client.delete(f"timed_shift_change")
         raise Exception('请先歇一歇，给系统一点反应时间（10分钟刷一次）')
 
-    shoushu_patients = []
-    if int(shift_classes) == 3:
-        shoushu_patients = query_shoushu_patient_zhuyuanhao()
-
     try:
+        shoushu_patients = []
+        if int(shift_classes) == 3:
+            shoushu_patients = query_shoushu_patient_zhuyuanhao()
+
         if shift_type == 1:
             # 医生交接班
             doctor_shift_change(reg_sqls, shift_classes, time_slot, dept_list, True)
@@ -1787,19 +1789,27 @@ def single_run_shift_change(json_data):
                 # AICU/CCU交接班
                 shoushu = [item for item in shoushu_patients if str(item.get('所在病区id')) in ('1000965', '1001120')]
                 aicu_shift_change(reg_sqls, shift_classes, time_slot, shoushu, True)
+
+                redis_client.delete(f"timed_shift_change")
                 return
             if len(dept_list) == 1 and '1000961' in dept_list:
                 # 妇产科交接班
                 shoushu = [item for item in shoushu_patients if str(item.get('所在病区id')) == '1000961']
                 ob_gyn_shift_change(reg_sqls, shift_classes, time_slot, shoushu, True)
+
+                redis_client.delete(f"timed_shift_change")
                 return
             if len(dept_list) == 1 and '1000962' in dept_list:
                 # 重症 ICU 交接班
                 icu_shift_change(reg_sqls, shift_classes, time_slot, True)
+
+                redis_client.delete(f"timed_shift_change")
                 return
             if len(dept_list) == 1 and '1000973' in dept_list:
                 shoushu = [item for item in shoushu_patients if str(item.get('所在病区id')) == '1000973']
                 pain_shift_change(reg_sqls, shift_classes, time_slot, shoushu)
+
+                redis_client.delete(f"timed_shift_change")
                 return
 
             # 普通护理交接班
@@ -1810,6 +1820,8 @@ def single_run_shift_change(json_data):
     except Exception as e:
         logger.warning(f"{time_slot} 交班异常: {e}")
         redis_client.delete(f"shift_change:{dept_id}")
+        redis_client.delete(f"timed_shift_change")
+    redis_client.delete(f"timed_shift_change")
 
 
 """sql 没有统计的患者类别，人数默认为 0"""
