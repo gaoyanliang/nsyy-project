@@ -1362,12 +1362,21 @@ def merge_patient_cv_data(cv_list, patient_list, shift_type, dept_list):
         zhuyuanhao_list = [str(cv.get('patient_treat_id')) for cv in cv_list if cv.get('patient_treat_id')]
         cv_zhenduan = query_cv_zhenduan(zhuyuanhao_list)
 
-        cv_dict = {(str(cv.get('patient_treat_id')), str(cv.get('dept_id'))): cv for cv in cv_list if
-                   cv.get('dept_id') and cv.get('patient_treat_id')}
-        if int(shift_type) == 2:
-            # 护理交接班
-            cv_dict = {(str(cv.get('patient_treat_id')), str(cv.get('ward_id'))): cv for cv in cv_list if
-                       cv.get('ward_id') and cv.get('patient_treat_id')}
+        cv_dict = {}
+        if int(shift_type) == 1:
+            for cv in cv_list:
+                if cv.get('dept_id') and cv.get('patient_treat_id'):
+                    key = (str(cv['patient_treat_id']), str(cv['dept_id']))
+                    if key not in cv_dict:
+                        cv_dict[key] = []  # 初始化列表
+                    cv_dict[key].append(cv)
+        else:
+            for cv in cv_list:
+                if cv.get('ward_id') and cv.get('patient_treat_id'):
+                    key = (str(cv['patient_treat_id']), str(cv['ward_id']))
+                    if key not in cv_dict:
+                        cv_dict[key] = []
+                    cv_dict[key].append(cv)
 
         patient_dict = defaultdict(list)
         for patient in patient_list:
@@ -1375,16 +1384,21 @@ def merge_patient_cv_data(cv_list, patient_list, shift_type, dept_list):
                 else (str(patient.get('住院号')), str(patient.get('所在科室id')))
             patient_dict[key].append(patient)
 
-        for (zhuyuanhao, dpid), cv in cv_dict.items():
-            if str(dpid) not in dept_list or not cv.get('patient_treat_id'):
+        for (zhuyuanhao, dpid), cvs in cv_dict.items():
+            cv = cvs[0]
+            if str(dpid) not in dept_list or not cv or not cv.get('patient_treat_id'):
                 continue
 
+            p_info = ''
+            for item in cvs:
+                p_info = p_info + f"  {item.get('alertdt')} 接危急值系统报 {item.get('cv_name')} " \
+                                  f"{item['cv_result'] if item.get('cv_result') else ''} " \
+                                  f"{item['cv_unit'] if item.get('cv_unit') else ''}, " \
+                                  f"遵医嘱 {item.get('method') if item.get('method') else ''} 处理"
             if patient_dict.get((zhuyuanhao, dpid)):
                 ps = patient_dict.get((zhuyuanhao, dpid))
                 ps[0]['患者类别'] = ps[0]['患者类别'] + ', 危急值'
-                ps[0]['患者情况'] = ps[0]['患者情况'] + f"  {cv.get('alertdt')} 接危急值系统报 {cv.get('cv_name')} " \
-                                                        f"{cv.get('cv_result') if cv.get('cv_result') else ''} {cv.get('cv_unit') if cv.get('cv_unit') else ''}, " \
-                                                        f"遵医嘱给予 {cv.get('method') if cv.get('method') else ''} 处理"
+                ps[0]['患者情况'] = ps[0]['患者情况'] + p_info
             else:
                 sex = '未知'
                 if str(cv.get('patient_gender')) == '1':
@@ -1396,9 +1410,7 @@ def merge_patient_cv_data(cv_list, patient_list, shift_type, dept_list):
                      '姓名': cv.get('patient_name'), '性别': sex, '年龄': cv.get('patient_age'),
                      '主要诊断': cv_zhenduan.get(zhuyuanhao, ''), '患者类别': '危急值',
                      '主治医生姓名': cv.get('req_docno'),
-                     '患者情况': f"{cv.get('alertdt')} 接危急值系统报 {cv.get('cv_name')} "
-                                 f"{cv.get('cv_result') if cv.get('cv_result') else ''} {cv.get('cv_unit') if cv.get('cv_unit') else ''}, "
-                                 f"遵医嘱给予 {cv.get('method') if cv.get('method') else ''} 处理"
+                     '患者情况': p_info
                      }
                 if int(shift_type) == 1:
                     p['所在科室id'] = cv.get('dept_id') if cv.get('dept_id') else ''
