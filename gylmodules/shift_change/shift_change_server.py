@@ -2,7 +2,6 @@ import json
 import logging
 import re
 import time
-import traceback
 import uuid
 from collections import defaultdict
 from concurrent.futures import ThreadPoolExecutor

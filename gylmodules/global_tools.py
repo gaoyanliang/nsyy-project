@@ -74,35 +74,41 @@ logger = logging.getLogger(__name__)
 
 
 def call_new_his(sql: str, sys: str = 'newzt', clobl: list = None):
-    """
-    调用新 his 查询数据
-    :param sql:
-    :param sys:
-    :param clobl:
-    :return:
-    """
+    """调用新 HIS 查询数据（支持异常重试）"""
+    max_retries = 3
+    retry_delay: float = 1.0
     param = {"key": "o4YSo4nmde9HbeUPWY_FTp38mB1c", "sys": sys, "sql": sql}
     if clobl:
         param['clobl'] = clobl
 
+    # 动态 URL
     query_oracle_url = "http://127.0.0.1:6080/oracle_sql"
     if global_config.run_in_local:
         query_oracle_url = "http://192.168.124.53:6080/oracle_sql"
 
-    data = []
-    err_data = ''
-    try:
-        response = requests.post(query_oracle_url, json=param, timeout=30)
-        err_data = response.text
-        if response.status_code != 200 or not response.text.strip():
-            logger.error(f"oracle_sql 请求失败，服务器未返回数据：{response.status_code}  {err_data}  {param}")
-            return []
-        data = json.loads(response.text)
-        data = data.get('data', [])
-    except Exception as e:
-        logger.error(f"调用新 HIS 查询数据失败：{param.get('sql')}  {err_data}  {str(e)}")
+    # 重试逻辑
+    last_error = None
+    for attempt in range(3):
+        try:
+            response = requests.post(query_oracle_url, json=param, timeout=30)
+            # 检查 HTTP 状态码
+            response.raise_for_status()
+            result = response.json()
+            data = result.get('data', [])
+            return data
+        except Exception as e:
+            last_error = f"HTTP 请求失败: {str(e)}"
+            logger.warning(f"call_new_his 第 {attempt + 1} 次请求失败")
 
-    return data
+            # 如果是最后一次尝试，直接返回错误
+            if attempt == max_retries - 1:
+                logger.error(f"call_new_his 请求失败 {last_error}")
+                break
+
+            # 延迟重试
+            time.sleep(retry_delay)
+
+    return []
 
 
 def call_new_his_pg(sql):
@@ -123,8 +129,7 @@ def call_new_his_pg(sql):
             retry_count += 1
             if retry_count < max_retries:
                 sleep_time = retry_delay * (2 ** (retry_count - 1))  # 指数退避
-                logging.warning(f"数据库连接失败，第 {retry_count}/{max_retries} 次重试..."
-                                f"错误: {str(e)}，{sleep_time}秒后重试")
+                logging.warning(f"数据库连接失败，第 {retry_count}/{max_retries} 次重试... {sleep_time} 秒后重试")
                 time.sleep(sleep_time)
             else:
                 logging.error(f"数据库操作失败，已达最大重试次数 {max_retries}。最后错误: {str(e)}\nSQL: {sql}")
