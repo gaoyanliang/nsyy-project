@@ -18,3 +18,4 @@ shutdown_day = 9 * 24 * 60
 
 enable_auto_freeze = False
 
+redis_key = 'necessary_to_execute'

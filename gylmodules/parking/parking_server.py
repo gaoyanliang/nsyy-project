@@ -4,7 +4,10 @@ import re
 import time
 from itertools import groupby
 
+import redis
+
 from gylmodules import global_config, global_tools
+from gylmodules.critical_value import cv_config
 from gylmodules.parking import parking_tools, parking_config
 from gylmodules.shift_change import shift_change_config
 from gylmodules.shift_change.shift_change_config import PATIENT_TYPE_ORDER
@@ -12,6 +15,9 @@ from gylmodules.utils.db_utils import DbUtil
 from datetime import datetime, timedelta
 
 logger = logging.getLogger(__name__)
+pool = redis.ConnectionPool(host=cv_config.CV_REDIS_HOST, port=cv_config.CV_REDIS_PORT,
+                            db=cv_config.CV_REDIS_DB, decode_responses=True)
+
 
 """查询预警/停用清单/申请清单"""
 
@@ -76,6 +82,8 @@ def approval_and_enable(json_data, type):
                    "op_result": "成功", "op_time": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
                    'pay_amount': json_data.get('pay_amount', 0)}
     if type == 'enable':
+        redis_client = redis.Redis(connection_pool=pool)
+        redis_client.delete(parking_config.redis_key)
         json_data['park_name'] = car.get('park_name')
         json_data['vehicle_group'] = car.get('vehicle_group')
         operate_log = {"operater": operator, "operater_id": operator_id, "plate_no": car_id,
@@ -122,6 +130,9 @@ def update_car_plate_no(json_data):
     if last_rowid == -1:
         logger.warning(f"会员车辆操作记录添加失败! {operate_log}")
     del db
+
+    redis_client = redis.Redis(connection_pool=pool)
+    redis_client.delete(parking_config.redis_key)
 
 
 """提醒车主超时"""
@@ -321,6 +332,9 @@ def operate_vip_car(type, json_data):
     if last_rowid == -1:
         logger.warning(f"会员车辆操作记录添加失败! {json_data}")
     del db
+
+    redis_client = redis.Redis(connection_pool=pool)
+    redis_client.delete(parking_config.redis_key)
 
 
 """更新会员车辆信息"""
@@ -573,6 +587,10 @@ def auto_freeze_car():
 def auto_asynchronous_execution():
     """异步执行所有车辆操作"""
     def asynchronous_run():
+        redis_client = redis.Redis(connection_pool=pool)
+        if redis_client.exists(parking_config.redis_key):
+            return
+
         db = DbUtil(global_config.DB_HOST, global_config.DB_USERNAME, global_config.DB_PASSWORD,
                     global_config.DB_DATABASE_GYL)
         operate_record = db.query_one(f"select * from nsyy_gyl.parking_operation_logs "
@@ -580,6 +598,7 @@ def auto_asynchronous_execution():
 
         if not operate_record:
             del db
+            redis_client.set(parking_config.redis_key, 1)
             return
 
         try:
