@@ -817,7 +817,7 @@ def create_cv_by_system(json_data, cv_source):
             SELECT bingrenid "病人ID", zhuyuanhao 住院号, ruyuanrq 入院日期, chuyuanrq 出院日期, xingming 姓名, nianling 年龄,
              ruyuanbqid "入院病区ID", ruyuanksid "入院科室ID", dangqianksid "当前科室ID", dangqianbqid "当前病区ID", 
             case when chuyuanrq IS NULL then null else dangqianksid end  "出院科室ID" 
-            FROM df_jj_zhuyuan.zy_bingrenxx WHERE zhuyuanhao = '{cvd['patient_treat_id']}' ORDER BY ruyuanrq DESC
+            FROM df_jj_zhuyuan.zy_bingrenxx WHERE zhuyuanhao = '{cvd['patient_treat_id']}' and zaiyuanzt = 0 ORDER BY ruyuanrq DESC
         """
         data = global_tools.call_new_his(sql)
         if data and data[0]:
