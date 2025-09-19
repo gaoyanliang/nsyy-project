@@ -832,12 +832,6 @@ def update_car_plate_no(vehicle_id, new_plate_no, group):
 if __name__ == "__main__":
     start_t = time.time()
     start_time = time.time()
-    # fetch_data()
-    # add_new_car_and_recharge('京CTEST911', "36716d9a-e37a-11eb-a77d-bb0a9f242da1", "2025-08-11", "2025-09-11")
-
-
-    update_car_plate_no('a69c19624574482d90ff5e9546dfd3fb', "京AAAA22")
-
     # driver = getDriver()
     # print(f"打开浏览器耗时 {time.time() - start_time}")
     # start_time = time.time()
@@ -852,8 +846,8 @@ if __name__ == "__main__":
     # start_time = time.time()
     # all_vip_car = fetch_all_vip_cars(driver)
     # print(f"抓取会员车辆耗时 {time.time() - start_time}, 数量 {len(all_vip_car)}")
-    # # for item in all_vip_car:
-    # #     print(item)
+    # for item in all_vip_car:
+    #     print(item)
     # start_time = time.time()
     # driver.quit()
     # logger.debug("浏览器关闭耗时 ", time.time() - start_time)

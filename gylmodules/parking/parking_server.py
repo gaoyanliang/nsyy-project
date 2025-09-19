@@ -474,6 +474,7 @@ def auto_fetch_data():
         insert_sql = """INSERT INTO nsyy_gyl.parking_vip_cars (vehicle_id, plate_no, person_name, vehicle_group, 
             park_name, start_date, end_date, vip_status, violated, left_days, create_at) 
             VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s) ON DUPLICATE KEY UPDATE vehicle_id = VALUES(vehicle_id), 
+            start_date = VALUES(start_date), end_date = VALUES(end_date), 
             plate_no = VALUES(plate_no), violated = VALUES(violated), left_days = VALUES(left_days)"""
         db.execute_many(insert_sql, args, need_commit=True)
 
