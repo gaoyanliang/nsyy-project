@@ -1,5 +1,6 @@
 import json
 import logging
+import re
 import time
 import traceback
 import uuid
@@ -1499,7 +1500,7 @@ def save_data(shift_classes, patients, patient_count, patient_bed_info, flush: b
         today_date = (datetime.now() - timedelta(days=1)).strftime("%Y-%m-%d")
         if flush:
             patient_count = []
-            patient_bed_info = []
+            # patient_bed_info = []
     db = DbUtil(global_config.DB_HOST, global_config.DB_USERNAME, global_config.DB_PASSWORD,
                 global_config.DB_DATABASE_GYL)
     if patients:
@@ -1556,6 +1557,14 @@ def save_data(shift_classes, patients, patient_count, patient_bed_info, flush: b
         db.execute_many(insert_sql, count_list, need_commit=True)
 
     if patient_bed_info:
+        for item in patient_bed_info:
+            if item.get('患者信息'):
+                try:
+                    beds = re.findall(r'\d+床', item.get('患者信息'))
+                    item['患者信息'] = item.get('患者信息') + f"（共计 {len(beds)} 人）"
+                except Exception as e:
+                    logger.warning(f"患者信息转换异常: {e}")
+
         bed_info_list = [
             (today_date, shift_classes, item.get('患者类别'),
              shift_change_config.his_dept_dict.get(item.get('所在病区'), 0),
