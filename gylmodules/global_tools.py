@@ -75,8 +75,6 @@ logger = logging.getLogger(__name__)
 
 def call_new_his(sql: str, sys: str = 'newzt', clobl: list = None):
     """调用新 HIS 查询数据（支持异常重试）"""
-    max_retries = 3
-    retry_delay: float = 1.0
     param = {"key": "o4YSo4nmde9HbeUPWY_FTp38mB1c", "sys": sys, "sql": sql}
     if clobl:
         param['clobl'] = clobl
@@ -86,9 +84,9 @@ def call_new_his(sql: str, sys: str = 'newzt', clobl: list = None):
     if global_config.run_in_local:
         query_oracle_url = "http://192.168.124.53:6080/oracle_sql"
 
-    # 重试逻辑
-    last_error = None
-    for attempt in range(3):
+    data = []
+    max_retries, retry_count, retry_delay = 3, 0, 1
+    while retry_count < max_retries:
         try:
             response = requests.post(query_oracle_url, json=param, timeout=30)
             # 检查 HTTP 状态码
@@ -97,18 +95,16 @@ def call_new_his(sql: str, sys: str = 'newzt', clobl: list = None):
             data = result.get('data', [])
             return data
         except Exception as e:
-            last_error = f"HTTP 请求失败: {str(e)}"
-            logger.warning(f"call_new_his 第 {attempt + 1} 次请求失败")
+            retry_count += 1
+            if retry_count < max_retries:
+                sleep_time = retry_delay * (2 ** (retry_count - 1))  # 指数退避
+                logging.warning(f"call_new_his 第 {retry_count}/{max_retries} 次重试... {sleep_time} 秒后重试")
+                time.sleep(sleep_time)
+            else:
+                logging.error(f"call_new_his 已达最大重试次数 {max_retries}。最后错误: {str(e)}\nSQL: {sql}")
+                return []
 
-            # 如果是最后一次尝试，直接返回错误
-            if attempt == max_retries - 1:
-                logger.error(f"call_new_his 请求失败 {last_error}")
-                break
-
-            # 延迟重试
-            time.sleep(retry_delay)
-
-    return []
+    return data
 
 
 def call_new_his_pg(sql):
