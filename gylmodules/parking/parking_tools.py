@@ -582,7 +582,7 @@ def vehicle_refund(driver, plateNo, vehicleId, parkId):
 """新增车辆记录(仅车辆信息 不包含人员信息)"""
 
 
-def save_vehicle(driver, plateNo):
+def save_vehicle(driver, plateNo, vehicleGroup):
     """
     保存或更新车辆信息（表单格式POST请求）
     :param plateNo: 车牌号
@@ -602,7 +602,7 @@ def save_vehicle(driver, plateNo):
 
     # 2. 构建表单数据（严格匹配cURL格式）
     form_data = {
-        "plateNo": plateNo, "vehicleGroup": "ab3ccf1c-ebb2-11eb-9895-5f4afbf5c8f2",
+        "plateNo": plateNo, "vehicleGroup": vehicleGroup,
         "plateType": "8", "plateColor": "0", "vehicleType": "0", "vehicleColor": "0", "isFreeScene": "false",
         "vehicleId": "", "personName": "", "personId": "", "orgIndexCode": "", "cardNo": "",
         "mark": "", "parkIds": "", "prevTimeStr": "[]", "newTimeStr": "[]"}
@@ -724,10 +724,10 @@ def add_new_car_and_recharge(car_no, park_id, start_date, end_date, group):
         switch_to_parking_page(driver)
         switch_to_info_query(driver)
 
-        vehicleGroup = "b67185ee-ebad-11eb-9892-8f05dd1cd40b"
+        vehicle_group = "b67185ee-ebad-11eb-9892-8f05dd1cd40b"
         if group == 'VIP':
-            vehicleGroup = "ab3ccf1c-ebb2-11eb-9895-5f4afbf5c8f2"
-        success, car_info = save_vehicle(driver, car_no)
+            vehicle_group = "ab3ccf1c-ebb2-11eb-9895-5f4afbf5c8f2"
+        success, car_info = save_vehicle(driver, car_no, vehicle_group)
         if not success:
             return None
 
