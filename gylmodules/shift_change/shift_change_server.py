@@ -1167,7 +1167,10 @@ def general_dept_shift_change(reg_sqls, shift_classes, time_slot, dept_list, sho
         if ydhl_list:
             for ydhl_patient in ydhl_list:
                 if patient.get("患者类别") == '转入':
-                    if ydhl_patient.get("所在病区") == patient.get("所在病区"):
+                    # 特需病区 ydhl和his中的名字不一致需要特殊处理
+                    if ydhl_patient.get("所在病区") == patient.get("所在病区") or \
+                            (ydhl_patient.get("所在病区", '').__contains__('特需病区护理单元')
+                             and patient.get("所在病区", '').__contains__('特需病区护理单元')):
                         tmp_info = tmp_info + (
                             str(ydhl_patient.get("患者情况", '')) if ydhl_patient.get("患者情况", '') else '')
                         continue
@@ -1190,7 +1193,9 @@ def general_dept_shift_change(reg_sqls, shift_classes, time_slot, dept_list, sho
         if ydhl_list:
             for ydhl_patient in ydhl_list:
                 if patient.get("患者类别") == '转入':
-                    if ydhl_patient.get("所在病区") == patient.get("所在病区"):
+                    if ydhl_patient.get("所在病区") == patient.get("所在病区") or \
+                            (ydhl_patient.get("所在病区", '').__contains__('特需病区护理单元')
+                             and patient.get("所在病区", '').__contains__('特需病区护理单元')):
                         tmp_info = tmp_info + (
                             str(ydhl_patient.get("患者情况", '')) if ydhl_patient.get("患者情况", '') else '')
                         continue
