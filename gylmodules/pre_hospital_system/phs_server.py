@@ -72,6 +72,8 @@ def update_patient_info(json_data, register_id):
         json_data.pop('create_at')
     if 'update_at' in json_data and not json_data.get('update_at'):
         json_data.pop('update_at')
+    if 'zk_time' in json_data and not json_data.get('zk_time'):
+        json_data.pop('zk_time')
 
     db = DbUtil(global_config.DB_HOST, global_config.DB_USERNAME, global_config.DB_PASSWORD,
                 global_config.DB_DATABASE_GYL)
