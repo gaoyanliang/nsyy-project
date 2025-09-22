@@ -135,13 +135,123 @@ def query_patient_list(key, start_date, end_date, page_number, page_size):
     data = db.query_all(query_sql)
     del db
 
+    xindianjianhu_count, xindiantuz_done_count, xindiantu_not_done_count, xindiantu_done_local_count, \
+        qiguan_dairu_count, qiguan_success_count, qiguan_fail_count, jingmai_dairu_count, jingmai_success_count, \
+        jingmai_fail_count, xiongtong_count, cuzhong_count, chuangshang_count = 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0
+
+    doctor_count = {
+        '连明明': 0,
+        '王朋': 0,
+        '赵运海': 0,
+        '赵森': 0,
+        '姚毅君': 0,
+        '庄中宛': 0,
+        '易绍磊': 0,
+        '胡梦丽': 0,
+    }
+
+    nurse_count = {
+        '朱澳': 0,
+        '王鹏耀': 0,
+        '刘霖朋': 0,
+        '华端阳': 0,
+        '王梦芳': 0,
+        '王丽': 0,
+        '付贵资': 0,
+        '王文森': 0,
+        '王建华': 0,
+        '常爽': 0,
+        '赵杰': 0,
+        '王玉坡': 0,
+        '王莹': 0,
+    }
+
+    driver_count = {
+        '王龙': 0,
+        '王华南': 0,
+        '宋迪': 0,
+        '刘彦辉': 0,
+        '夏勇': 0,
+        '刘帆': 0,
+        '闫江': 0,
+    }
+
+    diaodu_count = {
+        '屈元韦': 0,
+        '孙瑞莲': 0,
+        '张晓丽': 0,
+    }
+
+    for item in data:
+        xindianjianhu_count = xindianjianhu_count + 1 if item.get('xindianjianhu') == 1 else 0
+        xindiantuz_done_count = xindiantuz_done_count + 1 if item.get('xindiantuz') == '已做' else 0
+        xindiantu_not_done_count = xindiantu_not_done_count + 1 if item.get('xindiantuz') == '未做' else 0
+        xindiantu_done_local_count = xindiantu_done_local_count + 1 if item.get('xindiantuz') == '当地已做' else 0
+        qiguan_dairu_count = qiguan_dairu_count + 1 if item.get('qiguanchaguan') == '带入' else 0
+        qiguan_success_count = qiguan_success_count + 1 if item.get('qiguanchaguan') == '成功' else 0
+        qiguan_fail_count = qiguan_fail_count + 1 if item.get('qiguanchaguan') == '失败' else 0
+        jingmai_dairu_count = jingmai_dairu_count + 1 if item.get('jingmaitd') == '带入' else 0
+        jingmai_success_count = jingmai_success_count + 1 if item.get('jingmaitd') == '成功' else 0
+        jingmai_fail_count = jingmai_fail_count + 1 if item.get('jingmaitd') == '失败' else 0
+        xiongtong_count = xiongtong_count + 1 if item.get('sandazx', '') and item.get('sandazx', '').__contains__("胸痛") else 0
+        cuzhong_count = cuzhong_count + 1 if item.get('sandazx', '') and item.get('sandazx', '').__contains__("卒中") else 0
+        chuangshang_count = chuangshang_count + 1 if item.get('sandazx', '') and item.get('sandazx', '').__contains__("创伤") else 0
+
+        if item.get('yisheng'):
+            yisheng = item.get('yisheng').replace(' ', '')
+            yishengs = yisheng.split(',')
+            for ys in yishengs:
+                if ys not in doctor_count:
+                    continue
+                doctor_count[ys] = doctor_count[ys] + 1
+        if item.get('hushi'):
+            hushi = item.get('hushi').replace(' ', '')
+            hushis = hushi.split(',')
+            for hs in hushis:
+                if hs not in nurse_count:
+                    continue
+                nurse_count[hs] = nurse_count[hs] + 1
+        if item.get('siji'):
+            siji = item.get('siji').replace(' ', '')
+            sijis = siji.split(',')
+            for sj in sijis:
+                if sj not in driver_count:
+                    continue
+                driver_count[sj] = driver_count[sj] + 1
+        if item.get('dispatch_personnel'):
+            dp = item.get('dispatch_personnel').replace(' ', '')
+            dps = dp.split(',')
+            for sj in dps:
+                if sj not in diaodu_count:
+                    continue
+                diaodu_count[sj] = diaodu_count[sj] + 1
+
     total = len(data)
     if page_number and page_size:
         start_index = (page_number - 1) * page_size
         end_index = start_index + page_size
         data = data[start_index:end_index]
 
-    return {"list": data, "total": total}
+    return {"list": data, "total": total, 'statistical_data': {
+        "心电监护": xindianjianhu_count,
+        "已做心电图": xindiantuz_done_count,
+        "未做心电图": xindiantu_not_done_count,
+        "当地已做心电图": xindiantu_done_local_count,
+        "气管插管-带入": qiguan_dairu_count,
+        "气管插管-成功": qiguan_success_count,
+        "气管插管-失败": qiguan_fail_count,
+        "静脉通道-带入": jingmai_dairu_count,
+        "静脉通道-成功": jingmai_success_count,
+        "静脉通道-失败": jingmai_fail_count,
+        "静脉通道-建立": jingmai_fail_count + jingmai_dairu_count + jingmai_success_count,
+        "胸痛中心": xiongtong_count,
+        "卒中中心": cuzhong_count,
+        "创伤中心": chuangshang_count,
+        "医生工作量": doctor_count,
+        "护士工作量": nurse_count,
+        "司机工作量": driver_count,
+        "调度人员工作量": diaodu_count,
+    }}
 
 
 def query_record_list():
@@ -203,11 +313,13 @@ def create_patient_record(register_id, record_id, record_data):
                 xindiantu = '已做'
             if value.__contains__('心电图-当地已做'):
                 xindiantu = '当地已做'
-            update_condition.append(f"xindaintu = '{xindiantu}'")
+            update_condition.append(f"xindiantu = '{xindiantu}'")
             if value.__contains__('颈椎固定'):
                 update_condition.append(f"jingzhui = 1")
             if value.__contains__('骨盆带固定'):
                 update_condition.append(f"gupendai = 1")
+            if value.__contains__('心电监护'):
+                update_condition.append(f"xindianjianhu = 1")
 
             # 方法1：使用split和isdigit检查
             parts = [p.strip() for p in value.split(',')]
@@ -226,6 +338,18 @@ def create_patient_record(register_id, record_id, record_data):
                     _, _, suffix = value.partition("-")
                     results = results + suffix
             update_condition.append(f"jingmaitd = '{results}'")
+        if int(record_id) == 2 and item.get('field_name') == 'oxygen_method' and item.get('field_value'):
+            value_list = item.get('field_value').split(",")
+            results = ''
+            for value in value_list:
+                if "气管插管-" in value:
+                    _, _, suffix = value.partition("-")
+                    results = results + suffix
+            update_condition.append(f"qiguanchaguan = '{results}'")
+        # 三大中心
+        if int(record_id) == 2 and item.get('field_name') == 'major_centers' and item.get('field_value'):
+            value = item.get('field_value', '')
+            update_condition.append(f"sandazx = '{value}'")
 
     if update_condition:
         update_sql = f"UPDATE nsyy_gyl.phs_patient_registration SET {','.join(update_condition)} WHERE register_id = {register_id}"
