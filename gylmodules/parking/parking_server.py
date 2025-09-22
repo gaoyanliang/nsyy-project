@@ -278,7 +278,7 @@ def operate_vip_car(type, json_data):
         # 操作（renew 续费/ freeze 冻结/ restore 恢复 / reset 重置包期）会员车辆
         operate_type = json_data.get('operate_type')
         vip_car = db.query_one(f"select * from nsyy_gyl.parking_vip_cars where id = {json_data.get('car_id')}")
-        if not vip_car or vip_car.get('vehicle_id', ''):
+        if not vip_car or not vip_car.get('vehicle_id', ''):
             del db
             raise Exception("会员车辆不存在 或 暂未添加成功，请稍后重试!")
 
