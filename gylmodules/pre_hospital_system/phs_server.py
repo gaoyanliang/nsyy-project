@@ -183,20 +183,24 @@ def query_patient_list(key, start_date, end_date, page_number, page_size):
     }
 
     for item in data:
-        xindianjianhu_count = xindianjianhu_count + 1 if item.get('xindianjianhu') == 1 else 0
-        xindiantuz_done_count = xindiantuz_done_count + 1 if item.get('xindiantuz') == '已做' else 0
-        xindiantu_not_done_count = xindiantu_not_done_count + 1 if item.get('xindiantuz') == '未做' else 0
-        xindiantu_done_local_count = xindiantu_done_local_count + 1 if item.get('xindiantuz') == '当地已做' else 0
-        qiguan_dairu_count = qiguan_dairu_count + 1 if item.get('qiguanchaguan') == '带入' else 0
-        qiguan_success_count = qiguan_success_count + 1 if item.get('qiguanchaguan') == '成功' else 0
-        qiguan_fail_count = qiguan_fail_count + 1 if item.get('qiguanchaguan') == '失败' else 0
-        jingmai_dairu_count = jingmai_dairu_count + 1 if item.get('jingmaitd') == '带入' else 0
-        jingmai_success_count = jingmai_success_count + 1 if item.get('jingmaitd') == '成功' else 0
-        jingmai_fail_count = jingmai_fail_count + 1 if item.get('jingmaitd') == '失败' else 0
-        xiongtong_count = xiongtong_count + 1 if item.get('sandazx', '') and item.get('sandazx', '').__contains__("胸痛") else 0
-        cuzhong_count = cuzhong_count + 1 if item.get('sandazx', '') and item.get('sandazx', '').__contains__("卒中") else 0
-        chuangshang_count = chuangshang_count + 1 if item.get('sandazx', '') and item.get('sandazx', '').__contains__("创伤") else 0
-
+        xindianjianhu_count = xindianjianhu_count + 1 if item.get('xindianjianhu') == 1 else xindianjianhu_count
+        xindiantuz_done_count = xindiantuz_done_count + 1 if item.get('xindiantuz') == '已做' else xindiantuz_done_count
+        xindiantu_not_done_count = xindiantu_not_done_count + 1 if item.get(
+            'xindiantuz') == '未做' else xindiantu_not_done_count
+        xindiantu_done_local_count = xindiantu_done_local_count + 1 if item.get(
+            'xindiantuz') == '当地已做' else xindiantu_done_local_count
+        qiguan_dairu_count = qiguan_dairu_count + 1 if item.get('qiguanchaguan') == '带入' else qiguan_dairu_count
+        qiguan_success_count = qiguan_success_count + 1 if item.get('qiguanchaguan') == '成功' else qiguan_success_count
+        qiguan_fail_count = qiguan_fail_count + 1 if item.get('qiguanchaguan') == '失败' else qiguan_fail_count
+        jingmai_dairu_count = jingmai_dairu_count + 1 if item.get('jingmaitd') == '带入' else jingmai_dairu_count
+        jingmai_success_count = jingmai_success_count + 1 if item.get('jingmaitd') == '成功' else jingmai_success_count
+        jingmai_fail_count = jingmai_fail_count + 1 if item.get('jingmaitd') == '失败' else jingmai_fail_count
+        xiongtong_count = xiongtong_count + 1 if item.get('sandazx', '') and item.get('sandazx', '').__contains__(
+            "胸痛") else xiongtong_count
+        cuzhong_count = cuzhong_count + 1 if item.get('sandazx', '') and item.get('sandazx', '').__contains__(
+            "卒中") else cuzhong_count
+        chuangshang_count = chuangshang_count + 1 if item.get('sandazx', '') and item.get('sandazx', '').__contains__(
+            "创伤") else chuangshang_count
         if item.get('yisheng'):
             yisheng = item.get('yisheng').replace(' ', '')
             yishengs = yisheng.split(',')
