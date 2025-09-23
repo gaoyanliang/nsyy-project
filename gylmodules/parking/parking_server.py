@@ -504,7 +504,7 @@ def auto_fetch_data():
         db.execute_many(insert_sql, args, need_commit=True)
 
     if timeout_cars:
-        db.execute("update nsyy_gyl.parking_vip_cars set park_time_str = NULL, park_time = 0", need_commit=True)
+        db.execute("update nsyy_gyl.parking_vip_cars set entry_time = NULL, park_time_str = NULL, park_time = 0", need_commit=True)
         # 构建 CASE WHEN 语句
         park_time_list = []
         plate_no_list = []
