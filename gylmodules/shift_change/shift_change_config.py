@@ -17,6 +17,8 @@ bed_info_list = [
     "过敏史患者",
     '气管切开护理患者',
     '气管插管护理患者',
+    '暴力攻击高风险患者',
+    '烫伤风险患者’',
     '补充说明',
 ]
 
@@ -38,6 +40,8 @@ default_bed_info_list = {
     "过敏史患者": {"patient_type": "过敏史患者", "patient_info": ""},
     "气管切开护理患者": {"patient_type": "气管切开护理患者", "patient_info": ""},
     "气管插管护理患者": {"patient_type": "气管插管护理患者", "patient_info": ""},
+    "暴力攻击高风险患者": {"patient_type": "暴力攻击高风险患者", "patient_info": ""},
+    "烫伤风险患者": {"patient_type": "烫伤风险患者", "patient_info": ""},
     "补充说明": {"patient_type": "补充说明", "patient_info": ""},
 }
 

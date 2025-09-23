@@ -818,6 +818,7 @@ def pain_shift_change(reg_sqls, shift_classes, time_slot, shoushu, flush: bool =
                                                  .replace("{end_time}", shift_end)),
             "teshu_ydhl_patients": executor.submit(timed_execution, "疼痛科 ydhl 特殊处理患者情况 5 ",
                                                    global_tools.call_new_his, reg_sqls.get(24).get('sql_ydhl')
+                                                   .replace("{trunc}", trunc)
                                                    .replace("{start_time}", shift_start)
                                                    .replace("{end_time}", shift_end), 'ydhl', ['患者情况']),
             "base_patients": executor.submit(timed_execution, "疼痛科 护理单元患者情况 pg 6 ",
