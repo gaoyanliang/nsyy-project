@@ -710,7 +710,7 @@ def ob_gyn_shift_change(reg_sqls, shift_classes, time_slot, shoushu, flush: bool
 
     all_patients = merge_patient_cv_data(all_cvs, all_patient_info, 2, ["1000961"])
     all_patients = merge_patient_shuhou_data(shuhou_patients, all_patients, shoushu)
-    save_data(f"2-{shift_classes}", all_patient_info, patient_count, chuangwei_info1 + chuangwei_info2, flush)
+    save_data(f"2-{shift_classes}", all_patients, patient_count, chuangwei_info1 + chuangwei_info2, flush)
     logger.info(f"妇产科 交接班数据查询完成 ✅ 总耗时: {time.time() - start}")
 
 
@@ -1456,7 +1456,7 @@ def merge_patient_shuhou_data(shuhou_list, patient_list, shoushu_list):
             if patient_dict.get(str(patient.get('bingrenzyid'))):
                 ps = patient_dict.get(str(patient.get('bingrenzyid')))
                 info = str(shuhou_dict.get(str(patient.get('bingrenzyid')), [{}])[0].get('患者情况', ''))
-                if info:
+                if info and info != '0':
                     ps[0]['患者情况'] = str(ps[0]['患者情况']).replace(info, '')
                 ps[0]['患者情况'] = str(ps[0]['患者情况']) + info
             else:
