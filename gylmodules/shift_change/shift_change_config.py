@@ -2,7 +2,7 @@ doctor_shift_change_time = []
 
 bed_info_list = [
     "管路滑脱高风险患者",
-    "防跌倒坠床患者",
+    "跌倒坠床高风险患者",
     "压力性损伤高风险患者",
     "传染病患者",
     "VTE确诊患者",
@@ -25,7 +25,7 @@ bed_info_list = [
 
 default_bed_info_list = {
     "管路滑脱高风险患者": {"patient_type": "管路滑脱高风险患者", "patient_info": ""},
-    "防跌倒坠床患者": {"patient_type": "防跌倒坠床患者", "patient_info": ""},
+    "跌倒坠床高风险患者": {"patient_type": "跌倒坠床高风险患者", "patient_info": ""},
     "压力性损伤高风险患者": {"patient_type": "压力性损伤高风险患者", "patient_info": ""},
     "传染病患者": {"patient_type": "传染病患者", "patient_info": ""},
     "VTE确诊患者": {"patient_type": "VTE确诊患者", "patient_info": ""},

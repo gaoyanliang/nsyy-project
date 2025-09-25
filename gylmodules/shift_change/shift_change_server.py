@@ -404,7 +404,7 @@ def query_shoushu_patient_zhuyuanhao():
             item['patient_ward_id'] = shift_change_config.his_dept_dict.get(item.get('所在病区'))
             shoushu_list.append(item)
 
-    logger.info(f"查询手术患者列表耗时: {time.time() - start_time} , 数量 {len(shoushu_set)}")
+    logger.debug(f"查询手术患者列表耗时: {time.time() - start_time} , 数量 {len(shoushu_set)}")
     return patient_info_list
 
 
@@ -434,7 +434,7 @@ def postoperative_situation(shift_classes, dept_list, zhuyuanhao_list):
 
     start_time = time.time()
     result = global_tools.call_new_his(sql=sql, sys='ydhl', clobl=None)
-    logger.info(f"术后信息查询: 术后数量 {len(result)} 执行时间: {time.time() - start_time} s")
+    logger.debug(f"术后信息查询: 术后数量 {len(result)} 执行时间: {time.time() - start_time} s")
     return result
 
 
@@ -543,9 +543,9 @@ def aicu_shift_change(reg_sqls, shift_classes, time_slot, shoushu, flush: bool =
             tasks["chuangwei_info2"] = executor.submit(timed_execution, "AICU/CCU 特殊患者床位信息 4 ",
                                                        global_tools.call_new_his, reg_sqls.get(8).get('sql_ydhl'),
                                                        'ydhl', None)
-            if shoushu:
-                tasks["shuhou_patients"] = executor.submit(postoperative_situation, 3, ['1000965', '1001120'],
-                                                           [item.get('bingrenzyid') for item in shoushu])
+            # if shoushu:
+            #     tasks["shuhou_patients"] = executor.submit(postoperative_situation, 3, ['1000965', '1001120'],
+            #                                                [item.get('bingrenzyid') for item in shoushu])
 
         # 获取结果（会自动等待所有任务完成）
         results = {name: future.result() for name, future in tasks.items()}
@@ -556,7 +556,7 @@ def aicu_shift_change(reg_sqls, shift_classes, time_slot, shoushu, flush: bool =
         chuangwei_info2 = results.get("chuangwei_info2", [])
         pg_patients = results["pg_patients"]
         ydhl_patients = results["ydhl_patients"]
-        shuhou_patients = results.get("shuhou_patients", [])
+        # shuhou_patients = results.get("shuhou_patients", [])
         chuyuan_ydhl = results.get("chuyuan_ydhl")
 
     if chuyuan_ydhl:
@@ -575,6 +575,20 @@ def aicu_shift_change(reg_sqls, shift_classes, time_slot, shoushu, flush: bool =
     for patient in ydhl_patients:
         groups[key_func(patient)].append(patient)
 
+    merged_info = {}  # key = (病人id, 主页id)，value = （'患者类别'）}
+    target_set = set()
+    for patient in pg_patients:
+        person_key = (patient.get("病人id"), str(patient.get("主页id")))
+        if person_key not in merged_info:
+            merged_info[person_key] = set()
+        merged_info[person_key].add(patient.get("患者类别"))
+
+    for person_key, types in merged_info.items():
+        if '转入' in types and '手术' in types:
+            target_set.add(person_key)
+
+    # 如果转入和手术相同，仅需要一份患者情况
+    merged_info = {}  # key = (病人id, 主页id)，value = '患者情况'}
     for patient in pg_patients:
         if patient.get("患者类别") in ['病危', '病重']:
             key = (patient.get("病人id"), str(patient.get("主页id")), '病危重')
@@ -594,6 +608,13 @@ def aicu_shift_change(reg_sqls, shift_classes, time_slot, shoushu, flush: bool =
                 else:
                     tmp_info = tmp_info + (
                         str(ydhl_patient.get("患者情况", '')) if ydhl_patient.get("患者情况", '') else '')
+
+        person_key = (patient.get("病人id"), str(patient.get("主页id")))
+        if person_key in target_set and patient.get("患者类别") in ['转入', '手术']:
+            if merged_info.get(person_key, '') == tmp_info:
+                tmp_info = ''
+            merged_info[person_key] = tmp_info
+
         patient['患者情况'] = tmp_info
         all_patient_info.append(patient)
 
@@ -603,7 +624,7 @@ def aicu_shift_change(reg_sqls, shift_classes, time_slot, shoushu, flush: bool =
         patient_count = fill_missing_types(patient_count, shift_change_config.ward_people_count, 2)
 
     all_patients = merge_patient_cv_data(all_cvs, all_patient_info, 2, ["1000965", "1001120"])
-    all_patients = merge_patient_shuhou_data(shuhou_patients, all_patients, shoushu)
+    # all_patients = merge_patient_shuhou_data(shuhou_patients, all_patients, shoushu)
     save_data(f"2-{shift_classes}", all_patients, patient_count, chuangwei_info1 + chuangwei_info2, flush)
     logger.info(f"AICU/CCU 交接班数据查询完成 ✅ 总耗时: {time.time() - start}")
 
@@ -1352,7 +1373,7 @@ def query_cv_zhenduan(zhuyuanhao_list):
     if not ret:
         return {}
     ret = {str(r.get("住院号")): r.get('主要诊断', '') for r in ret}
-    logger.info(f"查询危机值数据完成耗时: {time.time() - start_time}")
+    logger.debug(f"查询危机值数据完成耗时: {time.time() - start_time}")
     return ret
 
 
@@ -1731,7 +1752,8 @@ def timed_shift_change():
             if '1000965' in dept_list or '1001120' in dept_list:
                 # AICU CCU
                 try:
-                    shoushu = [item for item in shoushu_patients if str(item.get('所在病区id')) in ('1000965', '1001120')]
+                    # shoushu = [item for item in shoushu_patients if str(item.get('所在病区id')) in ('1000965', '1001120')]
+                    shoushu = []
                     aicu_shift_change(reg_sqls, shift_classes, time_slot, shoushu)
                 except Exception as e:
                     logger.warning(f"AICU/CCU {time_slot} 交接班异常: {e}")
@@ -1813,7 +1835,8 @@ def single_run_shift_change(json_data):
         elif shift_type == 2:
             if len(dept_list) == 1 and ('1000965' in dept_list or '1001120' in dept_list):
                 # AICU/CCU交接班
-                shoushu = [item for item in shoushu_patients if str(item.get('所在病区id')) in ('1000965', '1001120')]
+                # shoushu = [item for item in shoushu_patients if str(item.get('所在病区id')) in ('1000965', '1001120')]
+                shoushu = []
                 aicu_shift_change(reg_sqls, shift_classes, time_slot, shoushu, True)
 
                 redis_client.delete(f"timed_shift_change")
