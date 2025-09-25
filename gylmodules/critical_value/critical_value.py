@@ -1873,6 +1873,11 @@ def send_to_his(cv_record):
     cv_result = cv_record.get('cv_result') if cv_record.get('cv_result') else '0'
     cv_result = cv_result.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;")
     rand_str = random_string()
+
+    bingrenzyid = str(patient_data[0].get('病人住院ID')) if patient_data[0].get('病人住院ID') else '0'
+    if int(cv_record.get('patient_type')) == 1:
+        # 门诊不需要病人住院id
+        bingrenzyid = '0'
     his_sync_data = cv_config.HIS_SYNCHRONIZE_DATA \
         .replace('{msg_id}', str(cv_record.get('cv_id')) + "_" + rand_str) \
         .replace('{event_id}', str(cv_record.get('cv_id')) + "_" + rand_str) \
@@ -1881,7 +1886,7 @@ def send_to_his(cv_record):
         .replace('{weijizhiid}', str(cv_record.get('cv_id'))) \
         .replace('{bingrenid}', str(patient_data[0].get('病人ID')) if patient_data[0].get('病人ID') else '0') \
         .replace('{leixing}', str(leixing)) \
-        .replace('{bingrenzyid}', str(patient_data[0].get('病人住院ID')) if patient_data[0].get('病人住院ID') else '0') \
+        .replace('{bingrenzyid}', bingrenzyid) \
         .replace('{menzhenzybz}', menzhenzybz) \
         .replace('{bingrenxm}', str(patient_data[0].get('姓名')) if patient_data[0].get('姓名') else '0') \
         .replace('{zhuyuanhao}', str(patient_data[0].get('住院号')) if patient_data[0].get('住院号') else '0') \
