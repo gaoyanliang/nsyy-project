@@ -230,8 +230,7 @@ def operate_vip_car(type, json_data):
         if json_data.get('vehicle_group', '') != "VIP":
             del db
             return
-        enable_add = db.query_all(f"select * from nsyy_gyl.parking_authorize where user_id = '{operator}' "
-                                  f"and dept_id = '{json_data.get('dept_id', '')}'")
+        enable_add = db.query_all(f"select * from nsyy_gyl.parking_authorize where user_id = '{operator_id}' ")
         if not enable_add:
             del db
             raise Exception('您没有权限添加临时VIP车辆，请联系总务科添加权限后重试')
@@ -246,7 +245,7 @@ def operate_vip_car(type, json_data):
             del db
             raise Exception('会员车辆添加失败!')
 
-        operate_log = {"operater": operator, "operater_id": operator_id,
+        operate_log = {"operater": operator, "operater_id": operator_id, "plate_no": json_data.get('plate_no'),
                        "log": "add_vip_car", "param": f"{json.dumps(json_data, ensure_ascii=False, default=str)}",
                        "create_at": datetime.now().strftime("%Y-%m-%d %H:%M:%S")}
     elif type == 'remove':
