@@ -39,7 +39,7 @@ def new_shift_data(json_data):
 @shift_change.route('/update_patient_count', methods=['POST', 'GET'])
 @api_response
 def update_patient_count(json_data):
-    return shift_change_server.update_patient_count(json_data)
+    shift_change_server.update_patient_count(json_data)
 
 
 @shift_change.route('/new_shift_bed_data', methods=['POST', 'GET'])
