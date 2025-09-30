@@ -5,9 +5,11 @@ from flask import Blueprint
 from gylmodules import global_config
 from gylmodules.app_version.app_version_router import app_version
 from gylmodules.critical_value.critical_value_router import cv
+from gylmodules.file_system.file_router import file_system
 from gylmodules.global_tools import setup_logging
 from gylmodules.hospital_class.hosp_class_router import hosp_class
 from gylmodules.hyperbaric_oxygen_therapy.hbot_router import hbot
+from gylmodules.pacs_pdf.pacs_router import pacs_system
 from gylmodules.parking.parking_router import parking
 from gylmodules.pre_hospital_system.phs_router import phs
 from gylmodules.questionnaire.question_router import question
@@ -118,5 +120,19 @@ gylroute.register_blueprint(parking)
 # ============================
 logger.info('13. 停车场系统路由')
 gylroute.register_blueprint(shift_change)
+
+
+# ============================
+# === 14. 文件系统路由 ===
+# ============================
+logger.info('14. 文件系统路由')
+gylroute.register_blueprint(file_system)
+
+
+# ============================
+# === 15. pacs pdf系统路由 ===
+# ============================
+logger.info('15. pacs pdf')
+gylroute.register_blueprint(pacs_system)
 
 logger.info("=============== End 路由注册完成 =====================")
