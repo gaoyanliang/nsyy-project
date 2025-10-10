@@ -96,6 +96,11 @@ def query_shift_change_date(json_data):
             default_bed_info = shift_change_config.default_bed_info_list.copy()
             for item in patient_bed_info:
                 default_bed_info.pop(item.get('patient_type'))
+
+            # 将患者类别转换为 带顺序前缀的患者类别
+            for item in patient_bed_info:
+                item['patient_type'] = shift_change_config.bed_info_convert.get(item['patient_type']) or item['patient_type']
+
             if patient_bed_info:
                 patient_bed_info = patient_bed_info + [v for k, v in default_bed_info.items()]
             else:
@@ -116,6 +121,7 @@ def query_shift_change_date(json_data):
 
     del db
 
+    # 同一天多个班次的患者情况进行合并
     patients = merge_ret_patient_list(patients, is_archived)
 
     def get_patient_type_key(patient):
@@ -127,6 +133,15 @@ def query_shift_change_date(json_data):
         return tuple(priorities + [int(patient['bed_no'])])
 
     sorted_patients = sorted(patients, key=get_patient_type_key)
+
+    def extract_sort_key(item):
+        try:
+            type_str = item.get("patient_type", "")
+            num_part = "".join(filter(str.isdigit, type_str))
+            return int(num_part) if num_part else 0
+        except:
+            return 0  # 异常情况返回 0
+    patient_bed_info = sorted(patient_bed_info, key=extract_sort_key)
     return {'patient_count': patient_count, 'patient_bed_info': patient_bed_info, 'patients': sorted_patients}
 
 
@@ -357,8 +372,8 @@ def query_shoushu_patient_zhuyuanhao():
     if not shoushu_set:
         return []
 
-    patient_info_sql = """
-            select y.bingrenzyid,y.dangqiancwbm 床号,y.xingming 姓名,y.zhuyuanhao 住院号,
+    # 查询所有手术患者的患者情况
+    patient_info_sql = """select y.bingrenzyid,y.dangqiancwbm 床号,y.xingming 姓名,y.zhuyuanhao 住院号,
         y.xingbiemc 性别,y.nianling 年龄,y.dangqianbqmc 所在病区,y.dangqianbqid 所在病区id,
         y.zhuzhiysxm 主治医生姓名,
         coalesce(case when  (xpath('string(//node[@name="目前诊断"])', aa.wenjiannr::xml))[1]::text ~ '2[\.、]' 
@@ -394,7 +409,6 @@ def query_shoushu_patient_zhuyuanhao():
         )aa on aa.bingrenzyid =y.bingrenzyid and aa.rk=1 
         where y.quxiaorybz=0 and y.yingerbz=0 and y.rukebz=1 and y.xingming not like '%测试%' and y.zaiyuanzt=0 and y.bingrenzyid in ({bingrenzyid})
     """
-
     patient_info_sql = patient_info_sql.replace('{bingrenzyid}', ','.join([f"'{item}'" for item in shoushu_set]))
     patient_info_list = global_tools.call_new_his_pg(patient_info_sql)
 
@@ -634,7 +648,7 @@ def aicu_shift_change(reg_sqls, shift_classes, time_slot, shoushu, flush: bool =
 
 def ob_gyn_shift_change(reg_sqls, shift_classes, time_slot, shoushu, flush: bool = False):
     if int(shift_classes) == 1:
-        trunc = '17.5'
+        trunc = '17'
     elif int(shift_classes) == 2:
         trunc = '21.5'
     else:
@@ -799,7 +813,7 @@ def icu_shift_change(reg_sqls, shift_classes, time_slot, flush: bool = False):
 
 def pain_shift_change(reg_sqls, shift_classes, time_slot, shoushu, flush: bool = False):
     if int(shift_classes) == 1:
-        trunc = '17.5'
+        trunc = '17'
     elif int(shift_classes) == 2:
         trunc = '21.5'
     else:
@@ -1044,7 +1058,7 @@ def pain_shift_change(reg_sqls, shift_classes, time_slot, shoushu, flush: bool =
 
 def general_dept_shift_change(reg_sqls, shift_classes, time_slot, dept_list, shoushu, flush: bool = False):
     if int(shift_classes) == 1:
-        trunc = '17.5'
+        trunc = '17'
     elif int(shift_classes) == 2:
         trunc = '21.5'
     else:
@@ -1424,8 +1438,8 @@ def merge_patient_cv_data(cv_list, patient_list, shift_type, dept_list):
                                   f"遵医嘱 {item.get('method') if item.get('method') else ''} 处理"
             if patient_dict.get((zhuyuanhao, dpid)):
                 ps = patient_dict.get((zhuyuanhao, dpid))
-                ps[0]['患者类别'] = ps[0]['患者类别'] + ', 危急值'
-                ps[0]['患者情况'] = ps[0]['患者情况'] + p_info
+                ps[0]['患者类别'] = ps[0].get('患者类别', '') + ', 危急值'
+                ps[0]['患者情况'] = ps[0].get('患者情况', '') + p_info
             else:
                 sex = '未知'
                 if str(cv.get('patient_gender')) == '1':
@@ -1452,7 +1466,7 @@ def merge_patient_cv_data(cv_list, patient_list, shift_type, dept_list):
             ret_list = ret_list + l
         return ret_list
     except Exception as e:
-        logger.warning(f"合并危机值数据异常: {e}")
+        logger.warning(f"合并危机值数据异常: {e}, dept = {dept_list}")
         return patient_list
 
 
