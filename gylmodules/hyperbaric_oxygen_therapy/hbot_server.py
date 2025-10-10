@@ -1,16 +1,13 @@
 import uuid
 import json
-import base64
 
 import redis
 import requests
 
 from contextlib import closing
-from itertools import groupby
 from datetime import datetime, timedelta
 from gylmodules import global_config, global_tools
 from gylmodules.composite_appointment import appt_config
-from gylmodules.critical_value import cv_config
 from gylmodules.hyperbaric_oxygen_therapy import hbot_config, huizong
 from gylmodules.utils.db_utils import DbUtil
 
@@ -18,35 +15,10 @@ pool = redis.ConnectionPool(host=appt_config.APPT_REDIS_HOST, port=appt_config.A
                             db=appt_config.APPT_REDIS_DB, decode_responses=True)
 
 
-def call_third_systems_obtain_data(type: str, sql: str, db_source: str):
-    param = {"type": type, "db_source": db_source, "randstr": "XPFDFZDF7193CIONS1PD7XCJ3AD4ORRC", "sql": sql}
-    data = []
-    if global_config.run_in_local:
-        try:
-            # response = requests.post(f"http://192.168.3.12:6080/int_api", json=param)
-            response = requests.post(f"http://192.168.124.53:6080/int_api", timeout=10, json=param)
-            data = json.loads(response.text)
-            data = data.get('data')
-        except Exception as e:
-            print('调用第三方系统方法失败：type = ' + type + ' param = ' + str(param) + "   " + e.__str__())
-    else:
-        if type == 'orcl_db_read':
-            from tools import orcl_db_read
-            try:
-                data = orcl_db_read(param)
-            except Exception as e:
-                print('orcl_db_read 查询数据失败：', param, e.__str__())
-    return data
+"""根据住院号和登记时间，查询病人医嘱信息"""
 
 
 def query_medical_order(patient_id, register_time, db_source):
-    """
-    根据住院号和登记时间，查询病人医嘱信息
-    :param patient_id:
-    :param register_time:
-    :param db_source:
-    :return:
-    """
     data = None
     if db_source == 'nshis':
         sql = f"""
@@ -63,7 +35,7 @@ def query_medical_order(patient_id, register_time, db_source):
               f"where a.病人id=b.病人id and a.主页id=b.主页id and a.开嘱科室id = bm.id " \
               f"and a.开嘱时间 >= to_date('{register_time}', 'yyyy-mm-dd') - 30 and a.医嘱内容 like '%高压氧%' " \
               f"and a.执行标记 != -1 and a.医嘱状态 not in (-1, 2, 4) and a.停嘱时间 is null and b.住院号='{patient_id}'"
-        medical_order_list = call_third_systems_obtain_data('orcl_db_read', sql, db_source)
+        medical_order_list = global_tools.call_new_his(sql, db_source, [])
     if medical_order_list:
         data = {
             "homepage_id": medical_order_list[0].get('主页ID'), "doc_advice_id": medical_order_list[0].get('ID'),
@@ -90,23 +62,16 @@ def has_medical_order_been_stopped(doc_advice_id, db_source):
         medical_order = global_tools.call_new_his(sql)
     else:
         sql = f"select 停嘱时间 from 病人医嘱记录 where ID = {doc_advice_id} "
-        medical_order = call_third_systems_obtain_data('orcl_db_read', sql, db_source)
+        medical_order = global_tools.call_new_his(sql, db_source, [])
     if medical_order and medical_order[0].get('停嘱时间'):
         return True
     return False
 
 
+"""根据患者住院号查询患者信息 ⚠️ 注意： 查询门诊患者，需要根据 就诊卡号/身份证号 查询"""
 
 
 def query_patient_info1(patient_type, patient_id, comp_type):
-    """
-    根据患者住院号查询患者信息
-    ⚠️ 注意： 查询门诊患者，需要根据 就诊卡号/身份证号 查询
-    :param patient_type:
-    :param patient_id:
-    :param comp_type:
-    :return:
-    """
     db_source = "nshis" if int(comp_type) == 12 else "kfhis"
     data = {}
     if int(patient_type) == 3:
@@ -116,7 +81,7 @@ def query_patient_info1(patient_type, patient_id, comp_type):
               "on a.出院科室id=bm.id left join (select distinct 病人ID, 主页ID, jb.名称 from 病人诊断记录 t " \
               "join 疾病编码目录 jb on t.疾病id = jb.id where t.记录来源 = 3 and t.诊断次序 = 1 and t.诊断类型 = 2) zd " \
               f"on a.病人id=zd.病人id and a.主页id=zd.主页id where a.住院号='{patient_id}' "
-        patient_infos = call_third_systems_obtain_data('orcl_db_read', sql, db_source)
+        patient_infos = global_tools.call_new_his(sql, db_source, [])
         if not patient_infos:
             raise Exception('未找到该住院号对应的患者信息，请仔细核对住院号是否正确')
         data = {
@@ -133,7 +98,7 @@ def query_patient_info1(patient_type, patient_id, comp_type):
         sql = 'select a.*, bm.编码 执行部门编码, bm.名称 执行部门名称, b.联系人电话 ' \
               'from 病人挂号记录 a left join 病人信息 b on a.病人id=b.病人id join 部门表 bm on a.执行部门id = bm.id ' \
               f"where ( b.就诊卡号 = '{patient_id}' or b.身份证号 = '{patient_id}'  or a.ID = '{patient_id}' ) order by a.登记时间 desc "
-        patient_infos = call_third_systems_obtain_data('orcl_db_read', sql, db_source)
+        patient_infos = global_tools.call_new_his(sql, db_source, [])
         if not patient_infos:
             raise Exception('未找到该住院号对应的患者信息，请仔细核对住院号是否正确')
         data = {
@@ -147,16 +112,10 @@ def query_patient_info1(patient_type, patient_id, comp_type):
     return data
 
 
+"""根据患者住院号查询患者信息 ⚠️ 注意： 查询门诊患者，需要根据 就诊卡号/身份证号 查询"""
+
 
 def query_patient_info(patient_type, patient_id, comp_type):
-    """
-    根据患者住院号查询患者信息
-    ⚠️ 注意： 查询门诊患者，需要根据 就诊卡号/身份证号 查询
-    :param patient_type:
-    :param patient_id:
-    :param comp_type:
-    :return:
-    """
     db_source = "nshis" if int(comp_type) == 12 else "kfhis"
     data = {}
 
@@ -218,7 +177,7 @@ def query_patient_info(patient_type, patient_id, comp_type):
                   "on a.出院科室id=bm.id left join (select distinct 病人ID, 主页ID, jb.名称 from 病人诊断记录 t " \
                   "join 疾病编码目录 jb on t.疾病id = jb.id where t.记录来源 = 3 and t.诊断次序 = 1 and t.诊断类型 = 2) zd " \
                   f"on a.病人id=zd.病人id and a.主页id=zd.主页id where a.住院号='{patient_id}' and (a.出院日期 is null or a.出院日期<sysdate) "
-            patient_infos = call_third_systems_obtain_data('orcl_db_read', sql, db_source)
+            patient_infos = global_tools.call_new_his(sql, db_source, [])
             if not patient_infos:
                 raise Exception('未找到该住院号对应的患者信息，请仔细核对住院号是否正确')
             data = {
@@ -235,7 +194,7 @@ def query_patient_info(patient_type, patient_id, comp_type):
             sql = 'select a.*, bm.编码 执行部门编码, bm.名称 执行部门名称, b.联系人电话 ' \
                   'from 病人挂号记录 a left join 病人信息 b on a.病人id=b.病人id join 部门表 bm on a.执行部门id = bm.id ' \
                   f"where ( b.就诊卡号 = '{patient_id}' or b.身份证号 = '{patient_id}' or a.ID = '{patient_id}' ) order by a.登记时间 desc "
-            patient_infos = call_third_systems_obtain_data('orcl_db_read', sql, db_source)
+            patient_infos = global_tools.call_new_his(sql, db_source, [])
             if not patient_infos:
                 raise Exception('未找到该住院号对应的患者信息，请仔细核对住院号是否正确')
             data = {
@@ -276,7 +235,7 @@ def query_vital_signs(sick_id, homepage_id, db_source):
                 where regexp_like(t3.项目名称, '(体温|呼吸|脉搏|舒张压|收缩压)') 
                 and g.病人ID = '{sick_id}' and g.主页ID = '{homepage_id}') where cn = 5) where sn = 1
         """
-    vital_signs = call_third_systems_obtain_data('orcl_db_read', sql, db_source)
+    vital_signs = global_tools.call_new_his(sql, db_source, [])
     if not vital_signs:
         return data
     b = 'h/l'

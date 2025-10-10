@@ -44,5 +44,3 @@ sign_user_id = {
     "admin": "17382120012",
     "李璐": "U1136"
 }
-
-sign_file_path = '/home/gyl/hbot_sign_info/'

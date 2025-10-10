@@ -1,27 +1,7 @@
-import json
-import requests
+from gylmodules import global_config, global_tools
 
-from datetime import datetime
-from gylmodules import global_config
-
-
-from collections import defaultdict
 from datetime import datetime
 from decimal import Decimal
-
-
-def call_third_systems_obtain_data(type: str, sql: str, db_source: str):
-    param = {"type": type, "db_source": db_source, "randstr": "XPFDFZDF7193CIONS1PD7XCJ3AD4ORRC", "sql": sql}
-    data = []
-    try:
-        # response = requests.post(f"http://192.168.3.12:6080/int_api", json=param)
-        response = requests.post(f"http://192.168.124.53:6080/int_api", timeout=200, json=param)
-        data = json.loads(response.text)
-        data = data.get('data')
-    except Exception as e:
-        print('调用第三方系统方法失败：type = ' + type + ' param = ' + str(param) + "   " + e.__str__())
-
-    return data
 
 
 def query_menzhen(sql):
@@ -102,7 +82,7 @@ SELECT a.*, to_char(a.发生时间, 'yyyy-mm-dd') as 计费日期, b.名称 病�
 and a.发生时间 >= to_date('{visit_date}','yyyy-mm-dd') and a.发生时间 < to_date('{visit_end_date}','yyyy-mm-dd') + 1
 """
 
-kangfu_data = call_third_systems_obtain_data('orcl_db_read', kangfu_sql, "kfhis")
+kangfu_data = global_tools.call_new_his(kangfu_sql, "kfhis", [])
 for d in kangfu_data:
     sheet1_data.append({
         '院区': '康复院区',

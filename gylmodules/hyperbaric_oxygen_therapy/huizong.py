@@ -1,14 +1,12 @@
-import json
 import logging
 
-import requests
 import time
 import concurrent.futures
 import psycopg2
 from collections import defaultdict
 
 from datetime import datetime, timedelta
-from gylmodules import global_config
+from gylmodules import global_config, global_tools
 
 DB_CONFIG = {
     "dbname": "df_his",
@@ -19,31 +17,6 @@ DB_CONFIG = {
 }
 
 logger = logging.getLogger(__name__)
-
-
-def call_third_systems_obtain_data(type: str, sql: str, db_source: str):
-    param = {"type": type, "db_source": db_source, "randstr": "XPFDFZDF7193CIONS1PD7XCJ3AD4ORRC", "sql": sql}
-    data = []
-    if global_config.run_in_local:
-        try:
-            # 发送 POST 请求，将字符串数据传递给 data 参数
-            # response = requests.post(f"http://192.168.3.12:6080/int_api", json=param)
-            response = requests.post("http://192.168.124.53:6080/int_api", json=param, timeout=100)
-            data = json.loads(response.text)
-            data = data.get('data')
-        except Exception as e:
-            data = []
-            logger.error(f'高压氧查询失败: param={param}, e = {e.__str__()}')
-    else:
-        # 根据住院号/门诊号查询 病人id 主页id
-        from tools import orcl_db_read
-        try:
-            data = orcl_db_read(param)
-        except Exception as e:
-            data = []
-            logger.error(f'高压氧查询失败: param={param}, e = {e.__str__()}')
-
-    return data
 
 
 def sort_departments(departments):
@@ -143,7 +116,7 @@ def query_report(start_date, end_date):
     with concurrent.futures.ThreadPoolExecutor(max_workers=3) as executor:
         future_zongyuan = executor.submit(safe_postgres_query, sql_queries["zongyuan"])
         future_menzhen = executor.submit(safe_postgres_query, sql_queries["menzhen"])
-        future_kangfu = executor.submit(call_third_systems_obtain_data, 'orcl_db_read', sql_queries["kangfu"], "kfhis")
+        future_kangfu = executor.submit(global_tools.call_new_his, sql_queries["kangfu"], "kfhis", [])
 
         try:
             zongyuan_data = future_zongyuan.result()
