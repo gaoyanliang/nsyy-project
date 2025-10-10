@@ -964,9 +964,9 @@ def query_data(sick_id, visit_date):
         ]
 
         # 获取查询结果
-        test_results = futures[0].result()
-        examination_result = futures[1].result()
-        zhenduan = futures[2].result()
+        test_results = futures[0].result() or []
+        examination_result = futures[1].result() or []
+        zhenduan = futures[2].result() or ""
     return test_results, examination_result, zhenduan
 
 
