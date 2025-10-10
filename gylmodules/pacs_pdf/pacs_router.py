@@ -2,6 +2,7 @@ import datetime
 import os
 from ftplib import FTP
 from urllib.parse import urlparse
+from datetime import datetime
 
 from flask import Blueprint, jsonify, request
 from werkzeug.utils import secure_filename
@@ -279,7 +280,7 @@ def run_auto_pacs():
 @pacs_system.route('/auto_pacs', methods=['POST', 'GET'])
 def auto_pacs():
     run_auto_pacs()
-    return {"code": 20000, "data": 'success', "res": f"success"}
+    return {"code": 20000, "data": 'success', "res": datetime.now().strftime("%Y-%m-%d %H:%M:%S")}
 
 
 
