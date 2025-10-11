@@ -1,18 +1,33 @@
+"""
+pacs_router 随项目一起启动
+
+yt_pacs_tools 单独执行， 通过接口调用 auto——pacs 会造成阻塞 无法生成pdf
+/home/gyl/.conda/envs/gg/bin/python /home/gyl/gyl_server/gylmodules/pacs_pdf/yt_pacs_tools.py > /home/gyl/pacs_pdf.log 2>&1
+"""
+
 import threading
 import time
 import logging
 
 from datetime import datetime
+
+import pymysql
+from pymysql.cursors import DictCursor
 from selenium import webdriver
 from selenium.webdriver.common.by import By
 from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
 from selenium.webdriver.chrome.options import Options
 
-from gylmodules import global_config
-from gylmodules.utils.db_utils import DbUtil
-
 logger = logging.getLogger(__name__)
+
+run_in_local = True
+
+db_config = {
+    'host': '127.0.0.1' if run_in_local else '192.168.3.12',
+    'user': 'root' if run_in_local else 'gyl',
+    'password': 'gyl.2015' if run_in_local else '123456',
+}
 
 
 # 线程局部存储
@@ -20,100 +35,39 @@ thread_local = threading.local()
 
 
 def getDriver():
-    """为每个线程创建独立的WebDriver实例，增强稳定性"""
+    """为每个线程创建独立的WebDriver实例"""
     if not hasattr(thread_local, 'driver'):
-        # Chrome 无头模式配置 - 增强稳定性版本
         chrome_options = Options()
 
-        # 基本配置
+        # 简化配置，减少可能的问题
         chrome_options.add_argument("--headless=new")
         chrome_options.add_argument("--disable-gpu")
         chrome_options.add_argument("--no-sandbox")
         chrome_options.add_argument("--disable-dev-shm-usage")
         chrome_options.add_argument("--window-size=1920,1080")
 
-        # 稳定性增强配置
-        chrome_options.add_argument("--disable-software-rasterizer")
+        # 移除可能引起问题的配置
+        # chrome_options.add_argument("--single-process")  # 这个可能引起稳定性问题
+        # chrome_options.add_argument("--no-zygote")       # 这个可能引起稳定性问题
+
+        # 保留必要的配置
         chrome_options.add_argument("--disable-extensions")
         chrome_options.add_argument("--disable-plugins")
-        chrome_options.add_argument("--disable-plugins-discovery")
-        chrome_options.add_argument("--disable-default-apps")
-        chrome_options.add_argument("--disable-notifications")
-        chrome_options.add_argument("--disable-translate")
-        chrome_options.add_argument("--disable-sync")
-        chrome_options.add_argument("--disable-background-networking")
-        chrome_options.add_argument("--disable-blink-features=AutomationControlled")
-        chrome_options.add_argument("--disable-features=VizDisplayCompositor")
-        chrome_options.add_argument("--safebrowsing-disable-auto-update")
-        chrome_options.add_argument("--disable-cloud-import")
-        chrome_options.add_argument("--dns-prefetch-disable")
-
-        # 内存和性能优化
-        chrome_options.add_argument("--memory-pressure-off")
         chrome_options.add_argument("--disable-background-timer-throttling")
-        chrome_options.add_argument("--disable-backgrounding-occluded-windows")
         chrome_options.add_argument("--disable-renderer-backgrounding")
 
-        chrome_options.add_argument("--single-process")  # 单进程模式，显著加速启动
-        chrome_options.add_argument("--no-zygote")  # 禁用zygote进程
-
-        # 网络和SSL配置
-        chrome_options.add_argument("--ignore-certificate-errors")
-        chrome_options.add_argument("--ignore-ssl-errors")
-        chrome_options.add_argument("--disable-web-security")
-        chrome_options.add_argument("--allow-running-insecure-content")
-
-        # 日志和调试禁用
-        chrome_options.add_argument("--log-level=3")
-        chrome_options.add_argument("--silent")
-        # 实验性选项 - 显著提升启动速度
-        chrome_options.add_experimental_option("excludeSwitches",
-                                               ["enable-logging", "enable-automation", "ignore-certificate-errors"])
-
-        # 防止崩溃
-        chrome_options.add_argument("--disable-crash-reporter")
-        chrome_options.add_argument("--disable-hang-monitor")
-        chrome_options.add_argument("--no-first-run")
-        chrome_options.add_argument("--no-default-browser-check")
-
-        # 功能禁用
-        chrome_options.add_argument("--disable-features=IsolateOrigins,site-per-process")
-
-        # 用户代理
-        chrome_options.add_argument(
-            "--user-agent=Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36")
+        chrome_options.add_experimental_option("excludeSwitches", ["enable-automation"])
+        chrome_options.add_experimental_option('useAutomationExtension', False)
 
         try:
-            # 添加重试机制
-            for attempt in range(3):
-                try:
-                    thread_local.driver = webdriver.Chrome(options=chrome_options)
+            thread_local.driver = webdriver.Chrome(options=chrome_options)
 
-                    # 隐藏WebDriver特征
-                    thread_local.driver.execute_script(
-                        "Object.defineProperty(navigator, 'webdriver', {get: () => undefined})")
-                    thread_local.driver.execute_cdp_cmd('Page.addScriptToEvaluateOnNewDocument', {
-                        'source': '''
-                            Object.defineProperty(navigator, 'webdriver', {
-                                get: () => undefined
-                            })
-                            window.chrome = {runtime: {}};
-                        '''
-                    })
+            # 设置合理的超时时间
+            thread_local.driver.set_page_load_timeout(30)
+            thread_local.driver.set_script_timeout(20)
+            thread_local.driver.implicitly_wait(10)
 
-                    # 设置超时时间
-                    thread_local.driver.set_page_load_timeout(20)
-                    thread_local.driver.set_script_timeout(20)
-                    thread_local.driver.implicitly_wait(10)
-
-                    logger.debug(f"✅ WebDriver 创建成功 (尝试 {attempt + 1})")
-                    break
-
-                except Exception as e:
-                    if attempt == 2:
-                        raise e
-                    logger.warning(f"⚠️ WebDriver 创建失败，重试 {attempt + 1}/3: {e}")
-                    time.sleep(2)
+            logger.debug("✅ WebDriver 创建成功")
 
         except Exception as e:
             logger.error(f"❌ WebDriver 创建失败: {e}")
@@ -141,7 +95,7 @@ def cleanup_driver():
 def login(driver, url):
     try:
         driver.get(url)
-        print(datetime.now(), "🚀 页面已打开，开始等待【获取数据】按钮出现...")
+        # print(datetime.now(), "🚀 页面已打开，开始等待【获取数据】按钮出现...")
 
         # 等待页面DOM加载完成
         WebDriverWait(driver, 10).until(
@@ -158,27 +112,44 @@ def login(driver, url):
 
         button = WebDriverWait(driver, 20).until(EC.visibility_of_element_located(
                 (By.XPATH, "//button[.//span[contains(text(), '获取数据')]]")))
-        print(datetime.now(), "🖱️ 已等待到【获取数据】按钮出现，准备点击")
+        # print(datetime.now(), "🖱️ 已等待到【获取数据】按钮出现，准备点击")
 
         # 点击按钮
-        button.click()
+        # button.click()
+
+        # 使用JavaScript点击，避免元素被遮挡
+        driver.execute_script("arguments[0].click();", button)
+        # print(datetime.now(), "✅ 已点击获取数据按钮")
+
+        # 短暂等待确保点击生效
+        time.sleep(2)
 
         # 等待包含指定文字的弹框出现
-        WebDriverWait(driver, 60).until(
+        WebDriverWait(driver, 10).until(
             EC.text_to_be_present_in_element(
                 (By.XPATH, "//div[contains(@class, 'el-message-box') or contains(@class, 'el-message')]"),
                 "PDF报告上传成功！"
             )
         )
-
         print(datetime.now(), "🎉 检测到【PDF报告上传成功！】弹框，准备关闭")
+        time.sleep(2)
     except Exception as e:
-        raise Exception("进入检查报告单页面失败", e.__str__())
+        # # 添加更详细的错误信息
+        # print(datetime.now(), f"❌ 登录过程失败: {str(e)}")
+        #
+        # # 保存页面截图以便调试
+        # try:
+        #     driver.save_screenshot(f"error_{datetime.now().strftime('%Y%m%d_%H%M%S')}.png")
+        #     print(datetime.now(), "📸 已保存错误截图")
+        # except:
+        #     pass
+        raise Exception(f"进入检查报告单页面失败: {str(e)}")
+    # raise Exception("进入检查报告单页面失败", e.__str__())
 
 
 def process_report_item(item):
     """处理单个报告项 根据来源确定URL"""
-    if global_config.run_in_local:
+    if run_in_local:
         url_map = {
             '油田': "http://192.168.124.14:8081/?id=10952757&str=pdf&type=15#/",
             '康复': "http://192.168.124.14:8081/?id=10952757&str=pdf&type=35#/",
@@ -200,12 +171,9 @@ def process_report_item(item):
     try:
         start_time = time.time()
         driver = getDriver()
-        # print(datetime.now(), f"📊 正在处理报告: {item.get('id', '未知ID')}")
 
         success = login(driver, url)
-        # print(datetime.now(), f"⏱️ 处理耗时: {time.time() - start_time:.2f}秒")
         return success
-
     except Exception as e:
         print(datetime.now(), f"❌ 处理报告时发生错误: {e}")
         return False
@@ -216,36 +184,75 @@ def process_report_item(item):
 
 def auto_pacs():
     """主处理函数"""
-    # print(datetime.now(), "🚀 开始自动PACS处理任务")
-
+    print(datetime.now(), "🚀 开始自动PACS处理任务")
     try:
         while True:
             # 获取待处理的报告
-            db = DbUtil(global_config.DB_HOST, global_config.DB_USERNAME, global_config.DB_PASSWORD,
-                        global_config.DB_DATABASE_GYL)
-            records = db.query_all(
-                "SELECT * FROM nsyy_gyl.medical_reports WHERE is_upload = 0"
-            )
-            del db
-
+            query_sql = "SELECT * FROM nsyy_gyl.medical_reports WHERE is_upload = 0 limit 5"
+            records = execute_safe_query(query_sql, None)
             if not records:
                 logger.info("✅ 所有报告已处理完成")
                 break
 
-            # print(datetime.now(), f"📊 待处理报告: {records[0]['id']}")
             # 处理每个报告
             success_count = 0
             for item in records:
                 if process_report_item(item):
                     success_count += 1
             # 短暂休息避免过度频繁查询
-            time.sleep(1)
+            time.sleep(5)
     except Exception as e:
         print(datetime.now(), f"❌ 自动PACS处理任务失败: {e}")
     finally:
         print(datetime.now(), "🛑 自动PACS处理任务结束")
         # 程序结束时清理所有线程的driver
         cleanup_driver()
+
+
+"""执行查询操作，自动管理连接资源"""
+
+
+def execute_query(query: str, params):
+    connection = None
+    try:
+        # 创建连接
+        connection = pymysql.connect(host=db_config.get("host"), port=3306, user=db_config.get('user'),
+                                     password=db_config.get('password'), database='nsyy_gyl')
+        with connection.cursor(cursor=DictCursor) as cursor:
+            # 执行查询
+            if params:
+                cursor.execute(query)
+            else:
+                cursor.execute(query)
+
+            result = cursor.fetchall()
+            logging.info(f"查询成功，返回 {len(result)} 条记录")
+            return result
+    except pymysql.Error as e:
+        logging.error(f"MySQL 查询错误: {e}")
+        return []
+
+    finally:
+        # 确保连接被关闭
+        if connection:
+            connection.close()
+            logging.debug("数据库连接已关闭")
+
+
+"""带重试机制的查询"""
+
+
+def execute_safe_query(query: str, params):
+    for attempt in range(3):
+        try:
+            return execute_query(query, params)
+        except pymysql.OperationalError as e:
+            if attempt == 3 - 1:
+                logging.error(f"查询失败，已达到最大重试次数: {e}")
+                raise
+            logging.warning(f"查询失败，第 {attempt + 1} 次重试: {e}")
+            time.sleep(2 ** attempt)  # 指数退避
+    return []
 
 
 if __name__ == "__main__":

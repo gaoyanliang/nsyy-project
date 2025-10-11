@@ -17,51 +17,6 @@ from gylmodules.utils.db_utils import DbUtil
 pacs_system = Blueprint('pacs system', __name__, url_prefix='/pacs')
 
 
-yt_doc_sign_list_name = {
-    "鲁璐": "http://oa.nsyy.com.cn:6080/att_download?save_path=L2hvbWUvY2MvYXR0L3B1YmxpYy95dF9kb2Nfc2lnbl9pbWcvVTE4MjcuYm1w",
-    "郑康": "http://oa.nsyy.com.cn:6080/att_download?save_path=L2hvbWUvY2MvYXR0L3B1YmxpYy95dF9kb2Nfc2lnbl9pbWcvVTE4NjQuYm1w",
-    "李洁1": "http://oa.nsyy.com.cn:6080/att_download?save_path=L2hvbWUvY2MvYXR0L3B1YmxpYy95dF9kb2Nfc2lnbl9pbWcvVTA3MzTvvIjmoLjno4HvvIkuYm1w",
-    "李洁": "http://oa.nsyy.com.cn:6080/att_download?save_path=L2hvbWUvY2MvYXR0L3B1YmxpYy95dF9kb2Nfc2lnbl9pbWcvVTA1NzHvvIjmlL7lsITvvIkuYm1w",
-    "师小坡": "http://oa.nsyy.com.cn:6080/att_download?save_path=L2hvbWUvY2MvYXR0L3B1YmxpYy95dF9kb2Nfc2lnbl9pbWcvVTI1MjEuYm1w",
-    "董亚楠": "http://oa.nsyy.com.cn:6080/att_download?save_path=L2hvbWUvY2MvYXR0L3B1YmxpYy95dF9kb2Nfc2lnbl9pbWcvVTE3MDkuYm1w",
-    "裴枫": "http://oa.nsyy.com.cn:6080/att_download?save_path=L2hvbWUvY2MvYXR0L3B1YmxpYy95dF9kb2Nfc2lnbl9pbWcvVTA1NzQuYm1w",
-    "朱晓云": "http://oa.nsyy.com.cn:6080/att_download?save_path=L2hvbWUvY2MvYXR0L3B1YmxpYy95dF9kb2Nfc2lnbl9pbWcvVTA1NjIuYm1w",
-    "马小义": "http://oa.nsyy.com.cn:6080/att_download?save_path=L2hvbWUvY2MvYXR0L3B1YmxpYy95dF9kb2Nfc2lnbl9pbWcvVTA1NjMuYm1w",
-    "许多": "http://oa.nsyy.com.cn:6080/att_download?save_path=L2hvbWUvY2MvYXR0L3B1YmxpYy95dF9kb2Nfc2lnbl9pbWcvVTE4NjYuYm1w",
-    "张展英": "http://oa.nsyy.com.cn:6080/att_download?save_path=L2hvbWUvY2MvYXR0L3B1YmxpYy95dF9kb2Nfc2lnbl9pbWcvVTMyODAuYm1w",
-    "刘明": "http://oa.nsyy.com.cn:6080/att_download?save_path=L2hvbWUvY2MvYXR0L3B1YmxpYy95dF9kb2Nfc2lnbl9pbWcvVTA1NjUuYm1w",
-    "贾维维": "http://oa.nsyy.com.cn:6080/att_download?save_path=L2hvbWUvY2MvYXR0L3B1YmxpYy95dF9kb2Nfc2lnbl9pbWcvVTA3MzEuYm1w",
-    "张志强": "http://oa.nsyy.com.cn:6080/att_download?save_path=L2hvbWUvY2MvYXR0L3B1YmxpYy95dF9kb2Nfc2lnbl9pbWcvVTA1NjguYm1w",
-    "李果": "http://oa.nsyy.com.cn:6080/att_download?save_path=L2hvbWUvY2MvYXR0L3B1YmxpYy95dF9kb2Nfc2lnbl9pbWcvVTE1NzYuYm1w",
-    "刘飞": "http://oa.nsyy.com.cn:6080/att_download?save_path=L2hvbWUvY2MvYXR0L3B1YmxpYy95dF9kb2Nfc2lnbl9pbWcvVTA1NjAuYm1w",
-    "杨明贵": "http://oa.nsyy.com.cn:6080/att_download?save_path=L2hvbWUvY2MvYXR0L3B1YmxpYy95dF9kb2Nfc2lnbl9pbWcvVTA1NjEuYm1w",
-    "袁庆辉": "http://oa.nsyy.com.cn:6080/att_download?save_path=L2hvbWUvY2MvYXR0L3B1YmxpYy95dF9kb2Nfc2lnbl9pbWcvVTAyMzMuYm1w",
-    "王颜辉": "http://oa.nsyy.com.cn:6080/att_download?save_path=L2hvbWUvY2MvYXR0L3B1YmxpYy95dF9kb2Nfc2lnbl9pbWcvVTI1MjIuYm1w"
-}
-
-yt_doc_sign_list_code = {
-    "U1827": "http://oa.nsyy.com.cn:6080/att_download?save_path=L2hvbWUvY2MvYXR0L3B1YmxpYy95dF9kb2Nfc2lnbl9pbWcvVTE4MjcuYm1w",
-    "U1864": "http://oa.nsyy.com.cn:6080/att_download?save_path=L2hvbWUvY2MvYXR0L3B1YmxpYy95dF9kb2Nfc2lnbl9pbWcvVTE4NjQuYm1w",
-    "U0734": "http://oa.nsyy.com.cn:6080/att_download?save_path=L2hvbWUvY2MvYXR0L3B1YmxpYy95dF9kb2Nfc2lnbl9pbWcvVTA3MzTvvIjmoLjno4HvvIkuYm1w",
-    "U0571": "http://oa.nsyy.com.cn:6080/att_download?save_path=L2hvbWUvY2MvYXR0L3B1YmxpYy95dF9kb2Nfc2lnbl9pbWcvVTA1NzHvvIjmlL7lsITvvIkuYm1w",
-    "U2521": "http://oa.nsyy.com.cn:6080/att_download?save_path=L2hvbWUvY2MvYXR0L3B1YmxpYy95dF9kb2Nfc2lnbl9pbWcvVTI1MjEuYm1w",
-    "U1709": "http://oa.nsyy.com.cn:6080/att_download?save_path=L2hvbWUvY2MvYXR0L3B1YmxpYy95dF9kb2Nfc2lnbl9pbWcvVTE3MDkuYm1w",
-    "U0574": "http://oa.nsyy.com.cn:6080/att_download?save_path=L2hvbWUvY2MvYXR0L3B1YmxpYy95dF9kb2Nfc2lnbl9pbWcvVTA1NzQuYm1w",
-    "U0562": "http://oa.nsyy.com.cn:6080/att_download?save_path=L2hvbWUvY2MvYXR0L3B1YmxpYy95dF9kb2Nfc2lnbl9pbWcvVTA1NjIuYm1w",
-    "U0563": "http://oa.nsyy.com.cn:6080/att_download?save_path=L2hvbWUvY2MvYXR0L3B1YmxpYy95dF9kb2Nfc2lnbl9pbWcvVTA1NjMuYm1w",
-    "U1866": "http://oa.nsyy.com.cn:6080/att_download?save_path=L2hvbWUvY2MvYXR0L3B1YmxpYy95dF9kb2Nfc2lnbl9pbWcvVTE4NjYuYm1w",
-    "U3280": "http://oa.nsyy.com.cn:6080/att_download?save_path=L2hvbWUvY2MvYXR0L3B1YmxpYy95dF9kb2Nfc2lnbl9pbWcvVTMyODAuYm1w",
-    "U0565": "http://oa.nsyy.com.cn:6080/att_download?save_path=L2hvbWUvY2MvYXR0L3B1YmxpYy95dF9kb2Nfc2lnbl9pbWcvVTA1NjUuYm1w",
-    "U0731": "http://oa.nsyy.com.cn:6080/att_download?save_path=L2hvbWUvY2MvYXR0L3B1YmxpYy95dF9kb2Nfc2lnbl9pbWcvVTA3MzEuYm1w",
-    "U0568": "http://oa.nsyy.com.cn:6080/att_download?save_path=L2hvbWUvY2MvYXR0L3B1YmxpYy95dF9kb2Nfc2lnbl9pbWcvVTA1NjguYm1w",
-    "U1576": "http://oa.nsyy.com.cn:6080/att_download?save_path=L2hvbWUvY2MvYXR0L3B1YmxpYy95dF9kb2Nfc2lnbl9pbWcvVTE1NzYuYm1w",
-    "U0560": "http://oa.nsyy.com.cn:6080/att_download?save_path=L2hvbWUvY2MvYXR0L3B1YmxpYy95dF9kb2Nfc2lnbl9pbWcvVTA1NjAuYm1w",
-    "U0561": "http://oa.nsyy.com.cn:6080/att_download?save_path=L2hvbWUvY2MvYXR0L3B1YmxpYy95dF9kb2Nfc2lnbl9pbWcvVTA1NjEuYm1w",
-    "U0233": "http://oa.nsyy.com.cn:6080/att_download?save_path=L2hvbWUvY2MvYXR0L3B1YmxpYy95dF9kb2Nfc2lnbl9pbWcvVTAyMzMuYm1w",
-    "U2522": "http://oa.nsyy.com.cn:6080/att_download?save_path=L2hvbWUvY2MvYXR0L3B1YmxpYy95dF9kb2Nfc2lnbl9pbWcvVTI1MjIuYm1w"
-}
-
-
 """查询未上传pdf的报告"""
 
 
@@ -90,52 +45,6 @@ def query_report_data(json_data):
             data['审核医生签名'] = yt_doc_sign_list_name.get(data.get('审核医生', ''), '')
 
     return data
-
-
-# 配置
-UPLOAD_FOLDER = "./pacs_pdf_temp_uploads"   # 临时保存目录
-# 确保本地临时目录存在
-os.makedirs(UPLOAD_FOLDER, exist_ok=True)
-
-
-def extract_dir(path: str) -> str:
-    from urllib.parse import urlparse
-    import os
-    # 解析 ftp URL
-    parsed = urlparse(path)
-    # 拿到路径部分
-    full_path = parsed.path
-    # 去掉文件名，只保留目录
-    return os.path.dirname(full_path) + "/"
-
-
-def upload_pdf_via_ftp(local_pdf, remote_path, remote_filename=None):
-    """上传 PDF 到 FTP"""
-    with FTP() as ftp:
-        if remote_path and remote_path.__contains__("YXY_YT"):
-            # 油田 pdf 保存地址
-            ftp.connect("192.168.200.3", 21)
-            ftp.login("pacs", "123456")
-        else:
-            # 康复中医院 pdf 保存地址
-            ftp.connect("192.168.3.99", 21)
-            ftp.login("zlpacs", "zlpacs")
-
-        # 从ftp路径中获取目录
-        remote_path = extract_dir(remote_path)
-        for folder in remote_path.strip("/").split("/"):
-            if folder not in ftp.nlst():
-                try:
-                    ftp.mkd(folder)
-                except Exception:
-                    pass
-            ftp.cwd(folder)
-
-        if not remote_filename:
-            remote_filename = os.path.basename(local_pdf)
-
-        with open(local_pdf, "rb") as f:
-            ftp.storbinary(f"STOR " + remote_filename, f)
 
 
 """上传pdf报告"""
@@ -273,15 +182,93 @@ def query_save_report():
     return {"code": 20000, "data": 'success', "res": f"success"}
 
 
-def run_auto_pacs():
-    global_tools.start_thread(yt_pacs_tools.auto_pacs())
+yt_doc_sign_list_name = {
+    "鲁璐": "http://oa.nsyy.com.cn:6080/att_download?save_path=L2hvbWUvY2MvYXR0L3B1YmxpYy95dF9kb2Nfc2lnbl9pbWcvVTE4MjcuYm1w",
+    "郑康": "http://oa.nsyy.com.cn:6080/att_download?save_path=L2hvbWUvY2MvYXR0L3B1YmxpYy95dF9kb2Nfc2lnbl9pbWcvVTE4NjQuYm1w",
+    "李洁1": "http://oa.nsyy.com.cn:6080/att_download?save_path=L2hvbWUvY2MvYXR0L3B1YmxpYy95dF9kb2Nfc2lnbl9pbWcvVTA3MzTvvIjmoLjno4HvvIkuYm1w",
+    "李洁": "http://oa.nsyy.com.cn:6080/att_download?save_path=L2hvbWUvY2MvYXR0L3B1YmxpYy95dF9kb2Nfc2lnbl9pbWcvVTA1NzHvvIjmlL7lsITvvIkuYm1w",
+    "师小坡": "http://oa.nsyy.com.cn:6080/att_download?save_path=L2hvbWUvY2MvYXR0L3B1YmxpYy95dF9kb2Nfc2lnbl9pbWcvVTI1MjEuYm1w",
+    "董亚楠": "http://oa.nsyy.com.cn:6080/att_download?save_path=L2hvbWUvY2MvYXR0L3B1YmxpYy95dF9kb2Nfc2lnbl9pbWcvVTE3MDkuYm1w",
+    "裴枫": "http://oa.nsyy.com.cn:6080/att_download?save_path=L2hvbWUvY2MvYXR0L3B1YmxpYy95dF9kb2Nfc2lnbl9pbWcvVTA1NzQuYm1w",
+    "朱晓云": "http://oa.nsyy.com.cn:6080/att_download?save_path=L2hvbWUvY2MvYXR0L3B1YmxpYy95dF9kb2Nfc2lnbl9pbWcvVTA1NjIuYm1w",
+    "马小义": "http://oa.nsyy.com.cn:6080/att_download?save_path=L2hvbWUvY2MvYXR0L3B1YmxpYy95dF9kb2Nfc2lnbl9pbWcvVTA1NjMuYm1w",
+    "许多": "http://oa.nsyy.com.cn:6080/att_download?save_path=L2hvbWUvY2MvYXR0L3B1YmxpYy95dF9kb2Nfc2lnbl9pbWcvVTE4NjYuYm1w",
+    "张展英": "http://oa.nsyy.com.cn:6080/att_download?save_path=L2hvbWUvY2MvYXR0L3B1YmxpYy95dF9kb2Nfc2lnbl9pbWcvVTMyODAuYm1w",
+    "刘明": "http://oa.nsyy.com.cn:6080/att_download?save_path=L2hvbWUvY2MvYXR0L3B1YmxpYy95dF9kb2Nfc2lnbl9pbWcvVTA1NjUuYm1w",
+    "贾维维": "http://oa.nsyy.com.cn:6080/att_download?save_path=L2hvbWUvY2MvYXR0L3B1YmxpYy95dF9kb2Nfc2lnbl9pbWcvVTA3MzEuYm1w",
+    "张志强": "http://oa.nsyy.com.cn:6080/att_download?save_path=L2hvbWUvY2MvYXR0L3B1YmxpYy95dF9kb2Nfc2lnbl9pbWcvVTA1NjguYm1w",
+    "李果": "http://oa.nsyy.com.cn:6080/att_download?save_path=L2hvbWUvY2MvYXR0L3B1YmxpYy95dF9kb2Nfc2lnbl9pbWcvVTE1NzYuYm1w",
+    "刘飞": "http://oa.nsyy.com.cn:6080/att_download?save_path=L2hvbWUvY2MvYXR0L3B1YmxpYy95dF9kb2Nfc2lnbl9pbWcvVTA1NjAuYm1w",
+    "杨明贵": "http://oa.nsyy.com.cn:6080/att_download?save_path=L2hvbWUvY2MvYXR0L3B1YmxpYy95dF9kb2Nfc2lnbl9pbWcvVTA1NjEuYm1w",
+    "袁庆辉": "http://oa.nsyy.com.cn:6080/att_download?save_path=L2hvbWUvY2MvYXR0L3B1YmxpYy95dF9kb2Nfc2lnbl9pbWcvVTAyMzMuYm1w",
+    "王颜辉": "http://oa.nsyy.com.cn:6080/att_download?save_path=L2hvbWUvY2MvYXR0L3B1YmxpYy95dF9kb2Nfc2lnbl9pbWcvVTI1MjIuYm1w"
+}
+
+yt_doc_sign_list_code = {
+    "U1827": "http://oa.nsyy.com.cn:6080/att_download?save_path=L2hvbWUvY2MvYXR0L3B1YmxpYy95dF9kb2Nfc2lnbl9pbWcvVTE4MjcuYm1w",
+    "U1864": "http://oa.nsyy.com.cn:6080/att_download?save_path=L2hvbWUvY2MvYXR0L3B1YmxpYy95dF9kb2Nfc2lnbl9pbWcvVTE4NjQuYm1w",
+    "U0734": "http://oa.nsyy.com.cn:6080/att_download?save_path=L2hvbWUvY2MvYXR0L3B1YmxpYy95dF9kb2Nfc2lnbl9pbWcvVTA3MzTvvIjmoLjno4HvvIkuYm1w",
+    "U0571": "http://oa.nsyy.com.cn:6080/att_download?save_path=L2hvbWUvY2MvYXR0L3B1YmxpYy95dF9kb2Nfc2lnbl9pbWcvVTA1NzHvvIjmlL7lsITvvIkuYm1w",
+    "U2521": "http://oa.nsyy.com.cn:6080/att_download?save_path=L2hvbWUvY2MvYXR0L3B1YmxpYy95dF9kb2Nfc2lnbl9pbWcvVTI1MjEuYm1w",
+    "U1709": "http://oa.nsyy.com.cn:6080/att_download?save_path=L2hvbWUvY2MvYXR0L3B1YmxpYy95dF9kb2Nfc2lnbl9pbWcvVTE3MDkuYm1w",
+    "U0574": "http://oa.nsyy.com.cn:6080/att_download?save_path=L2hvbWUvY2MvYXR0L3B1YmxpYy95dF9kb2Nfc2lnbl9pbWcvVTA1NzQuYm1w",
+    "U0562": "http://oa.nsyy.com.cn:6080/att_download?save_path=L2hvbWUvY2MvYXR0L3B1YmxpYy95dF9kb2Nfc2lnbl9pbWcvVTA1NjIuYm1w",
+    "U0563": "http://oa.nsyy.com.cn:6080/att_download?save_path=L2hvbWUvY2MvYXR0L3B1YmxpYy95dF9kb2Nfc2lnbl9pbWcvVTA1NjMuYm1w",
+    "U1866": "http://oa.nsyy.com.cn:6080/att_download?save_path=L2hvbWUvY2MvYXR0L3B1YmxpYy95dF9kb2Nfc2lnbl9pbWcvVTE4NjYuYm1w",
+    "U3280": "http://oa.nsyy.com.cn:6080/att_download?save_path=L2hvbWUvY2MvYXR0L3B1YmxpYy95dF9kb2Nfc2lnbl9pbWcvVTMyODAuYm1w",
+    "U0565": "http://oa.nsyy.com.cn:6080/att_download?save_path=L2hvbWUvY2MvYXR0L3B1YmxpYy95dF9kb2Nfc2lnbl9pbWcvVTA1NjUuYm1w",
+    "U0731": "http://oa.nsyy.com.cn:6080/att_download?save_path=L2hvbWUvY2MvYXR0L3B1YmxpYy95dF9kb2Nfc2lnbl9pbWcvVTA3MzEuYm1w",
+    "U0568": "http://oa.nsyy.com.cn:6080/att_download?save_path=L2hvbWUvY2MvYXR0L3B1YmxpYy95dF9kb2Nfc2lnbl9pbWcvVTA1NjguYm1w",
+    "U1576": "http://oa.nsyy.com.cn:6080/att_download?save_path=L2hvbWUvY2MvYXR0L3B1YmxpYy95dF9kb2Nfc2lnbl9pbWcvVTE1NzYuYm1w",
+    "U0560": "http://oa.nsyy.com.cn:6080/att_download?save_path=L2hvbWUvY2MvYXR0L3B1YmxpYy95dF9kb2Nfc2lnbl9pbWcvVTA1NjAuYm1w",
+    "U0561": "http://oa.nsyy.com.cn:6080/att_download?save_path=L2hvbWUvY2MvYXR0L3B1YmxpYy95dF9kb2Nfc2lnbl9pbWcvVTA1NjEuYm1w",
+    "U0233": "http://oa.nsyy.com.cn:6080/att_download?save_path=L2hvbWUvY2MvYXR0L3B1YmxpYy95dF9kb2Nfc2lnbl9pbWcvVTAyMzMuYm1w",
+    "U2522": "http://oa.nsyy.com.cn:6080/att_download?save_path=L2hvbWUvY2MvYXR0L3B1YmxpYy95dF9kb2Nfc2lnbl9pbWcvVTI1MjIuYm1w"
+}
 
 
-@pacs_system.route('/auto_pacs', methods=['POST', 'GET'])
-def auto_pacs():
-    run_auto_pacs()
-    return {"code": 20000, "data": 'success', "res": datetime.now().strftime("%Y-%m-%d %H:%M:%S")}
+# 配置
+UPLOAD_FOLDER = "/Users/gaoyanliang/nsyy/nsyy-project/pacs_pdf_temp_uploads" if global_config.run_in_local else '/home/gyl/gyl_server/pacs_pdf_temp_uploads'
+# 确保本地临时目录存在
+os.makedirs(UPLOAD_FOLDER, exist_ok=True)
 
 
+def extract_dir(path: str) -> str:
+    from urllib.parse import urlparse
+    import os
+    # 解析 ftp URL
+    parsed = urlparse(path)
+    # 拿到路径部分
+    full_path = parsed.path
+    # 去掉文件名，只保留目录
+    return os.path.dirname(full_path) + "/"
 
+
+def upload_pdf_via_ftp(local_pdf, remote_path, remote_filename=None):
+    """上传 PDF 到 FTP"""
+    with FTP() as ftp:
+        if remote_path and remote_path.__contains__("YXY_YT"):
+            # 油田 pdf 保存地址
+            ftp.connect("192.168.200.3", 21)
+            ftp.login("pacs", "123456")
+        else:
+            # 康复中医院 pdf 保存地址
+            ftp.connect("192.168.3.99", 21)
+            ftp.login("zlpacs", "zlpacs")
+
+        # 从ftp路径中获取目录
+        remote_path = extract_dir(remote_path)
+        for folder in remote_path.strip("/").split("/"):
+            if folder not in ftp.nlst():
+                try:
+                    ftp.mkd(folder)
+                except Exception:
+                    pass
+            ftp.cwd(folder)
+
+        if not remote_filename:
+            remote_filename = os.path.basename(local_pdf)
+
+        with open(local_pdf, "rb") as f:
+            ftp.storbinary(f"STOR " + remote_filename, f)
 
