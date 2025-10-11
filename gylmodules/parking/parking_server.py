@@ -565,11 +565,11 @@ def auto_fetch_data():
 
 
 def auto_freeze_car():
-    if parking_config.enable_auto_freeze:
+    if parking_config.enable_auto_freeze and not global_config.run_in_local:
         db = DbUtil(global_config.DB_HOST, global_config.DB_USERNAME, global_config.DB_PASSWORD,
                     global_config.DB_DATABASE_GYL)
         records = db.query_all(f"select * from nsyy_gyl.parking_vip_cars "
-                               f"where vehicle_group = '员工车辆' and park_time >= 10 * 24 * 60 ")
+                               f"where vehicle_group = '员工车辆' and park_time >= 10 * 24 * 60 and vip_status = 1")
         del db
         if not records:
             return
