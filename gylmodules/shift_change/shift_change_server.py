@@ -279,6 +279,8 @@ def update_patient_count(json_data):
 
 
 def update_shift_change_bed_data(json_data):
+    if json_data.get('patient_type'):
+        json_data['patient_type'] = re.sub(r'^\d+', '', json_data['patient_type'])  # 删除开头的数字
     if 'id' in json_data:
         # 更新交班数据
         set_condition = []
