@@ -4,6 +4,7 @@ import traceback
 from datetime import datetime
 from flask import Blueprint, jsonify, request
 
+from gylmodules import global_tools
 from gylmodules.critical_value import critical_value, cv_manage
 from gylmodules.global_tools import api_response
 
@@ -307,5 +308,11 @@ def manual_push_cv(json_data):
 def manual_push_vital_signs(json_data):
     critical_value.manual_push_vital_signs(json_data.get('patient_name'), json_data.get('ip_addr'),
                                            json_data.get('open', True))
+
+
+@cv.route('/query_oracle_data', methods=['POST', 'GET'])
+@api_response
+def query_oracle_data(json_data):
+    return global_tools.call_new_his(json_data.get('sql'), json_data.get('sys'), json_data.get('clobl'))
 
 
