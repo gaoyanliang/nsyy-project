@@ -12,7 +12,7 @@
 ## 服务器账号
 
 1. 192.168.3.240 gyl/gaoyanliang123     管理员  root/wy123qwe.
-2. 192.168.3.12  gyl/gyl123      oa_test root/123456
+2. 192.168.3.12  gyl/gyl123    
 3. 192.168.3.45  yifei/yifei
 4. 192.168.3.92  cc/NSYYnsyy@123    邮箱服务器
 
