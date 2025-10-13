@@ -666,11 +666,13 @@ def aicu_shift_change(reg_sqls, shift_classes, time_slot, shoushu, flush: bool =
     if teshu_patients:
         teshu_info = {}
         for patient in teshu_patients:
-            if patient.get('bingrenzyid') not in  teshu_info:
+            if patient.get('bingrenzyid') not in teshu_info:
                 teshu_info[patient.get('bingrenzyid')] = patient.get('患者情况')
 
+        patient_set = set()
         for patient in all_patients:
-            if patient.get('bingrenzyid') in teshu_info:
+            if patient.get('bingrenzyid') in teshu_info and patient.get('bingrenzyid') not in patient_set:
+                patient_set.add(patient.get('bingrenzyid'))
                 patient['患者情况'] = patient['患者情况'] + teshu_info.get(patient.get('bingrenzyid'))
                 patient['患者类别'] = patient.get('患者类别') + ', 特殊处理'
 
