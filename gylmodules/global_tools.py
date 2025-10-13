@@ -1,13 +1,16 @@
+from datetime import datetime, date
 import json
 import threading
 import traceback
 import logging
 import time
+from _decimal import Decimal
 from logging.handlers import RotatingFileHandler
 
 from functools import wraps, lru_cache
-from typing import Callable, Any
+from typing import Callable, Any, List, Dict
 
+import cx_Oracle
 import requests
 import psycopg2
 
@@ -72,17 +75,158 @@ def setup_logging(log_file='app.log', level=logging.INFO, backup_count=5, max_by
 
 logger = logging.getLogger(__name__)
 
+oracle_env = {
+    # newzt 系统
+    "ORACLE_NEWZT_USER": "system",
+    "ORACLE_NEWZT_PASSWORD": "NSpingtai!8166",
+    "ORACLE_NEWZT_DSN": "192.168.8.84:1521/nsyypt",
+
+    # ydhl 系统
+    "ORACLE_YDHL_USER": "kyeecis",
+    "ORACLE_YDHL_PASSWORD": "kyeepass",
+    "ORACLE_YDHL_DSN": "192.168.3.98:1521/orcl",
+
+    # sannuo_xuetang 系统
+    "ORACLE_SANNUO_XUETANG_USER": "XUETANG",
+    "ORACLE_SANNUO_XUETANG_PASSWORD": "XUETANG",
+    "ORACLE_SANNUO_XUETANG_DSN": "192.168.3.68:1521/orcl",
+
+    # ythis 系统
+    "ORACLE_YTHIS_USER": "ZLHIS",
+    "ORACLE_YTHIS_PASSWORD": "7EF8625",
+    "ORACLE_YTHIS_DSN": "192.168.200.254:1521/ytfy",
+
+    # kfhis 系统
+    "ORACLE_KFHIS_USER": "zlhis",
+    "ORACLE_KFHIS_PASSWORD": "his",
+    "ORACLE_KFHIS_DSN": "192.168.3.18:1521/orcl",
+
+    # nshis 系统
+    "ORACLE_NSHIS_USER": "zlhis",
+    "ORACLE_NSHIS_PASSWORD": ".1451534F81B",
+    "ORACLE_NSHIS_DSN": "192.168.3.8:1521/ORCL"
+}
+
+# 连接池（全局单例）
+_oracle_pools = {}
+
+"""获取或创建Oracle连接池"""
+
+
+def get_oracle_pool(sys: str) -> cx_Oracle.SessionPool:
+    if sys not in _oracle_pools:
+        _oracle_pools[sys] = cx_Oracle.SessionPool(
+            user=oracle_env.get(f"ORACLE_{sys.upper()}_USER"),
+            password=oracle_env.get(f"ORACLE_{sys.upper()}_PASSWORD"),
+            dsn=oracle_env.get(f"ORACLE_{sys.upper()}_DSN"),
+            min=2, max=5, increment=1
+        )
+    return _oracle_pools[sys]
+
+
+"""安全执行Oracle查询（参数化查询 + 连接池）"""
+
+
+def connect_oracle(sql: str, sys: str = 'newzt') -> List[Dict]:
+    try:
+        pool = get_oracle_pool(sys)
+        conn = pool.acquire()
+        cursor = conn.cursor()
+
+        # 执行SQL查询
+        cursor.execute(sql)
+        rows = cursor.fetchall()
+        return normalize_oracle_result(cursor, rows)
+    except Exception as e:
+        logger.error(f"Oracle错误: sys={sys}, sql {sql}")
+        raise
+    finally:
+        if 'cursor' in locals():
+            cursor.close()
+        if 'conn' in locals():
+            pool.release(conn)
+
+
+"""标准化 Oracle 查询结果，使其与 MySQL 格式一致"""
+
+
+def normalize_oracle_result(cursor, rows: List[tuple]) -> List[Dict[str, Any]]:
+    # 获取列名
+    columns = [col[0] for col in cursor.description]
+    col_types = [col[1] for col in cursor.description]  # 获取字段类型
+    normalized_rows = []
+
+    for row in rows:
+        normalized_row = {}
+        for i, value in enumerate(row):
+            col_name = columns[i]
+            if isinstance(value, cx_Oracle.LOB):
+                # 处理 CLOB/BLOB 类型
+                if hasattr(value, 'read'):
+                    normalized_row[col_name] = value.read()
+                else:
+                    normalized_row[col_name] = str(value)
+            elif value is None:
+                col_type = col_types[i]
+                # 根据字段类型设置默认值
+                if col_type == cx_Oracle.STRING:
+                    normalized_row[col_name] = ""
+                elif col_type == cx_Oracle.CLOB:
+                    normalized_row[col_name] = ""
+                elif col_type == cx_Oracle.BLOB:
+                    normalized_row[col_name] = b''
+                else:
+                    normalized_row[col_name] = 0
+            elif isinstance(value, (datetime, date)):
+                if isinstance(value, datetime):
+                    normalized_row[col_name] = value.strftime('%Y-%m-%d %H:%M:%S')
+                else:
+                    normalized_row[col_name] = value.strftime('%Y-%m-%d')
+            elif isinstance(value, cx_Oracle.Timestamp):
+                normalized_row[col_name] = value.strftime('%Y-%m-%d %H:%M:%S')
+            else:
+                normalized_row[col_name] = value
+
+        normalized_rows.append(normalized_row)
+
+    return normalized_rows
+
 
 def call_new_his(sql: str, sys: str = 'newzt', clobl: list = None):
+    if global_config.run_in_local:
+        # 本地测试调用领导接口，线上直连数据库
+        return call_new_his_local(sql, sys, clobl)
+
+    data = []
+    max_retries, retry_count, retry_delay = 3, 0, 1
+    while retry_count < max_retries:
+        try:
+            return connect_oracle(sql, sys=sys)
+        except Exception as e:
+            retry_count += 1
+            if retry_count < max_retries:
+                sleep_time = retry_delay * (2 ** (retry_count - 1))  # 指数退避
+                logging.warning(f"call_new_his 第 {retry_count}/{max_retries} 次重试... {sleep_time} 秒后重试")
+                time.sleep(sleep_time)
+            else:
+                logging.error(f"call_new_his 已达最大重试次数 {max_retries}。最后错误: {str(e)}")
+                return []
+
+    return data
+
+
+"""本地 调用领导 oracle_sql 接口实现 oracle 数据库查询"""
+
+
+def call_new_his_local(sql: str, sys: str = 'newzt', clobl: list = None):
     """调用新 HIS 查询数据（支持异常重试）"""
     param = {"key": "o4YSo4nmde9HbeUPWY_FTp38mB1c", "sys": sys, "sql": sql}
     if clobl:
         param['clobl'] = clobl
 
     # 动态 URL
-    query_oracle_url = "http://127.0.0.1:6080/oracle_sql"
-    if global_config.run_in_local:
-        query_oracle_url = "http://192.168.124.53:6080/oracle_sql"
+    query_oracle_url = "http://192.168.124.5:5000/oracle_sql"
+    # query_oracle_url = "http://192.168.3.12:6080/oracle_sql"
 
     data = []
     max_retries, retry_count, retry_delay = 3, 0, 1
@@ -98,13 +242,11 @@ def call_new_his(sql: str, sys: str = 'newzt', clobl: list = None):
             retry_count += 1
             if retry_count < max_retries:
                 sleep_time = retry_delay * (2 ** (retry_count - 1))  # 指数退避
-                logging.warning(f"call_new_his 第 {retry_count}/{max_retries} 次重试... {sleep_time} 秒后重试")
+                logger.warning(f"call_new_his_api 第 {retry_count}/{max_retries} 次重试... {sleep_time} 秒后重试")
                 time.sleep(sleep_time)
             else:
-                logging.error(f"call_new_his 已达最大重试次数 {max_retries}。最后错误: {str(e)}\nSQL: {sql}")
+                logger.error(f"call_new_his_api 已达最大重试次数 {max_retries}。最后错误: {str(e)}\nSQL: {sql}")
                 return []
-
-    return data
 
 
 def call_new_his_pg(sql):
