@@ -1959,11 +1959,12 @@ def single_run_shift_change(json_data):
     if dshift_config and int(shift_type) != int(dshift_config.get('shift_type')):
         del db
         raise Exception("交班类型和科室不匹配，请选择正确的科室")
+    if db.query_one(f"select * from nsyy_gyl.scs_shift_info where shift_date = '{shift_date}' "
+                    f"and dept_id = {dept_id} and shift_classes = '{shift_type}-{shift_classes}' and archived = 1"):
+        del db
+        raise Exception("该班次已归档无法再刷新数据，如需刷新数据请先取消归档。慎重操作")
 
     all_sqls = db.query_all("select * from nsyy_gyl.scs_reg_sql")
-    shift_info = db.query_one(f"select * from nsyy_gyl.scs_shift_info "
-                              f"where shift_classes = '{shift_type}-{shift_classes}' "
-                              f"and shift_date = '{shift_date}' and dept_id = {int(dept_id)}")
     del db
     reg_sqls = {item.get('sid'): item for item in all_sqls}
 
