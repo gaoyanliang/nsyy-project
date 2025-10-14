@@ -257,6 +257,13 @@ def update_patient_count(json_data):
     shift_type = json_data.get('shift_type')
     db = DbUtil(global_config.DB_HOST, global_config.DB_USERNAME, global_config.DB_PASSWORD,
                 global_config.DB_DATABASE_GYL)
+
+    if db.query_one(f"select * from nsyy_gyl.scs_shift_info where shift_date = '{json_data.get('shift_date')}' "
+                    f"and dept_id = {int(json_data.get('dept_id'))} "
+                    f"and shift_classes = '{json_data.get('shift_type')}-{json_data.get('shift_classes')}' and archived = 1"):
+        del db
+        raise Exception("该班次已归档无法再刷新数据，如需刷新数据请先取消归档。慎重操作")
+
     if int(shift_type) == 1:
         args = (json_data.get('shift_date'), f"{json_data.get('shift_type')}-{json_data.get('shift_classes')}",
                 json_data.get('patient_type'), int(json_data.get('dept_id')), json_data.get('dept_name'), 0, '0',
@@ -280,6 +287,14 @@ def update_patient_count(json_data):
 
 
 def update_shift_change_bed_data(json_data):
+    db = DbUtil(global_config.DB_HOST, global_config.DB_USERNAME, global_config.DB_PASSWORD,
+                global_config.DB_DATABASE_GYL)
+    if db.query_one(f"select * from nsyy_gyl.scs_shift_info where shift_date = '{json_data.get('shift_date')}' "
+                    f"and dept_id = {int(json_data.get('patient_ward_id'))} "
+                    f"and shift_classes = '2-{json_data.get('shift_classes')}' and archived = 1"):
+        del db
+        raise Exception("该班次已归档无法再刷新数据，如需刷新数据请先取消归档。慎重操作")
+
     if json_data.get('patient_type'):
         json_data['patient_type'] = re.sub(r'^\d+', '', json_data['patient_type'])  # 删除开头的数字
     if 'id' in json_data:
@@ -297,8 +312,6 @@ def update_shift_change_bed_data(json_data):
         args = (json_data.get('shift_date'), f"2-{json_data.get('shift_classes')}",
                 json_data.get('patient_type'), json_data.get('patient_ward_id'), json_data.get('patient_ward'),
                 json_data.get('patient_info'), datetime.now().strftime("%Y-%m-%d %H:%M:%S"))
-    db = DbUtil(global_config.DB_HOST, global_config.DB_USERNAME, global_config.DB_PASSWORD,
-                global_config.DB_DATABASE_GYL)
     db.execute(sql, args, need_commit=True)
     del db
 
