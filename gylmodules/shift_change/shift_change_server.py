@@ -5,6 +5,7 @@ import time
 import uuid
 from collections import defaultdict
 from concurrent.futures import ThreadPoolExecutor
+from itertools import groupby
 from typing import Tuple, Dict, List
 
 import redis
@@ -528,10 +529,164 @@ def doctor_shift_change(reg_sqls, shift_classes, time_slot, dept_id_list, flush:
     logger.info(f"医生 {','.join(dept_id_list)} 交接班数据查询完成 ✅ 总耗时 {time.time() - start_time} 秒")
 
 
+"""预术/手术统一处理逻辑"""
+
+
+def handle_shoushu_and_yushu(reg_sqls, time_slot, dept_list):
+    start_time = time.time()
+    start = start_time
+    shift_start, shift_end = get_complete_time_slot(time_slot)
+
+    ydhl_dept_list = [shift_change_config.ydhl_dept_dict.get(str(did)) for did in dept_list]
+    nhis_data, base_data, ydhl_data, zz_data = [], [], [], []
+    with ThreadPoolExecutor(max_workers=5) as executor:
+        # 提交所有任务（添加时间统计）
+        tasks = {
+            "nhis_data": executor.submit(timed_execution, "预术及手术患者基本信息",
+                                         global_tools.call_new_his_pg, reg_sqls.get(28).get('sql_nhis')
+                                         .replace("{start_time}", shift_start)
+                                         .replace("{end_time}", shift_end).replace("{病区id}",
+                                                                                   ', '.join(f"'{item}'" for item in
+                                                                                             dept_list))),
+
+            "base_data": executor.submit(timed_execution, "pg在院患者本班手术结束时间",
+                                         global_tools.call_new_his_pg, reg_sqls.get(28).get('sql_base')
+                                         .replace("{start_time}", shift_start)
+                                         .replace("{end_time}", shift_end).replace("{病区id}",
+                                                                                   ', '.join(f"'{item}'" for item in
+                                                                                             dept_list))),
+            "ydhl_data": executor.submit(timed_execution, "ydhl本班手术结束时间",
+                                         global_tools.call_new_his, reg_sqls.get(28).get('sql_ydhl')
+                                         .replace("{start_time}", shift_start)
+                                         .replace("{end_time}", shift_end).replace("{病区id}",
+                                                                                   ', '.join(f"'{item}'" for item in
+                                                                                             ydhl_dept_list)), 'ydhl', []),
+            "zz_data": executor.submit(timed_execution, "手术患者情况",
+                                       global_tools.call_new_his, reg_sqls.get(28).get('sql_zz')
+                                       .replace("{start_time}", shift_start)
+                                       .replace("{end_time}", shift_end), 'ydhl', []),
+        }
+
+        # 获取结果（会自动等待所有任务完成）
+        results = {name: future.result() for name, future in tasks.items()}
+        # 解包结果
+        nhis_data = results["nhis_data"]
+        base_data = results["base_data"]
+        ydhl_data = results["ydhl_data"]
+        zz_data = results["zz_data"]
+
+    patient_infos = {}
+    for item in nhis_data:
+        patient_infos[(str(item.get('病人id')), str(item.get('主页id')))] = item
+
+    # 按照患者病人id 主页id 手术结束时间排序 升序
+    def sort_key(record):
+        end_time = record['本班手术结束时间'] if record['本班手术结束时间'] else record['最大手术结束时间']
+        time_key = end_time
+        if end_time is None or end_time == '':
+            time_key = ''
+        return (str(record['病人id']), str(record['主页id']), time_key)
+
+    shoushu_list = sorted(base_data + ydhl_data, key=sort_key)
+
+    # 记录每位患者最晚的手术结束时间
+    shoushu_dict = {}
+    for item in shoushu_list:
+        end_time = item['本班手术结束时间'] if item['本班手术结束时间'] else item['最大手术结束时间']
+        shoushu_dict[(str(item.get('病人id')), str(item.get('主页id')))] = end_time
+
+    def is_time1_before_time2(time_str1, time_str2):
+        """
+        判断第一个时间字符串是否早于第二个时间字符串
+
+        参数:
+            time_str1 (str): 第一个时间字符串，格式为 'YYYY-MM-DD HH:MM:SS'
+            time_str2 (str): 第二个时间字符串，格式为 'YYYY-MM-DD HH:MM:SS'
+
+        返回:
+            bool: 如果 time_str1 < time_str2 返回 True，否则返回 False
+            str: 错误信息（如果发生错误）
+        """
+        try:
+            # 将时间字符串转换为 datetime 对象
+            time1 = datetime.strptime(time_str1, '%Y-%m-%d %H:%M:%S')
+            time2 = datetime.strptime(time_str2, '%Y-%m-%d %H:%M:%S')
+
+            # 比较两个时间
+            return time1 < time2
+        except Exception as e:
+            return False
+
+    # 移除预术时间早于手术结束时间的预术记录
+    yushus = []
+    for item in nhis_data:
+        patient_id = item.get('病人id')
+        main_id = item.get('主页id')
+        if (str(patient_id), str(main_id)) in shoushu_dict \
+                and is_time1_before_time2(item.get('预术时间'), shoushu_dict.get((str(patient_id), str(main_id)))):
+            continue
+
+        item['患者情况'] = f"患者 {item.get('患者情况', '')} , 积极术前准备, 待术中。"
+        yushus.append(item)
+
+    # 补充手术患者信息
+    shoushus = []
+    for item in shoushu_list:
+        if not item.get('本班手术结束时间'):
+            continue
+        p_info = patient_infos.get((str(item.get('病人id')), str(item.get('主页id'))))
+        if not p_info:
+            continue
+        item['患者类别'] = "手术"
+        item['bingrenzyid'] = p_info.get('bingrenzyid')
+        item['床号'] = p_info.get('床号')
+        item['姓名'] = p_info.get('姓名')
+        item['住院号'] = p_info.get('住院号')
+        item['性别'] = p_info.get('性别')
+        item['年龄'] = p_info.get('年龄')
+        item['所在病区'] = p_info.get('所在病区')
+        item['所在病区id'] = p_info.get('所在病区id')
+        item['主治医生姓名'] = p_info.get('主治医生姓名')
+        item['患者情况'] = ''
+        item['主要诊断'] = p_info.get('主要诊断')
+        shoushus.append(item)
+
+    # 合并同一个人的多个手术信息 赋值给第一个手术记录
+    shoushu_info = sorted(zz_data, key=lambda x: (str(x["病人id"]), str(x["主页id"])))
+    for key, group in groupby(shoushu_info, key=lambda x: (str(x["病人id"]), str(x["主页id"]))):
+        infos = '; '.join(record['患者情况'] for record in list(group))
+        for item in shoushus:
+            if (str(item.get('病人id')), str(item.get('主页id'))) == key:
+                item['患者情况'] = infos
+                break
+
+    records = yushus + shoushus
+    # 合并相同患者类别和病人ID的记录，合并患者情况字段
+    merged_records = {}
+    for record in records:
+        # 使用患者类别和病人ID作为合并的关键
+        key = (record.get('患者类别', ''), record.get('bingrenzyid', ''))
+
+        if key in merged_records:
+            # 如果已存在相同患者类别和病人ID的记录，合并患者情况
+            existing_record = merged_records[key]
+
+            # 合并患者情况，用换行符分隔
+            if record.get('患者情况'):
+                if existing_record['患者情况']:
+                    existing_record['患者情况'] += '\n\n' + record['患者情况']
+                else:
+                    existing_record['患者情况'] = record['患者情况']
+        else:
+            # 否则创建新记录（深拷贝避免修改原记录）
+            merged_records[key] = record.copy()
+    return list(merged_records.values())
+
+
 """AICU 1000965 CCU 1001120  交班信息查询"""
 
 
-def aicu_shift_change(reg_sqls, shift_classes, time_slot, shoushu, flush: bool = False):
+def aicu_shift_change(reg_sqls, shift_classes, time_slot, shoushu, flush: bool = False, pid: str = None):
     start_time = time.time()
     start = start_time
     shift_start, shift_end = get_complete_time_slot(time_slot)
@@ -552,34 +707,46 @@ def aicu_shift_change(reg_sqls, shift_classes, time_slot, shoushu, flush: bool =
             "patient_count": executor.submit(timed_execution, "AICU/CCU 患者人数统计 1 ",
                                              global_tools.call_new_his_pg, reg_sqls.get(5).get('sql_nhis')
                                              .replace("{start_time}", shift_start)
-                                             .replace("{end_time}", shift_end)),
+                                             .replace("{end_time}", shift_end)
+                                             .replace("--and", "and" if pid else "--and")
+                                             .replace("{single_query}", pid if pid else "{single_query}")),
             "siwang_patients": executor.submit(timed_execution, "AICU/CCU 出院转出死亡患者情况 2 ",
-                                              global_tools.call_new_his_pg, reg_sqls.get(14).get('sql_nhis')
-                                              .replace("{start_time}", shift_start)
-                                              .replace("{end_time}", shift_end)),
+                                               global_tools.call_new_his_pg, reg_sqls.get(14).get('sql_nhis')
+                                               .replace("{start_time}", shift_start)
+                                               .replace("{end_time}", shift_end)
+                                               .replace("--and", "and" if pid else "--and")
+                                               .replace("{single_query}", pid if pid else "{single_query}")),
             "pg_patients": executor.submit(timed_execution, "AICU/CCU 护理单元患者情况 pg 5 ",
                                            global_tools.call_new_his_pg, reg_sqls.get(15).get('sql_base')
                                            .replace("{start_time}", shift_start)
-                                           .replace("{end_time}", shift_end)),
+                                           .replace("{end_time}", shift_end)
+                                           .replace("--and", "and" if pid else "--and")
+                                           .replace("{single_query}", pid if pid else "{single_query}")),
             "ydhl_patients": executor.submit(timed_execution, "AICU/CCU 护理单元患者情况 ydhl 6 ",
                                              global_tools.call_new_his, reg_sqls.get(15).get('sql_ydhl')
                                              .replace("{start_time}", shift_start)
-                                             .replace("{end_time}", shift_end), 'ydhl', None),
+                                             .replace("{end_time}", shift_end).replace("--and", "and" if pid else "--and")
+                                           .replace("{single_query}", pid if pid else "{single_query}"), 'ydhl', None),
             "chuyuan_ydhl": executor.submit(discharge_situation),
             "teshu_patients": executor.submit(timed_execution, "AICU/CCU 护理单元特殊处理患者情况 teshu 7 ",
                                               global_tools.call_new_his, reg_sqls.get(26).get('sql_ydhl')
                                               .replace("{start_time}", shift_start)
-                                              .replace("{end_time}", shift_end), 'ydhl', None),
+                                              .replace("{end_time}", shift_end).replace("--and", "and" if pid else "--and")
+                                           .replace("{single_query}", pid if pid else "{single_query}"), 'ydhl', None),
 
             "youchuang_pg": executor.submit(timed_execution, "AICU/CCU 有创 pg 8 ",
-                                              global_tools.call_new_his_pg, reg_sqls.get(27).get('sql_nhis')
-                                              .replace("{start_time}", shift_start)
-                                              .replace("{end_time}", shift_end)
-                                            .replace("{病区id}", ', '.join(f"'{item}'" for item in ['1000965', '1001120']))),
+                                            global_tools.call_new_his_pg, reg_sqls.get(27).get('sql_nhis')
+                                            .replace("{start_time}", shift_start)
+                                            .replace("{end_time}", shift_end)
+                                            .replace("--and", "and" if pid else "--and")
+                                            .replace("{single_query}", pid if pid else "{single_query}")
+                                            .replace("{病区id}",
+                                                     ', '.join(f"'{item}'" for item in ['1000965', '1001120']))),
             "youchuang_ydhl": executor.submit(timed_execution, "AICU/CCU 有创 ydhl 9",
                                               global_tools.call_new_his, reg_sqls.get(27).get('sql_ydhl')
                                               .replace("{start_time}", shift_start)
-                                              .replace("{end_time}", shift_end), 'ydhl', None)
+                                              .replace("{end_time}", shift_end).replace("--and", "and" if pid else "--and")
+                                           .replace("{single_query}", pid if pid else "{single_query}"), 'ydhl', None)
 
         }
         if int(shift_classes) == 3:
@@ -607,6 +774,20 @@ def aicu_shift_change(reg_sqls, shift_classes, time_slot, shoushu, flush: bool =
         youchuang_pg = results["youchuang_pg"]
         youchuang_ydhl = results.get("youchuang_ydhl")
 
+    # 查询预术手术患者
+    yu_shoushus = handle_shoushu_and_yushu(reg_sqls, time_slot, ['1000965', '1001120'])
+    if yu_shoushus:
+        shoushu_count, yushu_count = 0, 0
+        for item in yu_shoushus:
+            if item.get('患者类别') == '手术':
+                shoushu_count += 1
+            else:
+                yushu_count += 1
+        patient_count.append({"患者类别": '预术', "人数": yushu_count, "所在科室id": 0, "所在科室": '',
+                              "所在病区id": '1001120', "所在病区": 'AICU/CCU护理单元'})
+        patient_count.append({"患者类别": '手术', "人数": shoushu_count, "所在科室id": 0, "所在科室": '',
+                              "所在病区id": '1001120', "所在病区": 'AICU/CCU护理单元'})
+
     if chuyuan_ydhl:
         for patient in siwang_patients:
             if patient.get('患者类别') == '出院':
@@ -615,6 +796,7 @@ def aicu_shift_change(reg_sqls, shift_classes, time_slot, shoushu, flush: bool =
     start_time = time.time()
     all_patient_info = siwang_patients if siwang_patients else []
     all_patient_info = all_patient_info + handle_youchuang(youchuang_pg, youchuang_ydhl)
+    all_patient_info = all_patient_info + yu_shoushus
 
     # 合并患者信息
     def key_func(x):
@@ -657,15 +839,20 @@ def aicu_shift_change(reg_sqls, shift_classes, time_slot, shoushu, flush: bool =
                 else:
                     tmp_info = tmp_info + (
                         str(ydhl_patient.get("患者情况", '')) if ydhl_patient.get("患者情况", '') else '')
-
-        person_key = (patient.get("病人id"), str(patient.get("主页id")))
-        if person_key in target_set and patient.get("患者类别") in ['转入', '手术']:
-            if merged_info.get(person_key, '') == tmp_info:
-                tmp_info = ''
-            merged_info[person_key] = tmp_info
-
         patient['患者情况'] = tmp_info
         all_patient_info.append(patient)
+
+    # 同一个人 如果同时存在 转入记录和手术记录， 则转入记录的患者情况需要清空
+    surgery_patient_ids = set()
+    for record in all_patient_info:
+        if record.get('患者类别') == '手术':
+                surgery_patient_ids.add(record.get('bingrenzyid'))
+    processed_records = []
+    for record in all_patient_info:
+        # 如果是转入记录且该患者有手术记录，清空患者情况
+        if (record.get('患者类别') == '转入' and
+                record.get('bingrenzyid') in surgery_patient_ids):
+            record['患者情况'] = ''
 
     if all_cvs:
         patient_count.append({"患者类别": '危急值', "人数": len(all_cvs), "所在科室id": 0, "所在科室": '',
@@ -773,6 +960,20 @@ def ob_gyn_shift_change(reg_sqls, shift_classes, time_slot, shoushu, flush: bool
         youchuang_pg = results["youchuang_pg"]
         youchuang_ydhl = results["youchuang_ydhl"]
 
+    # 查询预术手术患者
+    yu_shoushus = handle_shoushu_and_yushu(reg_sqls, time_slot, ['1000961'])
+    if yu_shoushus:
+        shoushu_count, yushu_count = 0, 0
+        for item in yu_shoushus:
+            if item.get('患者类别') == '手术':
+                shoushu_count += 1
+            else:
+                yushu_count += 1
+        patient_count.append({"患者类别": '预术', "人数": yushu_count, "所在科室id": 0, "所在科室": '',
+                              "所在病区id": '1000961', "所在病区": '妇产科护理单元'})
+        patient_count.append({"患者类别": '手术', "人数": shoushu_count, "所在科室id": 0, "所在科室": '',
+                              "所在病区id": '1000961', "所在病区": '妇产科护理单元'})
+
     if chuyuan_ydhl:
         for patient in teshu_patients:
             if patient.get('患者类别') == '出院':
@@ -780,6 +981,7 @@ def ob_gyn_shift_change(reg_sqls, shift_classes, time_slot, shoushu, flush: bool
 
     all_patient_info = teshu_patients if teshu_patients else []
     all_patient_info = all_patient_info + handle_youchuang(youchuang_pg, youchuang_ydhl)
+    all_patient_info = all_patient_info + yu_shoushus
 
     # 合并患者情况
     def key_func(x):
@@ -862,273 +1064,29 @@ def icu_shift_change(reg_sqls, shift_classes, time_slot, flush: bool = False):
         chuangwei_info2 = results.get("chuangwei_info2", [])
         # temp_patients = results["temp_patients"]
 
+    # 查询预术手术患者
+    yu_shoushus = handle_shoushu_and_yushu(reg_sqls, time_slot, ['1000962'])
+    if yu_shoushus:
+        shoushu_count, yushu_count = 0, 0
+        for item in yu_shoushus:
+            if item.get('患者类别') == '手术':
+                shoushu_count += 1
+            else:
+                yushu_count += 1
+        patient_count.append({"患者类别": '预术', "人数": yushu_count, "所在科室id": 0, "所在科室": '',
+                              "所在病区id": '1000962', "所在病区": 'ICU护理单元'})
+        patient_count.append({"患者类别": '手术', "人数": shoushu_count, "所在科室id": 0, "所在科室": '',
+                              "所在病区id": '1000962', "所在病区": 'ICU护理单元'})
+
     if all_cvs:
         patient_count.append({"患者类别": '危急值', "人数": len(all_cvs), "所在科室id": 0, "所在科室": '',
                               "所在病区id": '1000962', "所在病区": 'ICU护理单元'})
         patient_count = fill_missing_types(patient_count, shift_change_config.ward_people_count, 2)
 
     all_patients = merge_patient_cv_data(all_cvs, teshu_patients, 2, ["1000962"])
+    all_patients = all_patients + yu_shoushus
     save_data(f"2-{shift_classes}", all_patients, patient_count, chuangwei_info1 + chuangwei_info2, flush)
     logger.info(f"重症科室 交接班数据查询完成 ✅ 耗时: {time.time() - start}")
-
-
-"""疼痛科 1000973 交班信息查询"""
-
-
-def pain_shift_change(reg_sqls, shift_classes, time_slot, shoushu, flush: bool = False):
-    if int(shift_classes) == 1:
-        trunc = '17'
-    elif int(shift_classes) == 2:
-        trunc = '21.5'
-    else:
-        trunc = '7'
-    start_time = time.time()
-    start = start_time
-    shift_start, shift_end = get_complete_time_slot(time_slot)
-
-    db = DbUtil(global_config.DB_HOST, global_config.DB_USERNAME, global_config.DB_PASSWORD,
-                global_config.DB_DATABASE_GYL)
-    query_sql = f"select * from nsyy_gyl.cv_info where patient_type = 3 " \
-                f"and alertdt >= '{shift_start}' and alertdt <= '{shift_end}' and ward_id = 1000973"
-    all_cvs = db.query_all(query_sql)
-    del db
-
-    patient_count_pg, patient_count_ydhl, siwang_patients, teshu_pg_patients, teshu_ydhl_patients, \
-        base_patients, pg_patients, ydhl_patients, youchuang_pg, youchuang_ydhl, \
-        chuyuan_ydhl, shuhou_patients, chuangwei_info1, chuangwei_info2 = [], [], [], [], [], [], [], [], [], [], [], [], [], []
-    with ThreadPoolExecutor(max_workers=10) as executor:
-        # 提交所有任务（添加时间统计）
-        tasks = {
-            "patient_count_pg": executor.submit(timed_execution, "疼痛科患者人数统计 PG 1 ",
-                                                global_tools.call_new_his_pg, reg_sqls.get(21).get('sql_nhis')
-                                                .replace("{start_time}", shift_start)
-                                                .replace("{end_time}", shift_end)),
-            "patient_count_ydhl": executor.submit(timed_execution, "疼痛科患者人数统计 ydhl 2 ",
-                                                  global_tools.call_new_his, reg_sqls.get(21).get('sql_ydhl')
-                                                  .replace("{start_time}", shift_start)
-                                                  .replace("{end_time}", shift_end), 'ydhl', None),
-            "siwang_patients": executor.submit(timed_execution, "疼痛科 出院转出死亡患者情况 3 ",
-                                               global_tools.call_new_his_pg, reg_sqls.get(23).get('sql_nhis')
-                                               .replace("{start_time}", shift_start)
-                                               .replace("{end_time}", shift_end)),
-            "teshu_pg_patients": executor.submit(timed_execution, "疼痛科 pg 特殊处理患者情况 4 ",
-                                                 global_tools.call_new_his_pg, reg_sqls.get(24).get('sql_nhis')
-                                                 .replace("{start_time}", shift_start)
-                                                 .replace("{end_time}", shift_end)),
-            "teshu_ydhl_patients": executor.submit(timed_execution, "疼痛科 ydhl 特殊处理患者情况 5 ",
-                                                   global_tools.call_new_his, reg_sqls.get(24).get('sql_ydhl')
-                                                   .replace("{trunc}", trunc)
-                                                   .replace("{start_time}", shift_start)
-                                                   .replace("{end_time}", shift_end), 'ydhl', ['患者情况']),
-            "base_patients": executor.submit(timed_execution, "疼痛科 护理单元患者情况 pg 6 ",
-                                             global_tools.call_new_his, reg_sqls.get(22).get('sql_base')
-                                             .replace("{trunc}", trunc)
-                                             .replace("{start_time}", shift_start)
-                                             .replace("{end_time}", shift_end), 'ydhl', None),
-            "pg_patients": executor.submit(timed_execution, "疼痛科 护理单元患者情况 pg 7 ",
-                                           global_tools.call_new_his_pg, reg_sqls.get(22).get('sql_nhis')
-                                           .replace("{start_time}", shift_start)
-                                           .replace("{end_time}", shift_end)),
-            "ydhl_patients": executor.submit(timed_execution, "疼痛科 护理单元患者情况 ydhl 8 ",
-                                             global_tools.call_new_his, reg_sqls.get(22).get('sql_ydhl')
-                                             .replace("{start_time}", shift_start)
-                                             .replace("{end_time}", shift_end), 'ydhl', None),
-            "chuyuan_ydhl": executor.submit(discharge_situation),
-
-            "youchuang_pg": executor.submit(timed_execution, "疼痛科 有创 pg 8 ",
-                                            global_tools.call_new_his_pg, reg_sqls.get(27).get('sql_nhis')
-                                            .replace("{start_time}", shift_start)
-                                            .replace("{end_time}", shift_end)
-                                            .replace("{病区id}",
-                                                     ', '.join(f"'{item}'" for item in ['1000973']))),
-            "youchuang_ydhl": executor.submit(timed_execution, "疼痛科 有创 ydhl 9",
-                                              global_tools.call_new_his, reg_sqls.get(27).get('sql_ydhl')
-                                              .replace("{start_time}", shift_start)
-                                              .replace("{end_time}", shift_end), 'ydhl', None)
-        }
-        if int(shift_classes) == 3:
-            tasks["chuangwei_info1"] = executor.submit(timed_execution, "疼痛科特殊患者床位信息 9 ",
-                                                       global_tools.call_new_his_pg, reg_sqls.get(4).get('sql_nhis'))
-            tasks["chuangwei_info2"] = executor.submit(timed_execution, "疼痛科特殊患者床位信息 10 ",
-                                                       global_tools.call_new_his, reg_sqls.get(4).get('sql_ydhl'),
-                                                       'ydhl', None)
-            if shoushu:
-                tasks["shuhou_patients"] = executor.submit(postoperative_situation, 3, ['1000973'],
-                                                           [item.get('bingrenzyid') for item in shoushu])
-
-        # 获取结果（会自动等待所有任务完成）
-        results = {name: future.result() for name, future in tasks.items()}
-        # 解包结果
-        patient_count_pg = results["patient_count_pg"]
-        patient_count_ydhl = results["patient_count_ydhl"]
-        siwang_patients = results.get("siwang_patients", [])
-        teshu_pg_patients = results.get("teshu_pg_patients", [])
-        teshu_ydhl_patients = results["teshu_ydhl_patients"]
-        base_patients = results["base_patients"]
-        pg_patients = results.get("pg_patients", [])
-        ydhl_patients = results.get("ydhl_patients", [])
-        chuyuan_ydhl = results["chuyuan_ydhl"]
-        shuhou_patients = results.get("shuhou_patients", [])
-        chuangwei_info1 = results.get("chuangwei_info1", [])
-        chuangwei_info2 = results.get("chuangwei_info2", [])
-        youchuang_pg = results["youchuang_pg"]
-        youchuang_ydhl = results["youchuang_ydhl"]
-
-    # 统计 预术/手术 人数， 一个人出现多个手术仅计算一次
-    shoushu_count = []
-    patient_count = []
-    for item in patient_count_pg:
-        if item.get('患者类别') in ['预术', '手术']:
-            shoushu_count.append(item)
-        else:
-            item.pop('bingrenzyid')
-            item.pop('时间')
-            patient_count.append(item)
-
-    if patient_count_ydhl:
-        shoushu_count = shoushu_count + patient_count_ydhl
-
-    shoushu_set = set()
-    yushu_count = 0
-    if shoushu_count:
-        sorted_data = sorted(shoushu_count, key=lambda x: (x['bingrenzyid'], x['时间']))
-        grouped_data = defaultdict(list)
-        for item in sorted_data:
-            grouped_data[item['bingrenzyid']].append(item)
-            if item.get('患者类别') == '手术':
-                shoushu_set.add(item['bingrenzyid'])
-
-        final_result = dict(grouped_data)
-        for _, records in final_result.items():
-            last_record = records[-1]
-            patient_category = last_record['患者类别']
-            if patient_category == '预术':
-                yushu_count += 1
-    patient_count.append(
-        {'患者类别': '预术', '所在病区id': '1000973', '所在病区': '疼痛科护理单元', '人数': yushu_count})
-    patient_count.append(
-        {'患者类别': '手术', '所在病区id': '1000973', '所在病区': '疼痛科护理单元', '人数': len(shoushu_set)})
-
-    if chuyuan_ydhl:
-        for patient in siwang_patients:
-            if patient.get('患者类别') == '出院':
-                patient['患者情况'] = patient['患者情况'].replace('###', chuyuan_ydhl.get(patient.get('住院号'), ''))
-
-    all_patient_info = siwang_patients
-    all_patient_info = all_patient_info + handle_youchuang(youchuang_pg, youchuang_ydhl)
-    teshu_pg_patient_dict = {}
-    for patient in teshu_pg_patients:
-        teshu_pg_patient_dict[patient['bingrenzyid']] = patient
-    for item in teshu_ydhl_patients:
-        p = teshu_pg_patient_dict.get(item.get('bingrenzyid'))
-        if not p:
-            continue
-        p['患者情况'] = item.get('患者情况', '')
-        all_patient_info.append(p)
-
-    base_patient_dict = {}
-    for item in base_patients:
-        key = (str(item.get('病人id')), str(item.get('主页id')), item.get('患者类别'))
-        if key in base_patient_dict:
-            base_patient_dict[key] = base_patient_dict[key] + item.get('患者情况')
-        else:
-            base_patient_dict[key] = item.get('患者情况')
-
-    shoushu_patients = []
-    xianyou_patients = {}
-    for item in pg_patients:
-        xianyou_patients[(str(item.get('病人id')), str(item.get('主页id')))] = item
-        if item.get('患者类别') == '现有':
-            continue
-        if item.get('患者类别') in ['手术', '预术']:
-            shoushu_patients.append(item)
-            continue
-
-        if item.get('患者类别') in ['入院', '转入']:
-            item['患者情况'] = item.get('患者情况') + base_patient_dict.get(
-                (str(item.get('病人id')), str(item.get('主页id')), item.get('患者类别')), '')
-        else:
-            item['患者情况'] = base_patient_dict.get(
-                (str(item.get('病人id')), str(item.get('主页id')), item.get('患者类别')), '')
-        all_patient_info.append(item)
-
-    if ydhl_patients:
-        shoushu_patients = shoushu_patients + ydhl_patients
-
-    # 处理预术手术 患者情况
-    # 1. 按人员分组：使用病人ID + 主页ID 作为复合键
-    grouped_data = defaultdict(list)
-    for item in shoushu_patients:
-        # 创建复合分组键：病人ID_住院ID
-        group_key = f"{item['病人id']}_{item['主页id']}"
-        grouped_data[group_key].append(item)
-
-    # 2. 每组按时间排序
-    for group_key in grouped_data:
-        grouped_data[group_key] = sorted(grouped_data[group_key], key=lambda x: x['时间'])
-
-    # 3. 处理逻辑：如果预术时间小于手术时间，则移除预术记录
-    final_result = []
-    for _, records in grouped_data.items():
-        # 检查该患者是否有手术记录
-        surgery_records = [r for r in records if r['患者类别'] == '手术']
-        if surgery_records:
-            surgery_record = surgery_records[-1]
-            for item in records:
-                if item['患者类别'] == '预术' and item['时间'] < surgery_record.get('时间'):
-                    continue
-                final_result.append(item)
-        else:
-            final_result = final_result + records
-
-    if final_result:
-        data = defaultdict(list)
-        for item in final_result:
-            # 创建复合分组键：病人ID_住院ID
-            group_key = f"{item['病人id']}_{item['主页id']}_{item['患者类别']}"
-            data[group_key].append(item)
-
-        for _, records in data.items():
-            # 检查该患者是否有手术记录
-            infos = [r.get('患者情况') for r in records if r.get('患者情况')]
-            infos = ', '.join(infos) if infos else ''
-            patient = xianyou_patients.get((str(records[0].get('病人id')), str(records[0].get('主页id'))))
-            if not patient:
-                continue
-            if records[0].get('患者类别') == '手术':
-                key = (str(records[0].get('病人id')), str(records[0].get('主页id')), '手术')
-                infos = base_patient_dict.get(key, '')
-                all_patient_info.append({'患者类别': '手术', 'bingrenzyid': patient.get('bingrenzyid'),
-                                         '床号': patient.get('床号'), '姓名': patient.get('姓名'),
-                                         '住院号': patient.get('住院号'), '性别': patient.get('性别'),
-                                         '年龄': patient.get('年龄'), '所在病区': patient.get('所在病区'),
-                                         '所在病区id': patient.get('所在病区id'),
-                                         '主治医生姓名': patient.get('主治医生姓名'),
-                                         '患者情况': infos, '主要诊断': patient.get('主要诊断'),
-                                         '病人id': patient.get('病人id')})
-            else:
-                all_patient_info.append({'患者类别': '预术', 'bingrenzyid': patient.get('bingrenzyid'),
-                                         '床号': patient.get('床号'), '姓名': patient.get('姓名'),
-                                         '住院号': patient.get('住院号'), '性别': patient.get('性别'),
-                                         '年龄': patient.get('年龄'), '所在病区': patient.get('所在病区'),
-                                         '所在病区id': patient.get('所在病区id'),
-                                         '主治医生姓名': patient.get('主治医生姓名'),
-                                         '患者情况': f"患者 {infos} , 积极术前准备, 待术中。",
-                                         '主要诊断': patient.get('主要诊断'), '病人id': patient.get('病人id')})
-
-    if all_cvs:
-        patient_count.append({"患者类别": '危急值', "人数": len(all_cvs), "所在科室id": 0, "所在科室": '',
-                              "所在病区id": '1000973', "所在病区": '疼痛科护理单元'})
-        patient_count = fill_missing_types(patient_count, shift_change_config.ward_people_count, 2)
-
-    all_patients = merge_patient_cv_data(all_cvs, all_patient_info, 2, ["1000973"])
-    all_patients = merge_patient_shuhou_data(shuhou_patients, all_patients, shoushu)
-    chuangwei_info_list = chuangwei_info1 + chuangwei_info2
-    for item in chuangwei_info_list:
-        item['所在病区id'] = str(shift_change_config.his_dept_dict.get(item['所在病区'], ''))
-    filtered_chuangwei_info = [dept for dept in chuangwei_info_list if str(dept['所在病区id']) == '1000973']
-    save_data(f"2-{shift_classes}", all_patients, patient_count, filtered_chuangwei_info, flush)
-    logger.info(f"疼痛科 交接班数据查询完成 ✅ 总耗时: {time.time() - start}")
 
 
 """普通科室交接班数据查询"""
@@ -1155,22 +1113,22 @@ def general_dept_shift_change(reg_sqls, shift_classes, time_slot, dept_list, sho
     del db
 
     patient_count, siwang_patients, chuangwei_info1, chuangwei_info2, youchuang_pg, youchuang_ydhl, \
-        teshu_ydhl_patients, teshu_pg_patients, ydhl_patients_other, ydhl_patients_shoushu, pg_patients, \
+        teshu_ydhl_patients, teshu_pg_patients, ydhl_patients_other, pg_patients, \
         eye_pg_patients, eye_ydhl_patients, shuhou_patients, chuyuan_ydhl, zhongyi_pg_patients, zhongyi_ydhl_patients \
-        = [], [], [], [], [], [], [], [], [], [], [], [], [], [], [], [], []
+        = [], [], [], [], [], [], [], [], [], [], [], [], [], [], [], []
     with ThreadPoolExecutor(max_workers=12) as executor:
         # 提交所有任务（添加时间统计）
         tasks = {
             "patient_count": executor.submit(timed_execution, "普通病区 患者人数统计 1 ",
                                              global_tools.call_new_his_pg, reg_sqls.get(3).get('sql_nhis')
                                              .replace("{特殊病区}",
-                                                      """'ICU护理单元','CCU护理单元','AICU护理单元','妇产科护理单元','疼痛科护理单元'""")
+                                                      """'ICU护理单元','CCU护理单元','AICU护理单元','妇产科护理单元'""")
                                              .replace("{start_time}", shift_start)
                                              .replace("{end_time}", shift_end)),
             "siwang_patients": executor.submit(timed_execution, "普通病区 出院转出死亡患者情况 2 ",
                                                global_tools.call_new_his_pg, reg_sqls.get(11).get('sql_nhis')
                                                .replace("{特殊病区}",
-                                                        """'ICU护理单元','CCU护理单元','AICU护理单元','妇产科护理单元','疼痛科护理单元'""")
+                                                        """'ICU护理单元','CCU护理单元','AICU护理单元','妇产科护理单元'""")
                                                .replace("{start_time}", shift_start)
                                                .replace("{end_time}", shift_end)),
             "teshu_ydhl_patients": executor.submit(timed_execution, "普通病区 患者信息(特殊处理) ydhl 5 ",
@@ -1189,25 +1147,17 @@ def general_dept_shift_change(reg_sqls, shift_classes, time_slot, dept_list, sho
                                            .replace("{start_time}", shift_start)
                                            .replace("{end_time}", shift_end)
                                            .replace("{特殊病区}",
-                                                    """'ICU护理单元','CCU护理单元','AICU护理单元','妇产科护理单元','眼科护理单元','疼痛科护理单元'""")
+                                                    """'ICU护理单元','CCU护理单元','AICU护理单元','妇产科护理单元','眼科护理单元'""")
                                            .replace("{病区id}", ', '.join(f"'{item}'" for item in dept_list))),
             "ydhl_patients_other": executor.submit(timed_execution, "普通病区 患者信息 ydhl 8 其他类型",
                                                    global_tools.call_new_his, reg_sqls.get(12).get('sql_ydhl')
                                                    .replace("{特殊病区}",
-                                                            """'ICU护理单元','CCU护理单元','AICU护理单元','妇产科护理单元','眼科护理单元','疼痛科护理单元'""")
+                                                            """'ICU护理单元','CCU护理单元','AICU护理单元','妇产科护理单元','眼科护理单元'""")
                                                    .replace("{trunc}", trunc)
                                                    .replace("{start_time}", shift_start)
                                                    .replace("{end_time}", shift_end)
                                                    , 'ydhl', None),
-            "ydhl_patients_shoushu": executor.submit(timed_execution, "普通病区 患者信息 ydhl 8 手术类型",
-                                                     global_tools.call_new_his, reg_sqls.get(12).get('sql_zz')
-                                                     .replace("{特殊病区}",
-                                                              """'ICU护理单元','CCU护理单元','AICU护理单元','妇产科护理单元','眼科护理单元','疼痛科护理单元'""")
-                                                     .replace("{start_time}", shift_start)
-                                                     .replace("{end_time}", shift_end)
-                                                     , 'ydhl', None),
             "chuyuan_ydhl": executor.submit(discharge_situation),
-
             "youchuang_pg": executor.submit(timed_execution, "普通病区 有创 pg 8 ",
                                             global_tools.call_new_his_pg, reg_sqls.get(27).get('sql_nhis')
                                             .replace("{start_time}", shift_start)
@@ -1269,7 +1219,6 @@ def general_dept_shift_change(reg_sqls, shift_classes, time_slot, dept_list, sho
         teshu_ydhl_patients = results["teshu_ydhl_patients"]
         teshu_pg_patients = results["teshu_pg_patients"]
         ydhl_patients_other = results["ydhl_patients_other"]
-        ydhl_patients_shoushu = results["ydhl_patients_shoushu"]
         pg_patients = results["pg_patients"]
         eye_pg_patients = results.get("eye_pg_patients", [])
         eye_ydhl_patients = results.get("eye_ydhl_patients", [])
@@ -1280,6 +1229,25 @@ def general_dept_shift_change(reg_sqls, shift_classes, time_slot, dept_list, sho
         youchuang_pg = results['youchuang_pg']
         youchuang_ydhl = results["youchuang_ydhl"]
 
+    # 查询预术手术患者
+    yu_shoushus = handle_shoushu_and_yushu(reg_sqls, time_slot, dept_list)
+    if yu_shoushus:
+        yu_shoushus_group = defaultdict(list)
+        for ite in yu_shoushus:
+            yu_shoushus_group[ite.get('所在病区')].append(ite)
+
+        for key, value in yu_shoushus_group.items():
+            shoushu_count, yushu_count = 0, 0
+            for it in list(value):
+                if it.get('患者类别') == '手术':
+                    shoushu_count += 1
+                else:
+                    yushu_count += 1
+            patient_count.append({"患者类别": '预术', "人数": yushu_count, "所在科室id": 0, "所在科室": '',
+                                  "所在病区id":str(shift_change_config.his_dept_dict.get(key)), "所在病区": key})
+            patient_count.append({"患者类别": '手术', "人数": shoushu_count, "所在科室id": 0, "所在科室": '',
+                                  "所在病区id": str(shift_change_config.his_dept_dict.get(key)), "所在病区": key})
+
     if chuyuan_ydhl:
         for patient in siwang_patients:
             if patient.get('患者类别') == '出院':
@@ -1287,6 +1255,7 @@ def general_dept_shift_change(reg_sqls, shift_classes, time_slot, dept_list, sho
 
     all_patient_info = siwang_patients
     all_patient_info = all_patient_info + handle_youchuang(youchuang_pg, youchuang_ydhl)
+    all_patient_info = all_patient_info + yu_shoushus
     teshu_pg_patient_dict = {}
     for patient in teshu_pg_patients:
         teshu_pg_patient_dict[patient['bingrenzyid']] = patient
@@ -1302,7 +1271,7 @@ def general_dept_shift_change(reg_sqls, shift_classes, time_slot, dept_list, sho
         return (x.get("病人id"), x.get("主页id"), x.get("标识"))
 
     groups = defaultdict(list)
-    ydhl_patients = ydhl_patients_other + ydhl_patients_shoushu
+    ydhl_patients = ydhl_patients_other
     for patient in ydhl_patients:
         groups[key_func(patient)].append(patient)
 
@@ -1923,15 +1892,9 @@ def timed_shift_change():
                 except Exception as e:
                     logger.warning(f"AICU/CCU {time_slot} 交接班异常: {e}")
 
-            if '1000973' in dept_list:
-                try:
-                    shoushu = [item for item in shoushu_patients if str(item.get('所在病区id')) == '1000973']
-                    pain_shift_change(reg_sqls, shift_classes, time_slot, shoushu)
-                except Exception as e:
-                    logger.warning(f"疼痛科 {time_slot} 交接班异常: {e}")
-
+            # 排除特殊科室
             dept_id_list = [dept_id for dept_id in dept_list if
-                            dept_id not in ['1000961', '1000962', '1000965', '1001120', '1000973']]
+                            dept_id not in ['1000961', '1000962', '1000965', '1001120']]
             try:
                 shoushu = [item for item in shoushu_patients if str(item.get('所在病区id')) in dept_id_list]
                 general_dept_shift_change(reg_sqls, shift_classes, time_slot, dept_id_list, shoushu)
@@ -2017,12 +1980,6 @@ def single_run_shift_change(json_data):
             if len(dept_list) == 1 and '1000962' in dept_list:
                 # 重症 ICU 交接班
                 icu_shift_change(reg_sqls, shift_classes, time_slot, True)
-
-                redis_client.delete(f"timed_shift_change")
-                return
-            if len(dept_list) == 1 and '1000973' in dept_list:
-                shoushu = [item for item in shoushu_patients if str(item.get('所在病区id')) == '1000973']
-                pain_shift_change(reg_sqls, shift_classes, time_slot, shoushu)
 
                 redis_client.delete(f"timed_shift_change")
                 return
