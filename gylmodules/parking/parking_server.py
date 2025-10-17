@@ -200,6 +200,11 @@ def query_inout_records(page_no, page_size, start_date, end_date):
 
 
 def apply_vip_car(json_data):
+    if 'operater_id' in json_data:
+        json_data['applicant_id'] = json_data.pop('operater_id')
+    if 'operater' in json_data:
+        json_data['applicant_name'] = json_data.pop('operater')
+
     db = DbUtil(global_config.DB_HOST, global_config.DB_USERNAME, global_config.DB_PASSWORD,
                 global_config.DB_DATABASE_GYL)
     car = db.query_one(f"select * from nsyy_gyl.parking_vip_cars where plate_no = '{json_data.get('plate_no')}'")
@@ -227,8 +232,8 @@ def apply_vip_car(json_data):
                      f"park_name = '南石医院', " \
                      f"end_date = '{end_date}', " \
                      f"start_date = '{json_data.get('start_date')}', " \
-                     f"applicant_id = '{json_data.get('operater_id')}', " \
-                     f"applicant_name = '{json_data.get('operater', '')}', " \
+                     f"applicant_id = '{json_data.get('applicant_id')}', " \
+                     f"applicant_name = '{json_data.get('applicant_name', '')}', " \
                      f"driver_license = '{json_data.get('driver_license', '')}', " \
                      f"relationship = '{json_data.get('relationship', '')}' " \
                      f"WHERE plate_no = '{json_data.get('plate_no')}'"

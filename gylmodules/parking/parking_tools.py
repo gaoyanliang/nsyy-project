@@ -279,6 +279,9 @@ def request_with_retry(url, headers, cookies, datas, is_get=False, max_retries=3
             except ValueError:
                 raise ValueError("响应不是有效的JSON格式")
 
+            if result.get("code") != "0":
+                raise Exception(f"接口返回错误 重试: {result.get('msg')} {result.get('data')}")
+
             return result
         except Exception as e:
             if attempt < max_retries - 1:
@@ -541,7 +544,9 @@ def vehicle_recharge(driver, vehicle_id, park_id, start_date, end_date):
         return False, ""
 
 
-"""车辆包期退款 - 删除包期"""
+"""车辆包期退款 - 删除包期
+需要执行两个操作 1 包期退款（退款之后 有效期截止到退款当日）， 2 包期删除
+"""
 
 
 def vehicle_refund(driver, plateNo, vehicleId, parkId):
@@ -572,10 +577,12 @@ def vehicle_refund(driver, plateNo, vehicleId, parkId):
             logger.warning(f"❌ 车辆[{plateNo}]会员包期退款申请失败 {form_data}")
             return False, ""
 
-        logger.debug(f"✅ 车辆[{plateNo}]会员包期退款申请成功, {result}")
+        result = request_with_retry("http://tingchechang.nsyy.com.cn/pms/action/vehicleCharge/saveVehicleRefund",
+                                    headers, cookies, form_data)
+        logger.debug(f"✅ 车辆[{plateNo}]会员包期退款 删除申请成功, {result}")
         return True, result
     except Exception as e:
-        logger.warning(f"❌ 车辆[{plateNo}]会员包期退款申请失败 {form_data}, {e}")
+        logger.warning(f"❌ 车辆[{plateNo}]会员包期退款 删除申请失败 {form_data}, {e}")
         return False, ""
 
 
