@@ -309,7 +309,7 @@ def fetch_all_timeout_cars(driver):
 
     # 2. 获取第一页数据（确定总页数）
     first_page_params = {
-        "time": int(time.time() * 1000), "plateNo": "",
+        "time": int(time.time() * 1000), "plateNo": "", "parkDay": "3",  # 超过 7 天的数据
         "plateBelieve": 100, "pageNo": 1, "pageSize": 100
     }
 
@@ -327,7 +327,7 @@ def fetch_all_timeout_cars(driver):
 
         for page in range(2, total_pages + 1):
             params = {
-                "time": int(time.time() * 1000), "plateNo": "", "parkDay": "7",  # 超过 7 天的数据
+                "time": int(time.time() * 1000), "plateNo": "", "parkDay": "3",  # 超过 7 天的数据
                 "plateBelieve": 100, "pageNo": page, "pageSize": page_size
             }
             resp = request_with_retry(base_url, auth["headers"], auth["cookies"], params, True)
@@ -577,7 +577,9 @@ def vehicle_refund(driver, plateNo, vehicleId, parkId):
             logger.warning(f"❌ 车辆[{plateNo}]会员包期退款申请失败 {form_data}")
             return False, ""
 
-        result = request_with_retry("http://tingchechang.nsyy.com.cn/pms/action/vehicleCharge/saveVehicleRefund",
+        headers['Referer'] = f'http://tingchechang.nsyy.com.cn/pms/application/recharge/profile/{vehicleId}'
+        form_data = {"vehicleId": vehicleId, "parkId": parkId}
+        result = request_with_retry("http://tingchechang.nsyy.com.cn/pms/action/vehicleCharge/deleteVehicleParkFunction",
                                     headers, cookies, form_data)
         logger.debug(f"✅ 车辆[{plateNo}]会员包期退款 删除申请成功, {result}")
         return True, result
@@ -838,24 +840,16 @@ def update_car_plate_no(vehicle_id, new_plate_no, group):
 
 if __name__ == "__main__":
     start_t = time.time()
-    start_time = time.time()
-    # driver = getDriver()
-    # print(f"打开浏览器耗时 {time.time() - start_time}")
-    # start_time = time.time()
-    # login(driver)
-    # print(f"登陆耗时 {time.time() - start_time}")
-    # start_time = time.time()
-    # switch_to_parking_page(driver)
-    # print(f"切换到停车页面耗时 {time.time() - start_time}")
-    # start_time = time.time()
-    # switch_to_info_query(driver)
-    # print(f"切换到信息查询页面耗时 {time.time() - start_time}")
-    # start_time = time.time()
-    # all_vip_car = fetch_all_vip_cars(driver)
-    # print(f"抓取会员车辆耗时 {time.time() - start_time}, 数量 {len(all_vip_car)}")
-    # for item in all_vip_car:
-    #     print(item)
-    # start_time = time.time()
-    # driver.quit()
+    driver = getDriver()
+    # 登陆系统 进入指定页面 获取cookie
+    login(driver)
+    switch_to_parking_page(driver)
+    switch_to_info_query(driver)
+
+    # 抓取数据
+    timeout_cars = fetch_all_timeout_cars(driver)
+    for item in timeout_cars:
+        print(item)
+
     # logger.debug("浏览器关闭耗时 ", time.time() - start_time)
     print("总耗时: ", time.time() - start_t, " s")
