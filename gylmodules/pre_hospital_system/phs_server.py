@@ -74,6 +74,10 @@ def update_patient_info(json_data, register_id):
         json_data.pop('update_at')
     if 'zk_time' in json_data and not json_data.get('zk_time'):
         json_data.pop('zk_time')
+    if 'xindianjianhu' in json_data and not json_data.get('xindianjianhu'):
+        json_data.pop('xindianjianhu')
+    if 'enter_hospital' in json_data and not json_data.get('enter_hospital'):
+        json_data.pop('enter_hospital')
 
     db = DbUtil(global_config.DB_HOST, global_config.DB_USERNAME, global_config.DB_PASSWORD,
                 global_config.DB_DATABASE_GYL)
@@ -134,6 +138,12 @@ def query_patient_list(key, start_date, end_date, page_number, page_size):
             """
     data = db.query_all(query_sql)
     del db
+    # 出诊类型 = 治愈 / 空车（都不需要写）  未入院患者（只需要写急救病历）
+    for item in data:
+        if item['bingli1'] == 0 and item.get("chuzhen_type", 0) in [4, 5]:
+            item['bingli1'] = 2
+        if item['bingli2'] == 0 and (item.get("chuzhen_type", 0) in [4, 5] or item.get("enter_hospital") == 0):
+            item['bingli1'] = 2
 
     xindianjianhu_count, xindiantuz_done_count, xindiantu_not_done_count, xindiantu_done_local_count, \
         qiguan_dairu_count, qiguan_success_count, qiguan_fail_count, jingmai_dairu_count, jingmai_success_count, \
@@ -335,12 +345,17 @@ def create_patient_record(register_id, record_id, record_data):
             condition_mapping = {"III级": 3, "IV级": 4, "II级": 2, "I级": 1}
             update_condition.append(f"bingqing_level = {condition_mapping.get(item.get('field_value'), 0)}")
         if int(record_id) == 2 and item.get('field_name') == 'venous_treatment' and item.get('field_value'):
-            value_list = item.get('field_value').split(",")
+            da = item.get('field_value')
+            value_list = da.split(",")
             results = ''
             for value in value_list:
                 if "外周静脉留置针-" in value:
                     _, _, suffix = value.partition("-")
                     results = results + suffix
+                if "中心静脉导管" in value or "PICC" in value:
+                    results = results + "带入"
+            if (da.__contains__("中心静脉导管") or da.__contains__("PICC")) and not results.__contains__("带入"):
+                results = results + "带入"
             update_condition.append(f"jingmaitd = '{results}'")
         if int(record_id) == 2 and item.get('field_name') == 'oxygen_method' and item.get('field_value'):
             value_list = item.get('field_value').split(",")
@@ -354,6 +369,10 @@ def create_patient_record(register_id, record_id, record_data):
         if int(record_id) == 2 and item.get('field_name') == 'major_centers' and item.get('field_value'):
             value = item.get('field_value', '')
             update_condition.append(f"sandazx = '{value}'")
+        # 初步诊断
+        if int(record_id) == 1 and item.get('field_name') == 'preliminary_diagnosis' and item.get('field_value'):
+            value = item.get('field_value', '')
+            update_condition.append(f"chubuzd = '{value}'")
 
     if update_condition:
         update_sql = f"UPDATE nsyy_gyl.phs_patient_registration SET {','.join(update_condition)} WHERE register_id = {register_id}"
