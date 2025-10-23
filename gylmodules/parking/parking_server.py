@@ -522,6 +522,7 @@ def auto_fetch_data():
             VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s) ON DUPLICATE KEY UPDATE vehicle_id = VALUES(vehicle_id), 
             plate_no = VALUES(plate_no), violated = VALUES(violated), left_days = VALUES(left_days)"""
         db.execute_many(insert_sql, args, need_commit=True)
+        db.execute("update nsyy_gyl.parking_vip_cars set vip_status = 2 where vip_status = 1 and left_days = 0", need_commit=True)
 
     if past_records:
         args = []
