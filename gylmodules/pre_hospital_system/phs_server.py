@@ -143,7 +143,7 @@ def query_patient_list(key, start_date, end_date, page_number, page_size):
         if item['bingli1'] == 0 and item.get("chuzhen_type", 0) in [4, 5]:
             item['bingli1'] = 2
         if item['bingli2'] == 0 and (item.get("chuzhen_type", 0) in [4, 5] or item.get("enter_hospital") == 0):
-            item['bingli1'] = 2
+            item['bingli2'] = 2
 
     xindianjianhu_count, xindiantuz_done_count, xindiantu_not_done_count, xindiantu_done_local_count, \
         qiguan_dairu_count, qiguan_success_count, qiguan_fail_count, jingmai_dairu_count, jingmai_success_count, \
