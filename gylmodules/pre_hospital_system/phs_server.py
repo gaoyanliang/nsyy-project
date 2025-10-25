@@ -138,11 +138,11 @@ def query_patient_list(key, start_date, end_date, page_number, page_size):
             """
     data = db.query_all(query_sql)
     del db
-    # 出诊类型 = 治愈 / 空车（都不需要写）  未入院患者（只需要写急救病历）
+    # 出诊类型 = 治愈 （都不需要写）  未入院患者（只需要写急救病历） 空车（都不需要写）
     for item in data:
-        if item['bingli1'] == 0 and item.get("chuzhen_type", 0) in [4, 5]:
+        if item['bingli1'] == 0 and (item.get("chuzhen_type", 0) == 4 or item.get("enter_hospital") == 2):
             item['bingli1'] = 2
-        if item['bingli2'] == 0 and (item.get("chuzhen_type", 0) in [4, 5] or item.get("enter_hospital") == 0):
+        if item['bingli2'] == 0 and (item.get("chuzhen_type", 0) == 4 or item.get("enter_hospital") in [0, 2]):
             item['bingli2'] = 2
 
     xindianjianhu_count, xindiantuz_done_count, xindiantu_not_done_count, xindiantu_done_local_count, \
