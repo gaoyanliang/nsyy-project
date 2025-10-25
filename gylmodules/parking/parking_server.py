@@ -51,6 +51,7 @@ def query_timeout_list(type, page_no, page_size):
 
 
 def approval_and_enable(json_data, type):
+    json_data['plate_no'] = json_data.get('plate_no').replace(' ', '')
     car_id = json_data.get('plate_no')
     operator = json_data.pop('operater')
     operator_id = json_data.pop('operater_id')
@@ -63,11 +64,15 @@ def approval_and_enable(json_data, type):
         raise Exception("会员车辆不存在")
 
     if type == 'approval':
-        update_sql = f"update nsyy_gyl.parking_vip_cars SET vip_status = 0 WHERE plate_no = '{car_id}'"
-    elif type == 'enable':
-        if car.get('vip_status') == -1:
+        if car.get('vip_status') != -1:
             del db
-            raise Exception("会员车辆未审批")
+            raise Exception("会员车辆状态异常，请联系信息科处理")
+        update_sql = f"update nsyy_gyl.parking_vip_cars SET vip_status = 0 " \
+                     f"WHERE plate_no = '{car_id}' and vip_status = -1"
+    elif type == 'enable':
+        if car.get('vip_status') != 0:
+            del db
+            raise Exception("会员车辆未审批, 请先联系总务科审批")
         update_sql = f"update nsyy_gyl.parking_vip_cars SET vip_status = 1, " \
                      f"start_date = '{json_data.get('start_date')}', end_date = '{json_data.get('end_date')}', " \
                      f"pay_amount = {json_data.get('pay_amount')}, pay_time = '{json_data.get('pay_time')}' " \
@@ -104,6 +109,8 @@ def approval_and_enable(json_data, type):
 
 
 def update_car_plate_no(json_data):
+    json_data['old_plate_no'] = json_data.get('old_plate_no').replace(' ', '')
+    json_data['new_plate_no'] = json_data.get('new_plate_no').replace(' ', '')
     old_plate_no = json_data.get('old_plate_no')
     new_plate_no = json_data.get('new_plate_no')
     operator = json_data.pop('operater')
@@ -116,7 +123,7 @@ def update_car_plate_no(json_data):
         del db
         raise Exception("会员车辆不存在 或 会员车辆未正式启用")
 
-    update_sql = f"update nsyy_gyl.parking_vip_cars SET plate_no = '{new_plate_no}' WHERE id = '{car.get('id')}'"
+    update_sql = f"update nsyy_gyl.parking_vip_cars SET plate_no = '{new_plate_no}' WHERE plate_no = '{old_plate_no}'"
     db.execute(sql=update_sql, need_commit=True)
 
     json_data['park_name'] = car.get('park_name')
@@ -200,6 +207,7 @@ def query_inout_records(page_no, page_size, start_date, end_date):
 
 
 def apply_vip_car(json_data):
+    json_data['plate_no'] = json_data.get('plate_no').replace(' ', '')
     if 'operater_id' in json_data:
         json_data['applicant_id'] = json_data.pop('operater_id')
     if 'operater' in json_data:
@@ -246,6 +254,7 @@ def apply_vip_car(json_data):
 
 
 def operate_vip_car(type, json_data):
+    json_data['plate_no'] = json_data.get('plate_no').replace(' ', '')
     db = DbUtil(global_config.DB_HOST, global_config.DB_USERNAME, global_config.DB_PASSWORD,
                 global_config.DB_DATABASE_GYL)
     if type == 'add':
@@ -373,6 +382,7 @@ def operate_vip_car(type, json_data):
 
 
 def update_vip_car(json_data):
+    json_data['plate_no'] = json_data.get('plate_no').replace(' ', '')
     car_id = json_data.get('id')
     update_condition = []
     if json_data.get('plate_no'):
