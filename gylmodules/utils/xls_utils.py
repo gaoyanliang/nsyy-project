@@ -5,13 +5,6 @@ import pandas as pd
 
 if __name__ == "__main__":
     db = DbUtil(global_config.DB_HOST, global_config.DB_USERNAME, global_config.DB_PASSWORD, global_config.DB_DATABASE_GYL)
-    db.get_version()
-
-    dbs = db.list_databases()
-    print(f"database list: {dbs}")
-
-    dbs = db.list_tables()
-    print(f"table list: {dbs}")
 
     # 将 excel 中的数据写入数据库
     df = pd.read_excel("/Users/gaoyanliang/nsyy/常见食物能量表.xlsx")
