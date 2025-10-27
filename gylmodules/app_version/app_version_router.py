@@ -1,5 +1,3 @@
-import traceback
-
 from flask import Blueprint, jsonify
 
 from gylmodules import global_config
@@ -14,8 +12,7 @@ def query_app_version(type, detail):
     try:
         version_info = query_app_version_from_db(type, detail)
     except Exception as e:
-        print(f"mail_router.delete_mail: An unexpected error occurred: {e}")
-        print(traceback.print_exc())
+        print(f"query_app_version: An unexpected error occurred: {e}")
         return jsonify({
             'code': 50000,
             'res': 'app 版本信息查询失败' + e.__str__(),
