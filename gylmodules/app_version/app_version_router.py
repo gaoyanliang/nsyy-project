@@ -35,5 +35,6 @@ def query_app_version_from_db(type, detail):
     query_sql = f"select * from nsyy_gyl.app_version " \
                 f"where type = '{type}' and detail = '{detail}' order by update_time desc limit 1"
     version_info = db.query_one(query_sql)
+    del db
 
     return version_info
