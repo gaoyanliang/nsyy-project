@@ -1,3 +1,4 @@
+import base64
 from datetime import datetime, date
 import json
 import threading
@@ -220,13 +221,14 @@ def call_new_his(sql: str, sys: str = 'newzt', clobl: list = None):
 
 def call_new_his_local(sql: str, sys: str = 'newzt', clobl: list = None):
     """调用新 HIS 查询数据（支持异常重试）"""
+    sql = base64.b64encode(sql.encode()).decode()
     param = {"key": "o4YSo4nmde9HbeUPWY_FTp38mB1c", "sys": sys, "sql": sql}
     if clobl:
         param['clobl'] = clobl
 
     # 动态 URL
     query_oracle_url = "http://192.168.124.5:5000/oracle_sql"
-    # query_oracle_url = "http://192.168.3.12:6080/oracle_sql"
+    # query_oracle_url = "http://192.168.3.12:6080/gyl/cv/query_oracle_data"
 
     data = []
     max_retries, retry_count, retry_delay = 3, 0, 1
