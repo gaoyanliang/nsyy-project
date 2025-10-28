@@ -51,7 +51,8 @@ def query_timeout_list(type, page_no, page_size):
 
 
 def approval_and_enable(json_data, type):
-    json_data['plate_no'] = json_data.get('plate_no').replace(' ', '')
+    if 'plate_no' in json_data:
+        json_data['plate_no'] = json_data.get('plate_no').replace(' ', '')
     car_id = json_data.get('plate_no')
     operator = json_data.pop('operater')
     operator_id = json_data.pop('operater_id')
@@ -207,7 +208,8 @@ def query_inout_records(page_no, page_size, start_date, end_date):
 
 
 def apply_vip_car(json_data):
-    json_data['plate_no'] = json_data.get('plate_no').replace(' ', '')
+    if 'plate_no' in json_data:
+        json_data['plate_no'] = json_data.get('plate_no').replace(' ', '')
     if 'operater_id' in json_data:
         json_data['applicant_id'] = json_data.pop('operater_id')
     if 'operater' in json_data:
@@ -254,7 +256,8 @@ def apply_vip_car(json_data):
 
 
 def operate_vip_car(type, json_data):
-    json_data['plate_no'] = json_data.get('plate_no').replace(' ', '')
+    if 'plate_no' in json_data:
+        json_data['plate_no'] = json_data.get('plate_no').replace(' ', '')
     db = DbUtil(global_config.DB_HOST, global_config.DB_USERNAME, global_config.DB_PASSWORD,
                 global_config.DB_DATABASE_GYL)
     if type == 'add':
@@ -382,7 +385,8 @@ def operate_vip_car(type, json_data):
 
 
 def update_vip_car(json_data):
-    json_data['plate_no'] = json_data.get('plate_no').replace(' ', '')
+    if 'plate_no' in json_data:
+        json_data['plate_no'] = json_data.get('plate_no').replace(' ', '')
     car_id = json_data.get('id')
     update_condition = []
     if json_data.get('plate_no'):
