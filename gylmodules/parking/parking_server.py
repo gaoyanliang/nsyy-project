@@ -27,8 +27,10 @@ def query_timeout_list(type, page_no, page_size):
                 global_config.DB_DATABASE_GYL)
     condition_sql = f" and park_time >= {parking_config.warning_day} "
     if str(type) == 'shutdown_list':
+        # 停放清单
         condition_sql = f" and vip_status = 3 "
     elif str(type) == 'warning_list':
+        # 预警清单
         condition_sql = f" and park_time > {parking_config.warning_day} and vip_status = 1 "
     elif str(type) == 'apply_list':
         # 已提交的员工列表 供审批
@@ -98,10 +100,14 @@ def approval_and_enable(json_data, type):
                        "create_at": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
                        'pay_amount': json_data.get('pay_amount', 0)}
 
+        redis_client = redis.Redis(connection_pool=pool)
+        redis_client.delete(parking_config.redis_key)
+
     insert_sql = f"INSERT INTO nsyy_gyl.parking_operation_logs ({','.join(operate_log.keys())}) " \
                  f"VALUES {str(tuple(operate_log.values()))}"
     last_rowid = db.execute(sql=insert_sql, need_commit=True)
     if last_rowid == -1:
+        global_tools.send_to_wx(f"会员车辆操作记录添加失败! {operate_log}")
         logger.warning(f"会员车辆操作记录添加失败! {operate_log}")
     del db
 
@@ -110,8 +116,10 @@ def approval_and_enable(json_data, type):
 
 
 def update_car_plate_no(json_data):
-    json_data['old_plate_no'] = json_data.get('old_plate_no').replace(' ', '')
-    json_data['new_plate_no'] = json_data.get('new_plate_no').replace(' ', '')
+    if 'old_plate_no' in json_data:
+        json_data['old_plate_no'] = json_data.get('old_plate_no').replace(' ', '')
+    if 'new_plate_no' in json_data:
+        json_data['new_plate_no'] = json_data.get('new_plate_no').replace(' ', '')
     old_plate_no = json_data.get('old_plate_no')
     new_plate_no = json_data.get('new_plate_no')
     operator = json_data.pop('operater')
@@ -150,9 +158,9 @@ def update_car_plate_no(json_data):
 def reminder_person(car_id):
     db = DbUtil(global_config.DB_HOST, global_config.DB_USERNAME, global_config.DB_PASSWORD,
                 global_config.DB_DATABASE_GYL)
-    delete_sql = f"update nsyy_gyl.parking_vip_cars SET reminder_time = " \
-                 f"'{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}' WHERE id = {car_id}"
-    db.execute(sql=delete_sql, need_commit=True)
+    sql = f"update nsyy_gyl.parking_vip_cars SET reminder_time = " \
+          f"'{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}' WHERE id = {car_id}"
+    db.execute(sql=sql, need_commit=True)
     del db
 
 
@@ -164,11 +172,11 @@ def query_vip_list(key, dept_id, start_date, end_date, page_no, page_size, type,
                 global_config.DB_DATABASE_GYL)
     condition_sql = " and vehicle_group = 'VIP' " if str(type) == "VIP" else " and vehicle_group != 'VIP' "
     if key:
-        condition_sql = condition_sql + f" and (plate_no like '%{key}%' or person_name like '%{key}%')"
+        condition_sql = condition_sql + f" and (plate_no like '%{key}%' or person_name like '%{key}%') "
     if dept_id:
-        condition_sql = condition_sql + f" and dept_id = '{dept_id}'"
+        condition_sql = condition_sql + f" and dept_id = '{dept_id}' "
     if start_date and end_date:
-        condition_sql = condition_sql + f" and start_date between '{start_date}' and '{end_date}'"
+        condition_sql = condition_sql + f" and start_date between '{start_date}' and '{end_date}' "
     # 查询总数
     total = db.query_one(f"SELECT COUNT(*) FROM nsyy_gyl.parking_vip_cars where deleted = 0 "
                          f"and violated = {violated} {condition_sql} order by create_at desc")
@@ -289,7 +297,7 @@ def operate_vip_car(type, json_data):
         vip_car = db.query_one(f"select * from nsyy_gyl.parking_vip_cars where id = {json_data.get('car_id')}")
         if not vip_car:
             del db
-            raise Exception("会员车辆不存在!")
+            raise Exception("会员车辆不存在! 无法移除")
 
         delete_sql = f"update nsyy_gyl.parking_vip_cars SET deleted = 1, " \
                      f"plate_no = '{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}-{vip_car.get('plate_no')}' " \
@@ -327,6 +335,7 @@ def operate_vip_car(type, json_data):
             vip_status = 3
 
         extended_days = vip_car.get('extended_days', 0)
+        # 恢复车辆会员时，需要将延时天数清零
         if operate_type == 'restore':
             extended_days = 0
         update_cond = ''
@@ -539,6 +548,7 @@ def auto_fetch_data():
             VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s) ON DUPLICATE KEY UPDATE vehicle_id = VALUES(vehicle_id), 
             plate_no = VALUES(plate_no), violated = VALUES(violated), left_days = VALUES(left_days)"""
         db.execute_many(insert_sql, args, need_commit=True)
+        # 更新到期的会员
         db.execute("update nsyy_gyl.parking_vip_cars set vip_status = 2 where vip_status = 1 and left_days = 0", need_commit=True)
 
     if past_records:
