@@ -487,3 +487,13 @@ def call_yangcheng_sign_serve(param: dict, ts_sign: bool = False):
             else:
                 logging.error(f"签名服务器连接失败，已达最大重试次数 {max_retries}。最后错误: {str(e)}\n")
                 return {}
+
+
+def send_to_wx(log_str):
+    try:
+        webhook = "https://qyapi.weixin.qq.com/cgi-bin/webhook/send?key=59432c15-d5fc-42c4-9315-d21d4b53b181"
+        data = {"msgtype": "text", "text": {"content": log_str}}
+        resp = requests.post(webhook, json=data)
+    except Exception as e:
+        logger.error(f"发送微信通知失败: {e}")
+

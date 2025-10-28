@@ -508,6 +508,9 @@ def auto_fetch_data():
                 logger.exception("获取到今停车场数据异常 稍后重试")
                 if retry_count < max_retries:
                     time.sleep(wait_time)
+                else:
+                    global_tools.send_to_wx("自动同步停车场数据失败")
+
         return is_success, [], [], []
 
     is_success, timeout_cars, vip_cars, past_records = run()
