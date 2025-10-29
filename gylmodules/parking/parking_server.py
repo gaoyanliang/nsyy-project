@@ -132,7 +132,7 @@ def update_car_plate_no(json_data):
         del db
         raise Exception("会员车辆不存在 或 会员车辆未正式启用")
 
-    update_sql = f"update nsyy_gyl.parking_vip_cars SET plate_no = '{new_plate_no}' WHERE plate_no = '{old_plate_no}'"
+    update_sql = f"update nsyy_gyl.parking_vip_cars SET plate_no = '{new_plate_no}' WHERE id = {car.get('id')}"
     db.execute(sql=update_sql, need_commit=True)
 
     json_data['park_name'] = car.get('park_name')
