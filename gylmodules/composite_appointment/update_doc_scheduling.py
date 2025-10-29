@@ -95,8 +95,7 @@ def update_today_doc_info():
             '医生ID': d['MarkId'], '医生姓名': d['MarkDesc'], '号码': d['AsRowid'], '挂号级别': d['SessionType'],
             '现价': d['Price'], '真实姓名': re.sub(r'[a-zA-Z0-9]', '', d['MarkDesc']),
             '科室ID': d['DepID'], '部门名称': d['DepName'], 'visit_id': d['VisitID'], "FartherDepID": d['FartherDepID'],
-            "FartherDepName": d['FartherDepName'], "Sex": d['Sex'], "UCount": d['UCount'],
-            "shouFeiXmMc": d['shouFeiXmMc']
+            "FartherDepName": d['FartherDepName'], "Sex": d['Sex'], "UCount": d['UCount'], "shouFeiXmMc": ''
         }
         for d in doc_list
         if d.get('MarkDesc') and d.get('MarkId')
