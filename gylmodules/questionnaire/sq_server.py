@@ -457,15 +457,15 @@ def query_test_result(card_no, visit_date):
     :param visit_date:
     :return:
     """
-    sql = f"""
-        SELECT jc.jiluid "jiluid", yj.yizhubh "doc_advice_id", jc.yizhuid "unique_key", yj.yizhumc "item_name", 
-        jc.zhenduan "item_result", jc.jianchasuojian "img_result", jc.yinxiangurl "img_url", 
-        jc.yingxiangbgurl "report_url" FROM df_shenqingdan.yj_jianchasqd yj 
-        LEFT JOIN df_cdr.yj_jianchabg jc on yj.jianchasqdid =jc.shenqingdanid AND  jc.zuofeibz = 0 
-        and jc.bingrenid = '{card_no}' WHERE yj.bingrenid = '{card_no}' 
-        AND yj.kaidanrq  >= to_date('{visit_date}','yyyy-mm-dd')  and yj.zuofeibz=0
-    """
-    test_results = global_tools.call_new_his(sql=sql, sys='newzt', clobl=['img_result'])
+    sql = f"""select jc.jiluid "jiluid", yj1.yizhubh "doc_advice_id", yj1.yizhubh "unique_key", 
+            yj1.jianchaxmmc "item_name", jc.zhenduan "item_result", jc.jianchasuojian "img_result",
+    	    jc.yinxiangurl "img_url", jc.yingxiangbgurl "report_url"
+            from df_shenqingdan.yj_jianchasqdxm yj1 
+            join df_shenqingdan.yj_jianchasqd yj on yj1.jianchasqdid =yj.jianchasqdid 
+            left join df_cdr.yj_jianchabg jc on yj.jianchasqdid = jc.shenqingdanid and jc.zuofeibz = 0
+            where yj.bingrenid = '{card_no}' and yj.kaidanrq >= to_date('{visit_date}', 'yyyy-mm-dd')
+    	    and yj.zuofeibz = 0"""
+    test_results = global_tools.call_new_his_pg(sql)
     return test_results
 
 
@@ -477,34 +477,78 @@ def query_examination_result(patient_id, visit_date):
     :return:
     """
     sql = f"""
-     select t.jiluid AS "jiluid", t.yzid AS "doc_advice_id", t.jianchamd AS "item_name", jymx.zhongwenmc AS "item_sub_name",
-        jymx.jianyanjg AS "item_sub_result", jymx.cankaofw AS "item_sub_refer", jymx.dangwei AS "item_sub_unit",
-        jymx.yichangbz, jymx.jianyanxmid AS "item_sub_id",
-        CASE
-            WHEN jymx.yichangbz = 'L' THEN '低'
-            WHEN jymx.yichangbz = 'H' THEN '高'
-            WHEN jymx.yichangbz = 'E' THEN '阳性'
-            WHEN jymx.yichangbz = 'D' THEN '阴性'  
-            ELSE '正常' END AS "item_sub_flag" 
- from (select  LISTAGG(sqd.yizhubh, '+') WITHIN GROUP (ORDER BY sqd.yizhubh) as yzid,jy2.jianchamd,jy2.jiluid
-       from  df_shenqingdan.yj_jianyansqd sqd left  join df_cdr.yj_jianyanbg jy2 on jy2.bingrenid=sqd.bingrenid and  
-       instr(jy2.shenqingdid,sqd.jianyansqdid)>0  and jy2.jianyanzt=1 where sqd.bingrenid='{patient_id}'   
-       and sqd.zuofeibz = 0  and sqd.kaidanrq >= to_date('{visit_date}','yyyy-mm-dd')      
-group by jy2.jiluid,jy2.jianchamd) t left join df_cdr.yj_jianyanbgmx jymx ON t.jiluid = jymx.jiluid   
+        select yj2.jiluid as "jiluid" ,yj.yizhubh as "doc_advice_id",
+    yj.yizhumc "item_name",yj3.zhongwenmc "item_sub_name",yj3.jianyanjg  "item_sub_result",
+    yj3.cankaofw  as "item_sub_refer", yj3.dangwei as "item_sub_unit",
+    coalesce(yj3.yichangbz,yj3.naiyaoxing) as yichangbz,
+    yj3.jianyanxmid as "item_sub_id",
+        case
+            when yj3.yichangbz = 'L' then '低'
+            when yj3.yichangbz = 'H' then '高'
+            when yj3.yichangbz = 'E' then '阳性'
+            when yj3.yichangbz = 'D' then '阴性'
+            when yj3.yichangbz = 'M' then '正常'
+            when yj3.yichangbz is null and yj3.naiyaoxing is not null
+                 then case  when yj3.naiyaoxing = 'R' then '耐药'
+                            when yj3.naiyaoxing = 'S' then '敏感'
+                            when yj3.naiyaoxing = 'I' then '中介'
+                      else null end 	
+            else null
+        end as "item_sub_flag"
+    from df_shenqingdan.yj_jianyansqd yj 
+    left join (select 
+    unnest(string_to_array(yj2.shenqingdid,',')) as shenqingdid,
+    unnest(string_to_array(yj2.jianyanxmid,'+')) as jianyanxmid,
+    jiluid
+    from df_cdr.yj_jianyanbg yj2 
+    where yj2.shenqingdid ~ ','
+    )yj2 on yj2.shenqingdid=yj.jianyansqdid 
+    left join df_cdr.yj_jianyanbgmx yj3 on yj2.jianyanxmid=yj3.jianyanxmid and yj2.jiluid=yj3.jiluid 
+    where  yj.zuofeibz=0 and yj.bingrenid = '{patient_id}' and yj.kaidanrq >= to_date('{visit_date}', 'yyyy-mm-dd')
+    union all 
+    select yj2.jiluid as "jiluid" ,yj.yizhubh as "doc_advice_id",
+    yj.yizhumc "item_name",yj3.zhongwenmc "item_sub_name",yj3.jianyanjg  "item_sub_result",
+    yj3.cankaofw  as "item_sub_refer", yj3.dangwei as "item_sub_unit",
+    coalesce(yj3.yichangbz,yj3.naiyaoxing) as yichangbz,
+    yj3.jianyanxmid as "item_sub_id",
+        case
+            when yj3.yichangbz = 'L' then '低'
+            when yj3.yichangbz = 'H' then '高'
+            when yj3.yichangbz = 'E' then '阳性'
+            when yj3.yichangbz = 'D' then '阴性'
+            when yj3.yichangbz = 'M' then '正常'
+            when yj3.yichangbz is null and yj3.naiyaoxing is not null
+                 then case  when yj3.naiyaoxing = 'R' then '耐药'
+                            when yj3.naiyaoxing = 'S' then '敏感'
+                            when yj3.naiyaoxing = 'I' then '中介'
+                      else null end 	
+            else null
+        end as "item_sub_flag"
+    from df_shenqingdan.yj_jianyansqd yj 
+    left join (select 
+    unnest(string_to_array(yj2.shenqingdid,',')) as shenqingdid,
+    yj2.jiluid
+    jiluid
+    from df_cdr.yj_jianyanbg yj2 
+    where yj2.shenqingdid !~ ','
+    )yj2 on yj2.shenqingdid=yj.jianyansqdid 
+    left join df_cdr.yj_jianyanbgmx yj3 on  yj2.jiluid=yj3.jiluid 
+    where  yj.zuofeibz=0 and yj.bingrenid = '{patient_id}' and yj.kaidanrq >= to_date('{visit_date}', 'yyyy-mm-dd')
     """
-    examination_results = global_tools.call_new_his(sql)
+    examination_results = global_tools.call_new_his_pg(sql)
     return examination_results
 
 
 def query_zhen_duan(sick_id, visit_date):
     if not sick_id:
         return ""
-    sql = f"""
-        SELECT brxx.zhenduanmc 名称 FROM df_lc_menzhen.zj_zhenduan brxx WHERE brxx.bingrenid = '{sick_id}' and 
-        brxx.zuofeibz = 0 and TRUNC(brxx.chuangjiansj) >= to_date('{visit_date}', 'yyyy-mm-dd') 
-        and TRUNC(brxx.chuangjiansj) < to_date('{visit_date}', 'yyyy-mm-dd') + 1 order by brxx.chuangjiansj desc
+    sql = f"""select brxx.zhenduanmc 名称 from df_lc_menzhen.zj_zhenduan brxx
+                where brxx.bingrenid = '{sick_id}' and  brxx.zuofeibz = 0
+                and brxx.chuangjiansj::date >= '{visit_date}'::date
+                and brxx.chuangjiansj::date < '{visit_date}'::date + 1
+            order by brxx.chuangjiansj desc
     """
-    zhenduans = global_tools.call_new_his(sql)
+    zhenduans = global_tools.call_new_his_pg(sql)
     if not zhenduans:
         return ""
 
