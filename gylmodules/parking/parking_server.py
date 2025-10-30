@@ -132,12 +132,13 @@ def update_car_plate_no(json_data):
         del db
         raise Exception("会员车辆不存在 或 会员车辆未正式启用")
 
-    update_sql = f"update nsyy_gyl.parking_vip_cars SET plate_no = '{new_plate_no}' WHERE id = {car.get('id')}"
-    db.execute(sql=update_sql, need_commit=True)
-
+    db.execute(sql=f"update nsyy_gyl.parking_vip_cars set plate_no = '{new_plate_no}' "
+                   f"where plate_no = '{old_plate_no}' ", need_commit=True)
     json_data['park_name'] = car.get('park_name')
     json_data['vehicle_group'] = car.get('vehicle_group')
     json_data['vehicle_id'] = car.get('vehicle_id')
+    json_data['start_date'] = car.get('start_date')
+    json_data['end_date'] = car.get('end_date')
     operate_log = {"operater": operator, "operater_id": operator_id, "plate_no": old_plate_no,
                    "log": "update_plate_no", "param": json.dumps(json_data, ensure_ascii=False, default=str),
                    "create_at": datetime.now().strftime("%Y-%m-%d %H:%M:%S"), 'pay_amount': 0}
@@ -398,8 +399,6 @@ def update_vip_car(json_data):
         json_data['plate_no'] = json_data.get('plate_no').replace(' ', '')
     car_id = json_data.get('id')
     update_condition = []
-    if json_data.get('plate_no'):
-        update_condition.append(f"plate_no = '{json_data.get('plate_no')}'")
     if json_data.get('person_name'):
         update_condition.append(f"person_name = '{json_data.get('person_name')}'")
     if json_data.get('person_phone'):
@@ -737,13 +736,27 @@ def auto_asynchronous_execution():
                     db.execute(f"update nsyy_gyl.parking_vip_cars set park_time = 0, "
                                f"park_time_str = NULL where plate_no = '{param.get('plate_no')}' ", need_commit=True)
             elif log_type == 'update_plate_no':
-                # 修改车牌号
-                success, result = parking_tools.update_car_plate_no(param.get('vehicle_id'), param.get('new_plate_no'),
-                                                                    param.get('vehicle_group', ''))
-                if not success:
-                    logger.error(f"自动任务 - 更新车辆车牌号失败, op_log_id = {operate_record.get('id')} 稍后重试")
-                    del db
-                    return
+                # 修改车牌号 调用修改车牌接口 修改后停车场系统不识别车辆， 改为先移除旧车辆信息 再新增新车牌
+                if param.get('vehicle_id'):
+                    success, result = parking_tools.delete_vip_car(param.get('vehicle_id'))
+                    if not success:
+                        logger.error(f"自动任务 - 更新车牌 1移除旧车牌车辆失败, op_log_id = {operate_record.get('id')} 稍后重试")
+                        global_tools.send_to_wx(f"op_log_id = {operate_record.get('id')} 更新车牌(移除旧车牌)失败, {param}")
+                        del db
+                        return
+
+                    vehicle_id = parking_tools.add_new_car_and_recharge(param.get('new_plate_no'),
+                                                                        parking_config.park_id_dict.get(param.get('park_name')),
+                                                                        param.get('start_date'), param.get('end_date'),
+                                                                        param.get('vehicle_group', ''))
+                    if not vehicle_id:
+                        logger.error(f"自动任务 - 更新车牌2 新增新车牌车辆失败, op_log_id = {operate_record.get('id')} 稍后重试")
+                        global_tools.send_to_wx(f"op_log_id = {operate_record.get('id')} 更新车牌（新增新车牌车辆）失败, {param}")
+                        del db
+                        return
+
+                    db.execute(f"update nsyy_gyl.parking_vip_cars set vehicle_id = '{vehicle_id}' "
+                               f"where plate_no = '{param.get('new_plate_no')}'", need_commit=True)
             else:
                 logger.warning(f"自动任务 - 无效操作类型: {operate_record}")
                 del db
