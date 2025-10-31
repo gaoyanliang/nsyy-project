@@ -2009,6 +2009,8 @@ def timed_shift_change():
 
 
 def single_run_shift_change(json_data):
+    if is_in_transition_period():
+        raise Exception("请勿在日期切换窗口(23:40-00:19)刷新数据")
     shift_type = json_data.get('shift_type')
     shift_date = json_data.get('shift_date')
     shift_classes = json_data.get('shift_classes')
@@ -2096,6 +2098,25 @@ def single_run_shift_change(json_data):
         redis_client.delete(f"shift_change:{dept_id}")
         redis_client.delete(f"timed_shift_change")
     redis_client.delete(f"timed_shift_change")
+
+
+"""判断当前时间是否处于这两个过渡时间段内。"""
+
+
+def is_in_transition_period():
+    now = datetime.now()
+    current_hour = now.hour
+    current_minute = now.minute
+
+    # 前一天最后20分钟 (23:40-23:59)
+    if current_hour == 23 and current_minute >= 40:
+        return True
+
+    # 后一天前20分钟 (00:00-00:19)
+    if current_hour == 0 and current_minute <= 19:
+        return True
+
+    return False
 
 
 """sql 没有统计的患者类别，人数默认为 0"""
