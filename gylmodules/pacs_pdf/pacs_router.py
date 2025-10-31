@@ -25,9 +25,9 @@ pacs_system = Blueprint('pacs system', __name__, url_prefix='/pacs')
 def query_report_data(json_data):
     type = json_data.get('type', '0')
     if type == '15':
-        sql = """select * from nsyy_gyl.medical_reports where 来源 = '油田' and is_upload = 0 limit 1"""
+        sql = """select * from nsyy_gyl.medical_reports where 来源 = '油田' and is_upload = 0 ORDER BY RAND() limit 1"""
     elif type == '35':
-        sql = """select * from nsyy_gyl.medical_reports where 来源 = '康复' and is_upload = 0 limit 1"""
+        sql = """select * from nsyy_gyl.medical_reports where 来源 = '康复' and is_upload = 0 ORDER BY RAND() limit 1"""
     else:
         raise Exception(f"未定义的查询类型 {type}")
     db = DbUtil(global_config.DB_HOST, global_config.DB_USERNAME, global_config.DB_PASSWORD,

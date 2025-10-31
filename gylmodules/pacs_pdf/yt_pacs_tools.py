@@ -1,7 +1,7 @@
 """
 pacs_router 随项目一起启动
 
-yt_pacs_tools 单独执行， 通过接口调用 auto——pacs 会造成阻塞 无法生成pdf
+yt_pacs_tools 单独执行， 通过接口调用 auto——pacs 会造成阻塞 无法生成pdf  使用crontab -e
 /home/gyl/.conda/envs/gg/bin/python /home/gyl/gyl_server/gylmodules/pacs_pdf/yt_pacs_tools.py > /home/gyl/pacs_pdf.log 2>&1
 """
 
@@ -21,7 +21,8 @@ from selenium.webdriver.chrome.options import Options
 
 logger = logging.getLogger(__name__)
 
-run_in_local = True
+# TODO 注意线上运行时请将run_in_local设置为False
+run_in_local = False
 
 db_config = {
     'host': '127.0.0.1' if run_in_local else '192.168.3.12',
