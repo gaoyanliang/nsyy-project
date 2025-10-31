@@ -528,7 +528,7 @@ def auto_fetch_data():
     vip_car_no_list = [vip_car.get('plate_no') for vip_car in vip_cars]
     db = DbUtil(global_config.DB_HOST, global_config.DB_USERNAME, global_config.DB_PASSWORD,
                 global_config.DB_DATABASE_GYL)
-    all_cars = db.query_all("select plate_no from nsyy_gyl.parking_vip_cars where deleted = 0")
+    all_cars = db.query_all("select plate_no, vip_status from nsyy_gyl.parking_vip_cars where deleted = 0")
     hist_car_status = {car.get('plate_no'): car.get('vip_status') for car in all_cars}
     all_cars = [car.get('plate_no') for car in all_cars]
 
