@@ -56,7 +56,7 @@ class DbUtil:
             if need_commit:
                 self.__commit()
 
-            logger.debug(f"execute耗时 {time.time() - start_time} 秒, 执行SQL {sql}")
+            # logger.debug(f"execute耗时 {time.time() - start_time} 秒, 执行SQL {sql}")
             return last_rowid
         except Exception as e:
             if print_log:
@@ -74,7 +74,7 @@ class DbUtil:
             if need_commit:
                 self.__commit()
 
-            logger.debug(f"execute_many 耗时 {time.time() - start_time} 秒, 执行SQL {sql}")
+            # logger.debug(f"execute_many 耗时 {time.time() - start_time} 秒, 执行SQL {sql}")
             # 获取最后一个插入记录的ID
             return self.__cursor.lastrowid
         except Exception as e:
@@ -97,7 +97,7 @@ class DbUtil:
                 logger.warning(f"执行SQL {sql}, 遇到异常 {e}")
             else:
                 logger.debug(f"执行SQL {sql}, 遇到异常 {e}")
-        logger.debug(f"query_one 耗时 {time.time() - start_time} 秒, 执行SQL {sql}")
+        # logger.debug(f"query_one 耗时 {time.time() - start_time} 秒, 执行SQL {sql}")
         return result
 
     def query_all(self, sql, print_log: bool = True):
@@ -112,7 +112,7 @@ class DbUtil:
                 logger.warning(f"执行SQL {sql}, 遇到异常 {e}")
             else:
                 logger.error(f"执行SQL {sql}, 遇到异常 {e}")
-        logger.debug(f"query_one 耗时 {time.time() - start_time} 秒, 执行SQL {sql}")
+        # logger.debug(f"query_one 耗时 {time.time() - start_time} 秒, 执行SQL {sql}")
         return list_result
 
 
