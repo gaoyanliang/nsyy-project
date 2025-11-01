@@ -534,7 +534,7 @@ def auto_fetch_data():
 
     for car in vip_cars:
         car['violated'] = 0 if car['plate_no'] in all_cars else 1
-        if car.get('vip_status') != hist_car_status.get(car.get('plate_no'), -2):
+        if car.get('vip_status') != hist_car_status.get(car.get('plate_no'), -2) and car.get('vip_status') == 1:
             global_tools.send_to_wx(f" {datetime.now().strftime('%Y-%m-%d %H:%M:%S')} "
                                     f"会员车辆 [{car.get('plate_no')}] 状态不一致, 真实状态为: {car.get('vip_status')} "
                                     f"OA 状态为: {hist_car_status.get(car.get('plate_no'), -2)}")
