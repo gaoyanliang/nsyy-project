@@ -567,7 +567,7 @@ def auto_fetch_data():
         db.execute_many(insert_sql, args, need_commit=True)
 
     if timeout_cars:
-        db.execute("update nsyy_gyl.parking_vip_cars set entry_time = NULL, park_time_str = NULL, park_time = 0", need_commit=True)
+        db.execute("update nsyy_gyl.parking_vip_cars set park_time_str = NULL, park_time = 0", need_commit=True)
         # 构建 CASE WHEN 语句
         park_time_list = []
         plate_no_list = []
@@ -733,7 +733,7 @@ def auto_asynchronous_execution():
                     return
                 if success and log_type == 'restore_vip_car':
                     # 恢复会员车辆时 将停放时长移除
-                    db.execute(f"update nsyy_gyl.parking_vip_cars set park_time = 0, "
+                    db.execute(f"update nsyy_gyl.parking_vip_cars set park_time = 0, entry_time = NULL, "
                                f"park_time_str = NULL where plate_no = '{param.get('plate_no')}' ", need_commit=True)
             elif log_type == 'update_plate_no':
                 # 修改车牌号 调用修改车牌接口 修改后停车场系统不识别车辆， 改为先移除旧车辆信息 再新增新车牌
