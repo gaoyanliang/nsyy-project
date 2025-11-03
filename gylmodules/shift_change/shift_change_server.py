@@ -2283,6 +2283,10 @@ def save_shift_info(json_data):
         params = (shift_date, f"{shift_type}-{shift_classes}", dept_id, dept_name, user_name,
                   user_id, datetime.now().strftime("%Y-%m-%d %H:%M:%S"), json.dumps(sign_data), sign_img)
 
+    if int(sign_type) == 4 and int(shift_type) == 2:
+        # 护理归档时需要有本班交班人的签名 和 上一个班次接班人的签名
+        is_archiving_allowed(shift_date, shift_type, shift_classes, dept_id)
+
     if int(sign_type) == 1:
         insert_sql = """INSERT INTO nsyy_gyl.scs_shift_info (shift_date, shift_classes, dept_id, dept_name, 
         outgoing, outgoing_user_id, outgoing_time, outgoing_data, outgoing_img)
@@ -2309,12 +2313,47 @@ def save_shift_info(json_data):
         archived, archived_time) VALUES (%s, %s, %s, %s, %s, %s) ON DUPLICATE KEY UPDATE archived = VALUES(archived), 
             archived_time = VALUES(archived_time) """
     else:
-        raise Exception('签名类型错误 1=交班人 2=接班人 3=护士长 4=归档')
+        raise Exception('签名类型错误 1=交班人 2=接班人 3=护士长 4=归档 5=取消归档')
     db = DbUtil(global_config.DB_HOST, global_config.DB_USERNAME, global_config.DB_PASSWORD,
                 global_config.DB_DATABASE_GYL)
     db.execute(insert_sql, params, need_commit=True)
     del db
     return sign_img
+
+
+"""校验是否允许归档"""
+
+
+def is_archiving_allowed(shift_date, shift_type, shift_classes, dept_id):
+    db = DbUtil(global_config.DB_HOST, global_config.DB_USERNAME, global_config.DB_PASSWORD,
+                global_config.DB_DATABASE_GYL)
+    dept_info = db.query_one(f"select * from nsyy_gyl.scs_shift_config where shift_type = '{shift_type}' "
+                             f" and dept_id = {dept_id}")
+    previous_shift_classes = int(shift_classes) - 1
+    previous_shift_date = shift_date
+    if previous_shift_classes == 0:
+        previous_shift_classes = 3
+        date_obj = datetime.strptime(shift_date, "%Y-%m-%d")
+        previous_day = date_obj - timedelta(days=1)
+        previous_shift_date = previous_day.strftime("%Y-%m-%d")
+
+    # 如果上一个班次是中班，还需要判断这个科室是否启用了中班
+    if previous_shift_classes == 2 and (not dept_info.get('middle_shift') or not dept_info.get('middle_shift_slot')):
+        previous_shift_classes = 1
+
+    sql = f"select incoming from nsyy_gyl.scs_shift_info where shift_date = '{previous_shift_date}' " \
+          f"and dept_id = {dept_id} and shift_classes = '{shift_type}-{previous_shift_classes}'"
+    record = db.query_one(sql)
+    if not record or not record.get('incoming'):
+        del db
+        raise Exception('上一班接班人未签名（归档需上一个班次接班人和本班交班人的签名）')
+    sql = f"select outgoing from nsyy_gyl.scs_shift_info where shift_date = '{shift_date}' " \
+          f"and dept_id = {dept_id} and shift_classes = '{shift_type}-{shift_classes}'"
+    record = db.query_one(sql)
+    if not record or not record.get('outgoing'):
+        del db
+        raise Exception('本班交班人未签名（归档需上一个班次接班人和本班交班人的签名）')
+    del db
 
 
 """获取医生签名图片，如果是首次签名，从云医签中获取签名"""
