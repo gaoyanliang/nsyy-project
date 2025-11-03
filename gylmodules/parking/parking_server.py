@@ -534,7 +534,8 @@ def auto_fetch_data():
 
     for car in vip_cars:
         car['violated'] = 0 if car['plate_no'] in all_cars else 1
-        if car.get('vip_status') != hist_car_status.get(car.get('plate_no'), -2) and car.get('vip_status') == 1:
+        if car.get('vip_status') != hist_car_status.get(car.get('plate_no'), -2) and car.get('vip_status') == 1 \
+                and hist_car_status.get(car.get('plate_no'), -2) in [1, 2, 3, 4] and not global_config.run_in_local:
             global_tools.send_to_wx(f" {datetime.now().strftime('%Y-%m-%d %H:%M:%S')} "
                                     f"会员车辆 [{car.get('plate_no')}] 状态不一致, 真实状态为: {car.get('vip_status')} "
                                     f"OA 状态为: {hist_car_status.get(car.get('plate_no'), -2)}")
@@ -558,6 +559,8 @@ def auto_fetch_data():
     if past_records:
         args = []
         for record in past_records:
+            if record.get('plate_no') not in vip_car_no_list:
+                continue
             args.append(
                 (record.get('plate_no'), record.get('car_in_out'), record.get('cross_date'), record.get('vehicle_pic'),
                  record.get('entrance_name'), record.get('park_name'), record.get('uuid')))

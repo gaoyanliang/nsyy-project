@@ -337,7 +337,7 @@ def schedule_task():
 
     logger.info("8. 停车场模块定时任务 ")
     gylmodule_scheduler.add_job(auto_tingchechang, trigger='cron', minute='*/4')
-    gylmodule_scheduler.add_job(auto_fetch_data, 'cron', hour=3, minute=40)
+    gylmodule_scheduler.add_job(auto_fetch_data, 'cron', hour='3,16', minute=10)
     gylmodule_scheduler.add_job(auto_freeze_car, 'cron', hour=3, minute=50)
 
     # ======================  Start ======================
