@@ -44,6 +44,8 @@ def query_shift_change_date(json_data):
     db = DbUtil(global_config.DB_HOST, global_config.DB_USERNAME, global_config.DB_PASSWORD,
                 global_config.DB_DATABASE_GYL)
     if int(shift_type) == 1:
+        dept_id = shift_change_config.doc_teshu_dept_map.get(str(dept_id)) \
+            if str(dept_id) in shift_change_config.doc_teshu_dept_map else dept_id
         # 医生交接班
         shift_classes = f"{shift_type}-{shift_classes}"
         shift_info = db.query_one(f"select * from nsyy_gyl.scs_shift_info where shift_date = '{shift_date}' "
