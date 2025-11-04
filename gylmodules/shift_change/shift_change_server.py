@@ -50,15 +50,24 @@ def query_shift_change_date(json_data):
                                   f"and shift_classes = '{shift_classes}' and dept_id = {dept_id} and archived = 1")
         is_archived = [shift_classes] if shift_info else []
 
+        shift_classes = f"{shift_type}-{shift_classes}"
+        classes_list = ['1-1']
+        if shift_classes.endswith('-3'):
+            classes_list = ['1-1', '1-2', '1-3']
+        elif shift_classes.endswith('-2'):
+            classes_list = ['1-1', '1-2']
+
+        classes_str = ', '.join(f"'{item}'" for item in classes_list)
         query_sql = f"select * from nsyy_gyl.scs_patients where shift_date = '{shift_date}' " \
-                    f"and shift_classes = '{shift_classes}' and patient_dept_id = {dept_id}"
+                    f"and shift_classes in ({classes_str}) and patient_dept_id = {dept_id}"
         patients = db.query_all(query_sql)
 
         count_info = db.query_all(f"select * from nsyy_gyl.scs_patient_count where shift_date = '{shift_date}' "
-                                  f"and shift_classes = '{shift_classes}' and patient_dept_id = {dept_id}")
+                                  f"and shift_classes in ({classes_str}) and patient_dept_id = {dept_id}")
         patient_count = {"1": {}, "2": {}, "3": {}}
         for item in count_info:
             patient_count[item['shift_classes'].split("-")[1]][item.get('patient_type')] = item.get('count')
+
         patient_bed_info = []
     else:
         # 护士交接班
@@ -110,18 +119,18 @@ def query_shift_change_date(json_data):
         else:
             patient_bed_info = []
 
-        total = {}
-        # 除了几个特殊类型，其他类型的人数要展示累计数量
-        for key, values in patient_count.items():
-            if isinstance(values, dict) and values:
-                for k, v in values.items():
-                    if k in ['特护', '一级护理', '病危', '病重', '现有']:
-                        total[k] = v
-                    else:
-                        total[k] = total.get(k, 0) + v
-        patient_count['0'] = total
-
     del db
+
+    total = {}
+    # 除了几个特殊类型，其他类型的人数要展示累计数量
+    for key, values in patient_count.items():
+        if isinstance(values, dict) and values:
+            for k, v in values.items():
+                if k in ['特护', '一级护理', '病危', '病重', '现有']:
+                    total[k] = v
+                else:
+                    total[k] = total.get(k, 0) + v
+    patient_count['0'] = total
 
     # 同一天多个班次的患者情况进行合并
     patients = merge_ret_patient_list(patients, is_archived)
@@ -132,7 +141,10 @@ def query_shift_change_date(json_data):
         priorities = [PATIENT_TYPE_ORDER.get(t, float('inf')) for t in types]
         max_types = 14  # 假设最多14个类型
         priorities += [float('inf')] * (max_types - len(priorities))
-        return tuple(priorities + [int(patient['bed_no'])])
+
+        # 直接使用 datetime 对象，Python 的 datetime 可以直接比较
+        create_at = patient.get('create_at') or datetime.max  # 如果没有 create_at，使用最大时间
+        return tuple(priorities + [create_at, int(patient['bed_no'])])
 
     sorted_patients = sorted(patients, key=get_patient_type_key)
 
@@ -517,7 +529,7 @@ def discharge_situation():
 """医生交接班数据查询"""
 
 
-def doctor_shift_change(reg_sqls, shift_classes, time_slot, dept_id_list, flush: bool = False):
+def doctor_shift_change(reg_sqls, shift_classes, time_slot, dept_id_list, flush: bool = False, pid: str = None):
     start_time = time.time()
     shift_start, shift_end = get_complete_time_slot(time_slot)
 
@@ -525,7 +537,7 @@ def doctor_shift_change(reg_sqls, shift_classes, time_slot, dept_id_list, flush:
     db = DbUtil(global_config.DB_HOST, global_config.DB_USERNAME, global_config.DB_PASSWORD,
                 global_config.DB_DATABASE_GYL)
     query_sql = f"select * from nsyy_gyl.cv_info where patient_type = 3 " \
-                f"and alertdt >= '{shift_start}' and alertdt <= '{shift_end}'"
+                f"and alertdt >= '{shift_start}' and alertdt <= '{shift_end}' and dept_id in ({','.join(dept_id_list)})"
     all_cvs = db.query_all(query_sql)
     del db
 
@@ -533,24 +545,73 @@ def doctor_shift_change(reg_sqls, shift_classes, time_slot, dept_id_list, flush:
     with ThreadPoolExecutor(max_workers=3) as executor:
         # 查询医生交接班 患者数据
         tasks = {
-            "patients": executor.submit(timed_execution, "医生交接班患者数据查询 1 ", global_tools.call_new_his_pg,
-                                        reg_sqls.get(1).get('sql_nhis').replace("{start_time}", shift_start)
-                                        .replace("{end_time}", shift_end)),
-            "patient_count": executor.submit(timed_execution, "医生交接班患者人数查询 2 ", global_tools.call_new_his_pg,
-                                             reg_sqls.get(2).get('sql_nhis')
-                                             .replace("{start_time}", shift_start).replace("{end_time}", shift_end))
+            "patients": executor.submit(timed_execution, "医生交接班(普通科室)患者数据查询 1 ",
+                                        global_tools.call_new_his_pg,
+                                        reg_sqls.get(1).get('sql_nhis')
+                                        .replace("--and", "and" if pid else "--and")
+                                        .replace("{single_query}", pid if pid else "{single_query}")
+                                        .replace("{科室id}", ', '.join(f"'{str(item)}'" for item in dept_id_list))
+                                        .replace("{start_time}", shift_start)
+                                        .replace("{end_time}", shift_end))
         }
+        if not flush:
+            tasks["patient_count"] = executor.submit(timed_execution, "医生交接班(普通科室)患者人数查询 2 ",
+                                                global_tools.call_new_his_pg,
+                                                reg_sqls.get(2).get('sql_nhis')
+                                                .replace("{科室id}",
+                                                         ', '.join(f"'{str(item)}'" for item in dept_id_list))
+                                                .replace("{start_time}", shift_start)
+                                                .replace("{end_time}", shift_end))
+
         # 获取结果（会自动等待所有任务完成）
         results = {name: future.result() for name, future in tasks.items()}
-        # 解包结果
         patients = results["patients"]
-        patient_count = results["patient_count"]
+        patient_count = results.get("patient_count", [])
 
-    filtered_patients = [dept for dept in patients if dept['所在科室id'] in dept_id_list]
-    filtered_patient_count = [dept for dept in patient_count if dept['所在科室id'] in dept_id_list]
-    all_patients = merge_patient_cv_data(all_cvs, filtered_patients, 1, dept_id_list)
-    patient_count_list = fill_missing_types(filtered_patient_count, shift_change_config.dept_people_count, 1)
-    save_data(f"1-{shift_classes}", all_patients, patient_count_list, None, flush)
+    all_patients = merge_patient_cv_data(all_cvs, patients, 1, dept_id_list)
+    # 将特殊科室合并
+    teshu_record = [item for item in all_patients if str(item.get('所在科室id')) in shift_change_config.doc_teshu_dept_list]
+    for item in all_patients:
+        if str(item.get('所在科室id')) not in shift_change_config.doc_teshu_dept_list:
+            continue
+        # 注意这两个顺序不能换
+        item['所在科室id'] = shift_change_config.doc_teshu_dept_dict.get(item.get('所在科室'))
+        item['所在科室'] = shift_change_config.doc_teshu_dept_id_dict.get(str(item.get('所在科室id')))
+
+    # 合并特殊科室数量
+    if patient_count:
+        # 统计危急值数量
+        cv_count = {}
+        if all_cvs:
+            for item in all_patients:
+                key = str(item.get('所在科室id'))
+                if key not in cv_count:
+                    cv_count[key] = 0
+                cv_count[key] += 1
+        if cv_count:
+            for item in patient_count:
+                if item.get('患者类别') == '危急值':
+                    item['人数'] = cv_count.get(str(item.get('所在科室id')), 0)
+
+    for item in patient_count:
+        if str(item.get('所在科室id')) not in shift_change_config.doc_teshu_dept_list:
+            continue
+        # 注意这两个顺序不能换
+        item['所在科室id'] = shift_change_config.doc_teshu_dept_dict.get(item.get('所在科室'))
+        item['所在科室'] = shift_change_config.doc_teshu_dept_id_dict.get(str(item.get('所在科室id')))
+
+    merged_dict = {}
+    for item in patient_count:
+        dept_id = str(item["所在科室id"])
+        if dept_id not in merged_dict:
+            # 第一次遇到该科室，创建副本并初始化count
+            merged_dict[(dept_id, item["患者类别"])] = item.copy()
+        else:
+            # 已存在该科室，只累加count字段
+            merged_dict[(dept_id, item["患者类别"])]["人数"] += item["人数"]
+    patient_count = list(merged_dict.values())
+
+    save_data(f"1-{shift_classes}", all_patients, patient_count, None, flush)
     logger.info(f"医生 {','.join(dept_id_list)} 交接班数据查询完成 ✅ 总耗时 {time.time() - start_time} 秒")
 
 
@@ -1188,7 +1249,8 @@ def general_dept_shift_change(reg_sqls, shift_classes, time_slot, dept_list, sho
                                                    .replace("--and", "and" if pid else "--and")
                                                    .replace("{single_query}", pid if pid else "{single_query}")
                                                    .replace("{trunc}", trunc)
-                                                   .replace("{病区id}", ', '.join(f"'{item}'" for item in ydhl_dept_list))
+                                                   .replace("{病区id}",
+                                                            ', '.join(f"'{item}'" for item in ydhl_dept_list))
                                                    .replace("{start_time}", shift_start)
                                                    .replace("{end_time}", shift_end),
                                                    'ydhl', ['患者情况']),
@@ -2208,7 +2270,7 @@ def create_or_update_shift_config(json_data):
 def query_shift_config():
     db = DbUtil(global_config.DB_HOST, global_config.DB_USERNAME, global_config.DB_PASSWORD,
                 global_config.DB_DATABASE_GYL)
-    shift_configs = db.query_all("select * from nsyy_gyl.scs_shift_config where shift_type = 2")
+    shift_configs = db.query_all("select * from nsyy_gyl.scs_shift_config")
     del db
     return shift_configs
 

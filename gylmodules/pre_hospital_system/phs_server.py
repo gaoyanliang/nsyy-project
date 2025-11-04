@@ -4,7 +4,6 @@ from gylmodules import global_config
 from gylmodules.utils.db_utils import DbUtil
 from datetime import datetime
 
-
 logger = logging.getLogger(__name__)
 
 
@@ -303,10 +302,16 @@ def create_patient_record(register_id, record_id, record_data):
     """
     db = DbUtil(global_config.DB_HOST, global_config.DB_USERNAME, global_config.DB_PASSWORD,
                 global_config.DB_DATABASE_GYL)
+
+    register_record = db.query_one(f"select * from nsyy_gyl.phs_patient_registration where register_id = {register_id}")
+    if not register_record:
+        del db
+        raise Exception("未找到该患者的登记信息")
     values = []
     update_condition = []
     for item in record_data:
-        values.append((int(register_id), int(record_id), item.get('field_name'), item.get('field_value'), item.get('field_type')))
+        values.append(
+            (int(register_id), int(record_id), item.get('field_name'), item.get('field_value'), item.get('field_type')))
         if item.get('field_name') == 'patient_name' and item.get('field_value'):
             update_condition.append(f"patient_name = '{item.get('field_value')}'")
         if item.get('field_name') == 'patient_sex' and item.get('field_value'):
@@ -314,12 +319,12 @@ def create_patient_record(register_id, record_id, record_data):
         if item.get('field_name') == 'patient_age' and item.get('field_value'):
             update_condition.append(f"patient_age = '{item.get('field_value')}'")
 
-        if int(record_id) == 2 and item.get('field_name') in ['time', 'temperature', 'anjiahuansuan',
+        if int(record_id) == 2 and item.get('field_name') in ['temperature', 'anjiahuansuan',
                                                               'pulse', 'respiration', 'blood_pressure'] \
                 and item.get('field_value'):
-            key = 'daoyuansj' if item.get('field_name') == 'time' else item.get('field_name')
-            update_condition.append(f"{key} = '{item.get('field_value')}'")
+            update_condition.append(f"{item.get('field_name')} = '{item.get('field_value')}'")
 
+        # 心电图 颈椎固定 骨盆带固定 心电监护
         if int(record_id) == 2 and item.get('field_name') == 'treatments' and item.get('field_value'):
             value = item.get('field_value')
             xindiantu = '未做'
@@ -340,10 +345,11 @@ def create_patient_record(register_id, record_id, record_data):
             last_part = parts[-1]
             if last_part.replace('.', '', 1).isdigit():  # 允许小数
                 update_condition.append(f"xuetang = '{last_part}'")
-
+        # 病情分级
         if int(record_id) == 2 and item.get('field_name') == 'condition' and item.get('field_value'):
             condition_mapping = {"III级": 3, "IV级": 4, "II级": 2, "I级": 1}
             update_condition.append(f"bingqing_level = {condition_mapping.get(item.get('field_value'), 0)}")
+        # 静脉通道
         if int(record_id) == 2 and item.get('field_name') == 'venous_treatment' and item.get('field_value'):
             da = item.get('field_value')
             value_list = da.split(",")
@@ -357,6 +363,7 @@ def create_patient_record(register_id, record_id, record_data):
             if (da.__contains__("中心静脉导管") or da.__contains__("PICC")) and not results.__contains__("带入"):
                 results = results + "带入"
             update_condition.append(f"jingmaitd = '{results}'")
+        # 气管插管
         if int(record_id) == 2 and item.get('field_name') == 'oxygen_method' and item.get('field_value'):
             value_list = item.get('field_value').split(",")
             results = ''
@@ -369,10 +376,19 @@ def create_patient_record(register_id, record_id, record_data):
         if int(record_id) == 2 and item.get('field_name') == 'major_centers' and item.get('field_value'):
             value = item.get('field_value', '')
             update_condition.append(f"sandazx = '{value}'")
-        # 初步诊断
-        if int(record_id) == 1 and item.get('field_name') == 'preliminary_diagnosis' and item.get('field_value'):
-            value = item.get('field_value', '')
-            update_condition.append(f"chubuzd = '{value}'")
+        # 初步诊断 和 到院时间以第一个写的为准
+        if int(record_id) in [1, 2] and item.get('field_name') == 'preliminary_diagnosis' and item.get('field_value'):
+            if register_record.get('chubuzd'):
+                item['field_value'] = register_record.get('chubuzd')
+            else:
+                update_condition.append(f"chubuzd = '{item.get('field_value', '')}'")
+        # 到院时间
+        if ((int(record_id) == 2 and item.get('field_name') == 'time') or
+            int(record_id) == 1 and item.get('field_name') == 'return_time') and item.get('field_value'):
+            if register_record.get('daoyuansj'):
+                item['field_value'] = register_record.get('daoyuansj').strftime("%Y-%m-%d %H:%M:%S")
+            else:
+                update_condition.append(f"daoyuansj = '{item.get('field_value')}'")
 
     if update_condition:
         update_sql = f"UPDATE nsyy_gyl.phs_patient_registration SET {','.join(update_condition)} WHERE register_id = {register_id}"
@@ -386,5 +402,3 @@ def create_patient_record(register_id, record_id, record_data):
         del db
         raise Exception("急救表单入库失败! ", insert_sql)
     del db
-
-
