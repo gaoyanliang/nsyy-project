@@ -1715,7 +1715,7 @@ def merge_patient_cv_data(cv_list, patient_list, shift_type, dept_list, pid: str
                 p_info = p_info + f"  {item.get('alertdt')} 接危急值系统报 {item.get('cv_name')} " \
                                   f"{item['cv_result'] if item.get('cv_result') else ''} " \
                                   f"{item['cv_unit'] if item.get('cv_unit') else ''}, " \
-                                  f"遵医嘱 {item.get('method') if item.get('method') else ''} 处理"
+                                  f" {item.get('method') if item.get('method') else ''} "
             if patient_dict.get((zhuyuanhao, dpid)):
                 ps = patient_dict.get((zhuyuanhao, dpid))
                 ps[0]['患者类别'] = (ps[0].get('患者类别', '') or '') + ', 危急值'
