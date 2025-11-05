@@ -1113,8 +1113,17 @@ def ob_gyn_shift_change(reg_sqls, shift_classes, time_slot, shoushu, flush: bool
         ydhl_list = groups.get(key)
         if ydhl_list:
             for ydhl_patient in ydhl_list:
-                tmp_info = tmp_info + (
-                    str(ydhl_patient.get("患者情况", '')) if ydhl_patient.get("患者情况", '') else '')
+                if patient.get("患者类别") == '转入':
+                    # 特需病区 ydhl和his中的名字不一致需要特殊处理
+                    if ydhl_patient.get("所在病区") == patient.get("所在病区") or \
+                            (ydhl_patient.get("所在病区", '').__contains__('特需病区护理单元')
+                             and patient.get("所在病区", '').__contains__('特需病区护理单元')):
+                        tmp_info = tmp_info + (
+                            str(ydhl_patient.get("患者情况", '')) if ydhl_patient.get("患者情况", '') else '')
+                        continue
+                else:
+                    tmp_info = tmp_info + (
+                        str(ydhl_patient.get("患者情况", '')) if ydhl_patient.get("患者情况", '') else '')
         patient['患者情况'] = tmp_info
         all_patient_info.append(patient)
 
