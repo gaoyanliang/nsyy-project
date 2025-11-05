@@ -310,8 +310,6 @@ def create_patient_record(register_id, record_id, record_data):
     values = []
     update_condition = []
     for item in record_data:
-        values.append(
-            (int(register_id), int(record_id), item.get('field_name'), item.get('field_value'), item.get('field_type')))
         if item.get('field_name') == 'patient_name' and item.get('field_value'):
             update_condition.append(f"patient_name = '{item.get('field_value')}'")
         if item.get('field_name') == 'patient_sex' and item.get('field_value'):
@@ -377,11 +375,11 @@ def create_patient_record(register_id, record_id, record_data):
             value = item.get('field_value', '')
             update_condition.append(f"sandazx = '{value}'")
         # 初步诊断 和 到院时间以第一个写的为准
-        if int(record_id) in [1, 2] and item.get('field_name') == 'preliminary_diagnosis' and item.get('field_value'):
-            if register_record.get('chubuzd'):
-                item['field_value'] = register_record.get('chubuzd')
+        if int(record_id) in [1, 2] and item.get('field_name') == 'preliminary_diagnosis':
+            if register_record.get('chubuzd_bingli'):
+                item['field_value'] = register_record.get('chubuzd_bingli')
             else:
-                update_condition.append(f"chubuzd = '{item.get('field_value', '')}'")
+                update_condition.append(f"chubuzd_bingli = '{item.get('field_value', '')}'")
         # 到院时间
         if ((int(record_id) == 2 and item.get('field_name') == 'time') or
             int(record_id) == 1 and item.get('field_name') == 'return_time') and item.get('field_value'):
@@ -389,6 +387,9 @@ def create_patient_record(register_id, record_id, record_data):
                 item['field_value'] = register_record.get('daoyuansj').strftime("%Y-%m-%d %H:%M:%S")
             else:
                 update_condition.append(f"daoyuansj = '{item.get('field_value')}'")
+
+        values.append(
+            (int(register_id), int(record_id), item.get('field_name'), item.get('field_value'), item.get('field_type')))
 
     if update_condition:
         update_sql = f"UPDATE nsyy_gyl.phs_patient_registration SET {','.join(update_condition)} WHERE register_id = {register_id}"
