@@ -1287,6 +1287,8 @@ def general_dept_shift_change(reg_sqls, shift_classes, time_slot, dept_list, sho
                                                    .replace("{特殊病区}",
                                                             """'ICU护理单元','CCU护理单元','AICU护理单元','妇产科护理单元','眼科护理单元'""")
                                                    .replace("{trunc}", trunc)
+                                                   .replace("{病区id}",
+                                                            ', '.join(f"'{item}'" for item in ydhl_dept_list))
                                                    .replace("{start_time}", shift_start)
                                                    .replace("{end_time}", shift_end)
                                                    , 'ydhl', None),
