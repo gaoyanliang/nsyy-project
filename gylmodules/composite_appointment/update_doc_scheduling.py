@@ -34,7 +34,7 @@ def call_third_systems_obtain_data(param: dict, max_retries: int = 3):
             start_time = datetime.now()
 
             # 发送 POST 请求，将字符串数据传递给 data 参数
-            response = requests.post(url, timeout=35, json=param)
+            response = requests.post(url, timeout=45, json=param)
             response.raise_for_status()  # 检查HTTP错误状态码
 
             # 解析响应数据
