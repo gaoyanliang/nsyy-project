@@ -146,25 +146,25 @@ def login(driver):
         logger.debug("✅ 已访问登录页面")
 
         # 输入用户名
-        username = WebDriverWait(driver, 20).until(EC.visibility_of_element_located((By.XPATH, "//input[@placeholder='请输入用户名']")))
+        username = WebDriverWait(driver, 30).until(EC.visibility_of_element_located((By.XPATH, "//input[@placeholder='请输入用户名']")))
         username.clear()
         username.send_keys("admin1")
 
         # 输入密码
-        password = WebDriverWait(driver, 20).until(
+        password = WebDriverWait(driver, 30).until(
             EC.visibility_of_element_located((By.XPATH, "//input[@placeholder='请输入密码' and @type='password']")))
         password.clear()
         password.send_keys("Lg20252025")
 
         # 点击登录按钮
-        login_btn = WebDriverWait(driver, 20).until(EC.element_to_be_clickable((By.XPATH, "//button[contains(@class, 'login-btn')]")))
+        login_btn = WebDriverWait(driver, 30).until(EC.element_to_be_clickable((By.XPATH, "//button[contains(@class, 'login-btn')]")))
         try:
             login_btn.click()
         except:
             driver.execute_script("arguments[0].click();", login_btn)
 
         # 验证登录成功
-        WebDriverWait(driver, 20).until(EC.text_to_be_present_in_element((By.XPATH, "//span[@class='username']"), "admin1"))
+        WebDriverWait(driver, 30).until(EC.text_to_be_present_in_element((By.XPATH, "//span[@class='username']"), "admin1"))
         logger.debug("✅ 停车场系统登录成功")
     except Exception as e:
         logger.error(f"❌ 停车场系统登录失败: {str(e)}")
