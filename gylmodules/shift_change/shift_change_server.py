@@ -572,7 +572,6 @@ def doctor_shift_change(reg_sqls, shift_classes, time_slot, dept_id_list, flush:
 
     all_patients = merge_patient_cv_data(all_cvs, patients, 1, dept_id_list)
     # 将特殊科室合并
-    teshu_record = [item for item in all_patients if str(item.get('所在科室id')) in shift_change_config.doc_teshu_dept_list]
     for item in all_patients:
         if str(item.get('所在科室id')) not in shift_change_config.doc_teshu_dept_list:
             continue
@@ -605,7 +604,7 @@ def doctor_shift_change(reg_sqls, shift_classes, time_slot, dept_id_list, flush:
     merged_dict = {}
     for item in patient_count:
         dept_id = str(item["所在科室id"])
-        if dept_id not in merged_dict:
+        if (dept_id, item["患者类别"]) not in merged_dict:
             # 第一次遇到该科室，创建副本并初始化count
             merged_dict[(dept_id, item["患者类别"])] = item.copy()
         else:
@@ -2129,6 +2128,16 @@ def single_run_shift_change(json_data):
 
         if shift_type == 1:
             # 医生交接班
+            if str(dept_id) == '7903' or str(dept_id) == '94143':
+                dept_list = ['7903', '94143']
+            if str(dept_id) == '1000148' or str(dept_id) == '1000149':
+                dept_list = ['1000148', '1000149']
+            if str(dept_id) == '93163' or str(dept_id) == '1000701':
+                dept_list = ['93163', '1000701']
+            if str(dept_id) == '176' or str(dept_id) == '94224':
+                dept_list = ['176', '94224']
+            if str(dept_id) == '169' or str(dept_id) == '7905':
+                dept_list = ['169', '7905']
             doctor_shift_change(reg_sqls, shift_classes, time_slot, dept_list, True)
         elif shift_type == 2:
             if len(dept_list) == 1 and ('1000965' in dept_list or '1001120' in dept_list):
