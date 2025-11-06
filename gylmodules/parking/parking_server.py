@@ -494,6 +494,11 @@ def time_str_to_minutes(time_str):
 
 
 def auto_fetch_data():
+    redis_client = redis.Redis(connection_pool=pool)
+    if not redis_client.set(f"parking_auto_fetch_data",
+                            datetime.now().strftime("%Y-%m-%d %H:%M:%S"), ex=60 * 60 * 2, nx=True):
+        # 如果存在说明之前已经成功获取到数据了，不再重新获取
+        return
     start_date = f"{(datetime.today() - timedelta(days=1)).date()}"
     end_date = start_date
 
@@ -517,13 +522,14 @@ def auto_fetch_data():
                 logger.exception("获取到今停车场数据异常 稍后重试")
                 if retry_count < max_retries:
                     time.sleep(wait_time)
-                else:
-                    global_tools.send_to_wx("自动同步停车场数据失败")
 
         return is_success, [], [], []
 
     is_success, timeout_cars, vip_cars, past_records = run()
     if not is_success:
+        global_tools.send_to_wx(f"{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}自动同步停车场数据失败")
+        # 获取失败删除缓存字段，保证下次自动获取数据可以正常运行
+        redis_client.delete(f"parking_auto_fetch_data")
         return
 
     vip_car_no_list = [vip_car.get('plate_no') for vip_car in vip_cars]
