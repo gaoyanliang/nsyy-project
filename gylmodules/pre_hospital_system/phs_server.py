@@ -375,18 +375,20 @@ def create_patient_record(register_id, record_id, record_data):
             value = item.get('field_value', '')
             update_condition.append(f"sandazx = '{value}'")
         # 初步诊断 和 到院时间以第一个写的为准
-        if int(record_id) in [1, 2] and item.get('field_name') == 'preliminary_diagnosis':
-            if register_record.get('chubuzd_bingli'):
-                item['field_value'] = register_record.get('chubuzd_bingli')
-            else:
-                update_condition.append(f"chubuzd_bingli = '{item.get('field_value', '')}'")
+        if int(record_id) in [1, 2] and item.get('field_name') == 'preliminary_diagnosis' and item.get('field_value'):
+            db.execute(f"UPDATE nsyy_gyl.phs_record_data SET field_value = '{item.get('field_value')}' "
+                       f"WHERE register_id = {register_id} and record_id in (1, 2) "
+                       f"and field_name = 'preliminary_diagnosis'", need_commit=True)
+
         # 到院时间
         if ((int(record_id) == 2 and item.get('field_name') == 'time') or
             int(record_id) == 1 and item.get('field_name') == 'return_time') and item.get('field_value'):
-            if register_record.get('daoyuansj'):
-                item['field_value'] = register_record.get('daoyuansj').strftime("%Y-%m-%d %H:%M:%S")
-            else:
-                update_condition.append(f"daoyuansj = '{item.get('field_value')}'")
+            db.execute(f"UPDATE nsyy_gyl.phs_record_data SET field_value = '{item.get('field_value')}' "
+                       f"WHERE register_id = {register_id} and record_id = 1 and field_name = 'return_time'",
+                       need_commit=True)
+            db.execute(f"UPDATE nsyy_gyl.phs_record_data SET field_value = '{item.get('field_value')}' "
+                       f"WHERE register_id = {register_id} and record_id = 2 and field_name = 'time'",
+                       need_commit=True)
 
         values.append(
             (int(register_id), int(record_id), item.get('field_name'), item.get('field_value'), item.get('field_type')))
