@@ -1278,14 +1278,14 @@ def general_dept_shift_change(reg_sqls, shift_classes, time_slot, dept_list, sho
                                            .replace("{start_time}", shift_start)
                                            .replace("{end_time}", shift_end)
                                            .replace("{特殊病区}",
-                                                    """'ICU护理单元','CCU护理单元','AICU护理单元','妇产科护理单元','眼科护理单元'""")
+                                                    """'ICU护理单元','CCU护理单元','AICU护理单元','妇产科护理单元','眼科护理单元','中医科/风湿免疫科护理单元'""")
                                            .replace("{病区id}", ', '.join(f"'{item}'" for item in dept_list))),
             "ydhl_patients_other": executor.submit(timed_execution, "普通病区 患者信息 ydhl 8 其他类型",
                                                    global_tools.call_new_his, reg_sqls.get(12).get('sql_ydhl')
                                                    .replace("--and", "and" if pid else "--and")
                                                    .replace("{single_query}", pid if pid else "{single_query}")
                                                    .replace("{特殊病区}",
-                                                            """'ICU护理单元','CCU护理单元','AICU护理单元','妇产科护理单元','眼科护理单元'""")
+                                                            """'ICU护理单元','CCU护理单元','AICU护理单元','妇产科护理单元','眼科护理单元','中医科/风湿免疫科护理单元'""")
                                                    .replace("{trunc}", trunc)
                                                    .replace("{病区id}",
                                                             ', '.join(f"'{item}'" for item in ydhl_dept_list))
