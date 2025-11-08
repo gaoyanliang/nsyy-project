@@ -2367,7 +2367,7 @@ def save_shift_info(json_data):
         params = (shift_date, f"{shift_type}-{shift_classes}", dept_id, dept_name, user_name,
                   user_id, datetime.now().strftime("%Y-%m-%d %H:%M:%S"), json.dumps(sign_data), sign_img)
 
-    if int(sign_type) == 4 and int(shift_type) == 2:
+    if int(sign_type) == 4:
         # 护理归档时需要有本班交班人的签名 和 上一个班次接班人的签名
         is_archiving_allowed(shift_date, shift_type, shift_classes, dept_id)
 
