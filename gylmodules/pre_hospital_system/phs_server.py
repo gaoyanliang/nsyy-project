@@ -389,6 +389,7 @@ def create_patient_record(register_id, record_id, record_data):
             db.execute(f"UPDATE nsyy_gyl.phs_record_data SET field_value = '{item.get('field_value')}' "
                        f"WHERE register_id = {register_id} and record_id = 2 and field_name = 'time'",
                        need_commit=True)
+            update_condition.append(f"daoyuansj = '{item.get('field_value')}'")
 
         values.append(
             (int(register_id), int(record_id), item.get('field_name'), item.get('field_value'), item.get('field_type')))
