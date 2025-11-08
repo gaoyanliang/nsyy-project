@@ -317,6 +317,12 @@ def today_dept_for_appointment():
         return jsonify({'ResultCode': "1", 'ErrorMsg': e.__str__()})
 
 
+@appt.route('/doc_sign_in_report', methods=['POST'])
+@api_response
+def doc_sign_in_report(json_data):
+    return ca_server.doctor_sign_in_report(json_data.get('start_date'), json_data.get('end_date'))
+
+
 """
 住院患者创建医嘱
 """

@@ -2133,3 +2133,20 @@ def auto_copy_schedule():
             logger.error(f"自动复制排班记录失败: {str(e)}")
 
     del db
+
+
+"""门诊医生签到报表 取当天首次登陆HIS的时间为签到时间 """
+
+
+def doctor_sign_in_report(start_date, end_date):
+    db = DbUtil(global_config.DB_HOST, global_config.DB_USERNAME,
+                global_config.DB_PASSWORD, global_config.DB_DATABASE_GYL)
+
+    query_sql = f"""select a.emp_no, a.emp_name, a.ampm, DATE_FORMAT(a.sign_time, '%Y-%m-%d %H:%i:%s') "sign_time", 
+                    b.ip, b.no "room_no" from (select ip, no from nsyy_gyl.appt_room where need_signin = 1) b 
+                    left join nsyy_gyl.sign_records a on a.ip = b.ip and date(a.sign_time) >= '{start_date}' 
+                    and date(a.sign_time) <= '{end_date}' order by b.no, a.ampm"""
+    records = db.query_all(query_sql)
+    del db
+    return records
+
