@@ -141,6 +141,9 @@ HIS_SYNCHRONIZE_DATA = """
         <kaidanrenxm>{kaidanrenxm}</kaidanrenxm>
         <kaidanrq>{kaidanrq}</kaidanrq>
         <yuanquid>1</yuanquid>
+        <yishengcksj>{yishengcksj}</yishengcksj>
+        <chakanysid>{chakanysid}</chakanysid>
+        <chakanysxm>{chakanysxm}</chakanysxm>
     </body>
 </message>
 """

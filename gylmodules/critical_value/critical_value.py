@@ -1934,7 +1934,10 @@ def send_to_his(cv_record):
         .replace('{kaidanren}', shenqing_data[0].get('kaidanren') if shenqing_data[0].get('kaidanren') else '0') \
         .replace('{kaidanksmc}', shenqing_data[0].get('kaidanksmc') if shenqing_data[0].get('kaidanksmc') else '0') \
         .replace('{kaidanks}', shenqing_data[0].get('kaidanks') if shenqing_data[0].get('kaidanks') else '0') \
-        .replace('{kaidanrenxm}', shenqing_data[0].get('kaidanrenxm') if shenqing_data[0].get('kaidanrenxm') else '0')
+        .replace('{kaidanrenxm}', shenqing_data[0].get('kaidanrenxm') if shenqing_data[0].get('kaidanrenxm') else '0') \
+        .replace('{yishengcksj}', handle_time) \
+        .replace('{chakanysid}', str(cv_record.get('handle_doctor_id')) if cv_record.get('handle_doctor_id') else '0') \
+        .replace('{chakanysxm}', cv_record.get('handle_doctor_name') if cv_record.get('handle_doctor_name') else '0')
 
     # print(his_sync_data)
     safe_post(his_sync_data, 'WeiJZInfoAdd')
