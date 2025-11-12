@@ -19,6 +19,7 @@ from gylmodules.critical_value.critical_value import write_cache, \
 from apscheduler.schedulers.background import BackgroundScheduler
 
 from gylmodules.critical_value.cv_manage import fetch_cv_record
+from gylmodules.eye_util.eye_util import flush_token, auto_fetch_eye_data
 from gylmodules.parking.parking_server import auto_freeze_car, auto_fetch_data
 from gylmodules.questionnaire.sq_server import fetch_ai_result
 from gylmodules.utils.db_utils import DbUtil
@@ -342,6 +343,11 @@ def schedule_task():
     gylmodule_scheduler.add_job(auto_fetch_data, 'cron', hour='3,16', minute=34)
     gylmodule_scheduler.add_job(auto_fetch_data, 'cron', hour='4,17', minute=14)
     gylmodule_scheduler.add_job(auto_freeze_car, 'cron', hour=3, minute=50)
+
+    logger.info("9. 眼科医院定时任务 ")
+    # 定时刷新token
+    gylmodule_scheduler.add_job(flush_token, trigger='interval', seconds=20 * 60)
+    gylmodule_scheduler.add_job(auto_fetch_eye_data, trigger='interval', seconds=10 * 60)
 
     # ======================  Start ======================
     gylmodule_scheduler.start()
