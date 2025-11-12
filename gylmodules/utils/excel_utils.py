@@ -81,3 +81,42 @@ print('total: ', len(retl))
 
 
 
+
+
+
+# 新增一列再写回表格
+# import pandas as pd
+#
+# # 定义文件路径和工作表索引
+# excel_path = '/Users/gaoyanliang/Downloads/副本2025.1-9月扣款项目明细（所有医保）.xls'
+# num = 0
+#
+# # 读取Excel文件
+# df = pd.read_excel(excel_path, sheet_name=num)
+#
+# # 假设第一列的名称为 'Column1'，如果没有列名，可以使用默认的列名
+# # 如果没有列名，可以通过 df.columns 查看列名
+# first_column_name = df.columns[13]
+#
+# # value_mapping = {
+# #     'A': 'ValueA',
+# #     'B': 'ValueB',
+# #     'C': 'ValueC',
+# #     # 添加更多的映射关系
+# # }
+#
+# # 创建新列 'NewColumn' 并根据第一列的内容赋值
+# df['NewColumn'] = df[first_column_name].map(value_mapping).fillna('DefaultValue')
+#
+# # 打印DataFrame以查看结果
+# print(df)
+#
+# # 将修改后的数据写回到新的Excel文件中
+# output_path = '/Users/gaoyanliang/Downloads/副本2025.1-9月扣款项目明细（所有医保）_updated.xlsx'
+#
+# # 使用openpyxl引擎写入Excel文件
+# df.to_excel(output_path, index=False, engine='openpyxl')
+#
+# print(f"数据已成功写入 {output_path}")
+
+
