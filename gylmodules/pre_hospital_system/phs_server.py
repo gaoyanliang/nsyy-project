@@ -382,7 +382,7 @@ def create_patient_record(register_id, record_id, record_data):
 
         # 到院时间
         if ((int(record_id) == 2 and item.get('field_name') == 'time') or
-            int(record_id) == 1 and item.get('field_name') == 'return_time') and item.get('field_value'):
+            (int(record_id) == 1 and item.get('field_name') == 'return_time')) and item.get('field_value'):
             db.execute(f"UPDATE nsyy_gyl.phs_record_data SET field_value = '{item.get('field_value')}' "
                        f"WHERE register_id = {register_id} and record_id = 1 and field_name = 'return_time'",
                        need_commit=True)
@@ -390,6 +390,11 @@ def create_patient_record(register_id, record_id, record_data):
                        f"WHERE register_id = {register_id} and record_id = 2 and field_name = 'time'",
                        need_commit=True)
             update_condition.append(f"daoyuansj = '{item.get('field_value')}'")
+
+        if register_record.get('daoyuansj') and ((int(record_id) == 2 and item.get('field_name') == 'time') or
+                                                 (int(record_id) == 1 and item.get(
+                                                     'field_name') == 'return_time')) and not item.get('field_value'):
+            item['field_value'] = register_record.get('daoyuansj').strftime('%Y-%m-%d %H:%M:%S')
 
         values.append(
             (int(register_id), int(record_id), item.get('field_name'), item.get('field_value'), item.get('field_type')))
