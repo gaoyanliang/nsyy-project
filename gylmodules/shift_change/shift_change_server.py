@@ -716,10 +716,12 @@ def handle_shoushu_and_yushu(reg_sqls, time_slot, dept_list, pid: str = None):
     # 移除预术时间早于手术结束时间的预术记录
     yushus = []
     for item in nhis_data:
+        # print(item)
         patient_id = item.get('病人id')
         main_id = item.get('主页id')
         if (str(patient_id), str(main_id)) in shoushu_dict \
-                and is_time1_before_time2(item.get('预术时间'), shoushu_dict.get((str(patient_id), str(main_id)))):
+                and is_time1_before_time2(item.get('预术时间'), shoushu_dict.get((str(patient_id), str(main_id)))) \
+                and item.get('预术标志') == 1:
             continue
 
         item['患者情况'] = f"患者 {item.get('患者情况', '')} , 积极术前准备, 待术中。"
@@ -776,7 +778,14 @@ def handle_shoushu_and_yushu(reg_sqls, time_slot, dept_list, pid: str = None):
         else:
             # 否则创建新记录（深拷贝避免修改原记录）
             merged_records[key] = record.copy()
-    return list(merged_records.values())
+
+    tmp_list = list(merged_records.values())
+    finish_list = []
+    for item in tmp_list:
+        if item.get('预术标志', 1) == 0:
+            continue
+        finish_list.append(item)
+    return finish_list
 
 
 """AICU 1000965 CCU 1001120  交班信息查询"""
