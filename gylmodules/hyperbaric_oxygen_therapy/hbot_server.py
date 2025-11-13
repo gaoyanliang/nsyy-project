@@ -11,8 +11,8 @@ from gylmodules.composite_appointment import appt_config
 from gylmodules.hyperbaric_oxygen_therapy import hbot_config, huizong
 from gylmodules.utils.db_utils import DbUtil
 
-pool = redis.ConnectionPool(host=appt_config.APPT_REDIS_HOST, port=appt_config.APPT_REDIS_PORT,
-                            db=appt_config.APPT_REDIS_DB, decode_responses=True)
+pool = redis.ConnectionPool(host=global_config.REDIS_HOST, port=global_config.REDIS_PORT,
+                            db=global_config.REDIS_DB, decode_responses=True)
 
 
 """根据住院号和登记时间，查询病人医嘱信息"""

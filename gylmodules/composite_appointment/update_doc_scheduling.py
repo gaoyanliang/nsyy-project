@@ -14,8 +14,8 @@ from gylmodules.composite_appointment.appt_config import APPT_DOCTORS_BY_NAME_KE
     APPT_DOCTORS_KEY, APPT_REMAINING_RESERVATION_QUANTITY_KEY
 from gylmodules.utils.db_utils import DbUtil
 
-pool = redis.ConnectionPool(host=appt_config.APPT_REDIS_HOST, port=appt_config.APPT_REDIS_PORT,
-                            db=appt_config.APPT_REDIS_DB, decode_responses=True)
+pool = redis.ConnectionPool(host=global_config.REDIS_HOST, port=global_config.REDIS_PORT,
+                            db=global_config.REDIS_DB, decode_responses=True)
 
 logger = logging.getLogger(__name__)
 

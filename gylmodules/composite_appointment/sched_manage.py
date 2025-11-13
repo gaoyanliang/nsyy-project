@@ -13,8 +13,8 @@ from gylmodules.utils.db_utils import DbUtil
 from collections import defaultdict
 from itertools import groupby
 
-pool = redis.ConnectionPool(host=appt_config.APPT_REDIS_HOST, port=appt_config.APPT_REDIS_PORT,
-                            db=appt_config.APPT_REDIS_DB, decode_responses=True)
+pool = redis.ConnectionPool(host=global_config.REDIS_HOST, port=global_config.REDIS_PORT,
+                            db=global_config.REDIS_DB, decode_responses=True)
 
 
 def data_list(query_by, online: int = 0):

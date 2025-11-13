@@ -18,8 +18,8 @@ from gylmodules.composite_appointment.appt_config import \
     APPT_DAILY_AUTO_REG_RECORD_KEY, APPT_DOCTORS_BY_NAME_KEY, \
     APPT_ROOMS_BY_PROJ_KEY
 
-pool = redis.ConnectionPool(host=appt_config.APPT_REDIS_HOST, port=appt_config.APPT_REDIS_PORT,
-                            db=appt_config.APPT_REDIS_DB, decode_responses=True)
+pool = redis.ConnectionPool(host=global_config.REDIS_HOST, port=global_config.REDIS_PORT,
+                            db=global_config.REDIS_DB, decode_responses=True)
 
 lock_redis_client = redis.Redis(connection_pool=pool)
 logger = logging.getLogger(__name__)

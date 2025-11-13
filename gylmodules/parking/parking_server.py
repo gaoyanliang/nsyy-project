@@ -15,8 +15,8 @@ from gylmodules.utils.db_utils import DbUtil
 from datetime import datetime, timedelta
 
 logger = logging.getLogger(__name__)
-pool = redis.ConnectionPool(host=cv_config.CV_REDIS_HOST, port=cv_config.CV_REDIS_PORT,
-                            db=cv_config.CV_REDIS_DB, decode_responses=True)
+pool = redis.ConnectionPool(host=global_config.REDIS_HOST, port=global_config.REDIS_PORT,
+                            db=global_config.REDIS_DB, decode_responses=True)
 
 """查询预警/停用清单/申请清单"""
 

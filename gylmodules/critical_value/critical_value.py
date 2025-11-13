@@ -23,8 +23,8 @@ import aiohttp
 
 from gylmodules.utils.event_loop import GlobalEventLoop
 
-pool = redis.ConnectionPool(host=cv_config.CV_REDIS_HOST, port=cv_config.CV_REDIS_PORT,
-                            db=cv_config.CV_REDIS_DB, decode_responses=True)
+pool = redis.ConnectionPool(host=global_config.REDIS_HOST, port=global_config.REDIS_PORT,
+                            db=global_config.REDIS_DB, decode_responses=True)
 
 scheduler = BackgroundScheduler()
 cv_id_lock = threading.Lock()

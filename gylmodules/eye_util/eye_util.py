@@ -19,8 +19,8 @@ from gylmodules.composite_appointment import appt_config
 from gylmodules.utils.db_utils import DbUtil
 
 logger = logging.getLogger(__name__)
-pool = redis.ConnectionPool(host=appt_config.APPT_REDIS_HOST, port=appt_config.APPT_REDIS_PORT,
-                            db=appt_config.APPT_REDIS_DB, decode_responses=True)
+pool = redis.ConnectionPool(host=global_config.REDIS_HOST, port=global_config.REDIS_PORT,
+                            db=global_config.REDIS_DB, decode_responses=True)
 
 """
 定时获取眼科视光检查结果
@@ -450,8 +450,7 @@ def flush_token():
 
     start_time = time.time()
     token = fetch_token()
-    logger.info(f"token 获取耗时 {time.time() - start_time}, {token}")
-    print(f"token 获取耗时 {time.time() - start_time}, {token}")
+    logger.debug(f"token 获取耗时 {time.time() - start_time}, {token}")
     if not token:
         return
     # token 获取成功 更新token
