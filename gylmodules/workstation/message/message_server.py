@@ -10,8 +10,8 @@ from gylmodules.utils.db_utils import DbUtil
 from gylmodules.workstation import ws_config
 from gylmodules.workstation.message import msg_push_tool
 
-pool = redis.ConnectionPool(host=ws_config.REDIS_HOST, port=ws_config.REDIS_PORT,
-                            db=ws_config.REDIS_DB, decode_responses=True)
+pool = redis.ConnectionPool(host=global_config.REDIS_HOST, port=global_config.REDIS_PORT,
+                            db=global_config.REDIS_DB, decode_responses=True)
 logger = logging.getLogger(__name__)
 
 
@@ -102,10 +102,21 @@ def send_message(chat_type: int, context_type: int, sender: int, sender_name: st
     new_message = {'chat_type': chat_type, 'context_type': context_type,
                    'sender': int(sender), 'sender_name': sender_name, 'group_id': int(group_id) if group_id else 0,
                    'receiver': int(receiver) if receiver else 0, 'receiver_name': receiver_name, 'context': context, 'timer': timer}
-
-    # 通过 socket 向接收者推送通知
     if chat_type == ws_config.NOTIFICATION_MESSAGE:
         new_message['context'] = json.loads(new_message.get('context'))
+
+    db = DbUtil(global_config.DB_HOST, global_config.DB_USERNAME, global_config.DB_PASSWORD,
+                global_config.DB_DATABASE_GYL)
+    insert_sql = f"INSERT INTO nsyy_gyl.ws_message ({','.join(new_message.keys())}) " \
+                 f"VALUES {str(tuple(new_message.values()))}"
+    last_rowid = db.execute(sql=insert_sql, need_commit=True)
+    if last_rowid == -1:
+        logger.warning(f"消息插入异常")
+        # del db
+        # raise Exception("消息插入异常 ", new_message)
+    del db
+
+    # 通过 socket 向接收者推送通知
     socket_push(new_message)
 
 
