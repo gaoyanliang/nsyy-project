@@ -15,6 +15,19 @@ DB_USERNAME = 'root'
 DB_PASSWORD = 'gyl.2015'
 DB_DATABASE_GYL = 'nsyy_gyl'
 
+db_config = {
+    'host': DB_HOST,
+    'port': DB_PORT,
+    'user': DB_USERNAME,
+    'password': DB_PASSWORD,
+    'database': DB_DATABASE_GYL
+}
+
+# redis db config
+REDIS_HOST = '127.0.0.1'
+REDIS_PORT = 6379
+REDIS_DB = 2
+
 # 管理定时任务开启和关闭
 schedule_task = {'cv_timeout': 1, 'cv_dept_update': 1, 'appt_daily': 1}
 
