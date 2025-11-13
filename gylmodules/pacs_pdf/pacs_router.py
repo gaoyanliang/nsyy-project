@@ -94,6 +94,9 @@ def upload_pdf():
         return {"code": 50000, "data": '', "res": f"只允许上传 PDF 文件"}
 
 
+"""查询并保存pacs 记录"""
+
+
 def query_and_save_report():
     yt_sql = """
     select v.姓名,
@@ -269,7 +272,7 @@ def query_and_save_report():
     on v.报告医生 = ry.姓名
   left join 人员表 ry2
     on v.审核医生 = ry2.姓名
- where v.审核时间 >= trunc(sysdate - 1) and v.审核时间 < trunc(sysdate)
+ where v.审核时间 >= sysdate - 2/24 and v.审核时间 <= sysdate
     """
 
     kf_sql = """select v.姓名, v.性别, v.年龄, v.检查号, v.科室, v.床号, v.检查日期, v.住院号, v.门诊号, v.检查项目,
@@ -298,7 +301,7 @@ def query_and_save_report():
              left join 病人变动记录 bd on bd.病人id = g.病人id and bd.主页id = g.主页id and bd.开始时间 <= yz.开嘱时间
               and bd.终止时间 > yz.开嘱时间 join 病人信息 brxx on yz.病人id = brxx.病人id) v
      left join 人员表 ry on v.报告医生 = ry.姓名 left join 人员表 ry2 on v.审核医生 = ry2.姓名
-    where v.审核时间 >= trunc(sysdate - 1) and v.审核时间 < trunc(sysdate)"""
+    where v.审核时间 >= sysdate - 2/24 and v.审核时间 <= sysdate"""
 
     yt_data = global_tools.call_new_his(sql=yt_sql, sys='ythis', clobl=[])
     kf_data = global_tools.call_new_his(sql=kf_sql, sys='kfhis', clobl=[])
