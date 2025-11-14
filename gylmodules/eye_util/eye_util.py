@@ -78,16 +78,16 @@ def fetch_data1(start_time, end_time):
                 for item in recordList:
                     if item.get('type') == 'nr':
                         # NRA
-                        ret_data['nra'] = item.get('result', '').replace('右眼', 'od').replace('左眼', 'os').replace(
-                            '双眼', 'ou').replace('\n', ' ')
+                        ret_data['nra'] = item.get('result', '').replace('右眼', 'OD').replace('左眼', 'OS').replace(
+                            '双眼', 'OU').replace('\n', ' ')
                     if item.get('type') == 'pr':
                         # PRA
-                        ret_data['pra'] = item.get('result', '').replace('右眼', 'od').replace('左眼', 'os').replace(
-                            '双眼', 'ou').replace('\n', ' ')
+                        ret_data['pra'] = item.get('result', '').replace('右眼', 'OD').replace('左眼', 'OS').replace(
+                            '双眼', 'OU').replace('\n', ' ')
                     if item.get('type') == 'ac':
                         # AC/A
-                        ret_data['aca'] = item.get('result', '').replace('右眼', 'od').replace('左眼', 'os').replace(
-                            '双眼', 'ou').replace('\n', ' ')
+                        ret_data['aca'] = item.get('result', '').replace('右眼', 'OD').replace('左眼', 'OS').replace(
+                            '双眼', 'OU').replace('\n', ' ')
                     if item.get('type') == 'ar':
                         # 调节幅度
                         matches = re.findall(r'(右眼|左眼|双眼)[:：]\s*([^\n\r]+)', item.get('result', ''))
@@ -192,19 +192,19 @@ def fetch_data2(start_time, end_time):
 
             record_list = []
             for patient in rows:
-                value = {"od": '', "os": '', 'ou': ''}
+                value = {"OD": '', "OS": '', 'OU': ''}
                 if patient.get('leftEye'):
                     match = re.search(r'\d+\.\d+cpm', patient.get('leftEye'))
                     if match:
-                        value['os'] = match.group()
+                        value['OS'] = match.group()
                 if patient.get('rightEye'):
                     match = re.search(r'\d+\.\d+cpm', patient.get('rightEye'))
                     if match:
-                        value['od'] = match.group()
+                        value['OD'] = match.group()
                 if patient.get('binoculus'):
                     match = re.search(r'\d+\.\d+cpm', patient.get('binoculus'))
                     if match:
-                        value['ou'] = match.group()
+                        value['OU'] = match.group()
                 record_list.append(("翻转拍", patient.get('checkId') if patient.get('checkId') else '0',
                                     patient.get('checkStartTime') if patient.get('checkStartTime') else '',
                                     patient.get('checkUserName') if patient.get('checkUserName') else '',
