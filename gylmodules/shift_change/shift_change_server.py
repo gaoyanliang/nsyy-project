@@ -2107,10 +2107,10 @@ def single_run_shift_change(json_data):
     input_date = datetime.strptime(shift_date, "%Y-%m-%d").date()
     today = datetime.now().date()
     previous_day = today - timedelta(days=1)
-    # if input_date != previous_day and int(shift_classes) == 3:
-    #     raise Exception("仅支持刷新前一天的晚班")
-    # if input_date != today and int(shift_classes) in [1, 2]:
-    #     raise Exception("仅支持刷新当天的早班 和 中班")
+    if input_date != previous_day and int(shift_classes) == 3:
+        raise Exception("仅支持刷新前一天的晚班")
+    if input_date != today and int(shift_classes) in [1, 2]:
+        raise Exception("仅支持刷新当天的早班 和 中班")
 
     shift_start, shift_end = get_complete_time_slot(time_slot)
     if datetime.now().strftime("%Y-%m-%d %H:%M:%S.999") < shift_end and not global_config.run_in_local:
@@ -2154,8 +2154,6 @@ def single_run_shift_change(json_data):
                 dept_list = ['1000148', '1000149']
             if str(dept_id) == '93163' or str(dept_id) == '1000701':
                 dept_list = ['93163', '1000701']
-            if str(dept_id) == '176' or str(dept_id) == '94224':
-                dept_list = ['176', '94224']
             if str(dept_id) == '169' or str(dept_id) == '7905':
                 dept_list = ['169', '7905']
             doctor_shift_change(reg_sqls, shift_classes, time_slot, dept_list, True)
