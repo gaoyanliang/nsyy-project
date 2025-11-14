@@ -34,23 +34,31 @@ def chat(json_data):
                              int(group_id), receiver, receiver_name, context)
 
 
-#  发送通知消息 TODO 测试
+#  发送通知消息
 @message_router.route('/notification', methods=['POST'])
 @api_response
 def notification(json_data):
     context_type = json_data.get("context_type")
     cur_user_id = json_data.get('cur_user_id')
     cur_user_name = json_data.get('cur_user_name')
-    receiver = json_data.get("receiver")
-    receiver_name = json_data.get("receiver_name")
+
+    receivers = json_data.get("receivers", [])
+
+    # receiver = json_data.get("receiver")
+    # receiver_name = json_data.get("receiver_name")
 
     # TODO image/video/audio/link 特殊处理 ，现在只处理 text
     # TODO 如果是多媒体类型，需要先调用上茶接口，获取到存储地址
     context = json_data.get("context")
     if type(context) == dict:
         context = json.dumps(context, default=str)
-    message_server.send_notification_message(int(context_type), int(cur_user_id), cur_user_name,
-                                             int(receiver), receiver_name, context)
+    if len(receivers) == 1:
+        message_server.send_notification_message(int(context_type), int(cur_user_id), cur_user_name,
+                                                 int(receivers[0].get('user_id')), receivers[0].get('user_name'),
+                                                 context)
+    else:
+        message_server.batch_send_notification_message(int(context_type), int(cur_user_id),
+                                                       cur_user_name, receivers, context)
 
 
 #  ==========================================================================================

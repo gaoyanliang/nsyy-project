@@ -79,18 +79,22 @@ def send_notification_message(context_type: int, sender: int, sender_name: str,
                  None, receiver, receiver_name, context)
 
 
+def batch_send_notification_message(context_type, sender, sender_name, receivers, context: str):
+    # 发送通知消息 📢
+    receiver = ','.join([item.get('user_id') for item in receivers])
+    receiver_name = ','.join([item.get('user_name') for item in receivers])
+    send_message(ws_config.NOTIFICATION_MESSAGE, context_type, sender, sender_name,
+                 None, receiver, receiver_name, context)
+
+
 """
 发送消息，并通过 socket 通知
+消息发送 仅通过 socket 将消息发出去，前端接收到 socket 消息之后，调用手机本地接口，将消息保存到本地
 """
 
 
 def send_message(chat_type: int, context_type: int, sender: int, sender_name: str,
-                 group_id: int, receiver: int, receiver_name: str, context: str):
-    """
-    消息发送 仅通过 socket 将消息发出去，前端接收到 socket 消息之后，调用手机本地接口，将消息保存到本地
-    :return:
-    """
-
+                 group_id: int, receiver, receiver_name, context: str):
     # 获取消息 id, 并将消息组装为 json str
     timer = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
     if chat_type == ws_config.GROUP_CHAT:
@@ -99,9 +103,10 @@ def send_message(chat_type: int, context_type: int, sender: int, sender_name: st
         if not in_group:
             raise Exception('用户不在群组中, 无法发送消息')
 
-    new_message = {'chat_type': chat_type, 'context_type': context_type,
-                   'sender': int(sender), 'sender_name': sender_name, 'group_id': int(group_id) if group_id else 0,
-                   'receiver': int(receiver) if receiver else 0, 'receiver_name': receiver_name, 'context': context, 'timer': timer}
+    new_message = {'chat_type': chat_type, 'context_type': context_type, 'sender': int(sender),
+                   'sender_name': sender_name, 'group_id': int(group_id) if group_id else 0,
+                   'receiver': receiver if receiver else 0,
+                   'receiver_name': receiver_name, 'context': context, 'timer': timer}
     db = DbUtil(global_config.DB_HOST, global_config.DB_USERNAME, global_config.DB_PASSWORD,
                 global_config.DB_DATABASE_GYL)
     insert_sql = f"INSERT INTO nsyy_gyl.ws_message ({','.join(new_message.keys())}) " \
@@ -113,6 +118,7 @@ def send_message(chat_type: int, context_type: int, sender: int, sender_name: st
         # raise Exception("消息插入异常 ", new_message)
     del db
 
+    # 插入数据库时需要压缩，socket推送时需要解压
     if chat_type == ws_config.NOTIFICATION_MESSAGE:
         new_message['context'] = json.loads(new_message.get('context'))
 
@@ -157,15 +163,21 @@ def socket_push(msg: dict):
 
     elif chat_type == ws_config.NOTIFICATION_MESSAGE:
         # 向所有用户推送未读消息数量，以及最后一条消息内容
-        # receivers = str(msg.get('receiver')).split(',')
-        # for recv in receivers:
-        #     push({"type": 400,
-        #           "data": {"title": "新消息来咯", "context": f"接收到来自 {msg.get('sender_name')} 的通知消息",
-        #                    "message": msg}}, int(recv))
-        recv = msg.get('receiver')
-        push({"type": 400, "data": {"title": "新消息来咯", "context": f"接收到来自 {msg.get('sender_name')} 的通知消息",
-                                    "message": msg}}, int(recv))
-        global_tools.start_thread(msg_push_tool.push_msg_to_devices, ([int(recv)], "新消息来咯", f"接收到来自 {msg.get('sender_name')} 的通知消息"))
+        receivers = str(msg.get('receiver')).split(',')
+        names = str(msg.get('receiver_name')).split(',')
+        index = 0
+        for recv in receivers:
+            msg['receiver'] = int(recv)
+            msg['receiver_name'] = names[index]
+            index = index + 1
+            push({"type": 400,
+                  "data": {"title": "新消息来咯", "context": f"接收到来自 {msg.get('sender_name')} 的通知消息",
+                           "message": msg}}, int(recv))
+        # recv = msg.get('receiver')
+        # push({"type": 400, "data": {"title": "新消息来咯", "context": f"接收到来自 {msg.get('sender_name')} 的通知消息",
+        #                             "message": msg}}, int(recv))
+        global_tools.start_thread(msg_push_tool.push_msg_to_devices, (receivers, "新消息来咯",
+                                                                      f"接收到来自 {msg.get('sender_name')} 的通知消息"))
 
 
 #  ==========================================================================================
@@ -226,7 +238,7 @@ def create_group(group_name: str, creator: int, creator_name: str, members):
         if user_id == creator:
             continue
         send_notification_message(ws_config.NOTIFICATION_MESSAGE, creator, creator_name,
-                                  user_id, "", json.dumps(group_notification))
+                                  user_id, "", json.dumps(group_notification, default=str))
 
     # 创建者发送一条消息，主要用于在创建者手机上创建一个空的群聊天框，否则创建成功之后，找不到群聊
     send_message(ws_config.GROUP_CHAT, 0, int(creator), creator_name, int(group_id), int(group_id), group_name,
@@ -273,11 +285,9 @@ def update_group(group_id: int, group_name: str, members):
                                       member.get('user_id'),
                                       member.get('user_name'),
                                       json.dumps({
-                                          "type": 110,
-                                          "title": "入群邀请",
+                                          "type": 110, "title": "入群邀请", "time": timer,
                                           "description": "用户: " + group.get(
                                               'creator_name') + " 邀请您加入群聊 " + group.get('group_name'),
-                                          "time": timer,
                                           "group_info": {
                                               "group_id": group_id,
                                               "group_name": group.get('creator_name'),
