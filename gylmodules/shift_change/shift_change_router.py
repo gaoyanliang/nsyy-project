@@ -84,6 +84,10 @@ def vip_list():
     return {"dept_list": [722, 655, 2246, 10000, 2586], "pers_list": [9926, 110100]}
 
 
+@shift_change.route('/fetch_doctor_title', methods=['POST', 'GET'])
+@api_response
+def fetch_doctor_title():
+    shift_change_server.fetch_doctor_title()
 
 
 

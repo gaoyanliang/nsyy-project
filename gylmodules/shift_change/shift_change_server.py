@@ -19,8 +19,8 @@ from gylmodules.utils.db_utils import DbUtil
 from datetime import datetime, timedelta
 
 logger = logging.getLogger(__name__)
-pool = redis.ConnectionPool(host=appt_config.APPT_REDIS_HOST, port=appt_config.APPT_REDIS_PORT,
-                            db=appt_config.APPT_REDIS_DB, decode_responses=True)
+pool = redis.ConnectionPool(host=global_config.REDIS_HOST, port=global_config.REDIS_PORT,
+                            db=global_config.REDIS_DB, decode_responses=True)
 
 """删除科室交接班数据 患者信息"""
 
@@ -2107,10 +2107,10 @@ def single_run_shift_change(json_data):
     input_date = datetime.strptime(shift_date, "%Y-%m-%d").date()
     today = datetime.now().date()
     previous_day = today - timedelta(days=1)
-    if input_date != previous_day and int(shift_classes) == 3:
-        raise Exception("仅支持刷新前一天的晚班")
-    if input_date != today and int(shift_classes) in [1, 2]:
-        raise Exception("仅支持刷新当天的早班 和 中班")
+    # if input_date != previous_day and int(shift_classes) == 3:
+    #     raise Exception("仅支持刷新前一天的晚班")
+    # if input_date != today and int(shift_classes) in [1, 2]:
+    #     raise Exception("仅支持刷新当天的早班 和 中班")
 
     shift_start, shift_end = get_complete_time_slot(time_slot)
     if datetime.now().strftime("%Y-%m-%d %H:%M:%S.999") < shift_end and not global_config.run_in_local:
@@ -2132,12 +2132,12 @@ def single_run_shift_change(json_data):
     reg_sqls = {item.get('sid'): item for item in all_sqls}
 
     redis_client = redis.Redis(connection_pool=pool)
-    if not redis_client.set(f"timed_shift_change", 2, ex=180, nx=True):
+    if not redis_client.set(f"timed_shift_change", 2, ex=90, nx=True):
         raise Exception("有正在执行的交接班任务，请稍后重试")
 
     # 尝试设置键，只有当键不存在时才设置成功.  ex=600 表示过期时间 600 秒（10 分钟），nx=True 表示不存在时才设置
-    if not global_config.run_in_local and not redis_client.set(f"shift_change:{str(dept_id)}", dept_id, ex=180,
-                                                               nx=True):
+    if not patient_id and not global_config.run_in_local and not redis_client.set(f"shift_change:{str(dept_id)}",
+                                                                              dept_id, ex=130, nx=True):
         redis_client.delete(f"timed_shift_change")
         raise Exception('请先歇一歇，给系统一点反应时间（10分钟刷一次）')
 
@@ -2322,6 +2322,9 @@ def query_shift_info(json_data):
         shift_info.pop('outgoing_data')
         shift_info.pop('incoming_data')
         shift_info.pop('head_nurse_data')
+        shift_info['incominger'] = json.loads(shift_info.get('incominger')) if shift_info.get('incominger') else []
+        shift_info['outgoinger'] = json.loads(shift_info.get('outgoinger')) if shift_info.get('outgoinger') else []
+        shift_info['head_nurser'] = json.loads(shift_info.get('head_nurser')) if shift_info.get('head_nurser') else []
     del db
     return {"bed_info_list": shift_change_config.bed_info_list,
             "patient_type_list": shift_change_config.patient_type_list,
@@ -2343,65 +2346,19 @@ def save_shift_info(json_data):
     shift_classes = json_data.get('shift_classes')
     dept_id = json_data.get('dept_id')
     dept_name = json_data.get('dept_name')
-    sign_type = json_data.get('sign_type')  # 1=交班人 2=接班人 3=护士长
-    user_id = json_data.get('user_id', "")  # 医生/护士 云医签 id
-    user_name = json_data.get('user_name')
+    sign_type = json_data.get('sign_type')
 
-    sign_img = ''
-    params = (shift_date, f"{shift_type}-{shift_classes}", dept_id, dept_name, 0 if int(sign_type) == 5 else 1,
-              datetime.now().strftime("%Y-%m-%d %H:%M:%S"))
-    if int(sign_type) < 4:
-        # 获取医生签名图片
-        sign_img = get_doctor_sign_img(user_id)
-
-        # 签名业务字段 随机生成 保证唯一即可
-        biz_sn = uuid.uuid4().__str__()
-        # 文件摘要
-        sign_msg = f"{dept_name} - {shift_date} {shift_classes} 交班"
-
-        if not user_id:
-            raise Exception('医生/护士不存在, 请先联系信息科配置【云医签】', user_name)
-        try:
-            sign_param = {"type": "sign_push", "user_id": user_id, "bizSn": biz_sn, "msg": sign_msg,
-                          "desc": "交接班签名"}
-            sign_ret = global_tools.call_yangcheng_sign_serve(sign_param)
-
-            # 时间戳签名
-            ts_sign_param = {"sign_org": sign_msg, "type": "ts_gene"}
-            ts_sign_ret = global_tools.call_yangcheng_sign_serve(ts_sign_param, ts_sign=True)
-        except Exception as e:
-            raise Exception('签名服务器异常', e)
-
-        sign_data = {"sign_ret": sign_ret, "ts_sign_ret": ts_sign_ret}
-        params = (shift_date, f"{shift_type}-{shift_classes}", dept_id, dept_name, user_name,
-                  user_id, datetime.now().strftime("%Y-%m-%d %H:%M:%S"), json.dumps(sign_data), sign_img)
+    # 1=交班人 2=接班人 3=护士长
+    if sign_type in [1, 2, 3]:
+        return doctor_sign(json_data)
 
     if int(sign_type) == 4:
-        # 护理归档时需要有本班交班人的签名 和 上一个班次接班人的签名
+        # 归档时需要有本班交班人的签名 和 上一个班次接班人的签名
         is_archiving_allowed(shift_date, shift_type, shift_classes, dept_id)
 
-    if int(sign_type) == 1:
-        insert_sql = """INSERT INTO nsyy_gyl.scs_shift_info (shift_date, shift_classes, dept_id, dept_name, 
-        outgoing, outgoing_user_id, outgoing_time, outgoing_data, outgoing_img)
-            VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s) ON DUPLICATE KEY UPDATE outgoing = VALUES(outgoing), 
-            outgoing_user_id = VALUES(outgoing_user_id), outgoing_time = VALUES(outgoing_time), 
-            outgoing_data = VALUES(outgoing_data), outgoing_img = VALUES(outgoing_img)
-        """
-    elif int(sign_type) == 2:
-        insert_sql = """INSERT INTO nsyy_gyl.scs_shift_info (shift_date, shift_classes, dept_id, dept_name, 
-        incoming, incoming_user_id, incoming_time, incoming_data, incoming_img)
-            VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s) ON DUPLICATE KEY UPDATE incoming = VALUES(incoming), 
-            incoming_user_id = VALUES(incoming_user_id), incoming_time = VALUES(incoming_time), 
-            incoming_data = VALUES(incoming_data), incoming_img = VALUES(incoming_img)
-        """
-    elif int(sign_type) == 3:
-        insert_sql = """INSERT INTO nsyy_gyl.scs_shift_info (shift_date, shift_classes, dept_id, dept_name, 
-        head_nurse, head_nurse_user_id, head_nurse_time, head_nurse_data, head_nurse_img)
-            VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s) ON DUPLICATE KEY UPDATE head_nurse = VALUES(head_nurse), 
-            head_nurse_user_id = VALUES(head_nurse_user_id), head_nurse_time = VALUES(head_nurse_time), 
-            head_nurse_data = VALUES(head_nurse_data), head_nurse_img = VALUES(head_nurse_img)
-        """
-    elif int(sign_type) in (4, 5):
+    params = (shift_date, f"{shift_type}-{shift_classes}", dept_id, dept_name,
+              0 if int(sign_type) == 5 else 1, datetime.now().strftime("%Y-%m-%d %H:%M:%S"))
+    if int(sign_type) in (4, 5):
         insert_sql = """INSERT INTO nsyy_gyl.scs_shift_info (shift_date, shift_classes, dept_id, dept_name, 
         archived, archived_time) VALUES (%s, %s, %s, %s, %s, %s) ON DUPLICATE KEY UPDATE archived = VALUES(archived), 
             archived_time = VALUES(archived_time) """
@@ -2411,7 +2368,72 @@ def save_shift_info(json_data):
                 global_config.DB_DATABASE_GYL)
     db.execute(insert_sql, params, need_commit=True)
     del db
-    return sign_img
+    return ''
+
+
+"""医生签名 1=交班人 2=接班人 3=护士长"""
+
+
+def doctor_sign(json_data):
+    shift_date = json_data.get('shift_date')
+    shift_type = json_data.get('shift_type')
+    shift_classes = json_data.get('shift_classes')
+    dept_id = json_data.get('dept_id')
+    dept_name = json_data.get('dept_name')
+    sign_type = json_data.get('sign_type')
+    user_id = json_data.get('user_id', '')  # 医生/护士 云医签 id
+    user_name = json_data.get('user_name', '')
+    # 签名列表
+    sign_list = json_data.get('sign_list', [])
+
+    if user_id:
+        # 如果存在医生id，说明是新的签名，如果不存在有可能是删除某一个签名，直接保存传过来的 sign——list 即可
+        # 获取医生签名图片 不能放到 下面 try中，否则报错会被吃掉
+        sign_img = get_doctor_sign_img(user_id)
+        # 获取医生职称
+        redis_client = redis.Redis(connection_pool=pool)
+        zhicheng = redis_client.get(f"doctor_title:{user_id.replace('U', '').replace('u', '')}") or ''
+
+        try:
+            # 签名业务字段 随机生成 保证唯一即可
+            biz_sn = uuid.uuid4().__str__()
+            # 文件摘要
+            sign_msg = f"{dept_name} - {shift_date} {shift_classes} 交班"
+
+            sign_param = {"type": "sign_push", "user_id": user_id, "bizSn": biz_sn, "msg": sign_msg,
+                          "desc": "交接班签名"}
+            sign_ret = global_tools.call_yangcheng_sign_serve(sign_param)
+            # 时间戳签名
+            ts_sign_param = {"sign_org": sign_msg, "type": "ts_gene"}
+            ts_sign_ret = global_tools.call_yangcheng_sign_serve(ts_sign_param, ts_sign=True)
+        except Exception as e:
+            raise Exception(f'签名服务器异常 {user_id} {user_name}', e)
+
+        sign_data = {
+            "user_id": user_id, "user_name": user_name, "user_title": zhicheng,
+            "sign_img": sign_img, "sign_time": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+            "sign_data": {"sign_ret": sign_ret, "ts_sign_ret": ts_sign_ret}
+        }
+        sign_list.append(sign_data)
+
+    params = (shift_date, f"{shift_type}-{shift_classes}", dept_id, dept_name, json.dumps(sign_list))
+    if int(sign_type) == 1:
+        insert_sql = """INSERT INTO nsyy_gyl.scs_shift_info (shift_date, shift_classes, dept_id, dept_name, outgoinger)
+                VALUES (%s, %s, %s, %s, %s) ON DUPLICATE KEY UPDATE outgoinger = VALUES(outgoinger)"""
+    elif int(sign_type) == 2:
+        insert_sql = """INSERT INTO nsyy_gyl.scs_shift_info (shift_date, shift_classes, dept_id, dept_name, incominger)
+                VALUES (%s, %s, %s, %s, %s) ON DUPLICATE KEY UPDATE incominger = VALUES(incominger)"""
+    elif int(sign_type) == 3:
+        insert_sql = """INSERT INTO nsyy_gyl.scs_shift_info (shift_date, shift_classes, dept_id, dept_name, head_nurser)
+                VALUES (%s, %s, %s, %s, %s) ON DUPLICATE KEY UPDATE head_nurser = VALUES(head_nurser)"""
+    else:
+        raise Exception('签名类型错误 1=交班人 2=接班人 3=护士长')
+
+    db = DbUtil(global_config.DB_HOST, global_config.DB_USERNAME, global_config.DB_PASSWORD,
+                global_config.DB_DATABASE_GYL)
+    db.execute(insert_sql, params, need_commit=True)
+    del db
+    return sign_list
 
 
 """校验是否允许归档"""
@@ -2434,16 +2456,16 @@ def is_archiving_allowed(shift_date, shift_type, shift_classes, dept_id):
     if previous_shift_classes == 2 and (not dept_info.get('middle_shift') or not dept_info.get('middle_shift_slot')):
         previous_shift_classes = 1
 
-    sql = f"select incoming from nsyy_gyl.scs_shift_info where shift_date = '{previous_shift_date}' " \
+    sql = f"select incominger from nsyy_gyl.scs_shift_info where shift_date = '{previous_shift_date}' " \
           f"and dept_id = {dept_id} and shift_classes = '{shift_type}-{previous_shift_classes}'"
     record = db.query_one(sql)
-    if not record or not record.get('incoming'):
+    if not record or not record.get('incominger'):
         del db
         raise Exception('上一班接班人未签名（归档需上一个班次接班人和本班交班人的签名）')
-    sql = f"select outgoing from nsyy_gyl.scs_shift_info where shift_date = '{shift_date}' " \
+    sql = f"select outgoinger from nsyy_gyl.scs_shift_info where shift_date = '{shift_date}' " \
           f"and dept_id = {dept_id} and shift_classes = '{shift_type}-{shift_classes}'"
     record = db.query_one(sql)
-    if not record or not record.get('outgoing'):
+    if not record or not record.get('outgoinger'):
         del db
         raise Exception('本班交班人未签名（归档需上一个班次接班人和本班交班人的签名）')
     del db
@@ -2473,3 +2495,22 @@ def get_doctor_sign_img(user_id):
     del db
 
     return sign_img
+
+
+"""定时同步医生职称"""
+
+
+def fetch_doctor_title():
+    sql = """select zhigongid 职工id,zhigonggh 职工工号,zhigongxm 姓名,zhichengmc 职称 from (
+            select gz.zhigongid,gz.zhigonggh,gz.zhigongxm,gz1.zhichengmc from df_zhushuju.gy_zhigongda gz 
+            join df_zhushuju.gy_zhigongxx gz1 on gz.zhigongid=gz1.zhigongid and gz1.zuofeibz=0
+            where  gz.zhigonglb='1' )v where zhichengmc is not null"""
+    data = global_tools.call_new_his_pg(sql)
+    if not data:
+        return
+    redis_client = redis.Redis(connection_pool=pool)
+    for item in data:
+        if item.get('职工工号'):
+            zhicheng = '住院医师' if item.get('职称') == '医师' else item.get('职称')
+            redis_client.set(f"doctor_title:{item.get('职工工号')}", zhicheng)
+

@@ -22,12 +22,13 @@ from gylmodules.critical_value.cv_manage import fetch_cv_record
 from gylmodules.eye_util.eye_util import flush_token, auto_fetch_eye_data
 from gylmodules.parking.parking_server import auto_freeze_car, auto_fetch_data
 from gylmodules.questionnaire.sq_server import fetch_ai_result
+from gylmodules.shift_change.shift_change_server import fetch_doctor_title
 from gylmodules.utils.db_utils import DbUtil
 from gylmodules.utils.event_loop import GlobalEventLoop
 from gylmodules.workstation.message.message_server import flush_msg_cache
 
-pool = redis.ConnectionPool(host=cv_config.CV_REDIS_HOST, port=cv_config.CV_REDIS_PORT,
-                            db=cv_config.CV_REDIS_DB, decode_responses=True)
+pool = redis.ConnectionPool(host=global_config.REDIS_HOST, port=global_config.REDIS_PORT,
+                            db=global_config.REDIS_DB, decode_responses=True)
 
 # 配置调度器，设置执行器，ThreadPoolExecutor 管理线程池并发
 executors = {'default': ThreadPoolExecutor(10), }
@@ -299,16 +300,12 @@ def schedule_task():
     if global_config.schedule_task['cv_timeout']:
         logger.info("    1.1 危机值超时管理 ")
         gylmodule_scheduler.add_job(handle_timeout_cv, trigger='interval', seconds=40, coalesce=True, id='cv_timeout')
-
         logger.info("    1.2 查询危机值报告时间 ")
         gylmodule_scheduler.add_job(query_baogao_sj, trigger='interval', seconds=5 * 60 * 60, id='query_baogao_sj')
-
         logger.info("    1.3 ip 地址是否可用校验")
         gylmodule_scheduler.add_job(re_alert_fail_ip_log, 'cron', hour=2, minute=20, id='re_alert_fail_ip_log')
-
         logger.info("    1.4 每日同步危急值处理报告")
         gylmodule_scheduler.add_job(fetch_cv_record, 'cron', hour=2, minute=40, id='fetch_cv_record')
-
         logger.info("    1.5 危机值部门信息更新 ")
         gylmodule_scheduler.add_job(regular_update_dept_info, trigger='interval', seconds=6 * 60 * 60,
                                     id='cv_dept_update')
@@ -332,9 +329,11 @@ def schedule_task():
     logger.info("6. 问卷调查模块定时任务 ")
     gylmodule_scheduler.add_job(fetch_ai_result, trigger='interval', seconds=20 * 60, id='fetch_ai_result')
 
+    logger.info("7. 交接班模块定时任务 ")
     # 改用 cron 执行
-    # logger.info("7. 交接班模块定时任务 ")
     # gylmodule_scheduler.add_job(auto_shift_change, trigger='cron', minute='0,30')
+    # 定时同步医生职称
+    gylmodule_scheduler.add_job(fetch_doctor_title, 'cron', hour='0,12,20', minute=15)
 
     logger.info("8. 停车场模块定时任务 ")
     gylmodule_scheduler.add_job(auto_tingchechang, trigger='cron', minute='*/4')
