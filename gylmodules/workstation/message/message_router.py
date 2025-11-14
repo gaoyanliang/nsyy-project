@@ -42,13 +42,15 @@ def notification(json_data):
     cur_user_id = json_data.get('cur_user_id')
     cur_user_name = json_data.get('cur_user_name')
     receiver = json_data.get("receiver")
+    receiver_name = json_data.get("receiver_name")
 
     # TODO image/video/audio/link 特殊处理 ，现在只处理 text
     # TODO 如果是多媒体类型，需要先调用上茶接口，获取到存储地址
     context = json_data.get("context")
     if type(context) == dict:
         context = json.dumps(context, default=str)
-    message_server.send_notification_message(int(context_type), int(cur_user_id), cur_user_name, int(receiver), context)
+    message_server.send_notification_message(int(context_type), int(cur_user_id), cur_user_name,
+                                             int(receiver), receiver_name, context)
 
 
 #  ==========================================================================================

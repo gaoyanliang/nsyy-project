@@ -73,10 +73,10 @@ def push(socket_data: dict, user_id: int):
 
 
 def send_notification_message(context_type: int, sender: int, sender_name: str,
-                              receiver: int, context: str):
+                              receiver: int, receiver_name: str, context: str):
     # 发送通知消息 📢
     send_message(ws_config.NOTIFICATION_MESSAGE, context_type, sender, sender_name,
-                 None, receiver, None, context)
+                 None, receiver, receiver_name, context)
 
 
 """
@@ -226,7 +226,7 @@ def create_group(group_name: str, creator: int, creator_name: str, members):
         if user_id == creator:
             continue
         send_notification_message(ws_config.NOTIFICATION_MESSAGE, creator, creator_name,
-                                  user_id, json.dumps(group_notification))
+                                  user_id, "", json.dumps(group_notification))
 
     # 创建者发送一条消息，主要用于在创建者手机上创建一个空的群聊天框，否则创建成功之后，找不到群聊
     send_message(ws_config.GROUP_CHAT, 0, int(creator), creator_name, int(group_id), int(group_id), group_name,
@@ -271,6 +271,7 @@ def update_group(group_id: int, group_name: str, members):
                                       int(group.get('creator')),
                                       group.get('creator_name'),
                                       member.get('user_id'),
+                                      member.get('user_name'),
                                       json.dumps({
                                           "type": 110,
                                           "title": "入群邀请",
