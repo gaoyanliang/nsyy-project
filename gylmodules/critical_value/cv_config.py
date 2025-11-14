@@ -1,3 +1,9 @@
+#  === redis config ===
+
+CV_REDIS_HOST = '127.0.0.1'
+CV_REDIS_PORT = 6379
+CV_REDIS_DB = 2
+
 # 患者类型 1=门诊,2=急诊,3=住院,4=体检,5=手工临时上报
 
 PATIENT_TYPE_OUTPATIENT_SERVICE = 1
