@@ -585,14 +585,15 @@ def doctor_shift_change(reg_sqls, shift_classes, time_slot, dept_id_list, flush:
         cv_count = {}
         if all_cvs:
             for item in all_patients:
-                key = str(item.get('所在科室id'))
-                if key not in cv_count:
-                    cv_count[key] = 0
-                cv_count[key] += 1
+                if item.get('患者类别') and str(item.get('患者类别')).__contains__('危急值'):
+                    key = str(item.get('所在科室id'))
+                    if key not in cv_count:
+                        cv_count[key] = set()
+                    cv_count[key].add(item.get('病人id'))
         if cv_count:
             for item in patient_count:
                 if item.get('患者类别') == '危急值':
-                    item['人数'] = cv_count.get(str(item.get('所在科室id')), 0)
+                    item['人数'] = len(cv_count.get(item.get('所在科室id'))) if cv_count.get(item.get('所在科室id')) else 0
 
     for item in patient_count:
         if str(item.get('所在科室id')) not in shift_change_config.doc_teshu_dept_list:
