@@ -196,15 +196,15 @@ def fetch_data2(start_time, end_time):
                 if patient.get('leftEye'):
                     match = re.search(r'\d+\.\d+cpm', patient.get('leftEye'))
                     if match:
-                        value['OS'] = match.group()
+                        value['OS'] = match.group().replace('cpm', '')
                 if patient.get('rightEye'):
                     match = re.search(r'\d+\.\d+cpm', patient.get('rightEye'))
                     if match:
-                        value['OD'] = match.group()
+                        value['OD'] = match.group().replace('cpm', '')
                 if patient.get('binoculus'):
                     match = re.search(r'\d+\.\d+cpm', patient.get('binoculus'))
                     if match:
-                        value['OU'] = match.group()
+                        value['OU'] = match.group().replace('cpm', '')
                 record_list.append(("翻转拍", patient.get('checkId') if patient.get('checkId') else '0',
                                     patient.get('checkStartTime') if patient.get('checkStartTime') else '',
                                     patient.get('checkUserName') if patient.get('checkUserName') else '',
