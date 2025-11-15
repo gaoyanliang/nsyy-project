@@ -1,5 +1,3 @@
-import base64
-import io
 import json
 import logging
 import operator
@@ -7,15 +5,10 @@ import re
 import time
 from datetime import datetime, timedelta
 
-import cv2
-import numpy as np
-import pytesseract
 import redis
 import requests
-from PIL import Image
 
 from gylmodules import global_config
-from gylmodules.composite_appointment import appt_config
 from gylmodules.utils.db_utils import DbUtil
 
 logger = logging.getLogger(__name__)
@@ -128,7 +121,8 @@ def fetch_data1(start_time, end_time):
                         }
                     if item.get('type') == 'vc':
                         # 近视力
-                        ret_data['vc'] = item.get('result', '').replace('\n', ' ')
+                        ret_data['vc'] = item.get('result', '').replace('\n', ' ')\
+                            .replace('OD', 'od').replace('OS', 'os').replace('OU', 'ou')
                     if item.get('type') == 'w4':
                         # 近worth-4dot
                         ret_data['w4'] = item.get('result', '').replace('\n', ' ')
@@ -192,19 +186,19 @@ def fetch_data2(start_time, end_time):
 
             record_list = []
             for patient in rows:
-                value = {"OD": '', "OS": '', 'OU': ''}
+                value = {"od": '', "os": '', 'ou': ''}
                 if patient.get('leftEye'):
                     match = re.search(r'\d+\.\d+cpm', patient.get('leftEye'))
                     if match:
-                        value['OS'] = match.group().replace('cpm', '')
+                        value['od'] = match.group().replace('cpm', '')
                 if patient.get('rightEye'):
                     match = re.search(r'\d+\.\d+cpm', patient.get('rightEye'))
                     if match:
-                        value['OD'] = match.group().replace('cpm', '')
+                        value['od'] = match.group().replace('cpm', '')
                 if patient.get('binoculus'):
                     match = re.search(r'\d+\.\d+cpm', patient.get('binoculus'))
                     if match:
-                        value['OU'] = match.group().replace('cpm', '')
+                        value['ou'] = match.group().replace('cpm', '')
                 record_list.append(("翻转拍", patient.get('checkId') if patient.get('checkId') else '0',
                                     patient.get('checkStartTime') if patient.get('checkStartTime') else '',
                                     patient.get('checkUserName') if patient.get('checkUserName') else '',
@@ -249,60 +243,23 @@ _ops = {
 }
 
 
-def preprocess_bytes_for_ocr(b):
-    # PIL -> cv2
-    img = Image.open(io.BytesIO(b)).convert("RGB")
-    arr = np.array(img)[:, :, ::-1]  # RGB -> BGR
-    gray = cv2.cvtColor(arr, cv2.COLOR_BGR2GRAY)
-    # 放大，去噪
-    scale = 2
-    gray = cv2.resize(gray, (int(gray.shape[1] * scale), int(gray.shape[0] * scale)), interpolation=cv2.INTER_LINEAR)
-    gray = cv2.medianBlur(gray, 3)
-    # 自适应阈值；判断背景亮暗
-    if gray.mean() > 127:
-        th = cv2.adaptiveThreshold(gray, 255, cv2.ADAPTIVE_THRESH_GAUSSIAN_C,
-                                   cv2.THRESH_BINARY_INV, 31, 10)
-    else:
-        th = cv2.adaptiveThreshold(gray, 255, cv2.ADAPTIVE_THRESH_GAUSSIAN_C,
-                                   cv2.THRESH_BINARY, 31, 10)
-        th = cv2.bitwise_not(th)
-
-    # 形态学处理（闭运算）
-    kernel = cv2.getStructuringElement(cv2.MORPH_RECT, (2, 2))
-    th = cv2.morphologyEx(th, cv2.MORPH_CLOSE, kernel, iterations=1)
-    # 保存图片（调试方便 可选）
-    # cv2.imwrite('tmp.png', th)
-    ok, buf = cv2.imencode(".png", th)
-    return buf.tobytes()
-
-
-def ocr_try_variants(img_bytes):
-    """尝试多种 OCR 方式返回文本候选列表（优先顺序）"""
-    cand = []
-    # 1) 预处理后识别（并限定字符集）
-    try:
-        proc = preprocess_bytes_for_ocr(img_bytes)
-        cfg = "--psm 7 -c tessedit_char_whitelist=0123456789+-*/xX×÷= ?"
-        t = pytesseract.image_to_string(Image.open(io.BytesIO(proc)), config=cfg).strip()
-        if t:
-            cand.append(t)
-    except Exception:
-        pass
-    # 2) 原图直接识别（更宽松）
-    try:
-        t2 = pytesseract.image_to_string(Image.open(io.BytesIO(img_bytes)), config="--psm 7").strip()
-        if t2 and t2 not in cand:
-            cand.append(t2)
-    except Exception:
-        pass
-    # 3) 另一种 psm 尝试
-    try:
-        t3 = pytesseract.image_to_string(Image.open(io.BytesIO(img_bytes)), config="--psm 8").strip()
-        if t3 and t3 not in cand:
-            cand.append(t3)
-    except Exception:
-        pass
-    return cand
+def ocr_try_variants(img_b64):
+    """利用眼科医院的ocr识别工具进行解析"""
+    retry_times = 3
+    while retry_times > 0:
+        try:
+            payload = {"img_b64": img_b64}
+            with requests.Session() as session:
+                r = session.post("http://192.168.190.252:8080/gyl/ehp/captcha", json=payload, timeout=10)
+                r.raise_for_status()
+                data = r.json()
+            if data["code"] == 20000:
+                return data.get('data')
+        except Exception:
+            pass
+        retry_times -= 1
+    logger.warning("识别翻转拍验证码失败")
+    return None
 
 
 def smart_parse_compute(txt):
@@ -393,6 +350,7 @@ def fetch_token():
                 data = r.json()
 
             if data["code"] != 200:
+                logger.debug(f"获取验证码失败: {data}")
                 retry_times -= 1
                 continue
 
@@ -402,36 +360,22 @@ def fetch_token():
                 retry_times -= 1
                 continue
 
-            # 支持以 "/9j..." 或 "data:image/..." 两种
-            img_b64 = img_b64.strip()
-            if img_b64.startswith("data:"):
-                img_b64 = img_b64.split(",", 1)[1]
-            img_bytes = base64.b64decode(img_b64)
-
             # 2) OCR 多策略识别
-            candidates = ocr_try_variants(img_bytes)
-            logger.debug(f"OCR 候选: {candidates}")
+            cand = ocr_try_variants(img_b64)
 
             # 3) 对每个候选做智能解析与计算
             chosen = None
-            for cand in candidates:
-                res, expr = smart_parse_compute(cand)
-                logger.debug(f"尝试解析: {cand} => {expr}")
-                if res is not None:
-                    chosen = (res, expr)
-                    break
-            if chosen is None:
-                logger.debug("OCR 均无法解析，建议改用打码服务或训练专用模型")
+            res, expr = smart_parse_compute(cand)
+            logger.debug(f"尝试解析: {cand} => {expr}")
+            if not res:
                 retry_times -= 1
                 continue
-
-            code_val, expr = chosen
-            logger.debug(f"最终识别/计算：{expr}")
+            logger.info(f"最终识别/计算：{res} {expr}")
 
             # 登陆获取 token
-            token = do_login(code_val, uuid_val)
+            token = do_login(res, uuid_val)
             if token is None:
-                logger.debug("token 获取失败 重试")
+                logger.warning("翻转拍网站 token 获取失败 重试")
                 retry_times -= 1
                 continue
 
