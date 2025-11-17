@@ -142,7 +142,7 @@ def fetch_data1(start_time, end_time):
                                     patient.get('customerMobile') if patient.get('customerMobile') else '',
                                     patient.get('sgsNickName') if patient.get('sgsNickName') else '',
                                     patient.get('record') if patient.get('record') else '',
-                                    json.dumps(ret_data)))
+                                    json.dumps(ret_data, ensure_ascii=False, default=str)))
             save_data(record_list)
             return
         except Exception:
@@ -190,15 +190,21 @@ def fetch_data2(start_time, end_time):
                 if patient.get('leftEye'):
                     match = re.search(r'\d+\.\d+cpm', patient.get('leftEye'))
                     if match:
-                        value['od'] = match.group().replace('cpm', '')
+                        value['os'] = match.group().replace('cpm', '')
+                    if not value['os'] and patient.get('leftEye') and patient.get('leftEye').__contains__('cpm'):
+                        value['os'] = '+不通过'
                 if patient.get('rightEye'):
                     match = re.search(r'\d+\.\d+cpm', patient.get('rightEye'))
                     if match:
-                        value['os'] = match.group().replace('cpm', '')
+                        value['od'] = match.group().replace('cpm', '')
+                    if not value['od'] and patient.get('rightEye') and patient.get('rightEye').__contains__('cpm'):
+                        value['od'] = '+不通过'
                 if patient.get('binoculus'):
                     match = re.search(r'\d+\.\d+cpm', patient.get('binoculus'))
                     if match:
                         value['ou'] = match.group().replace('cpm', '')
+                    if not value['ou'] and patient.get('binoculus') and patient.get('binoculus').__contains__('cpm'):
+                        value['ou'] = '+不通过'
                 record_list.append(("翻转拍", patient.get('checkId') if patient.get('checkId') else '0',
                                     patient.get('checkStartTime') if patient.get('checkStartTime') else '',
                                     patient.get('checkUserName') if patient.get('checkUserName') else '',
@@ -209,7 +215,8 @@ def fetch_data2(start_time, end_time):
                                                 "right": patient.get('rightEye') if patient.get('rightEye') else '',
                                                 "binoculus": patient.get('binoculus') if patient.get(
                                                     'binoculus') else ''
-                                                }, default=str), json.dumps(value)
+                                                }, ensure_ascii=False, default=str),
+                                    json.dumps(value, ensure_ascii=False, default=str)
                                     ))
             save_data(record_list)
             return
