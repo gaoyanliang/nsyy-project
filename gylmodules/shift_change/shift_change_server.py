@@ -985,7 +985,7 @@ def aicu_shift_change(reg_sqls, shift_classes, time_slot, shoushu, flush: bool =
         for patient in all_patients:
             if patient.get('bingrenzyid') in teshu_info and patient.get('bingrenzyid') not in patient_set:
                 patient_set.add(patient.get('bingrenzyid'))
-                patient['患者情况'] = patient['患者情况'] + teshu_info.get(patient.get('bingrenzyid'))
+                patient['患者情况'] = teshu_info.get(patient.get('bingrenzyid')) + patient['患者情况']
                 patient['患者类别'] = patient.get('患者类别') + ', 特殊处理'
 
     save_data(f"2-{shift_classes}", all_patients, patient_count, chuangwei_info1 + chuangwei_info2, flush, pid)
@@ -1325,7 +1325,8 @@ def general_dept_shift_change(reg_sqls, shift_classes, time_slot, dept_list, sho
                                                      .replace("{特殊病区}",
                                                               """'ICU护理单元','CCU护理单元','AICU护理单元','妇产科护理单元'""")
                                                      .replace("{start_time}", shift_start)
-                                                     .replace("{end_time}", shift_end))
+                                                     .replace("{end_time}", shift_end)
+                                                     .replace("{病区id}", ', '.join(f"'{item}'" for item in dept_list)))
         if int(shift_classes) == 3 and not flush:
             tasks["chuangwei_info1"] = executor.submit(timed_execution, "普通病区 特殊患者床位信息 3 ",
                                                        global_tools.call_new_his_pg, reg_sqls.get(4).get('sql_nhis'))
@@ -1621,7 +1622,15 @@ def merge_patient_records(patient_list):
         try:
             sorted_patients = sorted(patients,
                                      key=lambda x: datetime.strptime(x[16], '%Y-%m-%d %H:%M:%S'))
-            merged_info = '\n\n--------\n\n'.join(f"{p[15]}" for p in sorted_patients if p[15])
+            bingzhong_info, merged_info = '', ''
+            for p in sorted_patients:
+                if p[15]:
+                    if p[9] and (p[9].__contains__('病重') or p[9].__contains__('病危') or p[9].__contains__('病危重')):
+                        bingzhong_info = bingzhong_info + p[15]
+                        continue
+                    merged_info = merged_info + p[15] + '\n\n--------\n\n'
+            merged_info = merged_info + bingzhong_info
+            # merged_info = '\n\n--------\n\n'.join(f"{p[15]}" for p in sorted_patients if p[15])
             latest_time = sorted_patients[-1][16]
         except (IndexError, ValueError) as e:
             logger.warning(f"处理记录时出错: {e}")
