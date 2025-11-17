@@ -1738,7 +1738,7 @@ def merge_patient_cv_data(cv_list, patient_list, shift_type, dept_list, pid: str
             if patient_dict.get((zhuyuanhao, dpid)):
                 ps = patient_dict.get((zhuyuanhao, dpid))
                 ps[0]['患者类别'] = (ps[0].get('患者类别', '') or '') + ', 危急值'
-                ps[0]['患者情况'] = (ps[0].get('患者情况', '') or '') + p_info
+                ps[0]['患者情况'] = p_info + (ps[0].get('患者情况', '') or '')
             else:
                 sex = '未知'
                 if str(cv.get('patient_gender')) == '1':
