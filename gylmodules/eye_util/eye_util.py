@@ -194,7 +194,7 @@ def fetch_data2(start_time, end_time):
                 if patient.get('rightEye'):
                     match = re.search(r'\d+\.\d+cpm', patient.get('rightEye'))
                     if match:
-                        value['od'] = match.group().replace('cpm', '')
+                        value['os'] = match.group().replace('cpm', '')
                 if patient.get('binoculus'):
                     match = re.search(r'\d+\.\d+cpm', patient.get('binoculus'))
                     if match:
