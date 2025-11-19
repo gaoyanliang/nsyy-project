@@ -8,8 +8,7 @@ from itertools import groupby
 import redis
 import requests
 
-from gylmodules import global_config
-from gylmodules.composite_appointment import appt_config
+from gylmodules import global_config, global_tools
 from gylmodules.composite_appointment.appt_config import APPT_DOCTORS_BY_NAME_KEY, APPT_ROOMS_KEY, APPT_PROJECTS_KEY, \
     APPT_DOCTORS_KEY, APPT_REMAINING_RESERVATION_QUANTITY_KEY
 from gylmodules.utils.db_utils import DbUtil
@@ -100,6 +99,14 @@ def update_today_doc_info():
         for d in doc_list
         if d.get('MarkDesc') and d.get('MarkId')
     ]
+
+    # 根据 MarkId 从zhigongbiao查询医生工号
+    zhigongids = [item.get('医生ID') for item in processed_data]
+    zhigongids = ','.join([f"'{item}'" for item in zhigongids])
+    emps = global_tools.call_new_his_pg(f"select zhigongid, zhigonggh from df_zhushuju.gy_zhigongda where zhigongid in ({zhigongids}) ")
+    emp_dict = {}
+    for emp in emps:
+        emp_dict[emp['zhigongid']] = emp['zhigonggh']
     # 核心处理逻辑
     latest_records = {}
     for record in processed_data:
@@ -126,13 +133,14 @@ def update_today_doc_info():
     his_status_set = set()
     for key, new_doc in latest_records.items():
         doc_in_db = doc_in_db_dict.get(key)
+        emp_no = emp_dict.get(new_doc.get("医生ID"), '0')
         if not doc_in_db:
             # print(datetime.now(), f"医生 {key} 在数据库中不存在，新增医生信息", new_doc)
             insert_sql = f"""
-                    insert into nsyy_gyl.appt_doctor(name, his_name, no, career, fee, appointment_id, 
+                    insert into nsyy_gyl.appt_doctor(name, his_name, emp_nub, no, career, fee, appointment_id, 
                     dept_id, dept_name, update_time, visit_id, his_status, farther_dept_id, farther_dept_name, 
-                    sex, u_count, shoufei_xm) values ('{new_doc.get('真实姓名')}', 
-                    '{new_doc.get('医生姓名')}', {new_doc.get('医生ID')}, '{new_doc.get('挂号级别')}', 
+                    sex, u_count, shoufei_xm) values ('{new_doc.get('真实姓名')}', '{new_doc.get('医生姓名')}',
+                    '{emp_no}', {new_doc.get('医生ID')}, '{new_doc.get('挂号级别')}', 
                     '{new_doc.get('现价')}', '{new_doc.get('号码')}', {new_doc.get('科室ID')}, 
                     '{new_doc.get('部门名称')}', '{update_time}', '{new_doc.get('visit_id')}', 1, 
                     {new_doc.get('FartherDepID')}, '{new_doc.get('FartherDepName')}', '{new_doc.get('Sex')}',
@@ -153,9 +161,9 @@ def update_today_doc_info():
             redis_client.hset(APPT_DOCTORS_KEY, str(doc.get('id')), json.dumps(doc, default=str))
             query_sql = f""" select * from nsyy_gyl.appt_doctor where his_name = '{doc.get('his_name')}' """
             docs = db.query_all(query_sql)
-            # 新增的数据中，新增的医生编号，如果没有编号，则从人员表获取
-            db.execute("UPDATE nsyy_gyl.appt_doctor ad JOIN nsyy_gyl.人员表 e ON ad.no = e.ID "
-                       "SET ad.emp_nub = e.编号 where ad.emp_nub is null")
+            # # 新增的数据中，新增的医生编号，如果没有编号，则从人员表获取
+            # db.execute("UPDATE nsyy_gyl.appt_doctor ad JOIN nsyy_gyl.人员表 e ON ad.no = e.ID "
+            #            "SET ad.emp_nub = e.编号 where ad.emp_nub is null")
             redis_client.hset(APPT_DOCTORS_BY_NAME_KEY, doc.get('his_name'), json.dumps(docs, default=str))
             continue
 
@@ -174,7 +182,7 @@ def update_today_doc_info():
             update_sql = f"""
                         update nsyy_gyl.appt_doctor set
                           dept_id = {new_doc.get('科室ID')}, dept_name = '{new_doc.get('部门名称')}',
-                          no = {new_doc.get('医生ID')}, name = '{new_doc.get('真实姓名')}', 
+                          no = {new_doc.get('医生ID')}, name = '{new_doc.get('真实姓名')}', emp_nub = '{emp_no}', 
                           his_name = '{new_doc.get('医生姓名')}', career = '{new_doc.get('挂号级别')}', 
                           fee = '{new_doc.get('现价')}', update_time = '{update_time}',
                           appointment_id = '{new_doc.get('号码')}', visit_id = '{new_doc.get('visit_id')}', 
