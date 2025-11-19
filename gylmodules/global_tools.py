@@ -481,7 +481,7 @@ def call_yangcheng_sign_serve(param: dict, ts_sign: bool = False):
                 sleep_time = retry_delay * (2 ** (retry_count - 1))  # 指数退避
                 logging.warning(
                     f"签名服务器连接失败，第 {retry_count}/{max_retries} 次重试..."
-                    f"错误: {str(e)}，{sleep_time}秒后重试"
+                    f" user_id = {param.get('user_id', '')} 错误: {str(e)}，{sleep_time}秒后重试"
                 )
                 time.sleep(sleep_time)
             else:
