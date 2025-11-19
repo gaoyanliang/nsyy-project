@@ -28,6 +28,17 @@ pool = redis.ConnectionPool(host=global_config.REDIS_HOST, port=global_config.RE
 def delete_shift_data(record_id):
     db = DbUtil(global_config.DB_HOST, global_config.DB_USERNAME, global_config.DB_PASSWORD,
                 global_config.DB_DATABASE_GYL)
+    record = db.query_one(f"select * from nsyy_gyl.scs_patients where id = {record_id} ")
+    if not record:
+        del db
+        raise Exception("不存在此交接班数据")
+
+    shift_classes = record.get('shift_classes')
+    dept_id = record.get('patient_dept_id') if shift_classes and str(shift_classes).startswith('1-') else record.get('patient_ward_id')
+    if db.query_one(f"select * from nsyy_gyl.scs_shift_info where shift_date = '{record.get('shift_date')}' "
+                    f"and dept_id = {dept_id} and shift_classes = '{shift_classes}' and archived = 1"):
+        del db
+        raise Exception("该班次已归档无法在修改或新增数据")
     db.execute(f"delete from nsyy_gyl.scs_patients where id = {record_id}", need_commit=True)
     del db
 
