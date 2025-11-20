@@ -780,6 +780,8 @@ def handle_shoushu_and_yushu(reg_sqls, time_slot, dept_list, pid: str = None):
         if key in merged_records:
             # 如果已存在相同患者类别和病人ID的记录，合并患者情况
             existing_record = merged_records[key]
+            if record.get('预术标志', 0) == 1:
+                existing_record['预术标志'] = 1
 
             # 合并患者情况，用换行符分隔
             if record.get('患者情况'):
