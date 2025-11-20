@@ -1863,6 +1863,8 @@ def send_to_his(cv_record):
     alertdt = cv_record.get('alertdt').strftime("%Y-%m-%d %H:%M:%S")
     handle_time = cv_record.get('handle_time').strftime("%Y-%m-%d %H:%M:%S") if cv_record.get('handle_time') \
         else jieshousj_times(cv_record.get('alertdt'), 540)
+    doctor_recv_time = cv_record.get('doctor_recv_time').strftime("%Y-%m-%d %H:%M:%S") if cv_record.get(
+        'doctor_recv_time') else handle_time
     nurse_recv_time = cv_record.get('nurse_recv_time').strftime("%Y-%m-%d %H:%M:%S") if cv_record.get(
         'nurse_recv_time') else jieshousj_times(cv_record.get('alertdt'), 5)
     baogaosj = shenqing_data[0].get('报告时间') if shenqing_data[0].get('报告时间') else '0'
@@ -1935,9 +1937,9 @@ def send_to_his(cv_record):
         .replace('{kaidanksmc}', shenqing_data[0].get('kaidanksmc') if shenqing_data[0].get('kaidanksmc') else '0') \
         .replace('{kaidanks}', shenqing_data[0].get('kaidanks') if shenqing_data[0].get('kaidanks') else '0') \
         .replace('{kaidanrenxm}', shenqing_data[0].get('kaidanrenxm') if shenqing_data[0].get('kaidanrenxm') else '0') \
-        .replace('{yishengcksj}', handle_time) \
-        .replace('{chakanysid}', str(cv_record.get('handle_doctor_id')) if cv_record.get('handle_doctor_id') else '0') \
-        .replace('{chakanysxm}', cv_record.get('handle_doctor_name') if cv_record.get('handle_doctor_name') else '0')
+        .replace('{yishengcksj}', doctor_recv_time) \
+        .replace('{chakanysid}', str(cv_record.get('doctor_recv_id')) if cv_record.get('doctor_recv_id') else '0') \
+        .replace('{chakanysxm}', cv_record.get('doctor_recv_name') if cv_record.get('doctor_recv_name') else '0')
 
     # print(his_sync_data)
     safe_post(his_sync_data, 'WeiJZInfoAdd')
