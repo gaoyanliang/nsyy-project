@@ -829,7 +829,7 @@ def create_cv_by_system(json_data, cv_source):
         """
         data = global_tools.call_new_his(sql)
         if data and data[0]:
-            cvd['bed_no'] = data[0].get('当前床号') if data[0].get('当前床号') else cvd['bed_no']
+            cvd['patient_bed_num'] = data[0].get('当前床号') if data[0].get('当前床号') else cvd['patient_bed_num']
             # 判断科室/病区和 最新的科室/病区是否一致
             latest_dept = data[0].get('当前科室ID') if data[0].get('当前科室ID') else data[0].get('入院科室ID')
             if latest_dept:
