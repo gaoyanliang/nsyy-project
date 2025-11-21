@@ -14,6 +14,8 @@ from gylmodules.shift_change.shift_change_config import PATIENT_TYPE_ORDER
 from gylmodules.utils.db_utils import DbUtil
 from datetime import datetime, timedelta
 
+from gylmodules.workstation.message import message_server
+
 logger = logging.getLogger(__name__)
 pool = redis.ConnectionPool(host=global_config.REDIS_HOST, port=global_config.REDIS_PORT,
                             db=global_config.REDIS_DB, decode_responses=True)
@@ -535,17 +537,34 @@ def auto_fetch_data():
     vip_car_no_list = [vip_car.get('plate_no') for vip_car in vip_cars]
     db = DbUtil(global_config.DB_HOST, global_config.DB_USERNAME, global_config.DB_PASSWORD,
                 global_config.DB_DATABASE_GYL)
-    all_cars = db.query_all("select plate_no, vip_status from nsyy_gyl.parking_vip_cars where deleted = 0")
-    hist_car_status = {car.get('plate_no'): car.get('vip_status') for car in all_cars}
-    all_cars = [car.get('plate_no') for car in all_cars]
+    all_cars = db.query_all("select plate_no, vip_status, start_date, end_date, deleted from nsyy_gyl.parking_vip_cars")
+    hist_car_status = {car.get('plate_no'): car for car in all_cars}
+    all_cars = [car.get('plate_no') for car in all_cars if car.get('deleted') == 0]
 
     for car in vip_cars:
         car['violated'] = 0 if car['plate_no'] in all_cars else 1
-        if car.get('vip_status') != hist_car_status.get(car.get('plate_no'), -2) and car.get('vip_status') == 1 \
-                and hist_car_status.get(car.get('plate_no'), -2) in [1, 2, 3, 4] and not global_config.run_in_local:
+        if car['violated'] == 1:
+            msg = {"type": 111, "title": "异常车辆","time": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+                   "description": f"存在非法新增车辆 {car.get('plate_no')} {car.get('person_name')}"}
+            message_server.send_notification_message(1, 110100, 'admin',
+                                                     111351, "王晨祎",
+                                                     json.dumps(msg, default=str))
+            global_tools.send_to_wx(f"存在非法新增车辆 {car.get('plate_no')} {car.get('person_name')}")
+        hist_car = hist_car_status.get(car.get('plate_no'), {})
+        if (hist_car.get('deleted', 1) == 0 and hist_car.get('vip_status', -2) == 1 and
+                (car['start_date'] != hist_car.get('start_date') or car['end_date'] != hist_car.get('end_date'))):
+            msg = {"type": 111, "title": "异常车辆", "time": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+             "description": f"存在非法操作车辆（有效期对不上） {car.get('plate_no')} " }
+            message_server.send_notification_message(1, 110100, 'admin',
+                                                     111351, "王晨祎",
+                                                     json.dumps(msg, default=str))
+            global_tools.send_to_wx(f"存在非法操作车辆（有效期对不上） {car.get('plate_no')} ")
+
+        if car.get('vip_status') != hist_car.get('vip_status', -2) and car.get('vip_status') == 1 \
+                and hist_car.get('vip_status', -2) in [1, 2, 3, 4] and not global_config.run_in_local:
             global_tools.send_to_wx(f" {datetime.now().strftime('%Y-%m-%d %H:%M:%S')} "
                                     f"会员车辆 [{car.get('plate_no')}] 状态不一致, 真实状态为: {car.get('vip_status')} "
-                                    f"OA 状态为: {hist_car_status.get(car.get('plate_no'), -2)}")
+                                    f"OA 状态为: {hist_car.get('vip_status', -2)}")
 
     if vip_cars:
         args = []
@@ -561,7 +580,8 @@ def auto_fetch_data():
             plate_no = VALUES(plate_no), violated = VALUES(violated), left_days = VALUES(left_days)"""
         db.execute_many(insert_sql, args, need_commit=True)
         # 更新到期的会员
-        db.execute("update nsyy_gyl.parking_vip_cars set vip_status = 2 where vip_status = 1 and left_days = 0",
+        db.execute("update nsyy_gyl.parking_vip_cars set vip_status = 2 "
+                   "where vip_status = 1 and DATEDIFF(STR_TO_DATE(end_date, '%Y-%m-%d'), CURDATE()) < 0 ",
                    need_commit=True)
 
     if past_records:
