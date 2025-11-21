@@ -584,7 +584,11 @@ def manual_report_cv(json_data):
             json_data['alertman_name'], json_data['alertman_pers_id'] = -1, 'unknow', 'unkonw', -1
     else:
         # 根据员工号查询部门信息
-        param = {"type": "his_dept_pers", "pers_no": json_data['alertman'], "comp_id": 12,
+        pno = json_data['alertman']
+        if not pno:
+            pno = ''
+        pno = pno.replace('U', '').replace('u', '')
+        param = {"type": "his_dept_pers", "pers_no": pno, "comp_id": 12,
                  "randstr": "XPFDFZDF7193CIONS1PD7XCJ3AD4ORRC"}
         json_data['alert_dept_id'], json_data['alert_dept_name'], \
             json_data['alertman_name'], json_data['alertman_pers_id'] = \
@@ -754,7 +758,11 @@ def create_cv_by_system(json_data, cv_source):
         cvd['alert_dept_id'], cvd['alert_dept_name'], cvd['alertman_name'], cvd['alertman_pers_id'] \
             = -1, 'unknow', 'unkonw', -1
     else:
-        param = {"type": "his_dept_pers", "pers_no": cvd['alertman'], "comp_id": 12,
+        pno = cvd['alertman']
+        if not pno:
+            pno = ''
+        pno = pno.replace('U', '').replace('u', '')
+        param = {"type": "his_dept_pers", "pers_no": pno, "comp_id": 12,
                  "randstr": "XPFDFZDF7193CIONS1PD7XCJ3AD4ORRC"}
         cvd['alert_dept_id'], cvd['alert_dept_name'], cvd['alertman_name'], cvd['alertman_pers_id'] = \
             call_third_systems_obtain_data('get_dept_info_by_emp_num', param)
@@ -816,11 +824,12 @@ def create_cv_by_system(json_data, cv_source):
         sql = f"""
             SELECT bingrenid "病人ID", zhuyuanhao 住院号, ruyuanrq 入院日期, chuyuanrq 出院日期, xingming 姓名, nianling 年龄,
              ruyuanbqid "入院病区ID", ruyuanksid "入院科室ID", dangqianksid "当前科室ID", dangqianbqid "当前病区ID", 
-            case when chuyuanrq IS NULL then null else dangqianksid end  "出院科室ID" 
+            case when chuyuanrq IS NULL then null else dangqianksid end  "出院科室ID" , dangqiancwbm "当前床号" 
             FROM df_jj_zhuyuan.zy_bingrenxx WHERE zhuyuanhao = '{cvd['patient_treat_id']}' and zaiyuanzt = 0 ORDER BY ruyuanrq DESC
         """
         data = global_tools.call_new_his(sql)
         if data and data[0]:
+            cvd['bed_no'] = data[0].get('当前床号') if data[0].get('当前床号') else cvd['bed_no']
             # 判断科室/病区和 最新的科室/病区是否一致
             latest_dept = data[0].get('当前科室ID') if data[0].get('当前科室ID') else data[0].get('入院科室ID')
             if latest_dept:
