@@ -498,7 +498,7 @@ def time_str_to_minutes(time_str):
 def auto_fetch_data():
     redis_client = redis.Redis(connection_pool=pool)
     if not redis_client.set(f"parking_auto_fetch_data",
-                            datetime.now().strftime("%Y-%m-%d %H:%M:%S"), ex=60 * 60 * 2, nx=True):
+                            datetime.now().strftime("%Y-%m-%d %H:%M:%S"), ex=60 * 60 * 2, nx=True) or global_config.run_in_local:
         # 如果存在说明之前已经成功获取到数据了，不再重新获取
         return
     start_date = f"{(datetime.today() - timedelta(days=1)).date()}"
