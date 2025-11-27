@@ -349,8 +349,9 @@ def update_shift_change_bed_data(json_data):
 def query_patient_info(zhuyuanhao):
     patient_info_list = global_tools.call_new_his_pg(f"""select zb.xingming patient_name, zb.dangqiancwbm bed_no, 
     zb.zhuyuanhao zhuyuanhao, zb.xingbiemc patient_sex, zb.nianling patient_age, zb.bingrenzyid, 
-    zb.zhuzhiysxm doctor_name from df_jj_zhuyuan.zy_bingrenxx zb where zb.zaiyuanzt = 0 and zb.quxiaorybz = 0 
-    and zb.yingerbz = 0 and zb.zhuyuanhao = '{zhuyuanhao}'""")
+    zb.zhuzhiysxm doctor_name from (select zb.zhuyuanhao,max(zb.zhuyuancs) zhuyuancs 
+    from df_jj_zhuyuan.zy_bingrenxx zb where zb.zhuyuanhao= '{zhuyuanhao}' group by zhuyuanhao)v 
+    join df_jj_zhuyuan.zy_bingrenxx zb  on zb.zhuyuanhao =v.zhuyuanhao and zb.zhuyuancs=v.zhuyuancs""")
     return patient_info_list[0] if patient_info_list else {}
 
 
