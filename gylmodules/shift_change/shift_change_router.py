@@ -90,6 +90,10 @@ def fetch_doctor_title():
     shift_change_server.fetch_doctor_title()
 
 
+@shift_change.route('/dept_list', methods=['POST', 'GET'])
+@api_response
+def query_dept_list(json_data):
+    return shift_change_server.dept_list(json_data.get('dept_type', 1))
 
 
 

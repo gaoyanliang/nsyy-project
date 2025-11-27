@@ -2534,3 +2534,13 @@ def fetch_doctor_title():
             zhicheng = '住院医师' if item.get('职称') == '医师' else item.get('职称')
             redis_client.set(f"doctor_title:{item.get('职工工号')}", zhicheng)
 
+
+def dept_list(dept_type):
+    #  --1科室,2病区
+    sql = f"""select gz.zuzhibm as "dept_code", 0 as "dept_id", 0 as "dept_mng",
+            coalesce(gz2.zhigongxm,'0')  as "dept_mng_name", gz.zuzhimc as "dept_name",
+            gz.zuzhiid as "his_dept_id" from df_zhushuju.gy_zuzhidy gz 
+            left join df_zhushuju.gy_zhigongda gz2 on gz.lianxiren =gz2.zhigongid 
+            where gz.zuofeibz=0  and gz.zhuyuanbz =1 and gz.zuzhilx = '{dept_type}'  """
+    return global_tools.call_new_his_pg(sql)
+
