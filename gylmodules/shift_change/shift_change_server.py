@@ -10,6 +10,7 @@ from itertools import groupby
 from typing import Tuple, Dict, List
 
 import redis
+import requests
 
 from gylmodules import global_config, global_tools
 from gylmodules.composite_appointment import appt_config
@@ -1750,7 +1751,7 @@ def merge_patient_cv_data(cv_list, patient_list, shift_type, dept_list, pid: str
             if patient_dict.get((zhuyuanhao, dpid)):
                 ps = patient_dict.get((zhuyuanhao, dpid))
                 ps[0]['患者类别'] = (ps[0].get('患者类别', '') or '') + ', 危急值'
-                ps[0]['患者情况'] = p_info + (ps[0].get('患者情况', '') or '')
+                ps[0]['患者情况'] = (ps[0].get('患者情况', '') or '') + p_info
             else:
                 sex = '未知'
                 if str(cv.get('patient_gender')) == '1':
@@ -2539,8 +2540,28 @@ def dept_list(dept_type):
     #  --1科室,2病区
     sql = f"""select gz.zuzhibm as "dept_code", 0 as "dept_id", 0 as "dept_mng",
             coalesce(gz2.zhigongxm,'0')  as "dept_mng_name", gz.zuzhimc as "dept_name",
-            gz.zuzhiid as "his_dept_id" from df_zhushuju.gy_zuzhidy gz 
-            left join df_zhushuju.gy_zhigongda gz2 on gz.lianxiren =gz2.zhigongid 
+            gz.zuzhiid::int as "his_dept_id" from df_zhushuju.gy_zuzhidy gz
+            left join df_zhushuju.gy_zhigongda gz2 on gz.lianxiren =gz2.zhigongid
             where gz.zuofeibz=0  and gz.zhuyuanbz =1 and gz.zuzhilx = '{dept_type}'  """
     return global_tools.call_new_his_pg(sql)
+
+
+    # try:
+    #     param = {
+    #             "type": "his_dept",
+    #             "dept_type": 1 if int(dept_type) != 2 else 3,
+    #             "comp_id": 12,
+    #             "randstr": "XPFDFZDF7193CIONS1PD7XCJ3AD4ORRC"
+    #         }
+    #     url = "http://127.0.0.1:6080/int_api" if not global_config.run_in_local else "http://192.168.124.53:6080/int_api"
+    #     # 发送 POST 请求，将字符串数据传递给 data 参数
+    #     response = requests.post(url, timeout=3, json=param)
+    #     # response = requests.post(", timeout=3, json=param)
+    #     data = response.text
+    #     data = json.loads(data)
+    #     data = data.get('data')
+    #     return data
+    # except Exception as e:
+    #     logger.error(f'调用第三方系统方法失败：type = {type}, param = {param}, {e}')
+    #     return []
 
