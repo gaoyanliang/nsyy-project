@@ -358,6 +358,8 @@ def create_patient_record(register_id, record_id, record_data):
                     results = results + suffix
                 if "中心静脉导管" in value or "PICC" in value:
                     results = results + "带入"
+                if "头皮针" in value:
+                    results = results + "头皮针"
             if (da.__contains__("中心静脉导管") or da.__contains__("PICC")) and not results.__contains__("带入"):
                 results = results + "带入"
             update_condition.append(f"jingmaitd = '{results}'")
