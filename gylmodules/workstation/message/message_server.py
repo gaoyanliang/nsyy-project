@@ -84,8 +84,8 @@ def send_message(chat_type: int, context_type: int, sender: int, sender_name: st
 
     new_message = {'chat_type': chat_type, 'context_type': context_type, 'sender': int(sender),
                    'sender_name': sender_name, 'group_id': int(group_id) if group_id else 0,
-                   'receiver': receiver if receiver else 0, 'muid': uuid.uuid4().__str__(),
-                   'receiver_name': receiver_name, 'context': context, 'timer': timer}
+                   'receiver': receiver if receiver else 0, 'receiver_name': receiver_name,
+                   'context': context, 'timer': timer}
 
     redis_client = redis.Redis(connection_pool=pool)
     # 进 Redis List 缓冲区（用于批量持久化）
@@ -162,58 +162,124 @@ def socket_push(msg: dict):
 """后台线程：定时从 Redis 拉消息批量写 MySQL"""
 
 
-def batch_flush_worker():
+# def batch_flush_worker():
+#     try:
+#         redis_client = redis.Redis(connection_pool=pool)
+#         # 1. 拉一批消息（最多 BATCH_SIZE 条）
+#         raw_messages = redis_client.lpop(ws_config.msg_cache_key['messages'], 100)
+#         if not raw_messages:
+#             return
+#
+#         # 转为 list[dict]
+#         if isinstance(raw_messages, str):
+#             raw_messages = [raw_messages]
+#         messages = [json.loads(item) for item in raw_messages]
+#
+#         # 2. 批量插入 MySQL
+#         if messages:
+#             columns = [
+#                 'chat_type', 'context_type', 'sender', 'sender_name', 'group_id',
+#                 'receiver', 'muid', 'receiver_name', 'context', 'timer'
+#             ]
+#             # 固定列顺序，取值
+#             values_list = []
+#             for msg in messages:
+#                 row = (
+#                     msg.get('chat_type'),
+#                     msg.get('context_type', 0),
+#                     msg.get('sender', ""),
+#                     msg.get('sender_name', ''),
+#                     msg.get('group_id', 0),
+#                     msg.get('receiver'),
+#                     # msg['muid'],
+#                     msg.get('receiver_name', ''),
+#                     msg.get('context', ''),
+#                     msg.get('timer') or datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+#                 )
+#                 values_list.append(row)
+#
+#             insert_sql = """INSERT INTO nsyy_gyl.ws_message (chat_type, context_type, sender, sender_name, group_id,
+#                           receiver, receiver_name, context, timer) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)"""
+#             db = DbUtil(global_config.DB_HOST, global_config.DB_USERNAME, global_config.DB_PASSWORD,
+#                         global_config.DB_DATABASE_GYL)
+#             try:
+#                 db.execute_many(insert_sql, values_list, need_commit=True)
+#                 logger.debug(f"批量插入成功：{len(messages)} 条消息")
+#             except Exception as e:
+#                 logger.error(f"批量插入失败，消息已重新入队: {e}")
+#                 # 失败回滚：重新塞回 Redis 队列头部（保证不丢！）
+#                 pipe = redis_client.pipeline()
+#                 for msg in reversed(messages):  # 逆序 lpush 保证顺序一致
+#                     pipe.lpush(ws_config.msg_cache_key['messages'], json.dumps(msg, default=str, ensure_ascii=False))
+#                 pipe.execute()
+#             finally:
+#                 del db
+#
+#     except Exception as e:
+#         logger.error(f"刷库任务异常: {e}")
+
+
+def batch_flush_worker(batch_size=100):
     try:
         redis_client = redis.Redis(connection_pool=pool)
-        # 1. 拉一批消息（最多 BATCH_SIZE 条）
-        raw_messages = redis_client.lpop(ws_config.msg_cache_key['messages'], 100)
+        key = ws_config.msg_cache_key['messages']
+
+        # —— 1. 批量 pop（兼容所有 Redis 版本） ——
+        pipe = redis_client.pipeline()
+        for _ in range(batch_size):
+            pipe.lpop(key)
+        raw_messages = [item for item in pipe.execute() if item]
         if not raw_messages:
             return
 
-        # 转为 list[dict]
-        if isinstance(raw_messages, str):
-            raw_messages = [raw_messages]
-        messages = [json.loads(item) for item in raw_messages]
+        # —— 2. 解析 JSON ——
+        messages = []
+        for item in raw_messages:
+            if isinstance(item, bytes):
+                item = item.decode('utf-8')
+            messages.append(json.loads(item))
 
-        # 2. 批量插入 MySQL
-        if messages:
-            columns = [
-                'chat_type', 'context_type', 'sender', 'sender_name', 'group_id',
-                'receiver', 'muid', 'receiver_name', 'context', 'timer'
-            ]
-            # 固定列顺序，取值
-            values_list = []
-            for msg in messages:
-                row = (
-                    msg.get('chat_type'),
-                    msg.get('context_type', 0),
-                    msg.get('sender', ""),
-                    msg.get('sender_name', ''),
-                    msg.get('group_id', 0),
-                    msg.get('receiver'),
-                    # msg['muid'],
-                    msg.get('receiver_name', ''),
-                    msg.get('context', ''),
-                    msg.get('timer') or datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-                )
-                values_list.append(row)
+        # —— 3. 批量插入 MySQL ——
+        values_list = []
+        for msg in messages:
+            row = (
+                msg.get('chat_type'),
+                msg.get('context_type', 0),
+                msg.get('sender', ""),
+                msg.get('sender_name', ''),
+                msg.get('group_id', 0),
+                msg.get('receiver'),
+                msg.get('receiver_name', ''),
+                msg.get('context', ''),
+                msg.get('timer') or datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+            )
+            values_list.append(row)
 
-            insert_sql = """INSERT INTO nsyy_gyl.ws_message (chat_type, context_type, sender, sender_name, group_id,
-                          receiver, receiver_name, context, timer) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)"""
-            db = DbUtil(global_config.DB_HOST, global_config.DB_USERNAME, global_config.DB_PASSWORD,
-                        global_config.DB_DATABASE_GYL)
-            try:
-                db.execute_many(insert_sql, values_list, need_commit=True)
-                logger.debug(f"批量插入成功：{len(messages)} 条消息")
-            except Exception as e:
-                logger.error(f"批量插入失败，消息已重新入队: {e}")
-                # 失败回滚：重新塞回 Redis 队列头部（保证不丢！）
-                pipe = redis_client.pipeline()
-                for msg in reversed(messages):  # 逆序 lpush 保证顺序一致
-                    pipe.lpush(ws_config.msg_cache_key['messages'], json.dumps(msg, default=str, ensure_ascii=False))
-                pipe.execute()
-            finally:
-                del db
+        insert_sql = """
+            INSERT INTO nsyy_gyl.ws_message (
+                chat_type, context_type, sender, sender_name, group_id,
+                receiver, receiver_name, context, timer
+            ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)
+        """
+
+        db = DbUtil(global_config.DB_HOST, global_config.DB_USERNAME, global_config.DB_PASSWORD,
+                    global_config.DB_DATABASE_GYL)
+
+        try:
+            db.execute_many(insert_sql, values_list, need_commit=True)
+            logger.debug(f"批量插入成功：{len(messages)} 条消息")
+
+        except Exception as e:
+            logger.error(f"批量插入失败，消息已重新入队: {e}")
+
+            # —— 回滚到 Redis（顺序保证一致） ——
+            pipe = redis_client.pipeline()
+            for msg in reversed(messages):
+                pipe.lpush(key, json.dumps(msg, default=str, ensure_ascii=False))
+            pipe.execute()
+
+        finally:
+            del db
 
     except Exception as e:
         logger.error(f"刷库任务异常: {e}")

@@ -55,6 +55,9 @@ _POOL_TIMEOUT = 10 * 60  # 10 分钟没用就关闭
 
 
 def get_imap_connection(user_account: str, mailbox: str = "INBOX"):
+    user_account = user_account.strip()
+    if not user_account:
+        return None, None
     with _POOL_LOCK:
         # 1. 检查连接池里有没有这个用户的连接
         if user_account in _IMAP_POOL:
@@ -220,7 +223,7 @@ def send_email_robust(json_data, max_retries: int = 5) -> bool:
             try:
                 rec_list, send = query_pers_ids(all_people, sender)
                 global_tools.start_thread(msg_push_tool.push_msg_to_devices,
-                                          (rec_list, "新邮件", f"来自 {names.get(sender.upper(), '')} 的新邮件 {subject}"))
+                                          (rec_list, "新邮件", f"来自 {names.get(sender.lower(), '')} 的新邮件 {subject}"))
                 global_tools.socket_push("新邮件通知", {
                     "socketd": ["m_app"], "type": 400, 'pers_id': rec_list,
                     'timer': datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
@@ -228,7 +231,7 @@ def send_email_robust(json_data, max_retries: int = 5) -> bool:
                                     "group_id": None, "receiver": send, "receiver_name": names.get(sender, ""),
                                     "context": {
                                         "type": 4, "title": "新邮件",
-                                        "description": f"来自 {names.get(sender.upper(), '')} 的新邮件 {subject}",
+                                        "description": f"来自 {names.get(sender.lower(), '')} 的新邮件 {subject}",
                                         "time": datetime.now().strftime("%Y-%m-%d %H:%M:%S")
                                     },
                                     "timer": datetime.now().strftime("%Y-%m-%d %H:%M:%S")
@@ -366,10 +369,10 @@ def query_pers_ids(oa_list, sender):
     redis_client = redis.Redis(connection_pool=pool)
     rec_list, send = [], 0
     for item in oa_list:
-        pers_id = redis_client.get(f"mail_emp_pers_id:{item.upper()}")
+        pers_id = redis_client.get(f"mail_emp_pers_id:{item.lower()}")
         if pers_id:
             rec_list.append(pers_id)
-    send = redis_client.get(f"mail_emp_pers_id:{sender.upper()}")
+    send = redis_client.get(f"mail_emp_pers_id:{sender.lower()}")
     return rec_list, send
 
 
@@ -1478,7 +1481,7 @@ def get_emp_name_group_name(accouts: str):
         if emp_name:
             ret.append(emp_name)
         else:
-            emp_name = redis_client.get(f"mail_emp:{item.upper()}")
+            emp_name = redis_client.get(f"mail_emp:{item.lower()}")
             if emp_name:
                 ret.append(emp_name)
             else:
@@ -1496,9 +1499,9 @@ def cache_flags():
     db = DbUtil('192.168.3.12', 'root', '123123', "oa_test")
     flags = db.query_all(f"select * from nsyy_gyl.ws_mail_custome ")
     mail_groups = db.query_all(f"select account, name from nsyy_gyl.ws_mail_group")
-    sql = """select a.pers_id, a.pers_name, a.emp_nub, b.dept_id, c.dept_name, b.dept_source 
+    sql = """select a.pers_id, a.pers_name, a.emp_nub, b.dept_id, c.dept_name, b.dept_source, a.email 
         from oa_test.hr_pers_main a left join oa_test.hr_pers_dept b on a.pers_id = b.pers_id 
-        left join oa_test.hr_dept c on b.dept_id = c.dept_id"""
+        left join oa_test.hr_dept c on b.dept_id = c.dept_id where a.email is not null"""
     emp_list = db.query_all(sql)
     del db
     if global_config.run_in_local:
@@ -1507,14 +1510,25 @@ def cache_flags():
         flags = db.query_all(f"select * from nsyy_gyl.ws_mail_custome ")
         mail_groups = db.query_all(f"select account, name from nsyy_gyl.ws_mail_group")
         del db
+
+    if flags:
+        redis_client.delete(f"mail_flag")
+    if mail_groups:
+        redis_client.delete(f"mail_group")
+    if emp_list:
+        redis_client.delete(f"mail_emp")
+        redis_client.delete(f"mail_emp_pers_id")
+
     for item in flags:
         redis_client.set(f"mail_flag:{item.get('custome_code')}", json.dumps(item))
     for item in mail_groups:
         redis_client.set(f"mail_group:{item.get('account')}", item.get('name'))
     for item in emp_list:
-        redis_client.set(f"mail_emp:{item.get('emp_nub').upper()}",
+        if not item.get('email', ''):
+            continue
+        redis_client.set(f"mail_emp:{item.get('email').lower()}",
                          f"{item.get('pers_name')}({item.get('dept_name')})")
-        redis_client.set(f"mail_emp_pers_id:{item.get('emp_nub').upper()}", item.get('pers_id'))
+        redis_client.set(f"mail_emp_pers_id:{item.get('emp_nub').lower()}", item.get('pers_id'))
     logger.info(f"缓存邮件标签/群组/成员信息成功，耗时：{time.time() - start_time}秒")
 
 

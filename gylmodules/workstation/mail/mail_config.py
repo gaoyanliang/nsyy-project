@@ -21,7 +21,8 @@ MAIL_DB_DATABASE = 'vmail'
 # 默认密码  NSYYnsyy@123
 mail_default_passwd = "{SSHA512}tuXy5LuK3F1NTLEOY1DuNIXco7OMzwHXcaN65HAYRgR6tJy6gRBicfuUEqjgsPJkj0RPTTrymi355w5Fvj97asxL+KY="
 
-MAIL_DOMAIN = '@nsyy.com'
+# MAIL_DOMAIN = '@nsyy.com'
+MAIL_DOMAIN = ''
 MAIL_ACCOUNT_PASSWORD = 'NSYYnsyy@123'
 MAIL_MAILBOX = 'INBOX'
 
