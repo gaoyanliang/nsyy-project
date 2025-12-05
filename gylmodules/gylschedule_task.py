@@ -25,7 +25,8 @@ from gylmodules.questionnaire.sq_server import fetch_ai_result
 from gylmodules.shift_change.shift_change_server import fetch_doctor_title
 from gylmodules.utils.db_utils import DbUtil
 from gylmodules.utils.event_loop import GlobalEventLoop
-from gylmodules.workstation.message.message_server import flush_msg_cache
+from gylmodules.workstation.mail.mail_server import cache_flags, close_idle_connections
+from gylmodules.workstation.message.message_server import flush_msg_cache, batch_flush_worker
 
 pool = redis.ConnectionPool(host=global_config.REDIS_HOST, port=global_config.REDIS_PORT,
                             db=global_config.REDIS_DB, decode_responses=True)
@@ -322,6 +323,10 @@ def schedule_task():
 
     logger.info("3. 消息模块定时任务 ")
     gylmodule_scheduler.add_job(flush_msg_cache, trigger='date', run_date=datetime.now())
+    gylmodule_scheduler.add_job(batch_flush_worker, trigger='interval', seconds=10 * 60)
+    gylmodule_scheduler.add_job(cache_flags, trigger='interval', seconds=10 * 60)
+    gylmodule_scheduler.add_job(close_idle_connections, trigger='interval', seconds=9 * 60)
+
 
     # logger.info("4. 高压氧模块定时任务 ")
     # gylmodule_scheduler.add_job(hbot_run_everyday, 'cron', hour=4, minute=30, id='hbot_run_everyday')

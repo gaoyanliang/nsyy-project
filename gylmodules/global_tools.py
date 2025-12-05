@@ -5,7 +5,6 @@ import threading
 import traceback
 import logging
 import time
-from _decimal import Decimal
 from logging.handlers import RotatingFileHandler
 
 from functools import wraps, lru_cache
@@ -70,6 +69,8 @@ def setup_logging(log_file='app.log', level=logging.INFO, backup_count=5, max_by
     logging.getLogger("httpx").setLevel(logging.WARNING)
     logging.getLogger("hyper").setLevel(logging.WARNING)
     logging.getLogger("selenium").setLevel(logging.WARNING)
+    logging.getLogger("paramiko").setLevel(logging.WARNING)
+    logging.getLogger("apns2.client").setLevel(logging.WARNING)
 
     return logger
 
@@ -251,6 +252,9 @@ def call_new_his_local(sql: str, sys: str = 'newzt', clobl: list = None):
                 return []
 
 
+"""查询PG数据库"""
+
+
 def call_new_his_pg(sql):
     results = []
     max_retries, retry_count, retry_delay = 3, 0, 1
@@ -296,6 +300,34 @@ def start_thread(funct, args=None, tl=None):
     tl.append(t)
     t.start()
     return t
+
+
+"""socket 推送"""
+
+def socket_push(info, data):
+    # 老结构
+    # data = {'msg_list': [{"socketd": "m_app", 'socket_data':   { "type": 400, "data": { "message": {msg 的内容} } },
+    # 'pers_id': user_id}]}
+    max_retries, retry_count, retry_delay = 3, 0, 1
+    while retry_count < max_retries:
+        try:
+            # 发送POST请求
+            response = requests.post(global_config.socket_push_url, data=json.dumps(data),
+                                     headers={'Content-Type': 'application/json'})
+            # 打印响应内容
+            if response.status_code != 200:
+                raise Exception(f" {info} Socket 推送结果:  {response.status_code}  {response.text}  {data}")
+
+            return
+        except Exception as e:
+            retry_count += 1
+            if retry_count < max_retries:
+                sleep_time = retry_delay * (2 ** (retry_count - 1))  # 指数退避
+                # logging.warning(f"socket_push 第 {retry_count}/{max_retries} 次重试... {sleep_time} 秒后重试")
+                time.sleep(sleep_time)
+            else:
+                logger.error(f" {info} Socket 推送失败:  {str(e)}  {data}")
+                return
 
 
 # ==========================================

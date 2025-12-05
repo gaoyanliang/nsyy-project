@@ -1,8 +1,9 @@
 import json
 import logging
+import time
+import uuid
 
 import redis
-import requests
 from datetime import datetime
 
 from gylmodules import global_config, global_tools
@@ -45,28 +46,6 @@ def cache_group_member(group_id):
         redis_client.sadd(redis_key, int(member.get('user_id')))
 
 
-# 测试环境：
-# 192.168.124.53:6080/inter_socket_msg
-# json格式
-# msg_list: [{socket_data: {}, pers_id: 123,}]
-
-# 正式环境：
-# from tools import socket_send
-# socket_send(socket_data, 'm_user', pers_id)
-
-# 消息推送 type = 100
-def push(socket_data: dict, user_id: int):
-    data = {'msg_list': [{"socketd": "m_app", 'socket_data': socket_data, 'pers_id': user_id}]}
-    # data = {'msg_list': [{'socket_data': socket_data, 'pers_id': user_id, 'socketd': 'w_site'}]}
-    # 设置请求头
-    headers = {'Content-Type': 'application/json'}
-    # 发送POST请求
-    response = requests.post(global_config.socket_push_url, data=json.dumps(data), headers=headers)
-    # 打印响应内容
-    if response.status_code != 200:
-        logger.error(f"Socket Push Response:  {response.status_code}  {response.text}  {data}")
-
-
 #  ==========================================================================================
 #  ==========================     消息管理      ==============================================
 #  ==========================================================================================
@@ -105,25 +84,20 @@ def send_message(chat_type: int, context_type: int, sender: int, sender_name: st
 
     new_message = {'chat_type': chat_type, 'context_type': context_type, 'sender': int(sender),
                    'sender_name': sender_name, 'group_id': int(group_id) if group_id else 0,
-                   'receiver': receiver if receiver else 0,
+                   'receiver': receiver if receiver else 0, 'muid': uuid.uuid4().__str__(),
                    'receiver_name': receiver_name, 'context': context, 'timer': timer}
-    db = DbUtil(global_config.DB_HOST, global_config.DB_USERNAME, global_config.DB_PASSWORD,
-                global_config.DB_DATABASE_GYL)
-    insert_sql = f"INSERT INTO nsyy_gyl.ws_message ({','.join(new_message.keys())}) " \
-                 f"VALUES {str(tuple(new_message.values()))}"
-    last_rowid = db.execute(sql=insert_sql, need_commit=True)
-    if last_rowid == -1:
-        logger.warning(f"消息插入异常")
-        # del db
-        # raise Exception("消息插入异常 ", new_message)
-    del db
+
+    redis_client = redis.Redis(connection_pool=pool)
+    # 进 Redis List 缓冲区（用于批量持久化）
+    redis_client.rpush(ws_config.msg_cache_key['messages'], json.dumps(new_message, default=str, ensure_ascii=False))
 
     # 插入数据库时需要压缩，socket推送时需要解压
     if chat_type == ws_config.NOTIFICATION_MESSAGE:
         new_message['context'] = json.loads(new_message.get('context'))
 
     # 通过 socket 向接收者推送通知
-    socket_push(new_message)
+    global_tools.start_thread(socket_push, (new_message,))
+    # socket_push(new_message)
 
 
 """
@@ -137,10 +111,16 @@ def socket_push(msg: dict):
     if chat_type == ws_config.PRIVATE_CHAT:
         # 私聊
         msg_receiver, msg_sender = msg.get('receiver'), msg.get('sender')
-        push({"type": 100, "data": {"title": "新消息来咯", "context": f"{msg.get('sender_name')} 发来一条消息",
-                                    "message": msg}}, int(msg_receiver))
+        global_tools.socket_push("私聊消息推送", {"socketd": ["m_app", "m_user"], "type": 100,
+                                                  'pers_id': [int(msg_receiver)],
+                                                  'timer': datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+                                                  "socket_data": msg})
         global_tools.start_thread(msg_push_tool.push_msg_to_devices, ([int(msg_receiver)], "新消息来咯", f"{msg.get('sender_name')} 发来一条消息"))
-        push({"type": 100, "data": {"title": "", "context": "", "message": msg}}, int(msg_sender))
+        # 推送给发送者 逻辑统一 将消息保存至本地
+        global_tools.socket_push("私聊消息推送", {"socketd": ["m_app"], "type": 100,
+                                                  'pers_id': [int(msg_sender)],
+                                                  'timer': datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+                                                  "socket_data": msg})
 
     elif chat_type == ws_config.GROUP_CHAT:
         # 向所有用户推送未读消息数量，以及最后一条消息内容
@@ -150,16 +130,16 @@ def socket_push(msg: dict):
             cache_group_member(msg_group_id)
 
         group_member = redis_client.smembers(group_member_redis_key)
+        group_member = list(group_member)
+        group_member = [int(item) for item in group_member]
         # 遍历群成员推送消息
+        global_tools.socket_push("群聊消息推送", {"socketd": ["m_app", "m_user"], "type": 100,
+                                                  'pers_id': group_member,
+                                                  'timer': datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+                                                  "socket_data": msg})
         for member in group_member:
-            title = "新消息来咯"
-            context = f" {msg.get('receiver_name')} 收到群聊消息"
-            if int(member) == int(msg_sender):
-                title = ""
-                context = ""
-            push({"type": 100, "data": {"title": title, "context": context, "message": msg}}, int(member))
-            if title:
-                global_tools.start_thread(msg_push_tool.push_msg_to_devices, ([int(member)], title, context))
+            global_tools.start_thread(msg_push_tool.push_msg_to_devices, ([int(member)], "新消息来咯",
+                                                                          f" {msg.get('receiver_name')} 收到群聊消息"))
 
     elif chat_type == ws_config.NOTIFICATION_MESSAGE:
         # 向所有用户推送未读消息数量，以及最后一条消息内容
@@ -170,14 +150,73 @@ def socket_push(msg: dict):
             msg['receiver'] = int(recv)
             msg['receiver_name'] = names[index]
             index = index + 1
-            push({"type": 400,
-                  "data": {"title": "新消息来咯", "context": f"接收到来自 {msg.get('sender_name')} 的通知消息",
-                           "message": msg}}, int(recv))
-        # recv = msg.get('receiver')
-        # push({"type": 400, "data": {"title": "新消息来咯", "context": f"接收到来自 {msg.get('sender_name')} 的通知消息",
-        #                             "message": msg}}, int(recv))
+            global_tools.socket_push("通知消息推送", {"socketd": ["m_app", "m_user"], "type": 400,
+                                                      'pers_id': [int(recv)],
+                                                      'timer': datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+                                                      "socket_data": msg})
+
         global_tools.start_thread(msg_push_tool.push_msg_to_devices, (receivers, "新消息来咯",
                                                                       f"接收到来自 {msg.get('sender_name')} 的通知消息"))
+
+
+"""后台线程：定时从 Redis 拉消息批量写 MySQL"""
+
+
+def batch_flush_worker():
+    try:
+        redis_client = redis.Redis(connection_pool=pool)
+        # 1. 拉一批消息（最多 BATCH_SIZE 条）
+        raw_messages = redis_client.lpop(ws_config.msg_cache_key['messages'], 100)
+        if not raw_messages:
+            return
+
+        # 转为 list[dict]
+        if isinstance(raw_messages, str):
+            raw_messages = [raw_messages]
+        messages = [json.loads(item) for item in raw_messages]
+
+        # 2. 批量插入 MySQL
+        if messages:
+            columns = [
+                'chat_type', 'context_type', 'sender', 'sender_name', 'group_id',
+                'receiver', 'muid', 'receiver_name', 'context', 'timer'
+            ]
+            # 固定列顺序，取值
+            values_list = []
+            for msg in messages:
+                row = (
+                    msg.get('chat_type'),
+                    msg.get('context_type', 0),
+                    msg.get('sender', ""),
+                    msg.get('sender_name', ''),
+                    msg.get('group_id', 0),
+                    msg.get('receiver'),
+                    # msg['muid'],
+                    msg.get('receiver_name', ''),
+                    msg.get('context', ''),
+                    msg.get('timer') or datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+                )
+                values_list.append(row)
+
+            insert_sql = """INSERT INTO nsyy_gyl.ws_message (chat_type, context_type, sender, sender_name, group_id,
+                          receiver, receiver_name, context, timer) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)"""
+            db = DbUtil(global_config.DB_HOST, global_config.DB_USERNAME, global_config.DB_PASSWORD,
+                        global_config.DB_DATABASE_GYL)
+            try:
+                db.execute_many(insert_sql, values_list, need_commit=True)
+                logger.debug(f"批量插入成功：{len(messages)} 条消息")
+            except Exception as e:
+                logger.error(f"批量插入失败，消息已重新入队: {e}")
+                # 失败回滚：重新塞回 Redis 队列头部（保证不丢！）
+                pipe = redis_client.pipeline()
+                for msg in reversed(messages):  # 逆序 lpush 保证顺序一致
+                    pipe.lpush(ws_config.msg_cache_key['messages'], json.dumps(msg, default=str, ensure_ascii=False))
+                pipe.execute()
+            finally:
+                del db
+
+    except Exception as e:
+        logger.error(f"刷库任务异常: {e}")
 
 
 #  ==========================================================================================
@@ -185,11 +224,10 @@ def socket_push(msg: dict):
 #  ==========================================================================================
 
 
+"""创建群聊"""
+
+
 def create_group(group_name: str, creator: int, creator_name: str, members):
-    """
-    创建群聊
-    :return:
-    """
     db = DbUtil(global_config.DB_HOST, global_config.DB_USERNAME, global_config.DB_PASSWORD,
                 global_config.DB_DATABASE_GYL)
     redis_client = redis.Redis(connection_pool=pool)
@@ -201,7 +239,7 @@ def create_group(group_name: str, creator: int, creator_name: str, members):
     group_id = db.execute(insert_sql, args, need_commit=True)
     if group_id == -1:
         del db
-        raise Exception(f"群组 {group_name} 入库失败!")
+        raise Exception(f"群组 {group_name} 创建失败!")
 
     redis_client.set(ws_config.msg_cache_key['group_info'].format(str(group_id)), json.dumps({
         "id": group_id, "group_name": group_name, "creator": creator, "creator_name": creator_name, "timer": timer
@@ -235,7 +273,7 @@ def create_group(group_name: str, creator: int, creator_name: str, members):
     # 生成通知记录 & socket 推送， 使用列表推导式提取 "user_id" 值
     user_ids = [int(m["user_id"]) for m in members]
     for user_id in user_ids:
-        if user_id == creator:
+        if int(user_id) == int(creator):
             continue
         send_notification_message(ws_config.NOTIFICATION_MESSAGE, creator, creator_name,
                                   user_id, "", json.dumps(group_notification, default=str))
@@ -244,8 +282,7 @@ def create_group(group_name: str, creator: int, creator_name: str, members):
     send_message(ws_config.GROUP_CHAT, 0, int(creator), creator_name, int(group_id), int(group_id), group_name,
                  f"{creator_name} 创建了群聊 {group_name}")
 
-    return {"group_id": group_id,
-            "group_name": group_name}
+    return {"group_id": group_id, "group_name": group_name}
 
 
 def update_group(group_id: int, group_name: str, members):
@@ -308,7 +345,6 @@ def update_group(group_id: int, group_name: str, members):
                 VALUES (%s, %s, %s, %s, %s, %s) ON DUPLICATE KEY UPDATE state = VALUES(state), 
                 is_reply = VALUES(is_reply)"""
     db.execute_many(insert_sql, args=values, need_commit=True)
-
     del db
 
 
@@ -326,6 +362,15 @@ def query_group(group_id: int):
 
     group["member"] = members
     return group
+
+
+def query_groups(user_id: int):
+    db = DbUtil(global_config.DB_HOST, global_config.DB_USERNAME, global_config.DB_PASSWORD,
+                global_config.DB_DATABASE_GYL)
+    groups = db.query_all(f"select * from nsyy_gyl.ws_group where id "
+                         f"in (select group_id from nsyy_gyl.ws_group_member where user_id = {user_id} and state = 1)")
+    del db
+    return groups
 
 
 def confirm_join_group(group_id: int, group_name: str, user_id: int, user_name: str, confirm: int):

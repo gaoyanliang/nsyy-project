@@ -8,17 +8,14 @@ PRIVATE_CHAT = 1
 # 群聊
 GROUP_CHAT = 2
 
-#  === redis key (new record) ===
-NEW_MESSAGE = 'MSG_NEW-MESSAGE'
-NEW_HISTORICAL_CONTACTS_RECORD = 'MSG_NEW-HISTORICAL-CONTACTS-RECORD'
 
 # msg cache redis key
 msg_cache_key = {
     "group_member": "MESSAGE:GroupMember:{}",
     "group_info": "MESSAGE:GroupInfo:{}",
+    "messages": "MESSAGE:Messages:{}",
 }
 
-msg_cache_count = 100
 
 
 # ===========================================================
