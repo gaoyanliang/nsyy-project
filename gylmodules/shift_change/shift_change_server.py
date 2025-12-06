@@ -2476,8 +2476,15 @@ def is_archiving_allowed(shift_date, shift_type, shift_classes, dept_id):
         previous_shift_date = previous_day.strftime("%Y-%m-%d")
 
     # 如果上一个班次是中班，还需要判断这个科室是否启用了中班
-    if previous_shift_classes == 2 and (not dept_info.get('middle_shift') or not dept_info.get('middle_shift_slot')):
-        previous_shift_classes = 1
+    # 还需判断是否是 24小时班（只有夜班）
+    if previous_shift_classes == 2:
+        if not dept_info.get('middle_shift') or not dept_info.get('middle_shift_slot'):
+            previous_shift_classes = 1
+        if previous_shift_classes == 1 and (not dept_info.get('early_shift') or not dept_info.get('early_shift_slot')):
+            previous_shift_classes = 3
+            date_obj = datetime.strptime(shift_date, "%Y-%m-%d")
+            previous_day = date_obj - timedelta(days=1)
+            previous_shift_date = previous_day.strftime("%Y-%m-%d")
 
     sql = f"select incominger from nsyy_gyl.scs_shift_info where shift_date = '{previous_shift_date}' " \
           f"and dept_id = {dept_id} and shift_classes = '{shift_type}-{previous_shift_classes}'"

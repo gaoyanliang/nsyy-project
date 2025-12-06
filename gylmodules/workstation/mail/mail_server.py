@@ -1476,7 +1476,7 @@ def get_emp_name_group_name(accouts: str):
     redis_client = redis.Redis(connection_pool=pool)
     for item in account_list:
         item = item.strip()
-        item = item.replace('@nsyy.com', '').replace('@NSYY.COM', '')
+        # item = item.replace('@nsyy.com', '').replace('@NSYY.COM', '')
         emp_name = redis_client.get(f"mail_group:{item}")
         if emp_name:
             ret.append(emp_name)
@@ -1528,7 +1528,7 @@ def cache_flags():
             continue
         redis_client.set(f"mail_emp:{item.get('email').lower()}",
                          f"{item.get('pers_name')}({item.get('dept_name')})")
-        redis_client.set(f"mail_emp_pers_id:{item.get('emp_nub').lower()}", item.get('pers_id'))
+        redis_client.set(f"mail_emp_pers_id:{item.get('email').lower()}", item.get('pers_id'))
     logger.info(f"缓存邮件标签/群组/成员信息成功，耗时：{time.time() - start_time}秒")
 
 
