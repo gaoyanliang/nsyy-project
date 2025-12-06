@@ -54,7 +54,7 @@ def query_mail(json_data):
     message_id = json_data.get('message_id')
 
     email = mail.read_mail_detail(user_account, message_id, mailbox)
-    if email and email.get('attachments'):
+    if global_config.run_in_local and email and email.get('attachments'):
         origin = request.headers.get('Origin')
         if origin:
             try:

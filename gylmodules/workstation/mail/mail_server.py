@@ -176,6 +176,7 @@ def send_email_robust(json_data, max_retries: int = 5) -> bool:
                 local_path = local_path or filename
             except Exception as e:
                 logger.warning(f"附件下载失败 {filename}: {e}")
+                raise Exception(f"附件下载失败 {filename}: {e}")
                 local_path = filename if os.path.exists(filename) else None
 
             if local_path:
