@@ -1060,8 +1060,10 @@ def call_aichat(id, zhusu, xianbingshi, jiwangshi, tigejiancha):
 
     db = DbUtil(global_config.DB_HOST, global_config.DB_USERNAME, global_config.DB_PASSWORD,
                 global_config.DB_DATABASE_GYL)
-    update_sql = f"UPDATE nsyy_gyl.sq_surveys_detail set ai_result1 = '{data.get('data')}' where id = {id}"
-    db.execute(update_sql, need_commit=True)
+    sql = """UPDATE nsyy_gyl.sq_surveys_detail SET ai_result1=%s WHERE id = %s """
+    db.execute(sql, (data.get('data'), id), need_commit=True)
+    # update_sql = f"UPDATE nsyy_gyl.sq_surveys_detail set ai_result1 = '{data.get('data')}' where id = {id}"
+    # db.execute(update_sql, need_commit=True)
     del db
     logger.info(f'调用 ai api 耗时：{time.time() - start_time} s {id}')
 
@@ -1130,8 +1132,10 @@ def fetch_patient_test_result(survey_record):
         return
     db = DbUtil(global_config.DB_HOST, global_config.DB_USERNAME, global_config.DB_PASSWORD,
                 global_config.DB_DATABASE_GYL)
-    update_sql = f"UPDATE nsyy_gyl.sq_surveys_detail set ai_result2 = '{data.get('data')}', " \
-                 f"fuzhujiancha = '{test_data}', fuzhujiancha_ret = '{examination_data}' " \
-                 f"where id = {survey_record.get('id')}"
-    db.execute(update_sql, need_commit=True)
+    sql = """UPDATE nsyy_gyl.sq_surveys_detail SET ai_result2=%s, fuzhujiancha=%s, fuzhujiancha_ret=%s WHERE id = %s """
+    db.execute(sql, (data.get('data'), test_data, examination_data, survey_record.get('id')), need_commit=True)
+    # update_sql = f"UPDATE nsyy_gyl.sq_surveys_detail set ai_result2 = '{data.get('data')}', " \
+    #              f"fuzhujiancha = '{test_data}', fuzhujiancha_ret = '{examination_data}' " \
+    #              f"where id = {survey_record.get('id')}"
+    # db.execute(update_sql, need_commit=True)
     del db
