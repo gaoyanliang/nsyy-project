@@ -661,6 +661,12 @@ def __read_mail_by_mail_id(mail, message_id, query_body: bool):
                     att['url'] = compress_string(original_str)
             except json.JSONDecodeError:
                 pass
+        # Process names (custom header)
+        if msg.get('X-Names'):
+            try:
+                names = json.loads(msg.get('X-Names'))
+            except json.JSONDecodeError:
+                names = {}
 
         # 处理内联附件和嵌入式内容（在邮件内容中间的）
         for part in msg.walk():
@@ -674,6 +680,15 @@ def __read_mail_by_mail_id(mail, message_id, query_body: bool):
             if is_inline or has_content_id:
                 # 获取附件内容
                 file_data = part.get_payload(decode=True)
+
+                if file_data is None:
+                    logger.debug("跳过无内容的 inline part")
+                    continue
+
+                if not isinstance(file_data, (bytes, bytearray)):
+                    logger.debug(f"跳过非二进制内容 inline part: {type(file_data)}")
+                    continue
+
                 content_hash = hashlib.sha256(file_data).hexdigest()[:16]  # 生成内容哈希
                 content_type = part.get_content_type()
 
@@ -710,13 +725,6 @@ def __read_mail_by_mail_id(mail, message_id, query_body: bool):
 
                 if content_id:
                     cid_map[content_id] = download_path
-
-        # Process names (custom header)
-        if msg.get('X-Names'):
-            try:
-                names = json.loads(msg.get('X-Names'))
-            except json.JSONDecodeError:
-                names = {}
 
         # Process email body
         body = None
