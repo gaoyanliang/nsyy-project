@@ -160,6 +160,9 @@ def send_email_robust(json_data, max_retries: int = 5) -> bool:
     msg, all_people, all_recipients = build_email_message(json_data, message_id)
     sender_email = f"{sender}{mail_config.MAIL_DOMAIN}".lower()
 
+    if sender_email == 'undefined' or not sender_email.__contains__('@nsyy.com'):
+        raise ValueError("您还没有邮箱账号，暂时无法发送邮件")
+
     # 临时文件列表，用于最后统一清理
     temp_files = []
     try:
