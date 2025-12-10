@@ -1262,6 +1262,12 @@ def general_dept_shift_change(reg_sqls, shift_classes, time_slot, dept_list, sho
     all_cvs = db.query_all(query_sql)
     del db
 
+    non_teshu_sql = reg_sqls.get(12).get('sql_ydhl')
+    teshu_sql = reg_sqls.get(13).get('sql_ydhl')
+    if len(dept_list) == 1 and str(dept_list[0]) == '1001005':
+        non_teshu_sql = reg_sqls.get(32).get('sql_ydhl')
+        teshu_sql = reg_sqls.get(33).get('sql_ydhl')
+
     patient_count, siwang_patients, chuangwei_info1, chuangwei_info2, youchuang_pg, youchuang_ydhl, \
         teshu_ydhl_patients, teshu_pg_patients, ydhl_patients_other, pg_patients, \
         eye_pg_patients, eye_ydhl_patients, shuhou_patients, chuyuan_ydhl, zhongyi_pg_patients, zhongyi_ydhl_patients \
@@ -1278,7 +1284,7 @@ def general_dept_shift_change(reg_sqls, shift_classes, time_slot, dept_list, sho
                                                .replace("{start_time}", shift_start)
                                                .replace("{end_time}", shift_end)),
             "teshu_ydhl_patients": executor.submit(timed_execution, "普通病区 患者信息(特殊处理) ydhl 5 ",
-                                                   global_tools.call_new_his, reg_sqls.get(13).get('sql_ydhl')
+                                                   global_tools.call_new_his, teshu_sql
                                                    .replace("--and", "and" if pid else "--and")
                                                    .replace("{single_query}", pid if pid else "{single_query}")
                                                    .replace("{trunc}", trunc)
@@ -1304,7 +1310,7 @@ def general_dept_shift_change(reg_sqls, shift_classes, time_slot, dept_list, sho
                                                     """'ICU护理单元','CCU护理单元','AICU护理单元','妇产科护理单元','眼科护理单元','中医科/风湿免疫科护理单元'""")
                                            .replace("{病区id}", ', '.join(f"'{item}'" for item in dept_list))),
             "ydhl_patients_other": executor.submit(timed_execution, "普通病区 患者信息 ydhl 8 其他类型",
-                                                   global_tools.call_new_his, reg_sqls.get(12).get('sql_ydhl')
+                                                   global_tools.call_new_his, non_teshu_sql
                                                    .replace("--and", "and" if pid else "--and")
                                                    .replace("{single_query}", pid if pid else "{single_query}")
                                                    .replace("{特殊病区}",
@@ -1975,6 +1981,11 @@ def check_shift_time(shift_slot: str) -> bool:
 
 
 def upcoming_shifts_grouped() -> Dict[Tuple[str, str], List[Dict]]:
+    # return {('1', '07:30-17:00'): [{
+    #     'dept_id': '1000982',
+    #     'dept_name': '特需病区护理单元1',
+    #     'shift_type': 2
+    # }]}
     """获取按班次分组的即将交班的科室列表"""
     now = datetime.now().time()
 
@@ -2099,9 +2110,17 @@ def timed_shift_change():
                 except Exception as e:
                     logger.warning(f"AICU/CCU {time_slot} 交接班异常: {e}")
 
+            if '1001005' in dept_list:
+                # EICU 护理单元
+                try:
+                    shoushu = [item for item in shoushu_patients if str(item.get('所在病区id')) == '1001005']
+                    general_dept_shift_change(reg_sqls, shift_classes, time_slot, ['1001005'], shoushu)
+                except Exception as e:
+                    logger.warning(f"EICU 护理单元 {time_slot} 交接班异常: {e}")
+
             # 排除特殊科室
             dept_id_list = [dept_id for dept_id in dept_list if
-                            dept_id not in ['1000961', '1000962', '1000965', '1001120']]
+                            dept_id not in ['1000961', '1000962', '1000965', '1001120', '1001005']]
             try:
                 shoushu = [item for item in shoushu_patients if str(item.get('所在病区id')) in dept_id_list]
                 general_dept_shift_change(reg_sqls, shift_classes, time_slot, dept_id_list, shoushu)
@@ -2200,6 +2219,13 @@ def single_run_shift_change(json_data):
             if len(dept_list) == 1 and '1000962' in dept_list:
                 # 重症 ICU 交接班
                 icu_shift_change(reg_sqls, shift_classes, time_slot, True, patient_id)
+
+                redis_client.delete(f"timed_shift_change")
+                return
+            if len(dept_list) == 1 and '1001005' in dept_list:
+                # EICU 护理单元
+                shoushu = [item for item in shoushu_patients if str(item.get('所在病区id')) == '1001005']
+                general_dept_shift_change(reg_sqls, shift_classes, time_slot, ['1001005'], shoushu)
 
                 redis_client.delete(f"timed_shift_change")
                 return
