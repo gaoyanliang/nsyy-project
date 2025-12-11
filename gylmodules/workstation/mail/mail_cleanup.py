@@ -26,7 +26,7 @@ mail_config = {
     'MAIL_SSH_HOST': '192.168.3.92' if run_in_local else '127.0.0.1',  # 192.168.3.92
     'MAIL_IMAP_PORT': 993,
     'MAIL_DOMAIN': '@nsyy.com',
-    'MAIL_ACCOUNT_PASSWORD': 'nsyy0601',  # 实际应用中应该从安全存储获取
+    'MAIL_ACCOUNT_PASSWORD': 'NSYYnsyy@123',  # 实际应用中应该从安全存储获取
     'BATCH_SIZE': 200,  # 每批处理的账户数量
     'MAX_WORKERS': 10,  # 并发线程数
     'RETENTION_DAYS': 30,  # 保留最近30天的邮件
