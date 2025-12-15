@@ -257,16 +257,6 @@ def sort_doctors(doctor_list):
 # update_today_doc_info()
 
 
-def push_patient(patient_name: str, socket_id: str):
-    try:
-        socket_data = {"patient_name": patient_name, "type": 300}
-        data = {'msg_list': [{'socket_data': socket_data, 'pers_id': socket_id, 'socketd': 'w_site'}]}
-        headers = {'Content-Type': 'application/json'}
-        response = requests.post(global_config.socket_push_url, data=json.dumps(data), headers=headers)
-    except Exception as e:
-        logger.error(f"Socket Push Error: {e.__str__()}")
-
-
 def update_today_sched(sched):
     """
     排班更新，更新缓存
@@ -444,8 +434,12 @@ def do_update():
         sched['status'] = 1
         update_today_sched(sched)
 
-        push_patient('', f'z{rid}')
-        push_patient('', f'y{rid}')
+        data = {'socket_data': {"patient_name": ''}, 'pers_id': [f'z{rid}'], 'socketd': 'w_site',
+                "type": 300, "timer": datetime.now().strftime("%Y-%m-%d %H:%M:%S")}
+        global_tools.socket_push("综合预约通知", data)
+        data = {'socket_data': {"patient_name": ''}, 'pers_id': [f'y{rid}'], 'socketd': 'w_site',
+                "type": 300, "timer": datetime.now().strftime("%Y-%m-%d %H:%M:%S")}
+        global_tools.socket_push("综合预约通知", data)
 
     del db
 

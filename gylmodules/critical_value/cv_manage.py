@@ -152,7 +152,20 @@ def fetch_cv_record():
                 record = r
 
         # 解析日期字符串
-        date_object = datetime.strptime(record[0], "%a, %d %b %Y %H:%M:%S %Z")
+        formats = [
+            "%a, %d %b %Y %H:%M:%S %Z",  # Tue, 09 Dec 2025 03:20:00 GMT
+            "%Y-%m-%d %H:%M:%S",  # 2025-12-09 03:20:00
+        ]
+        date_object = record[0]
+        for fmt in formats:
+            try:
+                date_object = datetime.strptime(record[0], fmt)
+                break
+            except ValueError:
+                continue
+        else:
+            logger.error(f"Unsupported datetime format: {record[0]} cv_id = {cv.get('cv_id')}")
+            continue
         record_time = date_object.strftime("%Y-%m-%d %H:%M:%S")
         update_sql = "UPDATE nsyy_gyl.cv_info SET record = '{}', record_time = '{}' WHERE id = {}" \
             .format(record[1], record_time, cv.get('id'))

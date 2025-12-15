@@ -22,6 +22,7 @@ import asyncio
 import aiohttp
 
 from gylmodules.utils.event_loop import GlobalEventLoop
+from gylmodules.workstation.message import message_server
 
 pool = redis.ConnectionPool(host=global_config.REDIS_HOST, port=global_config.REDIS_PORT,
                             db=global_config.REDIS_DB, decode_responses=True)
@@ -507,23 +508,16 @@ def invalid_remote_crisis_value(cv_id, cv_source):
         logger.error(f'作废远程危机值异常, {e}')
 
 
-def notiaction_alert_man(msg: str, pers_id):
-    """
-    通过 socket 向危急值上报人员推送消息
-    :param msg:
-    :param pers_id:
-    :return:
-    """
+"""通过 socket 向危急值上报人员推送消息"""
+
+def notiaction_alert_man(msg: str, pers_id, pers_name):
+    if not int(pers_id):
+        return
+    msg = {"type": 111, "title": "危急值上报反馈", "time": datetime.now().strftime("%Y-%m-%d %H:%M:%S"), "description": msg}
+    message_server.send_notification_message(1, 110100, 'admin',
+                                             pers_id, pers_name,
+                                             json.dumps(msg, default=str))
     try:
-        if not int(pers_id):
-            return
-
-        data = {'msg_list': [{'socket_data': {"type": 400,
-                                              "data": {"title": "危急值上报反馈", "context": msg}},
-                              'pers_id': int(pers_id)}]}
-        headers = {'Content-Type': 'application/json'}
-        response = requests.post(global_config.socket_push_url, data=json.dumps(data), headers=headers)
-
         call_third_systems_obtain_data('send_wx_msg', {
             "type": "send_wx_msg",
             "key_d": {"type": 71, "process_id": 11527, "action": 4, "title": "危急值上报反馈", "content": msg},
@@ -703,7 +697,7 @@ def manual_report_cv(json_data):
     if json_data.get('alertman_pers_id'):
         msg = '患者 {} 的危急值，已通知 {} - {}'.format(json_data.get('patient_name', 'unknown'),
                                                        json_data.get('dept_name', ' '), json_data.get('ward_name', ' '))
-        notiaction_alert_man(msg, int(json_data.get('alertman_pers_id')))
+        notiaction_alert_man(msg, int(json_data.get('alertman_pers_id')), json_data.get('alertman_name', 'unknown'))
 
     # 将危机值放入 redis cache
     query_sql = 'select * from nsyy_gyl.cv_info where id = {} '.format(last_rowid)
@@ -902,7 +896,7 @@ def create_cv_by_system(json_data, cv_source):
     if cvd.get('alertman_pers_id'):
         msg = '患者 {} 的危急值，已通知 {} - {}'.format(cvd.get('patient_name', 'unknown'),
                                                        cvd.get('dept_name', 'unknown'), cvd.get('ward_name', 'unknown'))
-        notiaction_alert_man(msg, int(cvd.get('alertman_pers_id')))
+        notiaction_alert_man(msg, int(cvd.get('alertman_pers_id')), cvd.get('alertman_name', 'unknown'))
 
     # 将危机值放入 redis cache
     query_sql = 'select * from nsyy_gyl.cv_info where id = {} '.format(last_rowid)
@@ -1364,7 +1358,7 @@ def doctor_handle_cv(json_data):
                 # 通知医技科室
                 if record.get('alertman_pers_id'):
                     msg = '患者 {} 的危急值，医生 {} 已处理'.format(record.get('patient_name', 'unknown'), handler_name)
-                    notiaction_alert_man(msg, int(record.get('alertman_pers_id')))
+                    notiaction_alert_man(msg, int(record.get('alertman_pers_id')), record.get('alertman_name', 'unknown'))
 
                 # 处理完成以后 同步到 his
                 query_sql = f'select * from nsyy_gyl.cv_info where cv_id = \'{cv_id}\' and cv_source = {cv_source}'

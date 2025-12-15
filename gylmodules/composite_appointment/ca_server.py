@@ -688,13 +688,10 @@ def push_patient(patient_name: str, socket_id: str):
     :param socket_id:
     :return:
     """
-    try:
-        socket_data = {"patient_name": patient_name, "type": 300}
-        data = {'msg_list': [{'socket_data': socket_data, 'pers_id': socket_id, 'socketd': 'w_site'}]}
-        headers = {'Content-Type': 'application/json'}
-        response = requests.post(global_config.socket_push_url, data=json.dumps(data), headers=headers)
-    except Exception as e:
-        logger.error(f"Socket Push Error: {e}")
+    socket_data = {"patient_name": patient_name, "type": 300}
+    data = {'socket_data': socket_data, 'pers_id': [socket_id], 'socketd': 'w_site',
+            "type": 300, "timer": datetime.now().strftime("%Y-%m-%d %H:%M:%S")}
+    global_tools.socket_push("综合预约通知", data)
 
 
 def operate_appt(appt_id: int, type: int):
@@ -1295,23 +1292,6 @@ def if_the_current_time_period_is_available(period):
     return False
 
 
-def call(json_data):
-    """
-    呼叫 （通过 socket 实现）
-    :param json_data:
-    :return:
-    """
-    try:
-        socket_id = json_data.get('socket_id')
-        room = ' '.join(list(json_data.get('proj_room')))
-        socket_data = {"msg": '请患者 {} 到 {} 诊室就诊'.format(json_data.get('name'), room), "type": 200}
-        data = {'msg_list': [{'socket_data': socket_data, 'pers_id': socket_id, 'socketd': 'w_site'}]}
-        headers = {'Content-Type': 'application/json'}
-        response = requests.post(global_config.socket_push_url, data=json.dumps(data), headers=headers)
-    except Exception as e:
-        logger.error(f'Call Exception: {e}')
-
-
 def next_num(id, is_group):
     """
     叫号下一个
@@ -1340,7 +1320,11 @@ def next_num(id, is_group):
             'name': data_list[0].get('wait_list')[0].get('patient_name'),
             'proj_room': data_list[0].get('wait_list')[0].get('room')
         }
-        call(json_data)
+        room = ' '.join(list(json_data.get('proj_room')))
+        socket_data = {"msg": '请患者 {} 到 {} 诊室就诊'.format(json_data.get('name'), room), "type": 200}
+        data = {'socket_data': socket_data, 'pers_id': ['d' + str(is_group) if is_group != -1 else 'z' + str(id)], 'socketd': 'w_site',
+                "type": 200, "timer": datetime.now().strftime("%Y-%m-%d %H:%M:%S")}
+        global_tools.socket_push('综合预约呼叫患者', data)
         data_list[0].get('wait_list')[0]['state'] = appt_config.APPT_STATE['processing']
 
     return data_list

@@ -8,6 +8,7 @@ from gylmodules.utils.db_utils import DbUtil
 from datetime import datetime, timedelta
 
 from gylmodules.utils.location import CoordinateConvert
+from gylmodules.workstation.message import message_server
 
 
 def hosp_class(json_data):
@@ -143,7 +144,8 @@ def class_apply(apply_data):
     del db
 
     # 通知审批人员审批
-    global_tools.start_thread(app_notify, ([11171, 10711, 10014], "有新讲座待审批"))
+    apply_peoples = [{'user_id': 11171, 'user_name': '黄满利'}, {'user_id': 10711, 'user_name': '郭鑫'}, {'user_id': 10014, 'user_name': '彭巍'}]
+    global_tools.start_thread(app_notify, (apply_peoples, "有新讲座待审批"))
 
     return jsonify({'code': 20000, 'res': '讲座申请/更新成功'})
 
@@ -203,7 +205,8 @@ def class_appr(class_id, approver_pers_id, approver_name, class_status):
                f"where class_id = {int(class_id)}", need_commit=True)
     del db
 
-    global_tools.start_thread(app_notify, ([class_data.get('applicant')], "讲座已批复"))
+    global_tools.start_thread(app_notify, ([{'user_id': class_data.get('applicant'),
+                                             'user_name': class_data.get('applicant_name')}], "讲座已批复"))
     return jsonify({'code': 20000, 'res': '讲座批复成功'})
 
 
@@ -473,16 +476,13 @@ def pers_account(db, class_id):
     return {'pers_list': pers_list, 'num_of_appoint': num_of_appoint, 'num_of_sign_in': num_of_sign_in}
 
 
-def app_notify(pers_id_list, context):
-    if not pers_id_list:
-        pers_id_list = all_pers_id
-    data = {'msg_list': [{'socket_data': {"type": 400, "data": {"title": "新讲座通知", "context": context}},
-                          'pers_id': pers_id_list}]}
-    try:
-        response = requests.post(global_config.socket_push_url,
-                                 data=json.dumps(data), headers={'Content-Type': 'application/json'})
-    except Exception as e:
-        raise Exception('新讲座通知异常 Exception: ', e.__str__())
+def app_notify(pers_list, context):
+    if not pers_list:
+        return
+    msg = {"type": 111, "title": "新讲座通知", "time": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+           "description": context}
+    message_server.batch_send_notification_message(1, 110100, 'admin',
+                                                    pers_list, json.dumps(msg, default=str))
 
 
 def verify_location(json_data):

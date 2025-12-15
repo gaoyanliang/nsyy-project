@@ -1,5 +1,6 @@
 import json
 import logging
+from datetime import datetime
 
 from flask import Blueprint, jsonify, request
 
@@ -126,7 +127,11 @@ def next_num(json_data):
 @appt.route('/call', methods=['POST'])
 @api_response
 def call_patient(json_data):
-    ca_server.call(json_data)
+    socket_id = json_data.get('socket_id')
+    room = ' '.join(list(json_data.get('proj_room')))
+    socket_data = {"msg": '请患者 {} 到 {} 诊室就诊'.format(json_data.get('name'), room), "type": 200}
+    data = {'socket_data': socket_data, 'pers_id': [socket_id], 'socketd': 'w_site',
+            "type": 200, "timer": datetime.now().strftime("%Y-%m-%d %H:%M:%S")}
 
 
 """

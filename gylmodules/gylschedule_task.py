@@ -122,7 +122,7 @@ def handle_timeout_cv():
             # 报警信息收集
             if value.get('alertman_pers_id'):
                 msg = f"患者 {patient_info['name']} 的危急值，超时未处理，请通知相关人员处理"
-                alert_messages.append((msg, int(value.get('alertman_pers_id'))))
+                alert_messages.append((msg, int(value.get('alertman_pers_id')), value.get('alertman_name')))
 
             # 更新超时状态
             if value.get(processor['timeout_flag']) == 0:
@@ -158,7 +158,7 @@ def handle_timeout_cv():
 
     # 使用 ThreadPoolExecutor 来并行执行
     with concurrent.futures.ThreadPoolExecutor() as executor:
-        futures = [executor.submit(notiaction_alert_man, msg, pers_id) for msg, pers_id in alert_messages]
+        futures = [executor.submit(notiaction_alert_man, msg, pers_id, pers_name) for msg, pers_id, pers_name in alert_messages]
         for future in concurrent.futures.as_completed(futures):
             try:
                 future.result()  # 如果任务抛出异常会在此处被捕获
