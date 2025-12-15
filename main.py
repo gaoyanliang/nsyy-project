@@ -50,6 +50,7 @@ def start_schedule_work():
 if __name__ == '__main__':
     import threading
     t = threading.Thread(target=start_schedule_work)
-    t.setDaemon
+    # t.setDaemon
+    t.daemon = True  # Python 3 推荐
     t.start()
     socketio.run(server_app, host='0.0.0.0', port=8080, debug=False, use_reloader=True)
