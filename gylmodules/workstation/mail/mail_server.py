@@ -1085,7 +1085,7 @@ def create_mail_group(json_data):
     ssh = SshUtil(mail_config.MAIL_SSH_HOST, mail_config.MAIL_SSH_USERNAME, mail_config.MAIL_SSH_PASSWORD)
     try:
         # 随机生成群组账号
-        mail_group_account = generate_random_string(5)
+        mail_group_account = generate_maillist_code(5)
         # 查询是否存在重复的id
         query_sql = f"select id from nsyy_gyl.ws_mail_group where account = '{mail_group_account}' "
         if db.query_one(query_sql):
@@ -1100,7 +1100,7 @@ def create_mail_group(json_data):
         output = ssh.execute_shell_command(f"echo {mail_config.MAIL_SSH_PASSWORD} | sudo -S bash -c "
                                            f"'cd /opt/mlmmjadmin/tools; python3 maillist_admin.py info {group_name}' ")
         if 'Error: NO_SUCH_ACCOUNT' not in output:
-            raise Exception(f"系统繁忙，请稍后再试")
+            raise Exception(f"系统繁忙，请稍后再试 {output}")
 
         # 创建群组
         output = ssh.execute_shell_command(f" echo {mail_config.MAIL_SSH_PASSWORD} | sudo -S bash -c "
@@ -1108,7 +1108,7 @@ def create_mail_group(json_data):
                                            f" only_subscriber_can_post={'yes' if int(is_public) == 0 else 'no'} "
                                            f"disable_archive=no disable_send_copy_to_sender=yes '")
         if 'Created.' not in output:
-            raise Exception("邮箱群组群组" + mail_group_name + " 创建失败")
+            raise Exception("邮箱群组群组" + mail_group_name + f" 创建失败  {output}")
 
         timer = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
         args = (mail_group_name, mail_group_account, mail_group_description, user_account, user_name, timer, is_public)
@@ -1132,7 +1132,7 @@ def create_mail_group(json_data):
             output = ssh.execute_shell_command(command)
             # 将执行不成功的（账号不存在，添加失败） 移除列表，并想办法告知客户端
             if 'Added.' not in output:
-                failed_user_list.append(user)
+                failed_user_list.append(account)
             else:
                 batch_insert_list.append(account)
                 user_dict[account] = user
@@ -1218,7 +1218,7 @@ def operate_mail_group(json_data):
             output = ssh.execute_shell_command(command)
             # 将执行不成功的（账号不存在，添加失败） 移除列表，并想办法告知客户端
             if 'Added.' not in output:
-                failed_user_list.append(user)
+                failed_user_list.append(account)
             else:
                 joined_user_list.append(account)
                 user_dict[account] = user
@@ -1258,7 +1258,7 @@ def operate_mail_group(json_data):
                                                f" {mail_group} {mail_account}' ")
             # 将执行不成功的（账号不存在，添加失败） 移除列表，并想办法告知客户端
             if 'Removed.' not in output:
-                failed_user_list.append(user)
+                failed_user_list.append(account)
             else:
                 removed_user_list.append(account)
         del ssh
@@ -1373,12 +1373,12 @@ def query_mail_group_list(user_account: str):
 """生成指定长度的字符串 群组邮箱编号 固定以 maillist_ 为前缀  """
 
 
-def generate_random_string(length):
+def generate_maillist_code(length):
     # 定义生成字符串的字符集
     characters = string.ascii_lowercase + string.digits
     # 使用random.choices从字符集中随机选择字符，形成指定长度的字符串
     random_string = ''.join(random.choices(characters, k=length))
-    return 'maillist_' + random_string
+    return 'maillist_' + random_string + "@nsyy.com"
 
 
 def convert_date_format(date_str):
