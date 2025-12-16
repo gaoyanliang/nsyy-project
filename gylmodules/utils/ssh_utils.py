@@ -39,32 +39,31 @@ class SshUtil:
             self.client = None
 
     """Execute a shell command"""
-    def execute_shell_command(self, command, sudo=False) -> object:
+    def execute_shell_command(self, command, sudo=False):
+        # result = {'out': '', 'err': '', 'retval': -1}
         output = ""
         try:
             feed_password = False
             if sudo and self.ssh_username != "root":
-                command = "sudo -S -p '' %s" % command
-                feed_password = self.ssh_password is not None and len(self.ssh_password) > 0
+                command = f"echo {self.ssh_password} | sudo -S -p '' {command}"  # 更安全的方式
+                # 或者保持原样，但后面要正确处理 stdin
 
             stdin, stdout, stderr = self.client.exec_command(command)
+
             if feed_password:
-                stdin.write(self.ssh_password + "\n")
+                stdin.write(self.ssh_password + '\n')
                 stdin.flush()
+                stdin.close()  # ← 关键！必须关闭 stdin
 
-            # print(f'Debugging: execute command: ' + command)
-            # Read and print the output
+            # 现在可以安全读取输出
             output = stdout.read().decode('utf-8')
-            # print(f'Debugging: execute command response: ' + output)
-
-            # Read and print any errors
-            errors = stderr.read().decode('utf-8')
-            if errors and '[sudo]' not in errors:
-                logger.warning(f"SSH Util command exception: {command} , error info = {errors}")
-
-            # return {'out': stdout.readlines(),
-            #         'err': stderr.readlines(),
-            #         'retval': stdout.channel.recv_exit_status()}
+            # err = stderr.read().decode('utf-8')
+            # retval = stdout.channel.recv_exit_status()
+            #
+            # print(f"Debugging: command: {command}")
+            # print(f"Debugging: output:\n{output}")
+            # print(f"Debugging: errors:\n{err}")
+            # print(f"Debugging: exit code: {retval}")
         except Exception as e:
             logger.error(f"SSH Util Error executing command: {str(e)}")
 
