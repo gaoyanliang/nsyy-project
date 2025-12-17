@@ -3,6 +3,7 @@ import logging
 from flask import Blueprint
 
 from gylmodules import global_config
+from gylmodules.a_special.special_router import special_system
 from gylmodules.app_version.app_version_router import app_version
 from gylmodules.critical_value.critical_value_router import cv
 from gylmodules.file_system.file_router import file_system
@@ -134,5 +135,12 @@ gylroute.register_blueprint(file_system)
 # ============================
 logger.info('15. pacs pdf')
 gylroute.register_blueprint(pacs_system)
+
+
+# ============================
+# === 16. 特殊系统路由 ===
+# ============================
+logger.info('16. 特殊系统路由')
+gylroute.register_blueprint(special_system)
 
 logger.info("=============== End 路由注册完成 =====================")
