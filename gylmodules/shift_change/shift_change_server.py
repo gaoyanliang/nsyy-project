@@ -268,7 +268,7 @@ def update_shift_change_data(json_data):
                         VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)"""
         args = (json_data.get('shift_date'), f"{json_data.get('shift_type')}-{json_data.get('shift_classes')}",
                 json_data.get('bingrenzyid', ''),
-                json_data.get('zhuyuanhao', ''), json_data.get('bed_no', ''), json_data.get('patient_name', ''),
+                json_data.get('zhuyuanhao', ''), safe_bed_no(json_data.get('bed_no', '')), json_data.get('patient_name', ''),
                 json_data.get('patient_sex', ''), json_data.get('patient_age', ''), json_data.get('zhenduan', ''),
                 json_data.get('patient_type'), json_data.get('patient_dept_id', '0'),
                 json_data.get('patient_dept', '0'), json_data.get('patient_ward_id'), json_data.get('patient_ward'),
@@ -1882,7 +1882,7 @@ def save_data(shift_classes, patients, patient_count, patient_bed_info, flush: b
         patient_list = [(today_date, shift_classes,
                          patient.get('bingrenzyid') if patient.get('bingrenzyid') else '0',
                          patient.get('住院号') if patient.get('住院号') else '0',
-                         patient.get('床号') if patient.get('床号') else '0',
+                         safe_bed_no(patient.get('床号')),
                          patient.get('姓名') if patient.get('姓名') else '0',
                          patient.get('性别') if patient.get('性别') else '0',
                          patient.get('年龄') if patient.get('年龄') else '0',
@@ -1949,6 +1949,21 @@ def save_data(shift_classes, patients, patient_count, patient_bed_info, flush: b
                         ON DUPLICATE KEY UPDATE patient_info = VALUES(patient_info)"""
         db.execute_many(insert_sql, bed_info_list, need_commit=True)
     del db
+
+
+def safe_bed_no(bed_no):
+    try:
+        if not bed_no:
+            return '0'
+        bed_no = str(bed_no).replace(' ', '')
+        if not bed_no:
+            return '0'
+        numbers = re.findall(r'\d+', bed_no)
+        return ''.join(numbers)
+    except Exception as e:
+        logger.error(f" 床号 {bed_no} 转换异常: {e}")
+        return '0'
+
 
 
 def check_shift_time(shift_slot: str) -> bool:
