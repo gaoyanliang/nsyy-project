@@ -49,12 +49,31 @@ def surgical_transfer_data(json_data):
     if not data:
         return {}
 
+    shoushudanids = [str(item.get('shoushudanid')) for item in data]
+    shoushudanids = ','.join([f"'{item}'" for item in shoushudanids])
+    sql = f"""
+        select t.sam_apply_id,
+           t.in_oproom_date   入手术室时间,
+           t.out_oproom_date  出手术室时间,
+           t.oper_beging_date 手术开始时间,
+           t.oper_end_date    手术结束时间
+      from sam_anar t
+     where t.sam_apply_id in ({shoushudanids})
+    """
+    shijian = global_tools.call_new_his(sql, 'nsshouma')
+    shijian_dict = {}
+    for item in shijian:
+        shijian_dict[item.get('SAM_APPLY_ID')] = item
+
+    for item in data:
+        item.update(shijian_dict.get(item.get('shoushudanid'), {}))
+
     data = data[0]
     patient_name = data.get('姓名', '')
     data['record_time'] = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
     db = DbUtil(global_config.DB_HOST, global_config.DB_USERNAME, global_config.DB_PASSWORD,
                 global_config.DB_DATABASE_GYL)
-    insert_sql = """INSERT INTO nsyy_gyl.a_surgical_transfer (patient_id, number, patient_name, patient_info, 
+    insert_sql = """INSERT INTO nsyy_gyl.a_surgical_transfer (patient_id, number, patient_name, patient_info,
                                     timing, record_time) VALUES (%s, %s, %s, %s, %s, %s)"""
     args = (patient_id, number, patient_name, json.dumps(data, ensure_ascii=False, default=str),
             scan_timing, data['record_time'])

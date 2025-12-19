@@ -106,7 +106,12 @@ oracle_env = {
     # nshis 系统
     "ORACLE_NSHIS_USER": "zlhis",
     "ORACLE_NSHIS_PASSWORD": ".1451534F81B",
-    "ORACLE_NSHIS_DSN": "192.168.3.8:1521/ORCL"
+    "ORACLE_NSHIS_DSN": "192.168.3.8:1521/ORCL",
+
+    # nsshouma 系统
+    "ORACLE_NSSHOUMA_USER": "sam1_db_bzbb",
+    "ORACLE_NSSHOUMA_PASSWORD": "123456",
+    "ORACLE_NSSHOUMA_DSN": "192.168.3.66:1521/orcl"
 }
 
 # 连接池（全局单例）

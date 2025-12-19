@@ -300,6 +300,7 @@ def create_patient_record(register_id, record_id, record_data):
     :param record_data:
     :return:
     """
+    # logger.warning(f"创建患者表单: {register_id}, {record_id}, {record_data}")
     db = DbUtil(global_config.DB_HOST, global_config.DB_USERNAME, global_config.DB_PASSWORD,
                 global_config.DB_DATABASE_GYL)
 
@@ -381,6 +382,10 @@ def create_patient_record(register_id, record_id, record_data):
             db.execute(f"UPDATE nsyy_gyl.phs_record_data SET field_value = '{item.get('field_value')}' "
                        f"WHERE register_id = {register_id} and record_id in (1, 2) "
                        f"and field_name = 'preliminary_diagnosis'", need_commit=True)
+            if int(record_id) == 1:
+                update_condition.append(f"chubuzd = '{item.get('field_value')}'")
+            if not register_record.get('chubuzd', '') and int(record_id) == 2:
+                update_condition.append(f"chubuzd = '{item.get('field_value')}'")
 
         # 到院时间
         if ((int(record_id) == 2 and item.get('field_name') == 'time') or
