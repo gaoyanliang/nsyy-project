@@ -24,6 +24,12 @@ def query_shift_change_date(json_data):
     return shift_change_server.query_shift_change_date(json_data)
 
 
+@shift_change.route('/shift_data_by_key', methods=['POST', 'GET'])
+@api_response
+def shift_data_by_key(json_data):
+    return shift_change_server.query_shift_change_date_by_key(json_data)
+
+
 @shift_change.route('/delete_shift_data', methods=['POST', 'GET'])
 @api_response
 def delete_shift_change_date(json_data):
@@ -96,4 +102,15 @@ def query_dept_list(json_data):
     return shift_change_server.dept_list(json_data.get('dept_type', 1))
 
 
+@shift_change.route('/shift_change_report', methods=['POST', 'GET'])
+@api_response
+def shift_change_report(json_data):
+    return shift_change_server.shift_change_report(json_data.get('start_date'), json_data.get('end_date'),
+                                                   json_data.get('shift_type'))
 
+
+@shift_change.route('/fourth_surgery', methods=['POST', 'GET'])
+@api_response
+def query_fourth_surgery(json_data):
+    return shift_change_server.fourth_surgery(json_data.get('start_date'), json_data.get('end_date'),
+                                                   json_data.get('shift_type'))

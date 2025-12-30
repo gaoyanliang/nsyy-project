@@ -44,6 +44,64 @@ def delete_shift_data(record_id):
     del db
 
 
+"""根据患者住院号/主治医生检索交班数据"""
+
+
+def query_shift_change_date_by_key(json_data):
+    # 必传
+    shift_type = json_data.get('shift_type')
+    shift_classes = json_data.get('shift_classes')
+    shift_date = json_data.get('shift_date')
+
+    # 可选
+    dept_id = json_data.get('dept_id')
+    zhuyuanhao = json_data.get('zhuyuanhao')
+    doctor_name = json_data.get('doctor_name')
+    if not dept_id and not zhuyuanhao and not doctor_name:
+        raise Exception("请选择科室/住院号/主治医生")
+    condition_sql = (f"and patient_dept_id = {dept_id}" if int(shift_type) == 1 else f"and patient_ward_id = {dept_id}") if dept_id else ''
+    condition_sql += f"and zhuyuanhao = '{zhuyuanhao}'" if zhuyuanhao else ''
+    condition_sql += f"and doctor_name like '%{doctor_name}%'" if doctor_name else ''
+
+    db = DbUtil(global_config.DB_HOST, global_config.DB_USERNAME, global_config.DB_PASSWORD,
+                global_config.DB_DATABASE_GYL)
+    if int(shift_type) == 1:
+        dept_id = shift_change_config.doc_teshu_dept_map.get(str(dept_id)) \
+            if str(dept_id) in shift_change_config.doc_teshu_dept_map else dept_id
+        # 医生交接班
+        shift_classes = f"{shift_type}-{shift_classes}"
+        classes_list = ['1-1']
+        if shift_classes.endswith('-3'):
+            classes_list = ['1-1', '1-2', '1-3']
+        elif shift_classes.endswith('-2'):
+            classes_list = ['1-1', '1-2']
+
+        classes_str = ', '.join(f"'{item}'" for item in classes_list)
+        query_sql = f"select * from nsyy_gyl.scs_patients where shift_date = '{shift_date}' " \
+                    f"and shift_classes in ({classes_str}) {condition_sql} "
+        patients = db.query_all(query_sql)
+
+    else:
+        # 护士交接班
+        shift_classes = f"{shift_type}-{shift_classes}"
+        classes_list = ['2-1']
+        if shift_classes.endswith('-3'):
+            classes_list = ['2-1', '2-2', '2-3']
+        elif shift_classes.endswith('-2'):
+            classes_list = ['2-1', '2-2']
+
+        classes_str = ', '.join(f"'{item}'" for item in classes_list)
+        query_sql = f"select * from nsyy_gyl.scs_patients where shift_date = '{shift_date}' " \
+                    f"and shift_classes in ({classes_str}) {condition_sql} "
+        patients = db.query_all(query_sql)
+
+    del db
+
+    # 同一天多个班次的患者情况进行合并
+    patients = merge_ret_patient_list(patients, [1,2,3])
+    return patients
+
+
 """查询科室交接班数据"""
 
 
@@ -191,6 +249,8 @@ def merge_ret_patient_list(patient_list, is_archived):
 
     # 1. 按患者分组并找出最新记录
     for record in patient_list:
+        if record.get('patient_name'):
+            record['patient_name'] = record['patient_name'].replace('$四级手术$', '')
         patient_id = record['zhuyuanhao']
         patients[patient_id]['records'].append(record)
 
@@ -224,7 +284,9 @@ def merge_ret_patient_list(patient_list, is_archived):
             if item not in seen:
                 seen.add(item)
                 result.append(item)
-        types = ','.join(result)
+
+        sorted_types = sorted(result, key=lambda x: PATIENT_TYPE_ORDER.get(x, float('inf')))
+        types = ', '.join(sorted_types)
         # 创建合并后的记录
         merged_record = latest.copy()
         merged_record['patient_info'] = patient_info
@@ -2375,6 +2437,8 @@ def query_shift_info(json_data):
     shift_type = json_data.get('shift_type')
     shift_classes = json_data.get('shift_classes')
     dept_id = json_data.get('dept_id')
+    dept_id = shift_change_config.doc_teshu_dept_map.get(str(dept_id)) \
+        if str(dept_id) in shift_change_config.doc_teshu_dept_map else dept_id
 
     db = DbUtil(global_config.DB_HOST, global_config.DB_USERNAME, global_config.DB_PASSWORD,
                 global_config.DB_DATABASE_GYL)
@@ -2412,10 +2476,17 @@ def save_shift_info(json_data):
     dept_name = json_data.get('dept_name')
     sign_type = json_data.get('sign_type')
 
+    dept_id = shift_change_config.doc_teshu_dept_map.get(str(dept_id)) \
+        if str(dept_id) in shift_change_config.doc_teshu_dept_map else dept_id
+
+    if str(dept_id) in shift_change_config.his_dept_name_dict:
+        dept_name = shift_change_config.his_dept_name_dict.get(str(dept_id))
+
     # 1=交班人 2=接班人 3=护士长
     if sign_type in [1, 2, 3]:
         return doctor_sign(json_data)
 
+    # 4 归档 5 取消归档
     if int(sign_type) == 4:
         # 归档时需要有本班交班人的签名 和 上一个班次接班人的签名
         is_archiving_allowed(shift_date, shift_type, shift_classes, dept_id)
@@ -2449,6 +2520,44 @@ def doctor_sign(json_data):
     user_name = json_data.get('user_name', '')
     # 签名列表
     sign_list = json_data.get('sign_list', [])
+
+    dept_id = shift_change_config.doc_teshu_dept_map.get(str(dept_id)) \
+        if str(dept_id) in shift_change_config.doc_teshu_dept_map else dept_id
+
+    if str(dept_id) in shift_change_config.his_dept_name_dict:
+        dept_name = shift_change_config.his_dept_name_dict.get(str(dept_id))
+
+    if int(shift_type) == 1:
+        # 医生签名需要校验患者信息是否需要完善补充
+        db = DbUtil(global_config.DB_HOST, global_config.DB_USERNAME, global_config.DB_PASSWORD,
+                    global_config.DB_DATABASE_GYL)
+        doc_dept_id = shift_change_config.doc_teshu_dept_map.get(str(dept_id)) \
+            if str(dept_id) in shift_change_config.doc_teshu_dept_map else dept_id
+        shift_classes_str = f"{shift_type}-{shift_classes}"
+        query_sql = f"select patient_name, patient_type, patient_info from nsyy_gyl.scs_patients where shift_date = '{shift_date}' " \
+                    f"and shift_classes = '{shift_classes_str}' and patient_dept_id = {doc_dept_id} "
+        patients = db.query_all(query_sql)
+        del db
+        if patients:
+            reminder_info = []
+            for patient in patients:
+                if (patient.get('patient_type') and patient.get('patient_type').__contains__('转入')
+                        and patient.get('patient_info') and patient.get('patient_info').__contains__(
+                            '患者目前病情:给予治疗方案:')):
+                    reminder_info.append(patient.get('patient_name'))
+                    continue
+                if (patient.get('patient_type') and patient.get('patient_type').__contains__('手术')
+                        and patient.get('patient_info') and patient.get('patient_info').__contains__(
+                            '患者于-在下行')):
+                    reminder_info.append(patient.get('patient_name'))
+                    continue
+                if (patient.get('patient_type') and patient.get('patient_type').__contains__('入院')
+                        and patient.get('patient_info') and patient.get('patient_info').__contains__(
+                            '患者以为主诉收治入院,既往史:体格检查:给予暂无辅助检查治疗方案:')):
+                    reminder_info.append(patient.get('patient_name'))
+                    continue
+            if reminder_info:
+                raise Exception(f"患者 {', '.join(reminder_info)} 信息未完善，请完善患者信息后再进行签名！")
 
     if user_id:
         # 如果存在医生id，说明是新的签名，如果不存在有可能是删除某一个签名，直接保存传过来的 sign——list 即可
@@ -2527,18 +2636,39 @@ def is_archiving_allowed(shift_date, shift_type, shift_classes, dept_id):
             previous_day = date_obj - timedelta(days=1)
             previous_shift_date = previous_day.strftime("%Y-%m-%d")
 
-    sql = f"select incominger from nsyy_gyl.scs_shift_info where shift_date = '{previous_shift_date}' " \
+    sql = f"select incominger, archived from nsyy_gyl.scs_shift_info where shift_date = '{previous_shift_date}' " \
           f"and dept_id = {dept_id} and shift_classes = '{shift_type}-{previous_shift_classes}'"
     record = db.query_one(sql)
+    if record and int(record.get('archived')) == 0:
+        del db
+        raise Exception('上一班未归档，请先归档')
+
     if not record or not record.get('incominger'):
         del db
         raise Exception('上一班接班人未签名（归档需上一个班次接班人和本班交班人的签名）')
+
+    if str(dept_id) == "7907" and record.get('incominger'):
+        # 肿瘤中心 需要两个签名
+        incoming_list = record.get('incominger')
+        incoming_list = json.loads(incoming_list)
+        if len(incoming_list) != 2:
+            del db
+            raise Exception('肿瘤中心交班接班需要两位医生的签名')
+
     sql = f"select outgoinger from nsyy_gyl.scs_shift_info where shift_date = '{shift_date}' " \
           f"and dept_id = {dept_id} and shift_classes = '{shift_type}-{shift_classes}'"
     record = db.query_one(sql)
     if not record or not record.get('outgoinger'):
         del db
         raise Exception('本班交班人未签名（归档需上一个班次接班人和本班交班人的签名）')
+
+    if str(dept_id) == "7907" and record.get('outgoinger'):
+        # 肿瘤中心 需要两个签名
+        outgoing_list = record.get('outgoinger')
+        outgoing_list = json.loads(outgoing_list)
+        if len(outgoing_list) != 2:
+            del db
+            raise Exception('肿瘤中心交班接班需要两位医生的签名')
     del db
 
 
@@ -2595,7 +2725,6 @@ def dept_list(dept_type):
             where gz.zuofeibz=0  and gz.zhuyuanbz =1 and gz.zuzhilx = '{dept_type}'  """
     return global_tools.call_new_his_pg(sql)
 
-
     # try:
     #     param = {
     #             "type": "his_dept",
@@ -2615,3 +2744,100 @@ def dept_list(dept_type):
     #     logger.error(f'调用第三方系统方法失败：type = {type}, param = {param}, {e}')
     #     return []
 
+
+# 查询科室签名/归档及时率
+
+
+def shift_change_report(start_date, end_date, shift_type):
+    sql = f"""with recursive date_range as (select '{start_date}' as shift_date
+    union all select date_add(shift_date, interval 1 day) from date_range
+    where shift_date < '{end_date}' ), sign_t as (select date_range.shift_date,
+	substr(shift_classes,1,1) as shift_type, substr(shift_classes,3,1) as shift_class, dept_id,
+    case 
+        when json_length(ssi.outgoinger) > 0 
+        then json_unquote(json_extract(ssi.outgoinger, concat('$[', json_length(ssi.outgoinger)-1, '].sign_time')))
+        else null
+    end as out_sign_time,
+    case 
+        when json_length(ssi.incominger) > 0 
+        then json_unquote(json_extract(ssi.incominger, concat('$[', json_length(ssi.incominger)-1, '].sign_time')))
+        else null
+    end as in_sign_time, archived_time
+    from nsyy_gyl.scs_shift_info ssi join date_range on ssi.shift_date=date_range.shift_date),
+    shift_time as (select date_range.shift_date, ssc.shift_type, ssc.dept_id, ssc.dept_name,
+    1 shift_class, str_to_date(concat(date_range.shift_date,' ',substr(ssc.early_shift_slot, 7),':00'),
+    '%Y-%m-%d %H:%i:%s') as slot from nsyy_gyl.scs_shift_config ssc join date_range on 1=1 where ssc.early_shift=1 
+    and ssc.shift_status=1 union all select date_range.shift_date, ssc.shift_type, ssc.dept_id, ssc.dept_name,
+    2 shift_class, str_to_date(concat(date_range.shift_date,' ', 
+    substr(ssc.middle_shift_slot, 7),':00'),'%Y-%m-%d %H:%i:%s') as slot
+    from nsyy_gyl.scs_shift_config ssc join date_range on 1=1 where ssc.middle_shift=1 and ssc.shift_status=1 union all
+    select date_range.shift_date, ssc.shift_type, ssc.dept_id, ssc.dept_name, 3 shift_class,
+    str_to_date(concat(date_add(date_range.shift_date, interval 1 day),' ', 
+    substr(ssc.night_shift_slot, 7),':00'),'%Y-%m-%d %H:%i:%s') as slot from nsyy_gyl.scs_shift_config ssc
+    join date_range on 1=1 where ssc.night_shift=1 and ssc.shift_status = 1)
+    select s.shift_date,s.dept_id,s.dept_name,s.shift_type,s.shift_class,s.slot, t.out_sign_time,
+    case when timestampdiff(hour,s.slot,t.out_sign_time)<2 then 1 else 0 end as out_valid_flg, t.in_sign_time,
+    case when timestampdiff(hour,s.slot,t.in_sign_time)<2 then 1 else 0 end as in_valid_flg, t.archived_time,
+    case when timestampdiff(hour,s.slot,t.archived_time)<2 then 1 else 0 end as archive_valid_flg from shift_time s
+    left join sign_t t on s.shift_type=t.shift_type and s.shift_class=t.shift_class and s.dept_id=t.dept_id 
+    and s.shift_date=t.shift_date where s.shift_type={shift_type} order by shift_date,dept_id,shift_type,shift_class
+    """
+
+    db = DbUtil(global_config.DB_HOST, global_config.DB_USERNAME, global_config.DB_PASSWORD,
+                global_config.DB_DATABASE_GYL)
+    records = db.query_all(sql)
+    del db
+    if not records:
+        return []
+
+    # 总天数（包含开始日）
+    start_date = datetime.strptime(start_date, "%Y-%m-%d").date()
+    end_date = datetime.strptime(end_date, "%Y-%m-%d").date()
+    delta = end_date - start_date
+    total_days = delta.days + 1
+
+    ret = []
+    # 按部门排序并分组
+    records.sort(key=lambda x: (x['dept_id'], x['shift_date']))
+    for dept_id, group in groupby(records, key=lambda x: x['dept_id']):
+        in_count, out_count, archive_count = 0, 0, 0
+        class_count = set()
+
+        group = list(group)
+        dept_id = group[0].get('dept_id', '')
+        dept_name = group[0].get('dept_name', '')
+        for item in group:
+            item.pop('dept_id')
+            item.pop('dept_name')
+            class_count.add(item['shift_class'])
+            in_count += item.get('in_valid_flg')
+            out_count += item.get('out_valid_flg')
+            archive_count += item.get('archive_valid_flg')
+        ret.append({
+            "dept_id": dept_id,
+            "dept_name": dept_name,
+            "in_count": in_count,
+            "in_rate": in_count / (total_days * len(class_count)),
+            "out_count": out_count,
+            "out_rate": out_count / (total_days * len(class_count)),
+            "archive_count": archive_count,
+            "archive_rate": archive_count / (total_days * len(class_count)),
+            "detail_list": group
+        })
+
+    return ret
+
+
+"""查询四级手术患者列表"""
+
+
+def fourth_surgery(start_date, end_date, shift_type):
+    shift_types = "'1-1', '1-2', '1-3'" if int(shift_type) == 1 else "'2-1', '2-2', '2-3'"
+    sql = (f"select * from nsyy_gyl.scs_patients where shift_classes in ({shift_types}) and "
+           f"shift_date >= '{start_date}' and shift_date <= '{end_date}' "
+           f"and patient_name like '%$四级手术$%'")
+    db = DbUtil(global_config.DB_HOST, global_config.DB_USERNAME, global_config.DB_PASSWORD,
+                global_config.DB_DATABASE_GYL)
+    records = db.query_all(sql)
+    del db
+    return records
