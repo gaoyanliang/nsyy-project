@@ -394,6 +394,12 @@ def fetch_all_vip_cars(driver):
         # 提取有效期信息
         validity = vehicle['validity'][0] if vehicle['validity'] else {}
         function_time = validity.get('functionTime', {}).get('defaultTime', {})
+        if validity.get('state', -1) != 0:
+            try:
+                function_time = validity.get('functionTime', {}).get('detailTimes', [])
+                function_time = function_time[len(function_time) - 1]
+            except:
+                function_time = validity.get('functionTime', {}).get('defaultTime', {})
 
         # 计算剩余天数（如果已经过期则显示0）
         left_days = function_time.get('leftDays', 0)
