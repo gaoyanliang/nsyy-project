@@ -29,7 +29,7 @@ pool = redis.ConnectionPool(host=global_config.REDIS_HOST, port=global_config.RE
 def delete_shift_data(record_id):
     db = DbUtil(global_config.DB_HOST, global_config.DB_USERNAME, global_config.DB_PASSWORD,
                 global_config.DB_DATABASE_GYL)
-    record = db.query_one(f"select * from nsyy_gyl.scs_patients where id = {record_id} ")
+    record = db.query_one(f"select * from nsyy_gyl.scs_patients where id = {record_id} and is_deleted = 0 ")
     if not record:
         del db
         raise Exception("不存在此交接班数据")
@@ -40,7 +40,7 @@ def delete_shift_data(record_id):
                     f"and dept_id = {dept_id} and shift_classes = '{shift_classes}' and archived = 1"):
         del db
         raise Exception("该班次已归档无法在修改或新增数据")
-    db.execute(f"delete from nsyy_gyl.scs_patients where id = {record_id}", need_commit=True)
+    db.execute(f"UPDATE nsyy_gyl.scs_patients SET is_deleted = 1, zhuyuanhao = '{record.get('zhuyuanhao')}-deleted' where id = {record_id} ", need_commit=True)
     del db
 
 
@@ -77,7 +77,7 @@ def query_shift_change_date_by_key(json_data):
             classes_list = ['1-1', '1-2']
 
         classes_str = ', '.join(f"'{item}'" for item in classes_list)
-        query_sql = f"select * from nsyy_gyl.scs_patients where shift_date = '{shift_date}' " \
+        query_sql = f"select * from nsyy_gyl.scs_patients where is_deleted = 0 and shift_date = '{shift_date}' " \
                     f"and shift_classes in ({classes_str}) {condition_sql} "
         patients = db.query_all(query_sql)
 
@@ -91,7 +91,7 @@ def query_shift_change_date_by_key(json_data):
             classes_list = ['2-1', '2-2']
 
         classes_str = ', '.join(f"'{item}'" for item in classes_list)
-        query_sql = f"select * from nsyy_gyl.scs_patients where shift_date = '{shift_date}' " \
+        query_sql = f"select * from nsyy_gyl.scs_patients where is_deleted = 0 and shift_date = '{shift_date}' " \
                     f"and shift_classes in ({classes_str}) {condition_sql} "
         patients = db.query_all(query_sql)
 
@@ -130,7 +130,7 @@ def query_shift_change_date(json_data):
             classes_list = ['1-1', '1-2']
 
         classes_str = ', '.join(f"'{item}'" for item in classes_list)
-        query_sql = f"select * from nsyy_gyl.scs_patients where shift_date = '{shift_date}' " \
+        query_sql = f"select * from nsyy_gyl.scs_patients where is_deleted = 0 and shift_date = '{shift_date}' " \
                     f"and shift_classes in ({classes_str}) and patient_dept_id = {dept_id}"
         patients = db.query_all(query_sql)
 
@@ -151,7 +151,7 @@ def query_shift_change_date(json_data):
             classes_list = ['2-1', '2-2']
 
         classes_str = ', '.join(f"'{item}'" for item in classes_list)
-        query_sql = f"select * from nsyy_gyl.scs_patients where shift_date = '{shift_date}' " \
+        query_sql = f"select * from nsyy_gyl.scs_patients where is_deleted = 0 and shift_date = '{shift_date}' " \
                     f"and patient_ward_id = {dept_id} and shift_classes in ({classes_str})"
         patients = db.query_all(query_sql)
         patient_count_list = db.query_all(f"select * from nsyy_gyl.scs_patient_count where shift_date = '{shift_date}' "
@@ -2534,7 +2534,7 @@ def doctor_sign(json_data):
         doc_dept_id = shift_change_config.doc_teshu_dept_map.get(str(dept_id)) \
             if str(dept_id) in shift_change_config.doc_teshu_dept_map else dept_id
         shift_classes_str = f"{shift_type}-{shift_classes}"
-        query_sql = f"select patient_name, patient_type, patient_info from nsyy_gyl.scs_patients where shift_date = '{shift_date}' " \
+        query_sql = f"select patient_name, patient_type, patient_info from nsyy_gyl.scs_patients where is_deleted = 0 and shift_date = '{shift_date}' " \
                     f"and shift_classes = '{shift_classes_str}' and patient_dept_id = {doc_dept_id} "
         patients = db.query_all(query_sql)
         del db
@@ -2840,4 +2840,6 @@ def fourth_surgery(start_date, end_date, shift_type):
                 global_config.DB_DATABASE_GYL)
     records = db.query_all(sql)
     del db
+    for record in records:
+        record['patient_name'] = record['patient_name'].replace('$四级手术$', '')
     return records
