@@ -40,7 +40,7 @@ def delete_shift_data(record_id):
                     f"and dept_id = {dept_id} and shift_classes = '{shift_classes}' and archived = 1"):
         del db
         raise Exception("该班次已归档无法在修改或新增数据")
-    db.execute(f"UPDATE nsyy_gyl.scs_patients SET is_deleted = 1, zhuyuanhao = '{record.get('zhuyuanhao')}-deleted' where id = {record_id} ", need_commit=True)
+    db.execute(f"UPDATE nsyy_gyl.scs_patients SET is_deleted = 1, zhuyuanhao = '{record.get('zhuyuanhao')}-{int(time.time())}' where id = {record_id} ", need_commit=True)
     del db
 
 
