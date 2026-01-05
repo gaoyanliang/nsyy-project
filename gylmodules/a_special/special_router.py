@@ -31,7 +31,7 @@ def surgical_transfer_data(json_data):
     patient_id, number = split_data[1], split_data[2]
 
     sql = f"""select ss.shoushudanid , zb.xingming 姓名, zb.dangqianksmc 科室, zb.zhuyuanhao 住院号,
-	        zb.dangqiancwbm 床号, zb.nianling  年龄, ss.bingrenid , ss.shoushubw 手术部位,
+	        zb.dangqiancwbm 床号, zb.nianling  年龄, ss.bingrenid , ss.shoushubw 手术部位, zb.xingbiemc 性别, 
 	        ss.shoushumc || coalesce('+' || ss.shoushumc1, '')|| coalesce('+' || ss.shoushumc2,
 	        '')|| coalesce('+' || ss.shoushumc3, '')|| coalesce('+' || ss.shoushumc4, 
             '')|| coalesce('+' || ss.shoushumc5, '') 手术名称, gd.daimamc || case when gd2.daimamc is not null
