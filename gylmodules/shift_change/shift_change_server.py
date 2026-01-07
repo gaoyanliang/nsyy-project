@@ -55,6 +55,8 @@ def query_shift_change_date_by_key(json_data):
 
     # 可选
     dept_id = json_data.get('dept_id')
+    if dept_id and str(dept_id) in ['1000965', '1001120']:
+        dept_id = 1001120
     zhuyuanhao = json_data.get('zhuyuanhao')
     doctor_name = json_data.get('doctor_name')
     if not dept_id and not zhuyuanhao and not doctor_name:
@@ -110,6 +112,8 @@ def query_shift_change_date(json_data):
     shift_classes = json_data.get('shift_classes')
     shift_date = json_data.get('shift_date')
     dept_id = json_data.get('dept_id')
+    if str(dept_id) in ['1000965', '1001120']:
+        dept_id = 1001120
 
     db = DbUtil(global_config.DB_HOST, global_config.DB_USERNAME, global_config.DB_PASSWORD,
                 global_config.DB_DATABASE_GYL)
@@ -2639,9 +2643,9 @@ def is_archiving_allowed(shift_date, shift_type, shift_classes, dept_id):
     sql = f"select incominger, archived from nsyy_gyl.scs_shift_info where shift_date = '{previous_shift_date}' " \
           f"and dept_id = {dept_id} and shift_classes = '{shift_type}-{previous_shift_classes}'"
     record = db.query_one(sql)
-    if record and int(record.get('archived')) == 0:
-        del db
-        raise Exception('上一班未归档，请先归档')
+    # if record and int(record.get('archived')) == 0:
+    #     del db
+    #     raise Exception('上一班未归档，请先归档')
 
     if not record or not record.get('incominger'):
         del db
@@ -2725,25 +2729,6 @@ def dept_list(dept_type):
             where gz.zuofeibz=0  and gz.zhuyuanbz =1 and gz.zuzhilx = '{dept_type}'  """
     return global_tools.call_new_his_pg(sql)
 
-    # try:
-    #     param = {
-    #             "type": "his_dept",
-    #             "dept_type": 1 if int(dept_type) != 2 else 3,
-    #             "comp_id": 12,
-    #             "randstr": "XPFDFZDF7193CIONS1PD7XCJ3AD4ORRC"
-    #         }
-    #     url = "http://127.0.0.1:6080/int_api" if not global_config.run_in_local else "http://192.168.124.53:6080/int_api"
-    #     # 发送 POST 请求，将字符串数据传递给 data 参数
-    #     response = requests.post(url, timeout=3, json=param)
-    #     # response = requests.post(", timeout=3, json=param)
-    #     data = response.text
-    #     data = json.loads(data)
-    #     data = data.get('data')
-    #     return data
-    # except Exception as e:
-    #     logger.error(f'调用第三方系统方法失败：type = {type}, param = {param}, {e}')
-    #     return []
-
 
 # 查询科室签名/归档及时率
 
@@ -2776,9 +2761,13 @@ def shift_change_report(start_date, end_date, shift_type):
     substr(ssc.night_shift_slot, 7),':00'),'%Y-%m-%d %H:%i:%s') as slot from nsyy_gyl.scs_shift_config ssc
     join date_range on 1=1 where ssc.night_shift=1 and ssc.shift_status = 1)
     select s.shift_date,s.dept_id,s.dept_name,s.shift_type,s.shift_class,s.slot, t.out_sign_time,
-    case when timestampdiff(hour,s.slot,t.out_sign_time)<2 then 1 else 0 end as out_valid_flg, t.in_sign_time,
-    case when timestampdiff(hour,s.slot,t.in_sign_time)<2 then 1 else 0 end as in_valid_flg, t.archived_time,
-    case when timestampdiff(hour,s.slot,t.archived_time)<2 then 1 else 0 end as archive_valid_flg from shift_time s
+    case when timestampdiff(hour,s.slot,t.out_sign_time)<3 then 1 else 0 end as out_valid_flg, t.in_sign_time,
+    case when timestampdiff(hour,s.slot,t.in_sign_time)<3 then 1 else 0 end as in_valid_flg, t.archived_time,
+    case when timestampdiff(hour,s.slot,t.archived_time)<3 then 1 else 0 end as archive_valid_flg,
+    case when t.archived_time is not null then 1 else 0 end as archived,
+    case when t.in_sign_time is not null then 1 else 0 end as in_signed,
+    case when t.out_sign_time is not null then 1 else 0 end as out_signed 
+    from shift_time s
     left join sign_t t on s.shift_type=t.shift_type and s.shift_class=t.shift_class and s.dept_id=t.dept_id 
     and s.shift_date=t.shift_date where s.shift_type={shift_type} order by shift_date,dept_id,shift_type,shift_class
     """
@@ -2800,7 +2789,7 @@ def shift_change_report(start_date, end_date, shift_type):
     # 按部门排序并分组
     records.sort(key=lambda x: (x['dept_id'], x['shift_date']))
     for dept_id, group in groupby(records, key=lambda x: x['dept_id']):
-        in_count, out_count, archive_count = 0, 0, 0
+        in_count, out_count, archive_count, archived, in_signed, out_signed = 0, 0, 0, 0, 0, 0
         class_count = set()
 
         group = list(group)
@@ -2813,15 +2802,31 @@ def shift_change_report(start_date, end_date, shift_type):
             in_count += item.get('in_valid_flg')
             out_count += item.get('out_valid_flg')
             archive_count += item.get('archive_valid_flg')
+
+            archived += item.get('archived')
+            in_signed += item.get('in_signed')
+            out_signed += item.get('out_signed')
+
         ret.append({
             "dept_id": dept_id,
             "dept_name": dept_name,
-            "in_count": in_count,
-            "in_rate": in_count / (total_days * len(class_count)),
-            "out_count": out_count,
-            "out_rate": out_count / (total_days * len(class_count)),
-            "archive_count": archive_count,
-            "archive_rate": archive_count / (total_days * len(class_count)),
+
+            # 签到 签名率
+            "in_count": in_signed,
+            "in_rate": in_signed / (total_days * len(class_count)),
+            "out_count": out_signed,
+            "out_rate": out_signed / (total_days * len(class_count)),
+            "archive_count": archived,
+            "archive_rate": archived / (total_days * len(class_count)),
+
+            # 及时率
+            "in_count_timely": in_count,
+            "in_rate_timely": in_count / (total_days * len(class_count)),
+            "out_count_timely": out_count,
+            "out_rate_timely": out_count / (total_days * len(class_count)),
+            "archive_count_timely": archive_count,
+            "archive_rate_timely": archive_count / (total_days * len(class_count)),
+
             "detail_list": group
         })
 
