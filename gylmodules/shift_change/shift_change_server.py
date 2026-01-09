@@ -2480,6 +2480,9 @@ def save_shift_info(json_data):
     dept_name = json_data.get('dept_name')
     sign_type = json_data.get('sign_type')
 
+    if str(dept_id) in ['1000965', '1001120']:
+        dept_id = 1001120
+
     dept_id = shift_change_config.doc_teshu_dept_map.get(str(dept_id)) \
         if str(dept_id) in shift_change_config.doc_teshu_dept_map else dept_id
 
@@ -2524,6 +2527,9 @@ def doctor_sign(json_data):
     user_name = json_data.get('user_name', '')
     # 签名列表
     sign_list = json_data.get('sign_list', [])
+
+    if str(dept_id) in ['1000965', '1001120']:
+        dept_id = 1001120
 
     dept_id = shift_change_config.doc_teshu_dept_map.get(str(dept_id)) \
         if str(dept_id) in shift_change_config.doc_teshu_dept_map else dept_id
@@ -2734,42 +2740,189 @@ def dept_list(dept_type):
 
 
 def shift_change_report(start_date, end_date, shift_type):
-    sql = f"""with recursive date_range as (select '{start_date}' as shift_date
-    union all select date_add(shift_date, interval 1 day) from date_range
-    where shift_date < '{end_date}' ), sign_t as (select date_range.shift_date,
-	substr(shift_classes,1,1) as shift_type, substr(shift_classes,3,1) as shift_class, dept_id,
-    case 
-        when json_length(ssi.outgoinger) > 0 
-        then json_unquote(json_extract(ssi.outgoinger, concat('$[', json_length(ssi.outgoinger)-1, '].sign_time')))
-        else null
-    end as out_sign_time,
-    case 
-        when json_length(ssi.incominger) > 0 
-        then json_unquote(json_extract(ssi.incominger, concat('$[', json_length(ssi.incominger)-1, '].sign_time')))
-        else null
-    end as in_sign_time, archived_time
-    from nsyy_gyl.scs_shift_info ssi join date_range on ssi.shift_date=date_range.shift_date),
-    shift_time as (select date_range.shift_date, ssc.shift_type, ssc.dept_id, ssc.dept_name,
-    1 shift_class, str_to_date(concat(date_range.shift_date,' ',substr(ssc.early_shift_slot, 7),':00'),
-    '%Y-%m-%d %H:%i:%s') as slot from nsyy_gyl.scs_shift_config ssc join date_range on 1=1 where ssc.early_shift=1 
-    and ssc.shift_status=1 union all select date_range.shift_date, ssc.shift_type, ssc.dept_id, ssc.dept_name,
-    2 shift_class, str_to_date(concat(date_range.shift_date,' ', 
-    substr(ssc.middle_shift_slot, 7),':00'),'%Y-%m-%d %H:%i:%s') as slot
-    from nsyy_gyl.scs_shift_config ssc join date_range on 1=1 where ssc.middle_shift=1 and ssc.shift_status=1 union all
-    select date_range.shift_date, ssc.shift_type, ssc.dept_id, ssc.dept_name, 3 shift_class,
-    str_to_date(concat(date_add(date_range.shift_date, interval 1 day),' ', 
-    substr(ssc.night_shift_slot, 7),':00'),'%Y-%m-%d %H:%i:%s') as slot from nsyy_gyl.scs_shift_config ssc
-    join date_range on 1=1 where ssc.night_shift=1 and ssc.shift_status = 1)
-    select s.shift_date,s.dept_id,s.dept_name,s.shift_type,s.shift_class,s.slot, t.out_sign_time,
-    case when timestampdiff(hour,s.slot,t.out_sign_time)<3 then 1 else 0 end as out_valid_flg, t.in_sign_time,
-    case when timestampdiff(hour,s.slot,t.in_sign_time)<3 then 1 else 0 end as in_valid_flg, t.archived_time,
-    case when timestampdiff(hour,s.slot,t.archived_time)<3 then 1 else 0 end as archive_valid_flg,
-    case when t.archived_time is not null then 1 else 0 end as archived,
-    case when t.in_sign_time is not null then 1 else 0 end as in_signed,
-    case when t.out_sign_time is not null then 1 else 0 end as out_signed 
-    from shift_time s
-    left join sign_t t on s.shift_type=t.shift_type and s.shift_class=t.shift_class and s.dept_id=t.dept_id 
-    and s.shift_date=t.shift_date where s.shift_type={shift_type} order by shift_date,dept_id,shift_type,shift_class
+    sql = f"""
+        with recursive date_range as (
+        select
+            '{start_date}' as shift_date
+        union all
+        select
+            date_add(shift_date, interval 1 day)
+        from
+            date_range
+        where
+            shift_date < '{end_date}' ),
+        merged_dept as 
+        (
+        select 1000148 as dept_a,1000148 as dept_m,1000149 as dept_n  #神外三
+        union all 
+        select 1000149 as dept_a,1000148 as dept_m,1000149 as dept_n  #神外四
+        union all 
+        select 93163 as dept_a,93163 as dept_m,1000701 as dept_n  #中医
+        union all 
+        select 1000701 as dept_a,93163 as dept_m,1000701 as dept_n  #风湿免疫
+        union all 
+        select 169 as dept_a,169 as dept_m,7905 as dept_n  #神内六
+        union all 
+        select 7905 as dept_a,169 as dept_m,7905 as dept_n  #中西医结合脑病
+        union all
+        select 94103 as dept_a,94103 as dept_m,1000406 as dept_n  #乳腺外
+        union all 
+        select 1000406 as dept_a,94103 as dept_m,1000406 as dept_n  #普外
+        union all 
+        select 1001120 as dept_a,1001120 as dept_m,1000965 as dept_n  #CCU
+        union all 
+        select 1000965 as dept_a,1001120 as dept_m,1000965 as dept_n  #AICU
+        ),
+        sign_t as (
+        select
+            date_range.shift_date,
+            substr(shift_classes, 1, 1) as shift_type,
+            substr(shift_classes, 3, 1) as shift_class,
+            dept_id,
+            case
+                when json_length(ssi.outgoinger) > 0 
+                then json_unquote(json_extract(ssi.outgoinger, concat('$[', json_length(ssi.outgoinger)-1, '].sign_time')))
+                else null
+            end as out_sign_time,
+            case
+                when json_length(ssi.incominger) > 0 
+                then json_unquote(json_extract(ssi.incominger, concat('$[', json_length(ssi.incominger)-1, '].sign_time')))
+                else null
+            end as in_sign_time,
+            archived_time
+        from
+            nsyy_gyl.scs_shift_info ssi
+        join date_range on
+            ssi.shift_date = date_range.shift_date
+        where ssi.dept_id not in (1000148,1000149,93163,1000701,169,7905,94103,1000406,1001120,1000965)
+        union all 
+        select
+            date_range.shift_date,
+            substr(shift_classes, 1, 1) as shift_type,
+            substr(shift_classes, 3, 1) as shift_class,
+            merged_dept.dept_a as dept_id,
+            case
+                when json_length(ssi.outgoinger) > 0 
+                then json_unquote(json_extract(ssi.outgoinger, concat('$[', json_length(ssi.outgoinger)-1, '].sign_time')))
+                else null
+            end as out_sign_time,
+            case
+                when json_length(ssi.incominger) > 0 
+                then json_unquote(json_extract(ssi.incominger, concat('$[', json_length(ssi.incominger)-1, '].sign_time')))
+                else null
+            end as in_sign_time,
+            archived_time
+        from
+            nsyy_gyl.scs_shift_info ssi
+        join merged_dept on ssi.dept_id=merged_dept.dept_m or ssi.dept_id=merged_dept.dept_n
+        join date_range on
+            ssi.shift_date = date_range.shift_date
+        where ssi.dept_id  in (1000148,1000149,93163,1000701,169,7905,94103,1000406,1001120,1000965)
+            ),
+            shift_time as (
+        select
+            date_range.shift_date,
+            ssc.shift_type,
+            ssc.dept_id,
+            ssc.dept_name,
+            1 shift_class,
+            str_to_date(concat(date_range.shift_date, ' ', substr(ssc.early_shift_slot, 7), ':00'),
+            '%Y-%m-%d %H:%i:%s') as slot
+        from
+            nsyy_gyl.scs_shift_config ssc
+        join date_range on
+            1 = 1
+        where
+            ssc.early_shift = 1
+            and ssc.shift_status = 1
+        union all
+        select
+            date_range.shift_date,
+            ssc.shift_type,
+            ssc.dept_id,
+            ssc.dept_name,
+            2 shift_class,
+            str_to_date(concat(date_range.shift_date, ' ', 
+            substr(ssc.middle_shift_slot, 7), ':00'),
+            '%Y-%m-%d %H:%i:%s') as slot
+        from
+            nsyy_gyl.scs_shift_config ssc
+        join date_range on
+            1 = 1
+        where
+            ssc.middle_shift = 1
+            and ssc.shift_status = 1
+        union all
+        select
+            date_range.shift_date,
+            ssc.shift_type,
+            ssc.dept_id,
+            ssc.dept_name,
+            3 shift_class,
+            str_to_date(concat(date_add(date_range.shift_date, interval 1 day), ' ', 
+            substr(ssc.night_shift_slot, 7), ':00'),
+            '%Y-%m-%d %H:%i:%s') as slot
+        from
+            nsyy_gyl.scs_shift_config ssc
+        join date_range on
+            1 = 1
+        where
+            ssc.night_shift = 1
+            and ssc.shift_status = 1)
+            select
+            s.shift_date,
+            s.dept_id,
+            s.dept_name,
+            s.shift_type,
+            s.shift_class,
+            s.slot,
+            t.out_sign_time,
+            case
+                when timestampdiff(hour,
+                s.slot,
+                t.out_sign_time)<3 then 1
+                else 0
+            end as out_valid_flg,
+            t.in_sign_time,
+            case
+                when timestampdiff(hour,
+                s.slot,
+                t.in_sign_time)<3 then 1
+                else 0
+            end as in_valid_flg,
+            t.archived_time,
+            case
+                when timestampdiff(hour,
+                s.slot,
+                t.archived_time)<3 then 1
+                else 0
+            end as archive_valid_flg,
+            case
+                when t.archived_time is not null then 1
+                else 0
+            end as archived,
+            case
+                when t.in_sign_time is not null then 1
+                else 0
+            end as in_signed,
+            case
+                when t.out_sign_time is not null then 1
+                else 0
+            end as out_signed
+        from
+            shift_time s
+        left join sign_t t on
+            s.shift_type = t.shift_type
+            and s.shift_class = t.shift_class
+            and s.dept_id = t.dept_id
+            and s.shift_date = t.shift_date
+        where
+            s.shift_type = {shift_type}
+        order by
+            shift_date,
+            dept_id,
+            shift_type,
+            shift_class
     """
 
     db = DbUtil(global_config.DB_HOST, global_config.DB_USERNAME, global_config.DB_PASSWORD,
