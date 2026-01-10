@@ -95,7 +95,7 @@ oracle_env = {
 
     # ythis 系统
     "ORACLE_YTHIS_USER": "ZLHIS",
-    "ORACLE_YTHIS_PASSWORD": "7EF8625",
+    "ORACLE_YTHIS_PASSWORD": ".7EF8625",
     "ORACLE_YTHIS_DSN": "192.168.200.254:1521/ytfy",
 
     # kfhis 系统
