@@ -19,3 +19,5 @@ shutdown_day = 9 * 24 * 60
 enable_auto_freeze = True
 
 redis_key = 'necessary_to_execute'
+
+super_vip = ['豫R339VA']

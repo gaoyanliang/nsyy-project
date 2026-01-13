@@ -542,6 +542,8 @@ def auto_fetch_data():
     all_cars = [car.get('plate_no') for car in all_cars if car.get('deleted') == 0]
 
     for car in vip_cars:
+        if car['plate_no'] in parking_config.super_vip:
+            continue
         car['violated'] = 0 if car['plate_no'] in all_cars else 1
         if car['violated'] == 1:
             msg = {"type": 111, "title": "异常车辆","time": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
@@ -605,6 +607,8 @@ def auto_fetch_data():
         case_sql = " CASE plate_no "
         for car in timeout_cars:
             if car.get('plate_no') not in vip_car_no_list:
+                continue
+            if car['plate_no'] in parking_config.super_vip:
                 continue
             case_sql += f" WHEN '{car.get('plate_no')}' THEN %s "
             park_time_list.append(car.get('park_time'))
