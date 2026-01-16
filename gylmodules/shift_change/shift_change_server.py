@@ -2,22 +2,18 @@ import json
 import logging
 import re
 import time
-import traceback
 import uuid
+import redis
 from collections import defaultdict
 from concurrent.futures import ThreadPoolExecutor
 from itertools import groupby
 from typing import Tuple, Dict, List
 
-import redis
-import requests
-
 from gylmodules import global_config, global_tools
-from gylmodules.composite_appointment import appt_config
 from gylmodules.shift_change import shift_change_config
 from gylmodules.shift_change.shift_change_config import PATIENT_TYPE_ORDER
 from gylmodules.utils.db_utils import DbUtil
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, date
 
 logger = logging.getLogger(__name__)
 pool = redis.ConnectionPool(host=global_config.REDIS_HOST, port=global_config.REDIS_PORT,
@@ -2441,6 +2437,8 @@ def query_shift_info(json_data):
     shift_type = json_data.get('shift_type')
     shift_classes = json_data.get('shift_classes')
     dept_id = json_data.get('dept_id')
+    if dept_id and str(dept_id) in ['1000965', '1001120']:
+        dept_id = 1001120
     dept_id = shift_change_config.doc_teshu_dept_map.get(str(dept_id)) \
         if str(dept_id) in shift_change_config.doc_teshu_dept_map else dept_id
 
@@ -2649,9 +2647,9 @@ def is_archiving_allowed(shift_date, shift_type, shift_classes, dept_id):
     sql = f"select incominger, archived from nsyy_gyl.scs_shift_info where shift_date = '{previous_shift_date}' " \
           f"and dept_id = {dept_id} and shift_classes = '{shift_type}-{previous_shift_classes}'"
     record = db.query_one(sql)
-    # if record and int(record.get('archived')) == 0:
-    #     del db
-    #     raise Exception('上一班未归档，请先归档')
+    if datetime.strptime(shift_date, "%Y-%m-%d").date() >= date(2026, 1, 12) and record and int(record.get('archived')) == 0:
+        del db
+        raise Exception('上一班未归档，请先归档')
 
     if not record or not record.get('incominger'):
         del db
@@ -2661,7 +2659,7 @@ def is_archiving_allowed(shift_date, shift_type, shift_classes, dept_id):
         # 肿瘤中心 需要两个签名
         incoming_list = record.get('incominger')
         incoming_list = json.loads(incoming_list)
-        if len(incoming_list) != 2:
+        if len(incoming_list) < 2:
             del db
             raise Exception('肿瘤中心交班接班需要两位医生的签名')
 
@@ -2676,7 +2674,7 @@ def is_archiving_allowed(shift_date, shift_type, shift_classes, dept_id):
         # 肿瘤中心 需要两个签名
         outgoing_list = record.get('outgoinger')
         outgoing_list = json.loads(outgoing_list)
-        if len(outgoing_list) != 2:
+        if len(outgoing_list) < 2:
             del db
             raise Exception('肿瘤中心交班接班需要两位医生的签名')
     del db

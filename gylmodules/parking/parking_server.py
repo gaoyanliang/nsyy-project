@@ -606,7 +606,7 @@ def auto_fetch_data():
         for car in timeout_cars:
             if car.get('plate_no') not in vip_car_no_list:
                 continue
-            if car['plate_no'] in parking_config.super_vip:
+            if car.get('plate_no') in parking_config.super_vip:
                 continue
             case_sql += f" WHEN '{car.get('plate_no')}' THEN %s "
             park_time_list.append(car.get('park_time'))
