@@ -51,8 +51,6 @@ def query_shift_change_date_by_key(json_data):
 
     # 可选
     dept_id = json_data.get('dept_id')
-    if dept_id and str(dept_id) in ['1000965', '1001120']:
-        dept_id = 1001120
     zhuyuanhao = json_data.get('zhuyuanhao')
     doctor_name = json_data.get('doctor_name')
     if not dept_id and not zhuyuanhao and not doctor_name:
@@ -108,8 +106,6 @@ def query_shift_change_date(json_data):
     shift_classes = json_data.get('shift_classes')
     shift_date = json_data.get('shift_date')
     dept_id = json_data.get('dept_id')
-    if str(dept_id) in ['1000965', '1001120']:
-        dept_id = 1001120
 
     db = DbUtil(global_config.DB_HOST, global_config.DB_USERNAME, global_config.DB_PASSWORD,
                 global_config.DB_DATABASE_GYL)
@@ -867,7 +863,7 @@ def handle_shoushu_and_yushu(reg_sqls, time_slot, dept_list, pid: str = None):
 """AICU 1000965 CCU 1001120  交班信息查询"""
 
 
-def aicu_shift_change(reg_sqls, shift_classes, time_slot, shoushu, flush: bool = False, pid: str = None):
+def aicu_shift_change(reg_sqls, shift_classes, time_slot, dept_id, flush: bool = False, pid: str = None):
     start_time = time.time()
     start = start_time
     shift_start, shift_end = get_complete_time_slot(time_slot)
@@ -876,10 +872,13 @@ def aicu_shift_change(reg_sqls, shift_classes, time_slot, shoushu, flush: bool =
     db = DbUtil(global_config.DB_HOST, global_config.DB_USERNAME, global_config.DB_PASSWORD,
                 global_config.DB_DATABASE_GYL)
     query_sql = f"select * from nsyy_gyl.cv_info where patient_type = 3 " \
-                f"and alertdt >= '{shift_start}' and alertdt <= '{shift_end}' and ward_id in (1000965, 1001120)"
+                f"and alertdt >= '{shift_start}' and alertdt <= '{shift_end}' and ward_id = {dept_id}"
     all_cvs = db.query_all(query_sql)
     del db
 
+    dept_name = "'CCU护理单元'"
+    if str(dept_id) == "1000965":
+        dept_name = "'AICU护理单元'"
     patient_count, siwang_patients, chuangwei_info1, chuangwei_info2, pg_patients, \
         ydhl_patients, shuhou_patients, chuyuan_ydhl, teshu_patients, youchuang_pg, youchuang_ydhl = [], [], [], [], [], [], [], [], [], [], []
     with ThreadPoolExecutor(max_workers=5) as executor:
@@ -889,23 +888,27 @@ def aicu_shift_change(reg_sqls, shift_classes, time_slot, shoushu, flush: bool =
                                              global_tools.call_new_his_pg, reg_sqls.get(5).get('sql_nhis')
                                              .replace("{start_time}", shift_start)
                                              .replace("{end_time}", shift_end)
+                                             .replace("{病区名称}", dept_name)
                                              .replace("--and", "and" if pid else "--and")
                                              .replace("{single_query}", pid if pid else "{single_query}")),
             "siwang_patients": executor.submit(timed_execution, "AICU/CCU 出院转出死亡患者情况 2 ",
                                                global_tools.call_new_his_pg, reg_sqls.get(14).get('sql_nhis')
                                                .replace("{start_time}", shift_start)
                                                .replace("{end_time}", shift_end)
+                                               .replace("{病区名称}", dept_name)
                                                .replace("--and", "and" if pid else "--and")
                                                .replace("{single_query}", pid if pid else "{single_query}")),
             "pg_patients": executor.submit(timed_execution, "AICU/CCU 护理单元患者情况 pg 5 ",
                                            global_tools.call_new_his_pg, reg_sqls.get(15).get('sql_base')
                                            .replace("{start_time}", shift_start)
                                            .replace("{end_time}", shift_end)
+                                           .replace("{病区名称}", dept_name)
                                            .replace("--and", "and" if pid else "--and")
                                            .replace("{single_query}", pid if pid else "{single_query}")),
             "ydhl_patients": executor.submit(timed_execution, "AICU/CCU 护理单元患者情况 ydhl 6 ",
                                              global_tools.call_new_his, reg_sqls.get(15).get('sql_ydhl')
                                              .replace("{start_time}", shift_start)
+                                             .replace("{病区名称}", dept_name)
                                              .replace("{end_time}", shift_end).replace("--and",
                                                                                        "and" if pid else "--and")
                                              .replace("{single_query}", pid if pid else "{single_query}"), 'ydhl',
@@ -914,6 +917,7 @@ def aicu_shift_change(reg_sqls, shift_classes, time_slot, shoushu, flush: bool =
             "teshu_patients": executor.submit(timed_execution, "AICU/CCU 护理单元特殊处理患者情况 teshu 7 ",
                                               global_tools.call_new_his, reg_sqls.get(26).get('sql_ydhl')
                                               .replace("{start_time}", shift_start)
+                                              .replace("{病区名称}", dept_name)
                                               .replace("{end_time}", shift_end).replace("--and",
                                                                                         "and" if pid else "--and")
                                               .replace("{single_query}", pid if pid else "{single_query}"), 'ydhl',
@@ -926,7 +930,7 @@ def aicu_shift_change(reg_sqls, shift_classes, time_slot, shoushu, flush: bool =
                                             .replace("--and", "and" if pid else "--and")
                                             .replace("{single_query}", pid if pid else "{single_query}")
                                             .replace("{病区id}",
-                                                     ', '.join(f"'{item}'" for item in ['1000965', '1001120']))),
+                                                     ', '.join(f"'{item}'" for item in [str(dept_id)]))),
             "youchuang_ydhl": executor.submit(timed_execution, "AICU/CCU 有创 ydhl 9",
                                               global_tools.call_new_his, reg_sqls.get(27).get('sql_ydhl')
                                               .replace("{start_time}", shift_start)
@@ -938,13 +942,10 @@ def aicu_shift_change(reg_sqls, shift_classes, time_slot, shoushu, flush: bool =
         }
         if int(shift_classes) == 3 and not flush:
             tasks["chuangwei_info1"] = executor.submit(timed_execution, "AICU/CCU 特殊患者床位信息 3 ",
-                                                       global_tools.call_new_his_pg, reg_sqls.get(8).get('sql_nhis'))
+                                                       global_tools.call_new_his_pg, reg_sqls.get(8).get('sql_nhis').replace("{病区名称}", dept_name))
             tasks["chuangwei_info2"] = executor.submit(timed_execution, "AICU/CCU 特殊患者床位信息 4 ",
-                                                       global_tools.call_new_his, reg_sqls.get(8).get('sql_ydhl'),
+                                                       global_tools.call_new_his, reg_sqls.get(8).get('sql_ydhl').replace("{病区名称}", dept_name),
                                                        'ydhl', None)
-            # if shoushu:
-            #     tasks["shuhou_patients"] = executor.submit(postoperative_situation, 3, ['1000965', '1001120'],
-            #                                                [item.get('bingrenzyid') for item in shoushu])
 
         # 获取结果（会自动等待所有任务完成）
         results = {name: future.result() for name, future in tasks.items()}
@@ -955,14 +956,13 @@ def aicu_shift_change(reg_sqls, shift_classes, time_slot, shoushu, flush: bool =
         chuangwei_info2 = results.get("chuangwei_info2", [])
         pg_patients = results["pg_patients"]
         ydhl_patients = results["ydhl_patients"]
-        # shuhou_patients = results.get("shuhou_patients", [])
         chuyuan_ydhl = results.get("chuyuan_ydhl")
         teshu_patients = results["teshu_patients"]
         youchuang_pg = results["youchuang_pg"]
         youchuang_ydhl = results.get("youchuang_ydhl")
 
     # 查询预术手术患者
-    yu_shoushus = handle_shoushu_and_yushu(reg_sqls, time_slot, ['1000965', '1001120'], pid)
+    yu_shoushus = handle_shoushu_and_yushu(reg_sqls, time_slot, [str(dept_id)], pid)
     if yu_shoushus:
         shoushu_count, yushu_count = 0, 0
         for item in yu_shoushus:
@@ -971,9 +971,9 @@ def aicu_shift_change(reg_sqls, shift_classes, time_slot, shoushu, flush: bool =
             else:
                 yushu_count += 1
         patient_count.append({"患者类别": '预术', "人数": yushu_count, "所在科室id": 0, "所在科室": '',
-                              "所在病区id": '1001120', "所在病区": 'AICU/CCU护理单元'})
+                              "所在病区id": str(dept_id), "所在病区": dept_name})
         patient_count.append({"患者类别": '手术', "人数": shoushu_count, "所在科室id": 0, "所在科室": '',
-                              "所在病区id": '1001120', "所在病区": 'AICU/CCU护理单元'})
+                              "所在病区id": str(dept_id), "所在病区": dept_name})
 
     if chuyuan_ydhl:
         for patient in siwang_patients:
@@ -1043,11 +1043,10 @@ def aicu_shift_change(reg_sqls, shift_classes, time_slot, shoushu, flush: bool =
 
     if all_cvs:
         patient_count.append({"患者类别": '危急值', "人数": len(all_cvs), "所在科室id": 0, "所在科室": '',
-                              "所在病区id": '1001120', "所在病区": 'AICU/CCU护理单元'})
+                              "所在病区id": str(dept_id), "所在病区": dept_name})
         patient_count = fill_missing_types(patient_count, shift_change_config.ward_people_count, 2)
 
-    all_patients = merge_patient_cv_data(all_cvs, all_patient_info, 2, ["1000965", "1001120"], pid)
-    # all_patients = merge_patient_shuhou_data(shuhou_patients, all_patients, shoushu)
+    all_patients = merge_patient_cv_data(all_cvs, all_patient_info, 2, [str(dept_id)], pid)
 
     # 合并特殊处理患者情况
     if teshu_patients:
@@ -2178,14 +2177,22 @@ def timed_shift_change():
                 except Exception as e:
                     logger.warning(f"重症 ICU {time_slot} 交接班异常: {e}")
 
-            if '1000965' in dept_list or '1001120' in dept_list:
-                # AICU CCU
+            if '1000965' in dept_list:
+                # AICU
                 try:
-                    # shoushu = [item for item in shoushu_patients if str(item.get('所在病区id')) in ('1000965', '1001120')]
                     shoushu = []
-                    aicu_shift_change(reg_sqls, shift_classes, time_slot, shoushu)
+                    aicu_shift_change(reg_sqls, shift_classes, time_slot, '1000965')
                 except Exception as e:
-                    logger.warning(f"AICU/CCU {time_slot} 交接班异常: {e}")
+                    logger.warning(f"AICU {time_slot} 交接班异常: {e}")
+
+            if '1001120' in dept_list:
+                # CCU
+                try:
+                    shoushu = []
+                    aicu_shift_change(reg_sqls, shift_classes, time_slot, '1001120')
+                except Exception as e:
+                    logger.warning(f"CCU {time_slot} 交接班异常: {e}")
+
 
             if '1001005' in dept_list:
                 # EICU 护理单元
@@ -2282,7 +2289,7 @@ def single_run_shift_change(json_data):
             if len(dept_list) == 1 and ('1000965' in dept_list or '1001120' in dept_list):
                 # AICU/CCU交接班
                 shoushu = []
-                aicu_shift_change(reg_sqls, shift_classes, time_slot, shoushu, True, patient_id)
+                aicu_shift_change(reg_sqls, shift_classes, time_slot, dept_list[0], True, patient_id)
 
                 redis_client.delete(f"timed_shift_change")
                 return
@@ -2437,8 +2444,6 @@ def query_shift_info(json_data):
     shift_type = json_data.get('shift_type')
     shift_classes = json_data.get('shift_classes')
     dept_id = json_data.get('dept_id')
-    if dept_id and str(dept_id) in ['1000965', '1001120']:
-        dept_id = 1001120
     dept_id = shift_change_config.doc_teshu_dept_map.get(str(dept_id)) \
         if str(dept_id) in shift_change_config.doc_teshu_dept_map else dept_id
 
@@ -2477,9 +2482,6 @@ def save_shift_info(json_data):
     dept_id = json_data.get('dept_id')
     dept_name = json_data.get('dept_name')
     sign_type = json_data.get('sign_type')
-
-    if str(dept_id) in ['1000965', '1001120']:
-        dept_id = 1001120
 
     dept_id = shift_change_config.doc_teshu_dept_map.get(str(dept_id)) \
         if str(dept_id) in shift_change_config.doc_teshu_dept_map else dept_id
@@ -2525,9 +2527,6 @@ def doctor_sign(json_data):
     user_name = json_data.get('user_name', '')
     # 签名列表
     sign_list = json_data.get('sign_list', [])
-
-    if str(dept_id) in ['1000965', '1001120']:
-        dept_id = 1001120
 
     dept_id = shift_change_config.doc_teshu_dept_map.get(str(dept_id)) \
         if str(dept_id) in shift_change_config.doc_teshu_dept_map else dept_id
@@ -2766,10 +2765,6 @@ def shift_change_report(start_date, end_date, shift_type):
         select 94103 as dept_a,94103 as dept_m,1000406 as dept_n  #乳腺外
         union all 
         select 1000406 as dept_a,94103 as dept_m,1000406 as dept_n  #普外
-        union all 
-        select 1001120 as dept_a,1001120 as dept_m,1000965 as dept_n  #CCU
-        union all 
-        select 1000965 as dept_a,1001120 as dept_m,1000965 as dept_n  #AICU
         ),
         sign_t as (
         select
@@ -2792,7 +2787,7 @@ def shift_change_report(start_date, end_date, shift_type):
             nsyy_gyl.scs_shift_info ssi
         join date_range on
             ssi.shift_date = date_range.shift_date
-        where ssi.dept_id not in (1000148,1000149,93163,1000701,169,7905,94103,1000406,1001120,1000965)
+        where ssi.dept_id not in (1000148,1000149,93163,1000701,169,7905,94103,1000406)
         union all 
         select
             date_range.shift_date,
@@ -2815,7 +2810,7 @@ def shift_change_report(start_date, end_date, shift_type):
         join merged_dept on ssi.dept_id=merged_dept.dept_m or ssi.dept_id=merged_dept.dept_n
         join date_range on
             ssi.shift_date = date_range.shift_date
-        where ssi.dept_id  in (1000148,1000149,93163,1000701,169,7905,94103,1000406,1001120,1000965)
+        where ssi.dept_id  in (1000148,1000149,93163,1000701,169,7905,94103,1000406)
             ),
             shift_time as (
         select
