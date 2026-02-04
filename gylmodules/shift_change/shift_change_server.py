@@ -194,7 +194,7 @@ def query_shift_change_date(json_data):
     for key, values in patient_count.items():
         if isinstance(values, dict) and values:
             for k, v in values.items():
-                if k in ['特护', '一级护理', '病危', '病重', '现有']:
+                if k in ['特护', '一级护理', '病危', '病重', '现有', '预术']:
                     total[k] = v
                 else:
                     total[k] = total.get(k, 0) + v
