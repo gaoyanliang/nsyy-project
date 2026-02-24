@@ -728,8 +728,8 @@ def create_cv_by_system(json_data, cv_source):
     if redis_client.hexists(cv_config.RUNNING_CVS_REDIS_KEY, json_data.get('RESULTALERTID') + '_' + str(cv_source)):
         return
 
-    cvd = {'dept_id': json_data.get('REQ_DEPTNO')}
-    if cvd['dept_id'] and not cvd['dept_id'].isdigit():
+    cvd = {'dept_id': json_data.get('REQ_DEPTNO'), 'ward_id': json_data.get('REQ_WARDNO')}
+    if (cvd['dept_id'] and not cvd['dept_id'].isdigit()) or (cvd['ward_id'] and not cvd['ward_id'].isdigit()):
         # print('当前危机值病人科室不是数字，跳过。 ' + str(json_data))
         return
     # 如果是康复中医院，跳过(不是总院的科室，不处理)  高压氧 康复医学科病区 过滤 2025-04-02 17:30
