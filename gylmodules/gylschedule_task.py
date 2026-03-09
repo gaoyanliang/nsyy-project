@@ -27,6 +27,7 @@ from gylmodules.utils.db_utils import DbUtil
 from gylmodules.utils.event_loop import GlobalEventLoop
 from gylmodules.workstation.mail.mail_server import cache_flags, close_idle_connections
 from gylmodules.workstation.message.message_server import flush_msg_cache, batch_flush_worker
+from gylmodules.zhuisuma.zhuisuma_server import auto_query_code
 
 pool = redis.ConnectionPool(host=global_config.REDIS_HOST, port=global_config.REDIS_PORT,
                             db=global_config.REDIS_DB, decode_responses=True)
@@ -316,9 +317,9 @@ def schedule_task():
     if global_config.schedule_task['appt_daily']:
         run_time = datetime.now() + timedelta(seconds=15)
         gylmodule_scheduler.add_job(run_everyday, trigger='date', run_date=run_time)
-        gylmodule_scheduler.add_job(update_today_doc_info, 'cron', hour=1, minute=1, id='update_today_doc_info')
-        gylmodule_scheduler.add_job(update_appt_capacity, 'cron', hour=1, minute=5, id='update_appt_capacity')
-        gylmodule_scheduler.add_job(run_everyday, 'cron', hour=1, minute=10, id='appt_daily')
+        gylmodule_scheduler.add_job(update_today_doc_info, 'cron', hour=4, minute=30, id='update_today_doc_info')
+        gylmodule_scheduler.add_job(update_appt_capacity, 'cron', hour=4, minute=35, id='update_appt_capacity')
+        gylmodule_scheduler.add_job(run_everyday, 'cron', hour=4, minute=50, id='appt_daily')
         gylmodule_scheduler.add_job(do_update, trigger='interval', seconds=5*60, coalesce=True, id='do_update_doc')
 
     logger.info("3. 消息模块定时任务 ")
@@ -352,6 +353,10 @@ def schedule_task():
     # 定时刷新token
     gylmodule_scheduler.add_job(flush_token, trigger='interval', seconds=20 * 60)
     gylmodule_scheduler.add_job(auto_fetch_eye_data, trigger='interval', seconds=10 * 60)
+
+    logger.info("10. 追溯码定时任务 ")
+    gylmodule_scheduler.add_job(auto_query_code, trigger='interval', seconds=1 * 60)
+
 
     # ======================  Start ======================
     gylmodule_scheduler.start()
