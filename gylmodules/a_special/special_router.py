@@ -1,9 +1,17 @@
+import base64
+import hmac
 import json
+import os
+import time
+import uuid
 from datetime import datetime
+import hashlib
 
-from flask import Blueprint
+import requests
+from flask import Blueprint, request
 
 from gylmodules import global_config, global_tools
+from gylmodules.a_special import special_server
 from gylmodules.global_tools import api_response
 from gylmodules.utils.db_utils import DbUtil
 
@@ -92,13 +100,246 @@ def surgical_transfer_data(json_data):
 
 
 
+@special_system.route('/invoice_verification', methods=['POST', 'GET'])
+@api_response
+def invoice_verification_func(json_data):
+    return invoice_verification(json_data)
 
 
 
+def invoice_verification(param):
+    """发票核验，支持两种方式，1.通过发票号码+开票时间+金额查验 2.通过扫描二维码查验"""
+    AppKey = "5CC6F31EFCBE4046ACCBA38C671C3005"
+    AppSecret = "bf377d065b9fe182c5cf6d40c687691f"
+
+    url = "https://open.cs.zbj.com/v2/invoice/query"
+    if 'code' in param:
+        url = "https://open.cs.zbj.com/v2/invoice/qrcode"
+    headers = {"X-CS-Authorization": "HMAC-SHA256", "X-CS-Key": AppKey, "X-CS-Nonce": str(uuid.uuid4()),
+        "X-CS-Timestamp": str(int(time.time())), "X-CS-Version": "v2"}
+
+    signList = ['POST']
+    for key, val in headers.items():
+        signList.append(key + '=' + val)
+
+    signStr = '|'.join(signList)
+    signature = base64.b64encode(hmac.new(bytes(AppSecret, 'utf-8'), bytes(signStr, 'utf-8'), hashlib.sha256).digest())
+    headers['X-CS-Signature'] = str(signature, 'utf-8')
+
+    retry_times = 3
+    while retry_times > 0:
+        try:
+            with requests.Session() as session:
+                r = session.post(url, headers=headers, json=param, timeout=10)
+                r.raise_for_status()
+                data = r.json()
+            if data.get('success', False):
+                return invoice_to_cn(data.get('data', {}))
+        except Exception:
+            pass
+        retry_times -= 1
+    return None
+
+
+FIELD_MAP = {
+    "fplx": "发票类型",
+    "fpdm": "发票代码",
+    "fphm": "发票号码",
+    "kprq": "开票日期",
+
+    "xfMc": "销售方名称",
+    "xfNsrsbh": "销售方纳税人识别号",
+    "xfContact": "销售方联系方式",
+    "xfBank": "销售方开户行及账号",
+
+    "gfMc": "购方名称",
+    "gfNsrsbh": "购方纳税人识别号",
+    "gfContact": "购方联系方式",
+    "gfBank": "购方开户行及账号",
+
+    "code": "发票校验码",
+    "num": "发票机器码",
+
+    "del": "发票状态",
+    "taxamount": "税额合计",
+    "goodsamount": "不含税金额合计",
+    "sumamount": "价税合计",
+    "quantityAmount": "数量合计",
+
+    "isGoodsList": "是否含销货清单",
+    "queryCount": "税局查验次数",
+    "updateTime": "更新时间",
+    "tspzlx": "特殊票种类型",
+    "remark": "备注",
+
+    "sfCode": "省份代码",
+    "sfMc": "省份名称"
+}
+
+
+GOODS_FIELD_MAP = {
+    "name": "商品名称",
+    "spec": "规格型号",
+    "unit": "单位",
+    "amount": "数量",
+    "priceUnit": "单价",
+    "priceSum": "金额",
+    "taxRate": "税率",
+    "taxSum": "税额",
+    "productCode": "商品分类编码"
+}
+
+INVOICE_TYPE_MAP = {
+    # —— 传统增值税发票 ——
+    "01": "增值税专用发票",
+    "02": "货物运输业增值税专用发票",
+    "03": "机动车销售统一发票",
+    "04": "增值税普通发票",
+    "08": "增值税电子专用发票",
+    "10": "增值税电子普通发票",
+    "11": "增值税普通发票（卷票）",
+    "14": "增值税电子普通发票（通行费）",
+    "15": "二手车销售统一发票",
+
+    # —— 全电发票（数电发票） ——
+    "20": "电子发票（增值税专用发票）",
+    "21": "电子发票（普通发票）",
+    "72": "电子发票（通行费）",
+    "83": "铁路电子客票",
+    "61": "航空运输电子客票行程单"
+}
+
+
+"""
+将发票接口返回的 JSON 转为中文字段 JSON
+"""
+
+
+def invoice_to_cn(data: dict) -> dict:
+
+    result = {}
+
+    # 一、普通字段映射
+    for eng_key, cn_key in FIELD_MAP.items():
+        if eng_key in data:
+            result[cn_key] = data.get(eng_key)
+
+    # 二、商品明细处理
+    goods_list = data.get("goodsData", [])
+    cn_goods_list = []
+
+    for item in goods_list:
+        cn_item = {}
+        for eng_key, cn_key in GOODS_FIELD_MAP.items():
+            if eng_key in item:
+                cn_item[cn_key] = item.get(eng_key)
+        cn_goods_list.append(cn_item)
+
+    if cn_goods_list:
+        result["商品明细"] = cn_goods_list
+
+    if '发票类型' in result:
+        result['发票类型'] = INVOICE_TYPE_MAP.get(result['发票类型'], result['发票类型'])
+
+    return result
 
 
 
+# parms = {
+#     "fphm": "25442000000742066777",
+#     "kprq": "20251126",
+#     "noTaxAmount": "24.65",
+#     "jshj": "24.90"
+# }
+#
+#
+# parms = {
+#     "code": "01,32,,25442000000742066777,24.90,20251126,,70EC"
+# }
+#
+#
+# data = invoice_verification(parms)
+# print(data)
 
 
 
+"""查询入院三天未提交病案首页的患者列表"""
+
+
+@special_system.route('/unsubmitted', methods=['POST', 'GET'])
+@api_response
+def unsubmitted():
+    return special_server.query_unpage_patients()
+
+
+
+"""查询前一天 病案首页有变化的患者列表"""
+
+
+@special_system.route('/modified-today', methods=['POST', 'GET'])
+@api_response
+def modified_today():
+    return special_server.query_dip_patients()
+
+
+"""刷新病人pid信息"""
+
+@special_system.route('/patients_update', methods=['POST', 'GET'])
+@api_response
+def patients_update(json_data):
+    return special_server.refresh_patient_dip_info(json_data.get('patientId'))
+
+
+
+"""上传税务系统登陆二维码"""
+
+@special_system.route('/tax_login_qrcode_upload', methods=['POST', 'GET'])
+def tax_login_qrcode_update():
+    if "file" not in request.files:
+        return {"code": 50000, "data": '', "res": "没有文件"}
+
+    file = request.files["file"]
+    save_path = "/Users/gaoyanliang/nsyy/nsyy-project/gylmodules/a_special/upload" if global_config.run_in_local else "/home/gyl/gyl_server/tax/login"
+    save_path = os.path.join(save_path, file.filename)
+
+    with open(save_path, "wb") as f:
+        content = file.read()
+        f.write(content)
+
+    return {
+        "code": 0,
+        "msg": "success",
+        "path": save_path
+    }
+
+
+@special_system.route('/tax_fapiao', methods=['POST', 'GET'])
+def tax_fapiao():
+    if "file" not in request.files:
+        return {"code": 50000, "data": '', "res": "没有文件"}
+
+    file = request.files["file"]
+    save_path = f"/Users/gaoyanliang/nsyy/nsyy-project/gylmodules/a_special/upload/{datetime.today().strftime('%Y%m%d')}" if global_config.run_in_local else "/home/gyl/gyl_server/tax/fapiao/{datetime.today().strftime('%Y%m%d')}"
+
+    # 确保目录存在
+    if not os.path.exists(save_path):
+        os.makedirs(save_path)
+
+    save_path = os.path.join(save_path, file.filename)
+
+    with open(save_path, "wb") as f:
+        content = file.read()
+        f.write(content)
+
+    return {
+        "code": 0,
+        "msg": "success",
+        "path": save_path
+    }
+
+
+@special_system.route('/ocr', methods=['POST', 'GET'])
+@api_response
+def ocr(json_data):
+    return special_server.ocr_try_variants(json_data.get('img_b64'))
 
