@@ -4,6 +4,7 @@ from datetime import datetime
 
 from flask import Blueprint, jsonify, request
 
+from gylmodules import global_tools
 from gylmodules.composite_appointment import ca_server, sched_manage, update_doc_scheduling
 from gylmodules.global_tools import api_response
 
@@ -132,6 +133,7 @@ def call_patient(json_data):
     socket_data = {"msg": '请患者 {} 到 {} 诊室就诊'.format(json_data.get('name'), room), "type": 200}
     data = {'socket_data': socket_data, 'pers_id': [socket_id], 'socketd': 'w_site',
             "type": 200, "timer": datetime.now().strftime("%Y-%m-%d %H:%M:%S")}
+    global_tools.socket_push('综合预约呼叫患者', data)
 
 
 """
