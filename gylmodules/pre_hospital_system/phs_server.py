@@ -22,19 +22,42 @@ def patient_registration(json_data):
     db = DbUtil(global_config.DB_HOST, global_config.DB_USERNAME, global_config.DB_PASSWORD,
                 global_config.DB_DATABASE_GYL)
 
-    if 'laidiansj' in json_data and not json_data.get('laidiansj'):
-        json_data.pop('laidiansj')
-    if 'paichesj' in json_data and not json_data.get('paichesj'):
-        json_data.pop('paichesj')
+    # 增强字段清洗逻辑
+    datetime_fields = ['laidiansj', 'paichesj']
+    for field in datetime_fields:
+        if field in json_data:
+            value = json_data.get(field, '')
+            # 检查是否为有效日期时间
+            if not value or value == '' or 'NaN' in str(value):
+                json_data.pop(field)
 
     json_data['create_at'] = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-    insert_sql = f"INSERT INTO nsyy_gyl.phs_patient_registration ({','.join(json_data.keys())}) " \
-                 f"VALUES {str(tuple(json_data.values()))}"
-    last_rowid = db.execute(sql=insert_sql, need_commit=True)
+
+    # 使用参数化查询防止SQL注入
+    columns = ','.join(json_data.keys())
+    placeholders = ','.join(['%s'] * len(json_data))
+    insert_sql = f"INSERT INTO nsyy_gyl.phs_patient_registration ({columns}) VALUES ({placeholders})"
+
+    try:
+        last_rowid = db.execute(sql=insert_sql, args=tuple(json_data.values()), need_commit=True)
+    except Exception as e:
+        del db
+        logger.error(f"执行SQL: {insert_sql}")
+        logger.error(f"参数: {json_data.values()}")
+        raise Exception(f"急诊患者登记失败: {str(e)}")
+
     if last_rowid == -1:
         del db
-        raise Exception("急诊患者登记失败 sql = ", insert_sql)
+        raise Exception("急诊患者登记失败")
     del db
+
+    # insert_sql = f"INSERT INTO nsyy_gyl.phs_patient_registration ({','.join(json_data.keys())}) " \
+    #              f"VALUES {str(tuple(json_data.values()))}"
+    # last_rowid = db.execute(sql=insert_sql, need_commit=True)
+    # if last_rowid == -1:
+    #     del db
+    #     raise Exception("急诊患者登记失败 sql = ", insert_sql)
+    # del db
 
 
 def delete_patient_registration(register_id):
