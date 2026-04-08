@@ -1,4 +1,5 @@
 import base64
+import errno
 import hmac
 import json
 import os
@@ -7,6 +8,7 @@ import uuid
 from datetime import datetime
 import hashlib
 
+import paramiko
 import requests
 from flask import Blueprint, request
 
@@ -299,9 +301,19 @@ def tax_login_qrcode_update():
         return {"code": 50000, "data": '', "res": "没有文件"}
 
     file = request.files["file"]
-    save_path = "/Users/gaoyanliang/nsyy/nsyy-project/gylmodules/a_special/upload" if global_config.run_in_local else "/home/gyl/gyl_server/tax/login"
-    save_path = os.path.join(save_path, file.filename)
 
+    # 构建保存目录
+    if global_config.run_in_local:
+        save_dir = "/Users/gaoyanliang/nsyy/nsyy-project/gylmodules/a_special/upload"
+    else:
+        save_dir = "/home/gyl/gyl_server/tax/login"
+
+    # 确保目录存在
+    if not os.path.exists(save_dir):
+        os.makedirs(save_dir, exist_ok=True)  # exist_ok=True 避免并发问题
+
+    # 构建完整保存路径
+    save_path = os.path.join(save_dir, file.filename)
     with open(save_path, "wb") as f:
         content = file.read()
         f.write(content)
@@ -319,23 +331,63 @@ def tax_fapiao():
         return {"code": 50000, "data": '', "res": "没有文件"}
 
     file = request.files["file"]
-    save_path = f"/Users/gaoyanliang/nsyy/nsyy-project/gylmodules/a_special/upload/{datetime.today().strftime('%Y%m%d')}" if global_config.run_in_local else "/home/gyl/gyl_server/tax/fapiao/{datetime.today().strftime('%Y%m%d')}"
+    if global_config.run_in_local:
+        save_path = f"/Users/gaoyanliang/nsyy/nsyy-project/gylmodules/a_special/upload/{datetime.now().month}"
+        # 确保目录存在
+        if not os.path.exists(save_path):
+            os.makedirs(save_path)
 
-    # 确保目录存在
-    if not os.path.exists(save_path):
-        os.makedirs(save_path)
+        save_path = os.path.join(save_path, file.filename)
+        with open(save_path, "wb") as f:
+            content = file.read()
+            f.write(content)
 
-    save_path = os.path.join(save_path, file.filename)
+        return {
+            "code": 0,
+            "msg": "success",
+            "path": save_path
+        }
 
-    with open(save_path, "wb") as f:
-        content = file.read()
-        f.write(content)
+    # 远程目录（按月份）
+    remote_dir = f"/home/gyl/tax_fapiao/{datetime.now().month}"
+    remote_path = f"{remote_dir}/{file.filename}"
+    # 远程服务器配置
+    remote_host = "192.168.9.75"
+    remote_user = "gyl"
+    remote_pass = "nsyy0601."
+    try:
+        # 建立 SFTP 连接
+        transport = paramiko.Transport((remote_host, 22))
+        transport.connect(username=remote_user, password=remote_pass)
+        sftp = paramiko.SFTPClient.from_transport(transport)
 
-    return {
-        "code": 0,
-        "msg": "success",
-        "path": save_path
-    }
+        # 确保远程目录存在
+        try:
+            sftp.stat(remote_dir)
+        except IOError as e:
+            if e.errno == errno.ENOENT:
+                sftp.mkdir(remote_dir)
+            else:
+                raise
+
+        # 上传文件
+        sftp.putfo(file.stream, remote_path)
+
+        sftp.close()
+        transport.close()
+
+        return {
+            "code": 0,
+            "msg": "success",
+            "path": remote_path
+        }
+
+    except Exception as e:
+        return {
+            "code": 50001,
+            "msg": "文件上传失败",
+            "error": str(e)
+        }
 
 
 @special_system.route('/ocr', methods=['POST', 'GET'])
