@@ -22,6 +22,18 @@ CV_SOURCE_XINDIAN_SYSTEM = 4
 CV_SOURCE_XUETANG_SYSTEM = 5
 CV_SOURCE_MANUAL = 10
 
+CV_SOURCE_XINDIAN_TESHU_SYSTEM = 7
+TESHU_XINDIAN = ["ST段弓背样改变", "Q-TC大于480ms", "频发室性早搏", "二度及以上房室传导阻滞", "T波高尖", "室速"]
+# 20260408 收信息科苏里需求： 院长赵博让将以下类型心电结果 作为危急值推送给科室，但是这些危急值不体现在报表上，也不需要回传给his， 但是体现在交接班上
+# 心电结果包含以下内容 (内容是模版 不需要处理大小写)：
+# 1.ST段弓背样改变
+# 2.Q-TC大于480ms
+# 3.频发室性早搏
+# 4.二度及以上房室传导阻滞
+# 5.T波高尖
+# 6.室速
+
+
 cv_manual_default_treat_id = "120"
 
 

@@ -32,11 +32,7 @@ cv_id_lock = threading.Lock()
 
 logger = logging.getLogger(__name__)
 
-"""
-调用第三方系统获取数据
-"""
-
-
+"""调用第三方系统获取数据"""
 def call_third_systems_obtain_data(type: str, param: dict):
     data = []
     if global_config.run_in_local:
@@ -91,11 +87,7 @@ def call_third_systems_obtain_data(type: str, param: dict):
     return data
 
 
-"""
-操作缓存
-"""
-
-
+"""操作缓存"""
 def write_cache(key, value):
     redis_client = redis.Redis(connection_pool=pool)
     redis_client.hset(cv_config.RUNNING_CVS_REDIS_KEY, key, json.dumps(value, default=str))
@@ -115,11 +107,8 @@ def delete_cache(key):
     return redis_client.hdel(cv_config.RUNNING_CVS_REDIS_KEY, key)
 
 
+"""缓存所有站点信息"""
 def cache_all_site_and_timeout():
-    """
-    缓存所有站点信息
-    :return:
-    """
     db = DbUtil(global_config.DB_HOST, global_config.DB_USERNAME, global_config.DB_PASSWORD,
                 global_config.DB_DATABASE_GYL)
     redis_client = redis.Redis(connection_pool=pool)
@@ -154,15 +143,14 @@ def cache_all_site_and_timeout():
     redis_client.set(cv_config.TIMEOUT_REDIS_KEY['total'], timeout_sets.get('total_timeout'))
 
 
+"""
+启动时加载数据
+1. 超时配置
+2. 所有部门信息
+3. 所有未完成的危机值
+4. 缓存所有站点信息
+"""
 def pull_running_cv():
-    """
-    启动时加载数据
-    1. 超时配置
-    2. 所有部门信息
-    3. 所有未完成的危机值
-    4. 缓存所有站点信息
-    :return:
-    """
     # 清空危机值相关的缓存, 重新加载数据
     redis_client = redis.Redis(connection_pool=pool)
     keys = redis_client.keys('CV_*')
@@ -215,11 +203,8 @@ def pull_running_cv():
 pull_running_cv()
 
 
+"""查询所有运行中的危机值id列表"""
 def get_running_cvs():
-    """
-    查询所有运行中的危机值id列表
-    :return:
-    """
     redis_client = redis.Redis(connection_pool=pool)
     processing_cvs = redis_client.hkeys(cv_config.RUNNING_CVS_REDIS_KEY) or []
     running_ids = {}
@@ -336,14 +321,13 @@ def get_running_cvs():
     return running_ids, query_sql, systeml
 
 
+"""
+创建危急值记录
+1. 区分出新增危急值/作废危急值
+2. 对于新增的危急值，需要根据住院号匹配手工上报的危急值
+心电类型需要特殊处理，具体看 cv_config 
+"""
 def create_cv(cvd):
-    """
-    创建危急值记录
-    1. 区分出新增危急值/作废危急值
-    2. 对于新增的危急值，需要根据住院号匹配手工上报的危急值
-    :param cvd:
-    :return:
-    """
     redis_client = redis.Redis(connection_pool=pool)
     running_cvs = redis_client.hkeys(cv_config.RUNNING_CVS_REDIS_KEY)
 
@@ -430,6 +414,8 @@ def create_cv(cvd):
 
 def manual_cv_feedback(record):
     try:
+        if int(record.get('cv_source')) == cv_config.CV_SOURCE_XINDIAN_TESHU_SYSTEM:
+            return
         if int(record.get('state')) == cv_config.DOCTOR_HANDLE_STATE:
             # 如果危机值已经处理，回写数据（有可能手工上报时没有正确填写住院号，导致数据回写失败，如果不再次回写，会一直抓取该条危急值）
             handle_doc = record.get('handle_doctor_name')
@@ -443,15 +429,8 @@ def manual_cv_feedback(record):
         logger.error(f"合并危急值时，回写数据异常：record = {record}, {e}")
 
 
+"""作废危急值"""
 def invalid_crisis_value(cv_ids, cv_source, invalid_info, invalid_remote: bool = False):
-    """
-    作废危急值
-    :param cv_ids:
-    :param cv_source:
-    :param invalid_info:
-    :param invalid_remote:
-    :return:
-    """
     # 从内存中移除
     del_keys = []
     for cv_id in cv_ids:
@@ -487,13 +466,8 @@ def invalid_crisis_value(cv_ids, cv_source, invalid_info, invalid_remote: bool =
             logger.error(f'send_to_his_invalid 作废危急值同步 his 失败 cv_id = {cv_id}, {e}')
 
 
+"""作废远程危机值(主要针对仅需要上报一次的危机值)"""
 def invalid_remote_crisis_value(cv_id, cv_source):
-    """
-    作废远程危机值(主要针对仅需要上报一次的危机值)
-    :param cv_id:
-    :param cv_source:
-    :return:
-    """
     try:
         table_name = "NS_EXT.PACS危急值上报表"
         if int(cv_source) == 2:
@@ -509,7 +483,6 @@ def invalid_remote_crisis_value(cv_id, cv_source):
 
 
 """通过 socket 向危急值上报人员推送消息"""
-
 def notiaction_alert_man(msg: str, pers_id, pers_name):
     if not int(pers_id):
         return
@@ -526,7 +499,7 @@ def notiaction_alert_man(msg: str, pers_id, pers_name):
         logger.error(f"通知危急值上报人员时出现异常, pers_id = {pers_id}, {e}")
 
 
-# 查询患者最近半小时内是否上报过危急值
+"""查询患者最近半小时内是否上报过危急值"""
 def have_cv_been_reported_recently(patient_name, patient_id):
     db = DbUtil(global_config.DB_HOST, global_config.DB_USERNAME, global_config.DB_PASSWORD,
                 global_config.DB_DATABASE_GYL)
@@ -545,18 +518,42 @@ def have_cv_been_reported_recently(patient_name, patient_id):
     return False, ''
 
 
+"""特殊处理心电危急值
+# 20260408 收信息科苏里需求： 院长赵博让将以下类型心电结果 作为危急值推送给科室，但是这些危急值不体现在报表上，也不需要回传给his， 但是体现在交接班上
+# 心电结果包含以下内容 (内容是模版 不需要处理大小写)：
+# 1.ST段弓背样改变
+# 2.Q-TC大于480ms
+# 3.频发室性早搏
+# 4.二度及以上房室传导阻滞
+# 5.T波高尖
+# 6.室速
+"""
+def special_treatment_xindian_cv(cvd):
+    try:
+        try:
+            cv_type = int(cvd.get('cv_type', 0))
+        except (ValueError, TypeError):
+            cv_type = 0
+
+        if (cvd.get('cv_source', 0) == cv_config.CV_SOURCE_XINDIAN_SYSTEM or cv_type == cv_config.CV_SOURCE_XINDIAN_SYSTEM) and cvd.get('cv_result', ''):
+            cv_result = cvd.get('cv_result', '')
+            if any(item in cv_result for item in cv_config.TESHU_XINDIAN):
+                cvd['cv_source'] = cv_config.CV_SOURCE_XINDIAN_TESHU_SYSTEM
+    except Exception as e:
+        logger.warning(f"处理特殊心电时异常, {e}")
+    return cvd
+
+
+"""
+手工上报危急值
+# 必填字段
+# type 危急值来源 2 3 4 5
+# 上报人信息 alertman 员工号
+# 主治医生 req_docno
+# 科室和病区 dept_id dept_name ward_id ward_name
+# 危急值内容 cv_name cv_result cv_unit cv_ref cv_flag
+"""
 def manual_report_cv(json_data):
-    """
-    手工上报危急值
-    # 必填字段
-    # type 危急值来源 2 3 4 5
-    # 上报人信息 alertman 员工号
-    # 主治医生 req_docno
-    # 科室和病区 dept_id dept_name ward_id ward_name
-    # 危急值内容 cv_name cv_result cv_unit cv_ref cv_flag
-    :param json_data:
-    :return:
-    """
     # 查询最近 10 分钟内 同一个人同一个危机值 是否有相同的记录
     query_sql = f"select 1 from nsyy_gyl.cv_info where time >= DATE_SUB(NOW(), INTERVAL 10 MINUTE) " \
                 f"and cv_type = {int(json_data.get('cv_type'))} " \
@@ -678,6 +675,10 @@ def manual_report_cv(json_data):
 
     # 手工上报 报告时间 = 上报时间
     json_data['jianchasj'] = json_data.get('alertdt')
+
+    # 特殊处理心电危急值
+    json_data = special_treatment_xindian_cv(json_data)
+
     # 插入危机值
     fileds = ','.join(json_data.keys())
     args = str(tuple(json_data.values()))
@@ -715,13 +716,8 @@ def manual_report_cv(json_data):
     return False, None
 
 
+"""系统创建危机值"""
 def create_cv_by_system(json_data, cv_source):
-    """
-    系统创建危机值
-    :param json_data:
-    :param cv_source:
-    :return:
-    """
     redis_client = redis.Redis(connection_pool=pool)
 
     # 判断相同 cv_id cv_source 的危机值是否存在
@@ -875,6 +871,10 @@ def create_cv_by_system(json_data, cv_source):
         cvd['rpt_item_id'] = json_data.get('RPT_ITEMID', '0') if json_data.get('RPT_ITEMID') else '0'
     if json_data.get('SPECIMEN_NAME'):
         cvd['specimen_name'] = json_data.get('SPECIMEN_NAME', '') if json_data.get('SPECIMEN_NAME') else ''
+
+    # 特殊处理心电危急值
+    cvd = special_treatment_xindian_cv(cvd)
+
     db = DbUtil(global_config.DB_HOST, global_config.DB_USERNAME, global_config.DB_PASSWORD,
                 global_config.DB_DATABASE_GYL)
     # 插入危机值
@@ -884,7 +884,7 @@ def create_cv_by_system(json_data, cv_source):
     last_rowid = db.execute(insert_sql, need_commit=True)
     if last_rowid == -1:
         del db
-        raise Exception(datetime.now(), "系统危急值入库失败! ")
+        raise Exception(f" {datetime.now().strftime('%Y-%m-%d %H:%M:%S')} 系统危急值入库失败! ")
 
     # 发送危机值 直接通知医生和护士
     msg = '[{} - {} - {} - {}]'.format(cvd.get('patient_name', 'unknown'), cvd.get('req_docno', 'unknown'),
@@ -909,16 +909,9 @@ def create_cv_by_system(json_data, cv_source):
 
 """
 查询危机值
+type =1 未处理, type =2 已处理, type = 3 总流程超时, type = 4 所有状态, type = 5 已作废, type=6 所有存在备注待质控的危急值
 """
-
-
 def get_cv_list(json_data):
-    """
-    查询危机值
-    type =1 未处理, type =2 已处理, type = 3 总流程超时, type = 4 所有状态, type = 5 已作废, type=6 所有存在备注待质控的危急值
-    :param json_data:
-    :return:
-    """
     db = DbUtil(global_config.DB_HOST, global_config.DB_USERNAME, global_config.DB_PASSWORD,
                 global_config.DB_DATABASE_GYL)
 
@@ -1014,13 +1007,8 @@ def get_cv_list(json_data):
     return cv_list, total
 
 
+"""查询处理中的危机值并通知"""
 def query_process_cv_and_notice(dept_id, ward_id):
-    """
-    查询处理中的危机值并通知
-    :param dept_id:
-    :param ward_id:
-    :return:
-    """
     db = DbUtil(global_config.DB_HOST, global_config.DB_USERNAME, global_config.DB_PASSWORD,
                 global_config.DB_DATABASE_GYL)
 
@@ -1055,13 +1043,8 @@ def query_process_cv_and_notice(dept_id, ward_id):
                        msgs) + ' <br> <br> <br> 点击 [确认] 跳转至危急值页面')
 
 
+"""推送弹框通知 type = 1 通知护士， type = 2 通知医生"""
 def write_alert_fail_log(fail_ips, fail_log):
-    """
-    推送弹框通知 type = 1 通知护士， type = 2 通知医生
-    :param fail_ips:
-    :param fail_log:
-    :return:
-    """
     redis_client = redis.Redis(connection_pool=pool)
     db = DbUtil(global_config.DB_HOST, global_config.DB_USERNAME, global_config.DB_PASSWORD,
                 global_config.DB_DATABASE_GYL)
@@ -1142,8 +1125,8 @@ async def alert(dept_id, ward_id, msg):
         await asyncio.gather(*send_tasks, return_exceptions=True)
 
 
+"""同步调用入口"""
 def sync_alert(dept_id, ward_id, msg):
-    """同步调用入口"""
     loop = GlobalEventLoop().get_loop()
     future = asyncio.run_coroutine_threadsafe(
         alert(dept_id, ward_id, msg),
@@ -1167,12 +1150,12 @@ def main_alert(dept_id, ward_id, msg):
         logger.error(f"Submit alert task failed: {str(e)}")
 
 
+"""
+推送危机值
+push_type = 1 护理 -> 医生
+push_type = 2 门诊医生 -> 急诊
+"""
 def push(json_data):
-    """
-    推送危机值
-    push_type = 1 护理 -> 医生
-    push_type = 2 门诊医生 -> 急诊
-    """
     cv_id = json_data.get('cv_id')
     cv_source = json_data.get('cv_source')
     dept_id = json_data.get('dept_id')
@@ -1210,12 +1193,12 @@ def push(json_data):
     del db
 
 
+"""
+确认接收危机值
+confirm_type = 0 护理确认接收
+confirm_type = 1 医生确认接收
+"""
 def confirm_receipt_cv(json_data):
-    """
-    确认接收危机值
-    confirm_type = 0 护理确认接收
-    confirm_type = 1 医生确认接收
-    """
     cv_id = json_data.get("cv_id")
     cv_source = json_data.get("cv_source")
     confirmer_name = json_data.get("confirmer_name")
@@ -1275,10 +1258,8 @@ def confirm_receipt_cv(json_data):
     del db
 
 
+"""护理记录"""
 def nursing_records(json_data):
-    """
-    护理记录
-    """
     cv_id = json_data.get("cv_id")
     cv_source = json_data.get("cv_source")
     record = json_data.get("record")
@@ -1294,12 +1275,8 @@ def nursing_records(json_data):
     del db
 
 
+"""医生处理危机值"""
 def doctor_handle_cv(json_data):
-    """
-    医生处理危机值
-    :param json_data:
-    :return:
-    """
     cv_source = json_data.get("cv_source")
     handler_id = json_data.get("handler_id")
     handler_name = json_data.get("handler_name")
@@ -1361,24 +1338,23 @@ def doctor_handle_cv(json_data):
                     notiaction_alert_man(msg, int(record.get('alertman_pers_id')), record.get('alertman_name', 'unknown'))
 
                 # 处理完成以后 同步到 his
-                query_sql = f'select * from nsyy_gyl.cv_info where cv_id = \'{cv_id}\' and cv_source = {cv_source}'
-                record = db.query_one(query_sql)
-                send_to_his(record)
+                if int(cv_source) != cv_config.CV_SOURCE_XINDIAN_TESHU_SYSTEM:
+                    query_sql = f'select * from nsyy_gyl.cv_info where cv_id = \'{cv_id}\' and cv_source = {cv_source}'
+                    record = db.query_one(query_sql)
+                    send_to_his(record)
             except Exception as e:
                 logger.error(f'数据回写失败，错误信息：{e}')
     del db
 
 
+"""
+统计报表
+query_by：
+- dept        根据科室/病区查询报表
+- alert_dept  根据医技科室查询报表
+- cv_source     根据危急值类型查询报表
+"""
 def report_form(json_data):
-    """
-    统计报表
-    query_by：
-    - dept        根据科室/病区查询报表
-    - alert_dept  根据医技科室查询报表
-    - cv_source     根据危急值类型查询报表
-    :param json_data:
-    :return:
-    """
     start_time = json_data.get("start_time")
     end_time = json_data.get("end_time")
     patient_type = json_data.get("patient_type")
@@ -1393,7 +1369,7 @@ def report_form(json_data):
                 global_config.DB_DATABASE_GYL)
     time_condition = ''
     if start_time and end_time:
-        time_condition = f' WHERE time BETWEEN \'{start_time}\' AND \'{end_time}\' '
+        time_condition = f' and time BETWEEN \'{start_time}\' AND \'{end_time}\' '
 
     handle_condition_sql = "is_timeout = 1"
     if query_type:
@@ -1417,7 +1393,7 @@ def report_form(json_data):
                     f'ROUND((SUM(CASE WHEN (state = 9 or state = 0) THEN 1 ELSE 0 END) / COUNT(*)) * 100, 2) AS handling_rate, ' \
                     f'ROUND((SUM(CASE WHEN state = 0 THEN 1 ELSE 0 END) / COUNT(*)) * 100, 2) AS invalid_rate, ' \
                     f'ROUND((SUM(CASE WHEN ({handle_condition_sql} and state != 0) THEN 1 ELSE 0 END) / COUNT(*)) * 100, 2) AS handling_timeout_rate ' \
-                    f'FROM nsyy_gyl.cv_info {time_condition} {ptype} GROUP BY dept_name ' \
+                    f'FROM nsyy_gyl.cv_info where 1=1 and cv_source != {cv_config.CV_SOURCE_XINDIAN_TESHU_SYSTEM} {time_condition} {ptype} GROUP BY dept_name ' \
                     f'UNION ALL ' \
                     f'SELECT ' \
                     f'max(ward_id) AS id, ' \
@@ -1431,7 +1407,7 @@ def report_form(json_data):
                     f'ROUND((SUM(CASE WHEN nurse_recv_time IS NOT NULL OR (nurse_recv_time IS NULL AND handle_time IS NOT NULL) OR state = 0 THEN 1 ELSE 0 END) / COUNT(*)) * 100, 2) AS handling_rate, ' \
                     f'ROUND((SUM(CASE WHEN state = 0 THEN 1 ELSE 0 END) / COUNT(*)) * 100, 2) AS invalid_rate, ' \
                     f'ROUND((SUM(CASE WHEN ({handle_condition_sql} and state != 0) THEN 1 ELSE 0 END ) / COUNT(*)) * 100, 2) AS handling_timeout_rate ' \
-                    f'FROM nsyy_gyl.cv_info {time_condition} {ptype} GROUP BY ward_name '
+                    f'FROM nsyy_gyl.cv_info where 1=1 and cv_source != {cv_config.CV_SOURCE_XINDIAN_TESHU_SYSTEM} {time_condition} {ptype} GROUP BY ward_name '
     elif query_by == 'alert_dept':
         # 根据上报科室查询
         query_sql = f"SELECT max(alert_dept_id) AS id, alert_dept_name AS name, 'alert_dept' query_by, " \
@@ -1445,7 +1421,7 @@ def report_form(json_data):
                     f'ROUND((SUM(CASE WHEN state = 0 THEN 1 ELSE 0 END) / COUNT(*)) * 100, 2) AS invalid_rate, ' \
                     f'ROUND((SUM(CASE WHEN ({handle_condition_sql} and state != 0) THEN 1 ELSE 0 END) / COUNT(*)) * 100, 2) AS handling_timeout_rate,  ' \
                     f'ROUND( (SUM(IF(TIMESTAMPDIFF(MINUTE, IFNULL(jianchasj, alertdt), alertdt) <= 10, 1,0) ) / COUNT(*)) * 100, 2) AS timely_report_rate ' \
-                    f'FROM nsyy_gyl.cv_info {time_condition} GROUP BY alert_dept_name '
+                    f'FROM nsyy_gyl.cv_info where 1=1 and cv_source != {cv_config.CV_SOURCE_XINDIAN_TESHU_SYSTEM} {time_condition} GROUP BY alert_dept_name '
     elif query_by == 'cv_source':
         # 根据危急值类型查询
         query_sql = f"SELECT cv_source AS id, 'cv_source' query_by, " \
@@ -1465,7 +1441,7 @@ def report_form(json_data):
                     f'ROUND((SUM(CASE WHEN (state = 9 or state = 0) THEN 1 ELSE 0 END) / COUNT(*)) * 100, 2) AS handling_rate, ' \
                     f'ROUND((SUM(CASE WHEN state = 0 THEN 1 ELSE 0 END) / COUNT(*)) * 100, 2) AS invalid_rate, ' \
                     f'ROUND((SUM(CASE WHEN ({handle_condition_sql} and state != 0) THEN 1 ELSE 0 END) / COUNT(*)) * 100, 2) AS handling_timeout_rate ' \
-                    f'FROM nsyy_gyl.cv_info {time_condition} GROUP BY cv_source '
+                    f'FROM nsyy_gyl.cv_info where 1=1 and cv_source != {cv_config.CV_SOURCE_XINDIAN_TESHU_SYSTEM} {time_condition} GROUP BY cv_source '
     else:
         raise Exception('query_by 参数错误, 无法处理 ', query_by)
 
@@ -1476,12 +1452,8 @@ def report_form(json_data):
     return report
 
 
+"""病历模版"""
 def medical_record_template(json_data):
-    """
-    病历模版
-    :param json_data:
-    :return:
-    """
     cv_id = json_data.get('cv_id')
 
     db = DbUtil(global_config.DB_HOST, global_config.DB_USERNAME, global_config.DB_PASSWORD,
@@ -1510,17 +1482,10 @@ def medical_record_template(json_data):
     return templete
 
 
+"""数据回传"""
 def data_feedback(cv_id, cv_source, confirmer, timer, confirm_info, type: int):
-    """
-    数据回传
-    :param cv_id:
-    :param cv_source:
-    :param confirmer:
-    :param timer:
-    :param confirm_info:
-    :param type:
-    :return:
-    """
+    if cv_source == cv_config.CV_SOURCE_XINDIAN_TESHU_SYSTEM:
+        return
     datal, updatel, datel, intl = [], [], [], []
     if type == 1:
         # 护士确认
@@ -1560,11 +1525,7 @@ def data_feedback(cv_id, cv_source, confirmer, timer, confirm_info, type: int):
     call_third_systems_obtain_data('data_feedback', param)
 
 
-"""
-心电系统数据回写
-"""
-
-
+"""心电系统数据回写"""
 def xindian_data_feedback(json_data):
     try:
         cv_id = json_data.get('cv_id')
@@ -1588,11 +1549,7 @@ def xindian_data_feedback(json_data):
         return ''
 
 
-"""
-pacs 系统数据回写
-"""
-
-
+"""pacs 系统数据回写"""
 def pacs_data_feedback(json_data):
     # 数据库连接信息
     server = '192.168.3.53'
@@ -1624,11 +1581,7 @@ def pacs_data_feedback(json_data):
             conn.close()
 
 
-"""
-设置危机值系统超时时间
-"""
-
-
+"""设置危机值系统超时时间"""
 def setting_timeout(json_data):
     timeoutd = {'nurse_recv_timeout': int(json_data.get('nurse_recv_timeout')),
                 'nurse_send_timeout': int(json_data.get('nurse_send_timeout')),
@@ -1658,11 +1611,7 @@ def setting_timeout(json_data):
     redis_client.set(cv_config.TIMEOUT_REDIS_KEY['total'], timeoutd.get('total_timeout'))
 
 
-"""
-查询危机值系统超时时间
-"""
-
-
+"""查询危机值系统超时时间"""
 def query_timeout():
     db = DbUtil(global_config.DB_HOST, global_config.DB_USERNAME, global_config.DB_PASSWORD,
                 global_config.DB_DATABASE_GYL)
@@ -1674,11 +1623,7 @@ def query_timeout():
     return timeout_sets
 
 
-"""
-维护站点信息
-"""
-
-
+"""维护站点信息"""
 def site_maintenance(json_data):
     sited = {'dept_phone': json_data.get('dept_phone'), 'ward_phone': json_data.get('ward_phone'),
              'doctor_phone': json_data.get('doctor_phone'), 'site_ip': json_data.get('site_ip')}
@@ -1777,17 +1722,17 @@ def query_cv_template(key):
     return all_template
 
 
-def safe_post(data, method_name, timeout=5, max_retries=3, backoff_factor=1):
-    """
-    安全的 POST 请求，带重试机制
+"""
+安全的 POST 请求，带重试机制
 
-    :param data: 请求数据（字符串或字节）
-    :param method_name: 方法名（用于 headers）
-    :param timeout: 超时时间（秒）
-    :param max_retries: 最大重试次数
-    :param backoff_factor: 指数退避因子（每次重试等待时间 = backoff_factor * (2^(retry-1))）
-    :return: 响应文本（如果成功），否则返回 None
-    """
+:param data: 请求数据（字符串或字节）
+:param method_name: 方法名（用于 headers）
+:param timeout: 超时时间（秒）
+:param max_retries: 最大重试次数
+:param backoff_factor: 指数退避因子（每次重试等待时间 = backoff_factor * (2^(retry-1))）
+:return: 响应文本（如果成功），否则返回 None
+"""
+def safe_post(data, method_name, timeout=5, max_retries=3, backoff_factor=1):
     retry_count = 0
     last_exception = None
 
@@ -2121,6 +2066,8 @@ def send_to_his_invalid(cv_id, invalid_time):
 
 
 def manual_send_to_his(cv_id, cv_source):
+    if int(cv_source) == cv_config.CV_SOURCE_XINDIAN_TESHU_SYSTEM:
+        return
     db = DbUtil(global_config.DB_HOST, global_config.DB_USERNAME, global_config.DB_PASSWORD,
                 global_config.DB_DATABASE_GYL)
     query_sql = f"select * from nsyy_gyl.cv_info where cv_id = '{cv_id}' and cv_source = {cv_source} "
@@ -2143,12 +2090,8 @@ def random_string(length=3):
     return random_string
 
 
+"""查询 pacs CT 最后一张胶片的采集时间， 超声 报告时间"""
 def query_baogao_sj():
-    """
-    查询 pacs CT 最后一张胶片的采集时间， 超声 报告时间
-    :param
-    :return:
-    """
     db = DbUtil(global_config.DB_HOST, global_config.DB_USERNAME, global_config.DB_PASSWORD,
                 global_config.DB_DATABASE_GYL)
     query_sql = "select id, report_id, patient_name from nsyy_gyl.cv_info where report_id is not null " \
