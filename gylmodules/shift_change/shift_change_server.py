@@ -2542,7 +2542,7 @@ def doctor_sign(json_data):
             if str(dept_id) in shift_change_config.doc_teshu_dept_map else dept_id
         shift_classes_str = f"{shift_type}-{shift_classes}"
         query_sql = f"select patient_name, patient_type, patient_info from nsyy_gyl.scs_patients where is_deleted = 0 and shift_date = '{shift_date}' " \
-                    f"and shift_classes = '{shift_classes_str}' and patient_dept_id = {doc_dept_id} "
+                    f"and shift_classes = '{shift_classes_str}' and patient_dept_id = {doc_dept_id} and is_deleted = 0"
         patients = db.query_all(query_sql)
         del db
         if patients:
