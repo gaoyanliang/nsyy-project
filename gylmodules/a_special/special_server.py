@@ -12,8 +12,6 @@ from requests.adapters import HTTPAdapter
 from urllib3.util.retry import Retry
 
 logger = logging.getLogger(__name__)
-
-
 pool = redis.ConnectionPool(host=global_config.REDIS_HOST, port=global_config.REDIS_PORT,
                             db=global_config.REDIS_DB, decode_responses=True)
 
@@ -74,7 +72,7 @@ where
         return
 
 
-    print(datetime.now(), f'dip 一共查询到 {len(data_list)} 条修改记录')
+    logger.debug(f'dip 一共查询到 {len(data_list)} 条修改记录')
 
     redis_client = redis.Redis(connection_pool=pool)
     # redis_client.delete('dip_patients')
@@ -221,7 +219,7 @@ def unmedical_page_list():
         redis_client.delete('unpage_query_lock')
         return
 
-    print(datetime.now(), f'入院三天还未提交病案首页的患者列表 一共查询到 {len(data_list)} 条记录')
+    logger.debug(f'入院三天还未提交病案首页的患者列表 一共查询到 {len(data_list)} 条记录')
 
     redis_client = redis.Redis(connection_pool=pool)
     redis_client.delete('dip_unpage_patients')

@@ -15,7 +15,7 @@ from flask import Blueprint, request
 from gylmodules import global_config, global_tools
 from gylmodules.a_special import special_server
 from gylmodules.global_tools import api_response
-from gylmodules.utils.db_utils import DbUtil
+from gylmodules.utils.db_utils_new import DbUtil
 
 special_system = Blueprint('special system', __name__, url_prefix='/special')
 
@@ -81,14 +81,14 @@ def surgical_transfer_data(json_data):
     data = data[0]
     patient_name = data.get('姓名', '')
     data['record_time'] = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
-    db = DbUtil(global_config.DB_HOST, global_config.DB_USERNAME, global_config.DB_PASSWORD,
-                global_config.DB_DATABASE_GYL)
-    insert_sql = """INSERT INTO nsyy_gyl.a_surgical_transfer (patient_id, number, patient_name, patient_info,
-                                    timing, record_time) VALUES (%s, %s, %s, %s, %s, %s)"""
-    args = (patient_id, number, patient_name, json.dumps(data, ensure_ascii=False, default=str),
-            scan_timing, data['record_time'])
-    db.execute(insert_sql, args, need_commit=True)
-    del db
+    with DbUtil(global_config.DB_HOST, global_config.DB_USERNAME,
+                global_config.DB_PASSWORD, global_config.DB_DATABASE_GYL) as db:
+        insert_sql = """INSERT INTO nsyy_gyl.a_surgical_transfer (patient_id, number, patient_name, patient_info,
+                                        timing, record_time) VALUES (%s, %s, %s, %s, %s, %s)"""
+        args = (patient_id, number, patient_name, json.dumps(data, ensure_ascii=False, default=str),
+                scan_timing, data['record_time'])
+        db.execute(insert_sql, args, need_commit=True)
+
     return data
 
 
