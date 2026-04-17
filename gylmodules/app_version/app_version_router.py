@@ -1,7 +1,7 @@
 from flask import Blueprint, jsonify
 
 from gylmodules import global_config
-from gylmodules.utils.db_utils import DbUtil
+from gylmodules.utils.db_utils_new import DbUtil
 
 app_version = Blueprint('app version', __name__, url_prefix='/app_version')
 
@@ -27,11 +27,10 @@ def query_app_version(type, detail):
 
 
 def query_app_version_from_db(type, detail):
-    db = DbUtil(global_config.DB_HOST, global_config.DB_USERNAME, global_config.DB_PASSWORD,
-                global_config.DB_DATABASE_GYL)
-    query_sql = f"select * from nsyy_gyl.app_version " \
-                f"where type = '{type}' and detail = '{detail}' order by update_time desc limit 1"
-    version_info = db.query_one(query_sql)
-    del db
+    with DbUtil(global_config.DB_HOST, global_config.DB_USERNAME,
+                global_config.DB_PASSWORD, global_config.DB_DATABASE_GYL) as db:
+        query_sql = f"select * from nsyy_gyl.app_version " \
+                    f"where type = '{type}' and detail = '{detail}' order by update_time desc limit 1"
+        version_info = db.query_one(query_sql)
 
     return version_info
