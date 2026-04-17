@@ -9,7 +9,7 @@ import redis
 import requests
 
 from gylmodules import global_config
-from gylmodules.utils.db_utils import DbUtil
+from gylmodules.utils.db_utils_new import DbUtil
 
 logger = logging.getLogger(__name__)
 pool = redis.ConnectionPool(host=global_config.REDIS_HOST, port=global_config.REDIS_PORT,
@@ -228,15 +228,14 @@ def fetch_data2(start_time, end_time):
 def save_data(records):
     if not records:
         return
-    db = DbUtil(global_config.DB_HOST, global_config.DB_USERNAME, global_config.DB_PASSWORD,
-                global_config.DB_DATABASE_GYL)
-    insert_sql = f"""INSERT INTO nsyy_gyl.ehp_check_result(type, record_id, check_time, name, sex, phone, 
-                    checker, value, value_well) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s) ON DUPLICATE KEY UPDATE 
-                    type = VALUES(type), record_id = VALUES(record_id), sex = VALUES(sex), 
-                    phone = VALUES(phone), checker = VALUES(checker), value = VALUES(value), 
-                    value_well = VALUES(value_well)"""
-    db.execute_many(insert_sql, records, need_commit=True)
-    del db
+    with DbUtil(global_config.DB_HOST, global_config.DB_USERNAME,
+                global_config.DB_PASSWORD, global_config.DB_DATABASE_GYL) as db:
+        insert_sql = f"""INSERT INTO nsyy_gyl.ehp_check_result(type, record_id, check_time, name, sex, phone, 
+                        checker, value, value_well) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s) ON DUPLICATE KEY UPDATE 
+                        type = VALUES(type), record_id = VALUES(record_id), sex = VALUES(sex), 
+                        phone = VALUES(phone), checker = VALUES(checker), value = VALUES(value), 
+                        value_well = VALUES(value_well)"""
+        db.execute_many(insert_sql, records, need_commit=True)
 
 
 """获取 翻转拍 网站token"""
