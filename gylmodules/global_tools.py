@@ -227,14 +227,14 @@ def call_new_his(sql: str, sys: str = 'newzt', clobl: list = None):
 
 def call_new_his_local(sql: str, sys: str = 'newzt', clobl: list = None):
     """调用新 HIS 查询数据（支持异常重试）"""
-    sql = base64.b64encode(sql.encode()).decode()
+    # sql = base64.b64encode(sql.encode()).decode()
     param = {"key": "o4YSo4nmde9HbeUPWY_FTp38mB1c", "sys": sys, "sql": sql}
     if clobl:
         param['clobl'] = clobl
 
     # 动态 URL
-    query_oracle_url = "http://192.168.124.5:5000/oracle_sql"
-    # query_oracle_url = "http://192.168.3.12:6080/gyl/cv/query_oracle_data"
+    # query_oracle_url = "http://192.168.124.5:5000/oracle_sql"
+    query_oracle_url = "http://192.168.3.12:6080/gyl/cv/query_oracle_data"
 
     data = []
     max_retries, retry_count, retry_delay = 3, 0, 1
@@ -260,9 +260,11 @@ def call_new_his_local(sql: str, sys: str = 'newzt', clobl: list = None):
 """查询PG数据库"""
 
 
-def call_new_his_pg(sql):
+def call_new_his_pg(sql, retry_count: int = 0):
     results = []
     max_retries, retry_count, retry_delay = 3, 0, 1
+    if retry_count != 0:
+        max_retries = retry_count
     while retry_count < max_retries:
         try:
             # 使用 `with` 语句确保自动关闭连接
@@ -313,6 +315,28 @@ def socket_push(info, data):
     # 老结构
     # data = {'msg_list': [{"socketd": "m_app", 'socket_data':   { "type": 400, "data": { "message": {msg 的内容} } },
     # 'pers_id': user_id}]}
+
+    # 通过 pers——ID 区分院内人员和患者 患者的pers id 是 微信的openid 是字符串
+    people_list = data.get('pers_id', [])
+
+    # 如果是单个值，转成列表
+    if isinstance(people_list, (int, str)):
+        people_list = [people_list]
+
+    pers_id_list = []
+    patient_id_list = []
+
+    for i in people_list:
+        if isinstance(i, int):
+            pers_id_list.append(i)
+        elif isinstance(i, str) and i.isdigit():
+            pers_id_list.append(int(i))
+        else:
+            patient_id_list.append(str(i))
+
+    data['pers_id'] = pers_id_list
+    data['patient_id'] = patient_id_list
+
     max_retries, retry_count, retry_delay = 3, 0, 1
     while retry_count < max_retries:
         try:

@@ -1,21 +1,21 @@
 from flask import Blueprint, jsonify, request
 
 from gylmodules.global_tools import api_response
-from gylmodules.shift_change import shift_change_server
+from gylmodules.shift_change import shift_change_task, shift_change_server
 
 shift_change = Blueprint('shift change system', __name__, url_prefix='/scs')
 
 
-@shift_change.route('/shift_change', methods=['POST'])
-@api_response
-def run_shift_change():
-    return shift_change_server.timed_shift_change()
+# @shift_change.route('/shift_change', methods=['POST'])
+# @api_response
+# def run_shift_change():
+#     return shift_change_server.timed_shift_change()
 
 
 @shift_change.route('/refresh_shift_data', methods=['POST'])
 @api_response
 def single_run_shift_change(json_data):
-    return shift_change_server.single_run_shift_change(json_data)
+    return shift_change_task.single_run_shift_change(json_data)
 
 
 @shift_change.route('/shift_data', methods=['POST', 'GET'])

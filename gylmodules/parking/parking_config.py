@@ -20,4 +20,5 @@ enable_auto_freeze = True
 
 redis_key = 'necessary_to_execute'
 
-super_vip = ['豫R339VA']
+NEED_EXECUTE_PARKING = "need_execute_parking"
+EXECUTING_PARKING = "executing_parking"

@@ -27,7 +27,8 @@ from gylmodules.utils.db_utils import DbUtil
 from gylmodules.utils.event_loop import GlobalEventLoop
 from gylmodules.workstation.mail.mail_server import cache_flags, close_idle_connections
 from gylmodules.workstation.message.message_server import flush_msg_cache, batch_flush_worker
-from gylmodules.zhuisuma.zhuisuma_server import auto_query_code
+from datetime import datetime
+
 
 pool = redis.ConnectionPool(host=global_config.REDIS_HOST, port=global_config.REDIS_PORT,
                             db=global_config.REDIS_DB, decode_responses=True)
@@ -216,11 +217,14 @@ def update_appt_capacity():
     url = "http://127.0.0.1:6092/gyl/appt/update_capacity"
     if global_config.run_in_local:
         url = "http://127.0.0.1:8080/gyl/appt/update_capacity"
-    response = requests.post(url)
-    if response.status_code == 200:
-        logger.info("定时任务：更新可预约数量成功")
-    else:
-        logger.error("定时任务：更新可预约数量失败")
+    try:
+        response = requests.post(url)
+        if response.status_code == 200:
+            logger.info("定时任务：更新可预约数量成功")
+        else:
+            logger.error("定时任务：更新可预约数量失败")
+    except Exception as e:
+        logger.error(f"定时任务：更新可预约数量异常: {str(e)}")
 
 
 def re_alert_fail_ip_log():
@@ -278,22 +282,6 @@ def re_alert_fail_ip_log():
     del db
 
 
-def auto_shift_change():
-    url = "http://127.0.0.1:6092/gyl/scs/shift_change"
-    if global_config.run_in_local:
-        url = "http://127.0.0.1:8080/gyl/scs/shift_change"
-    response = requests.post(url)
-    if response.status_code != 200:
-        logger.error("交接班任务执行失败", response.text)
-
-
-def auto_tingchechang():
-    url = "http://127.0.0.1:6092/gyl/parking/auto_op_vip"
-    if global_config.run_in_local:
-        url = "http://127.0.0.1:8080/gyl/parking/auto_op_vip"
-    response = requests.post(url)
-
-
 def schedule_task():
     # ====================== 危机值系统定时任务 ======================
     logger.info("=============== 注册定时任务 =====================")
@@ -342,7 +330,8 @@ def schedule_task():
     gylmodule_scheduler.add_job(fetch_doctor_title, 'cron', hour='0,12,20', minute=15)
 
     logger.info("8. 停车场模块定时任务 ")
-    gylmodule_scheduler.add_job(auto_tingchechang, trigger='cron', minute='*/4')
+    # 改在cron中执行 避免阻塞主线程
+    # gylmodule_scheduler.add_job(auto_tingchechang, trigger='cron', minute='*/4')
     # 尝试多次，防止服务器临时故障
     gylmodule_scheduler.add_job(auto_fetch_data, 'cron', hour='3,16', minute=10)
     gylmodule_scheduler.add_job(auto_fetch_data, 'cron', hour='3,16', minute=34)
@@ -354,8 +343,8 @@ def schedule_task():
     gylmodule_scheduler.add_job(flush_token, trigger='interval', seconds=20 * 60)
     gylmodule_scheduler.add_job(auto_fetch_eye_data, trigger='interval', seconds=10 * 60)
 
-    logger.info("10. 追溯码定时任务 ")
-    gylmodule_scheduler.add_job(auto_query_code, trigger='interval', seconds=1 * 60)
+    # logger.info("10. 追溯码定时任务 ")
+    # gylmodule_scheduler.add_job(auto_query_code, trigger='interval', seconds=1 * 60)
 
 
     # ======================  Start ======================

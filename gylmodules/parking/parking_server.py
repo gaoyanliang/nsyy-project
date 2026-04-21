@@ -93,8 +93,6 @@ def approval_and_enable(json_data, type):
                    "op_result": "成功", "op_time": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
                    'pay_amount': json_data.get('pay_amount', 0)}
     if type == 'enable':
-        redis_client = redis.Redis(connection_pool=pool)
-        redis_client.delete(parking_config.redis_key)
         json_data['park_name'] = car.get('park_name')
         json_data['vehicle_group'] = car.get('vehicle_group')
         json_data['vehicle_id'] = car.get('vehicle_id')
@@ -104,7 +102,7 @@ def approval_and_enable(json_data, type):
                        'pay_amount': json_data.get('pay_amount', 0)}
 
         redis_client = redis.Redis(connection_pool=pool)
-        redis_client.delete(parking_config.redis_key)
+        redis_client.set(parking_config.NEED_EXECUTE_PARKING, 1)
 
     insert_sql = f"INSERT INTO nsyy_gyl.parking_operation_logs ({','.join(operate_log.keys())}) " \
                  f"VALUES {str(tuple(operate_log.values()))}"
@@ -153,7 +151,7 @@ def update_car_plate_no(json_data):
     del db
 
     redis_client = redis.Redis(connection_pool=pool)
-    redis_client.delete(parking_config.redis_key)
+    redis_client.set(parking_config.NEED_EXECUTE_PARKING, 1)
 
 
 """提醒车主超时"""
@@ -391,7 +389,7 @@ def operate_vip_car(type, json_data):
     del db
 
     redis_client = redis.Redis(connection_pool=pool)
-    redis_client.delete(parking_config.redis_key)
+    redis_client.set(parking_config.NEED_EXECUTE_PARKING, 1)
 
 
 """更新会员车辆信息"""
@@ -606,7 +604,7 @@ def auto_fetch_data():
         for car in timeout_cars:
             if car.get('plate_no') not in vip_car_no_list:
                 continue
-            if car.get('plate_no') in parking_config.super_vip:
+            if car.get('plate_no') in ['豫R339VA']:
                 continue
             case_sql += f" WHEN '{car.get('plate_no')}' THEN %s "
             park_time_list.append(car.get('park_time'))
@@ -801,7 +799,8 @@ def auto_asynchronous_execution():
         except Exception as e:
             logger.error(f"自动任务 - 异常: {e.__str__()[:100]}")
 
-    global_tools.start_thread(asynchronous_run)
+    # global_tools.start_thread(asynchronous_run)
+    return
 
 
 #  =============================================== 报表 & 授权管理 ===============================================
