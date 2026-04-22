@@ -36,7 +36,7 @@ def auto_execution_task():
     """异步执行所有车辆操作"""
     redis_client = redis.Redis(connection_pool=pool)
     if not redis_client.exists(parking_config.NEED_EXECUTE_PARKING):
-        logger.info("无需要执行的车辆操作")
+        logger.debug("无需要执行的车辆操作")
         return
     if redis_client.exists(parking_config.EXECUTING_PARKING):
         logger.info("有正在执行的车辆操作")
