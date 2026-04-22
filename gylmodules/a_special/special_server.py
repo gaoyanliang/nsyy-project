@@ -260,7 +260,7 @@ def ocr_try_variants(img_b64):
             data = response.json()
 
             if data.get("code") == 20000:
-                logger.info(f"OCR 识别成功，第 {attempt} 次尝试")
+                logger.debug(f"OCR 识别成功，第 {attempt} 次尝试")
                 return data.get('data')
             else:
                 logger.warning(
