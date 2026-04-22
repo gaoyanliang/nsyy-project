@@ -1868,16 +1868,18 @@ def single_run_shift_change(json_data):
 
         if shift_type == 1:
             # 医生交接班
-            if str(dept_id) == '7903' or str(dept_id) == '94143':
-                dept_list = ['7903', '94143']
+            # if str(dept_id) == '7903' or str(dept_id) == '94143':
+            #     dept_list = ['7903', '94143']
             if str(dept_id) == '1000148' or str(dept_id) == '1000149':
                 dept_list = ['1000148', '1000149']
             if str(dept_id) == '93163' or str(dept_id) == '1000701':
                 dept_list = ['93163', '1000701']
             if str(dept_id) == '169' or str(dept_id) == '7905':
                 dept_list = ['169', '7905']
-            if str(dept_id) == '165' or str(dept_id) == '94103':
-                dept_list = ['165', '94103']
+            if str(dept_id) == '1000406' or str(dept_id) == '94103':
+                dept_list = ['1000406', '94103']
+            if str(dept_id) == '165' or str(dept_id) == '51227':
+                dept_list = ['165', '51227']
             doctor_shift_change(reg_sqls, shift_classes, time_slot, dept_list, True)
         elif shift_type == 2:
             if len(dept_list) == 1 and ('1000965' in dept_list or '1001120' in dept_list):
