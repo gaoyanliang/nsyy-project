@@ -1815,6 +1815,10 @@ def send_to_his(cv_record):
         'doctor_recv_time') else handle_time
     nurse_recv_time = cv_record.get('nurse_recv_time').strftime("%Y-%m-%d %H:%M:%S") if cv_record.get(
         'nurse_recv_time') else jieshousj_times(cv_record.get('alertdt'), 5)
+
+    nurse_send_time = cv_record.get('nurse_send_time').strftime("%Y-%m-%d %H:%M:%S") if cv_record.get(
+        'nurse_send_time') else jieshousj_times(cv_record.get('alertdt'), 5)
+
     baogaosj = shenqing_data[0].get('报告时间') if shenqing_data[0].get('报告时间') else '0'
     zhixingsj = shenqing_data[0].get('执行时间') if shenqing_data[0].get('执行时间') else '0'
     kaidanrq = shenqing_data[0].get('kaidanrq').strftime("%Y-%m-%d %H:%M:%S") if shenqing_data[0].get(
@@ -1871,8 +1875,11 @@ def send_to_his(cv_record):
         .replace('{hushiclnr}', cv_record.get('nurse_recv_info') if cv_record.get('nurse_recv_info') else '0') \
         .replace('{jieshouhsid}', str(cv_record.get('nurse_recv_id')) if cv_record.get('nurse_recv_id') else '0') \
         .replace('{jieshouhsxm}', cv_record.get('nurse_recv_name') if cv_record.get('nurse_recv_name') else '0') \
-        .replace('{jieshousj}', nurse_recv_time) \
-        .replace('{tongzhiyssj}', alertdt) \
+        .replace('{jieshousj}', nurse_send_time) \
+        .replace('{hushicksj}', nurse_recv_time) \
+        .replace('{chakanhsid}', str(cv_record.get('nurse_recv_id')) if cv_record.get('nurse_recv_id') else '0') \
+        .replace('{chakanhsxm}', cv_record.get('nurse_recv_name') if cv_record.get('nurse_recv_name') else '0') \
+        .replace('{tongzhiyssj}', nurse_send_time) \
         .replace('{tongzhiysxm}', cv_record.get('handle_doctor_name') if cv_record.get('handle_doctor_name') else '0') \
         .replace('{tongzhiysid}', str(cv_record.get('handle_doctor_id')) if cv_record.get('handle_doctor_id') else '0') \
         .replace('{baogaosj}', baogaosj) \
