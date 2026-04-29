@@ -156,6 +156,10 @@ HIS_SYNCHRONIZE_DATA = """
         <yishengcksj>{yishengcksj}</yishengcksj>
         <chakanysid>{chakanysid}</chakanysid>
         <chakanysxm>{chakanysxm}</chakanysxm>
+        
+        <hushicksj>{hushicksj}</hushicksj>
+        <chakanhsid>{chakanhsid}</chakanhsid>
+        <chakanhsxm>{chakanhsxm}</chakanhsxm>
     </body>
 </message>
 """
