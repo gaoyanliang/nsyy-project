@@ -1,4 +1,4 @@
-import base64
+from typing import List, Dict, Optional, Tuple
 from datetime import datetime, date
 import json
 import threading
@@ -126,7 +126,7 @@ def get_oracle_pool(sys: str) -> cx_Oracle.SessionPool:
             user=oracle_env.get(f"ORACLE_{sys.upper()}_USER"),
             password=oracle_env.get(f"ORACLE_{sys.upper()}_PASSWORD"),
             dsn=oracle_env.get(f"ORACLE_{sys.upper()}_DSN"),
-            min=2, max=5, increment=1
+            min=2, max=20, increment=1
         )
     return _oracle_pools[sys]
 
@@ -145,7 +145,7 @@ def connect_oracle(sql: str, sys: str = 'newzt') -> List[Dict]:
         rows = cursor.fetchall()
         return normalize_oracle_result(cursor, rows)
     except Exception as e:
-        logger.error(f"Oracle错误: sys={sys}, sql {sql}")
+        logger.error(f"Oracle错误: sys={sys}, sql {sql}, exception {e}")
         raise
     finally:
         if 'cursor' in locals():
@@ -287,6 +287,64 @@ def call_new_his_pg(sql, retry_count: int = 0):
                 return []
 
     return results
+
+
+
+""" 查询 SQL Server 数据库 """
+def call_query_sqlserver(sql: str) -> List[Dict]:
+    # 连接信息
+    SERVER = '192.168.3.222'
+    USERNAME = 'reader'
+    PASSWORD = 'reader'
+
+    # 创建连接字符串
+    conn_str = (
+        f'DRIVER={{ODBC Driver 17 for SQL Server}};'
+        f'SERVER={SERVER};'
+        f'UID={USERNAME};'
+        f'PWD={PASSWORD};'
+        f'Connection Timeout=30;'
+    )
+
+    connection = None
+    cursor = None
+
+    import pyodbc
+    try:
+        # 1. 建立连接
+        connection = pyodbc.connect(conn_str)
+        cursor = connection.cursor()
+
+        # 2. 拆分 SQL 语句并分别执行
+        # 移除临时表创建语句
+        sql_statements = sql.strip().split(';')
+
+        # 执行前两个语句（创建临时表的部分）
+        for i, stmt in enumerate(sql_statements[:-1]):
+            if stmt.strip():
+                cursor.execute(stmt)
+
+        # 3. 执行最终的查询语句
+        final_query = sql_statements[-1].strip()
+        cursor.execute(final_query)
+
+        # 4. 获取结果
+        columns = [column[0] for column in cursor.description] if cursor.description else []
+
+        results = []
+        for row in cursor.fetchall():
+            results.append(dict(zip(columns, row)))
+
+        return results
+
+    except pyodbc.Error as e:
+        logger.error(f"SQL Server 查询错误: {e}")
+    finally:
+        if cursor:
+            cursor.close()
+        if connection:
+            connection.close()
+    return []
 
 
 def start_thread(funct, args=None, tl=None):
