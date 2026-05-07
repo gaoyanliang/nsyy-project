@@ -126,7 +126,7 @@ def get_oracle_pool(sys: str) -> cx_Oracle.SessionPool:
             user=oracle_env.get(f"ORACLE_{sys.upper()}_USER"),
             password=oracle_env.get(f"ORACLE_{sys.upper()}_PASSWORD"),
             dsn=oracle_env.get(f"ORACLE_{sys.upper()}_DSN"),
-            min=2, max=20, increment=1
+            min=5, max=25, increment=2
         )
     return _oracle_pools[sys]
 
