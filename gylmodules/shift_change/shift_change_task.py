@@ -513,7 +513,7 @@ def aicu_shift_change(reg_sqls, shift_classes, time_slot, dept_id, flush: bool =
 """妇产科 1000961 交班信息查询"""
 def ob_gyn_shift_change(reg_sqls, shift_classes, time_slot, shoushu, flush: bool = False, pid: str = None):
     if int(shift_classes) == 1:
-        trunc = '17'
+        trunc = '17.5'
     elif int(shift_classes) == 2:
         trunc = '21.5'
     else:
@@ -800,7 +800,7 @@ def icu_shift_change(reg_sqls, shift_classes, time_slot, flush: bool = False, pi
 def general_dept_shift_change(reg_sqls, shift_classes, time_slot, dept_list, shoushu, flush: bool = False,
                               pid: str = None):
     if int(shift_classes) == 1:
-        trunc = '17'
+        trunc = '17.5'
     elif int(shift_classes) == 2:
         trunc = '21.5'
     else:
