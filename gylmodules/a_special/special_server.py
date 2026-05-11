@@ -92,6 +92,10 @@ where
             item['totalCost'] = dip_drg.get('zfy') or ''
             # 盈亏
             item['profitLoss'] = dip_drg.get('dipJsJyyg') or ''
+            # 标准分值
+            item['score1'] = dip_drg.get('dipMlfz') or ''
+            # 校正分值
+            item['score2'] = dip_drg.get('dipJsJzfz') or ''
 
         item['patientId'] = item.get('bingrenzyid', '')
         item['patientName'] = item.get('xingming', '')
@@ -162,6 +166,10 @@ def refresh_patient_dip_info(bingrenzyid):
         patient_info['totalCost'] = dip_drg.get('zfy') or ''
         # 盈亏
         patient_info['profitLoss'] = dip_drg.get('dipJsJyyg') or ''
+        # 标准分值
+        patient_info['score1'] = dip_drg.get('dipMlfz') or ''
+        # 校正分值
+        patient_info['score2'] = dip_drg.get('dipJsJzfz') or ''
 
     redis_client.hset('dip_patients', bingrenzyid, json.dumps(patient_info, ensure_ascii=False, default=str))
     redis_client.delete('patient_dip_update_lock')

@@ -1,0 +1,747 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<title>DIP 质控看板</title>
+
+<style>
+body {
+    margin: 0;
+    background: #f4f6f8;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto;
+}
+
+.toolbar {
+    max-width: 1200px;
+    margin: 24px auto;
+    padding: 14px 18px;
+    background: #fff;
+    border-radius: 10px;
+    display: flex;
+    justify-content: center;      /* 水平居中所有子元素 */
+    align-items: center;          /* 垂直居中（文字和按钮高度对齐） */
+    gap: 20px;                    /* 文字和按钮之间的间距，可调整 */
+    box-shadow: 0 4px 12px rgba(0,0,0,0.05);
+}
+
+/* 文字样式（可选，但推荐让它更明显） */
+.toolbar > span, 
+.toolbar > div:first-child {     /* 假设文字是直接文本或第一个子元素 */
+    font-size: 20px;
+    font-weight: 600;
+    color: #303133;
+    white-space: nowrap;          /* 防止文字换行 */
+}
+
+/* 按钮样式（保持与整体风格一致） */
+.toolbar button.secondary {
+    height: 36px;
+    padding: 0 20px;
+    font-size: 14px;
+    background: #409eff;
+    color: white;
+    border: none;
+    border-radius: 20px;
+    cursor: pointer;
+    transition: background 0.2s;
+}
+
+.toolbar button.secondary:hover {
+    background: #66b1ff;
+}
+
+.container {
+    max-width: 1200px;
+    margin: 24px auto;
+    background: #fff;
+    border-radius: 14px;
+    padding: 20px 24px 28px;
+    box-shadow: 0 10px 30px rgba(0,0,0,.06);
+}
+
+/* Tabs */
+.tabs {
+    display: flex;
+    border-bottom: 2px solid #eef1f5;
+    margin-bottom: 20px;
+}
+.tab {
+    padding: 12px 20px;
+    cursor: pointer;
+    color: #909399;
+    font-size: 16px;
+}
+.tab.active {
+    color: #409eff;
+    font-weight: 600;
+    border-bottom: 3px solid #409eff;
+}
+
+/* Table */
+table {
+    width: 100%;
+    border-collapse: collapse;
+}
+th {
+    background: #fafbfc;
+    color: #909399;
+    font-weight: 600;
+    padding: 12px;
+}
+td {
+    padding: 14px 12px;
+    border-bottom: 1px solid #eef1f5;
+    text-align: center;
+}
+tr:hover {
+    background: #f9fbff;
+}
+
+
+
+/* 针对每一列指定宽度（示例，根据你的实际列顺序） */
+.col-id          { width: 100px; }   /* 病人住院ID：固定宽度够用 */
+.col-name        { width: 90px; }    /* 姓名：短 */
+
+.col-rq        { width: 90px; }    /* 姓名：短 */
+.col-doc        { width: 90px; }    /* 姓名：短 */
+.col-diagnosis1        { width: 90px; }    /* 姓名：短 */
+
+
+.col-dept        { width: 140px; }   /* 科室：中等 */
+.col-diagnosis   { width: 200px; min-width: 180px; }  /* DIP诊断：最长，允许稍宽 */
+.col-group       { width: 200px; min-width: 180px; }  /* DIP分组/核心描述：最长列，用 min-width 防挤压 */
+.col-ratio       { width: 60px; }    /* DIP倍率：数字短 */
+.col-profit      { width: 70px; }   /* 盈亏：带颜色，稍宽点好看 */
+.col-cost        { width: 80px; }   /* 总费用：数字中等 */
+.col-action {
+    display: flex;
+    flex-direction: column;        /* 竖排 */
+    align-items: center;
+    gap: 4px;                     /* 上下间距 10px，可调 12px/14px */
+    padding: 8px 0;
+}
+.col-action button {
+    margin: 0 10px;          /* 左右各 10px，视觉更舒适 */
+    padding: 6px 16px;       /* 稍微增加内边距，让按钮更饱满 */
+    font-size: 13px;
+    min-width: 60px;         /* 可选：防止按钮太窄 */
+}
+
+
+
+
+/* Button */
+button {
+    padding: 6px 16px;
+    border-radius: 20px;
+    border: none;
+    background: #409eff;
+    color: #fff;
+    font-size: 13px;
+    cursor: pointer;
+}
+button:disabled {
+    opacity: .6;
+    cursor: not-allowed;
+}
+
+.profit { color: #2ecc71; font-weight: 600; }
+.loss { color: #e74c3c; font-weight: 600; }
+
+/* 更新高亮 */
+tr.updated {
+    background: #eaffea !important;
+    transition: background-color .6s ease;
+}
+tr.updated.fade {
+    background: transparent !important;
+}
+
+/* Pagination */
+.pagination {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-top: 16px;
+    padding-top: 14px;
+    border-top: 1px solid #eef1f5;
+    font-size: 14px;
+    color: #666;
+}
+
+.pagination-buttons {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    flex-wrap: wrap;
+}
+
+.page-btn {
+    min-width: 32px;
+    height: 32px;
+    padding: 0 8px;
+    border: 1px solid #dcdfe6;
+    border-radius: 6px;
+    background: #fff;
+    color: #606266;
+    font-size: 14px;
+    cursor: pointer;
+    transition: all 0.15s;
+}
+
+.page-btn:hover:not(:disabled):not(.active) {
+    border-color: #409eff;
+    color: #409eff;
+    background: rgba(64, 158, 255, 0.08);
+}
+
+.page-btn.active {
+    background: #409eff;
+    color: #fff;
+    border-color: #409eff;
+}
+
+.page-btn:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+    background: #f5f7fa;
+}
+
+.ellipsis {
+    padding: 0 4px;
+    color: #909399;
+    font-size: 14px;
+    user-select: none;
+}
+
+.hidden { display: none; }
+
+
+
+/* 弹框样式 */
+
+.modal {
+    border: none;
+    border-radius: 12px;
+    box-shadow: 0 10px 30px rgba(0,0,0,0.3);
+    width: 90%;
+    max-width: 450px;
+    height: 90vh;
+    max-height: 95vh;
+    padding: 0;
+    background: #fff;
+}
+
+.modal[open] {
+    display: flex;
+    flex-direction: column;
+}
+
+.modal-content {
+    display: flex;
+    flex-direction: column;
+    height: 100%;
+}
+
+.modal-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 16px 24px;
+    background: #f8f9fa;
+    border-bottom: 1px solid #eef1f5;
+    border-radius: 12px 12px 0 0;
+}
+
+.modal-header h3 {
+    margin: 0;
+    font-size: 18px;
+    color: #303133;
+}
+
+.close-btn {
+    background: none;
+    border: none;
+    font-size: 32px;
+    font-weight: bold;
+    color: #909399;
+    cursor: pointer;
+    line-height: 1;
+}
+
+.close-btn:hover {
+    color: #e74c3c;
+}
+
+.modal-body {
+    flex: 1;
+    padding: 0;
+    overflow: hidden;
+}
+
+.modal-body iframe {
+    width: 100%;
+    height: 100%;
+    border: none;
+}
+
+/* 第二个表格：横向滚动支持 */
+.table-scroll-x {
+    width: 100%;
+    overflow-x: auto;
+    overflow-y: hidden;
+}
+
+/* 关键：让表格按内容撑开，而不是被压缩 */
+.table-scroll-x table {
+    min-width: 1500px; /* 你现在列数下的安全值，可微调 */
+}
+
+</style>
+</head>
+
+<body>
+<div class="toolbar">
+    DIP质控看板
+    <button class="secondary" onclick="reloadAll()">刷新</button>
+</div>
+
+<div class="container">
+
+    <!-- Tabs -->
+    <div class="tabs">
+        <div class="tab active" onclick="switchTab('unsubmitted')">入院三天未提交病案首页</div>
+        <div class="tab" onclick="switchTab('modified')">当天修改病案首页</div>
+    </div>
+
+    <!-- 未提交 -->
+    <div id="unsubmittedTab"> 
+        <button onclick="exportUnsubmitted()" style="margin-bottom: 12px;">
+        导出
+        </button>
+        <table id="table1">
+            <thead>
+            <tr>
+                <th>病人住院ID</th>
+                <th>姓名</th>
+                <th>入院日期</th>
+                <th>所在科室</th>
+                <th>住院医生</th>
+                <th>医生电话</th>
+            </tr>
+            </thead>
+            <tbody id="unsubmittedBody"></tbody>
+        </table>
+        <div class="pagination" id="unsubmittedPager"></div>
+    </div>
+
+    <!-- 修改 -->
+    <div id="modifiedTab" class="hidden">
+        <button onclick="exportModified()" style="margin-bottom: 12px;">
+            导出
+        </button>
+        <div class="table-scroll-x">
+            <table id="table2">
+                <thead>
+                    <tr>
+                        <th class="col-id">病人住院ID</th>
+                        <th class="col-rq">入院日期</th>
+                        <th class="col-name">姓名</th>
+                        <th class="col-dept">科室</th>
+                        <th class="col-doc">住院医师</th>
+                        <th class="col-diagnosis1">HIS诊断</th>
+                        <th class="col-diagnosis">DIP诊断</th>
+                        <th class="col-group">DIP分组</th>
+                        <th class="col-ratio">DIP倍率</th>
+                        <th class="col-score1">标准分值</th>
+                        <th class="col-score2">校正分值</th>
+                        <th class="col-profit">盈亏</th>
+                        <th class="col-cost">总费用</th>
+                        <th class="col-action">操作</th>
+                    </tr>
+                </thead>
+            <tbody id="modifiedBody"></tbody>
+        </table>
+        </div>
+
+
+        <div class="pagination" id="modifiedPager"></div>
+    </div>
+
+</div>
+
+
+
+
+<!-- 艾登弹窗 -->
+<dialog id="detailModal" class="modal">
+    <div class="modal-content">
+        <div class="modal-header">
+            <h3 id="modalTitle">艾登数据</h3>
+            <button class="close-btn" onclick="document.getElementById('detailModal').close()">×</button>
+        </div>
+        <div class="modal-body">
+            <iframe id="detailIframe" src="" frameborder="0"></iframe>
+        </div>
+    </div>
+</dialog>
+
+
+
+
+
+
+<script>
+/* ================== 基础配置 ================== */
+const API = {
+    // unsubmitted: 'http://127.0.0.1:8080/gyl/special/unsubmitted',
+    // modified: 'http://127.0.0.1:8080/gyl/special/modified-today',
+    // update: 'http://127.0.0.1:8080/gyl/special/patients_update'
+
+    unsubmitted: 'http://192.168.3.12:6080/gyl/special/unsubmitted',
+    modified: 'http://192.168.3.12:6080/gyl/special/modified-today',
+    update: 'http://192.168.3.12:6080/gyl/special/patients_update'
+};
+
+const pageSize = 8;
+const state = {
+    unsubmitted: { data: [], page: 1 },
+    modified: { data: [], page: 1 }
+};
+
+/* ================== Tab ================== */
+function switchTab(tab) {
+    document.getElementById('unsubmittedTab').classList.toggle('hidden', tab !== 'unsubmitted');
+    document.getElementById('modifiedTab').classList.toggle('hidden', tab !== 'modified');
+    document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+    document.querySelector(`.tab[onclick*="${tab}"]`).classList.add('active');
+}
+
+/* ================== 查询接口 ================== */
+async function loadUnsubmitted() {
+    const res = await fetch(API.unsubmitted, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        // body: JSON.stringify(getDateParam())
+    });
+    const json = await res.json();
+    if (json.code !== 20000) return alert('查询失败');
+    state.unsubmitted.data = json.data || [];
+    state.unsubmitted.page = 1;
+    renderPage('unsubmitted');
+}
+
+async function loadModified() {
+    const res = await fetch(API.modified, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        // body: JSON.stringify(getDateParam())
+    });
+    const json = await res.json();
+    if (json.code !== 20000) return alert('查询失败');
+    state.modified.data = json.data || [];
+    state.modified.page = 1;
+    renderPage('modified');
+}
+
+/* ================== 分页渲染 ================== */
+function renderPage(type) {
+    const { data, page } = state[type];
+    const start = (page - 1) * pageSize;
+    const slice = data.slice(start, start + pageSize);
+    const tbody = document.getElementById(type + 'Body');
+
+    tbody.innerHTML = slice.length === 0
+        ? `<tr><td colspan="${type === 'modified' ? 7 : 4}">暂无数据</td></tr>`
+        : slice.map(p => type === 'modified'
+            ? renderModifiedRow(p)
+            : `<tr>
+                <td>${p.bingrenzyid ?? ''}</td>
+                <td>${p.xingming ?? ''}</td>
+                <td>${p.ruyuanrq ?? ''}</td>
+                <td>${p.dangqianksmc ?? ''}</td>
+                <td>${p.zhuyuanysxm ?? ''}</td>
+                <td>${p.dianhua ?? ''}</td>
+                
+              </tr>`
+        ).join('');
+
+    renderPager(type);
+}
+
+function renderPager(type) {
+    const pager = document.getElementById(type + 'Pager');
+    const total = state[type].data.length || 0;
+    const pages = Math.ceil(total / pageSize) || 1;
+
+    let cur = Number(state[type].page);
+    if (isNaN(cur) || cur < 1) cur = 1;
+    if (cur > pages) cur = pages;
+
+    // 配置：最多显示多少个页码按钮（建议5~9，奇数更美观）
+    const maxVisible = 5;
+
+    // 计算起始和结束页码
+    let start = Math.max(1, cur - Math.floor(maxVisible / 2));
+    let end = Math.min(pages, start + maxVisible - 1);
+
+    // 调整：如果靠后，保证显示足够数量
+    if (end - start + 1 < maxVisible) {
+        start = Math.max(1, end - maxVisible + 1);
+    }
+
+    const parts = [];
+
+    parts.push(`
+        <div>共 <strong>${total}</strong> 条 第 <strong>${cur}</strong> / ${pages} 页</div>
+        <div class="pagination-buttons">
+            <button class="page-btn" ${cur <= 1 ? 'disabled' : ''} 
+                    onclick="go('${type}', ${cur - 1})">上一页</button>
+    `);
+
+    // 第一页
+    if (start > 1) {
+        parts.push(`
+            <button class="page-btn" onclick="go('${type}', 1)">1</button>
+        `);
+        if (start > 2) {
+            parts.push('<span class="ellipsis">...</span>');
+        }
+    }
+
+    // 中间页码
+    for (let i = start; i <= end; i++) {
+        const active = (cur === i) ? ' active' : '';
+        parts.push(`
+            <button class="page-btn${active}" 
+                    onclick="go('${type}', ${i})">${i}</button>
+        `);
+    }
+
+    // 最后一页
+    if (end < pages) {
+        if (end < pages - 1) {
+            parts.push('<span class="ellipsis">...</span>');
+        }
+        parts.push(`
+            <button class="page-btn" onclick="go('${type}', ${pages})">${pages}</button>
+        `);
+    }
+
+    parts.push(`
+            <button class="page-btn" ${cur >= pages ? 'disabled' : ''} 
+                    onclick="go('${type}', ${cur + 1})">下一页</button>
+        </div>
+    `);
+
+    pager.innerHTML = parts.join('');
+}
+
+function go(type, p) {
+    let page = Number(p);
+    const pages = Math.ceil(state[type].data.length / pageSize) || 1;
+
+    if (isNaN(page) || page < 1) page = 1;
+    if (page > pages) page = pages;
+
+    state[type].page = page;
+    renderPage(type);
+}
+
+/* ================== 更新患者（已修复） ================== */
+async function updatePatient(btn) {
+    const row = btn.closest('tr');
+    btn.disabled = true;
+    row.style.opacity = .5;
+
+    const payload = {
+        patientId: row.children[0].innerText
+    };
+
+    const res = await fetch(API.update, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload)
+    });
+    const json = await res.json();
+
+    btn.disabled = false;
+    row.style.opacity = 1;
+
+    if (json.code !== 20000) return alert('更新失败');
+
+    const newRow = document.createElement('tbody');
+    newRow.innerHTML = renderModifiedRow(json.data);
+    const tr = newRow.firstElementChild;
+
+    row.replaceWith(tr);
+
+    tr.classList.add('updated');
+    setTimeout(() => tr.classList.add('fade'), 1200);
+}
+
+/* ================== 行模板 ================== */
+function renderModifiedRow(p) {
+    const cls = p.profitLoss >= 0 ? 'profit' : 'loss';
+     // 构造详情页 URL，gl_wybs 替换为 patientId
+    const detailUrl = `http://192.168.9.26//ast/?source=doctor&gl_wybs=${p.patientId}&user_id=DBA`;
+
+    return `
+        <tr>
+            <td>${p.patientId}</td>
+            <td>${p.ruyuanrq}</td>
+            <td>${p.patientName}</td>
+            <td>${p.patientDept}</td>
+            <td>${p.zhuyuanysxm}</td>
+            <td>${p.zhenduan}</td>
+            <td>${p.dip_zhenduan}</td>
+            <td>${p.groupName}</td>
+            <td>${p.dipRatio}</td>
+            <td>${p.score1}</td>
+            <td>${p.score2}</td>
+            <td class="${cls}">${p.profitLoss}</td>
+            <td>${p.totalCost}</td>
+            <td class="col-action">
+                <button onclick="updatePatient(this)">更新</button>
+                <button onclick="showDetail('${detailUrl}', '${p.patientName || p.patientId}')">艾登</button>
+            </td>
+        </tr>
+    `;
+}
+
+function reloadAll() {
+    loadUnsubmitted();
+    loadModified();
+}
+
+function showDetail(url, patientName = '艾登数据') {
+    const modal = document.getElementById('detailModal');
+    const iframe = document.getElementById('detailIframe');
+    const titleEl = document.getElementById('modalTitle');
+    
+    // 设置标题（显示患者姓名 + ID）
+    titleEl.textContent = patientName ? `艾登数据 - ${patientName}` : '艾登数据';
+    
+    // 设置 iframe 地址
+    iframe.src = url;
+    
+    // 打开弹窗
+    modal.showModal();
+    
+    // 可选：加载完成后做一些处理
+    iframe.onload = () => {
+        // 可以在这里添加加载完成后的逻辑，比如隐藏 loading
+        console.log('详情页加载完成');
+    };
+}
+
+/* ================== 初始化 ================== */
+loadUnsubmitted();
+loadModified();
+
+
+function exportUnsubmitted() {
+    const list = state.unsubmitted.data || [];
+    if (!list.length) {
+        alert('暂无数据可导出');
+        return;
+    }
+
+    const headers = [
+        '病人住院ID',
+        '姓名',
+        '入院日期',
+        '所在科室',
+        '住院医生',
+        '医生电话'
+    ];
+
+    const rows = list.map(p => [
+        p.bingrenzyid ?? '',
+        p.xingming ?? '',
+        p.ruyuanrq ?? '',
+        p.dangqianksmc ?? '',
+        p.zhuyuanysxm ?? '',
+        p.dianhua ?? ''
+    ]);
+
+    exportCSV(headers, rows, '入院三天未提交病案首页');
+}
+
+
+function exportModified() {
+    const list = state.modified.data || [];
+    if (!list.length) {
+        alert('暂无数据可导出');
+        return;
+    }
+
+    const headers = [
+        '病人住院ID',
+        '入院日期',
+        '姓名',
+        '科室',
+        '住院医师',
+        'HIS诊断',
+        'DIP诊断',
+        'DIP分组',
+        'DIP倍率',
+        '标准分值',
+        '校正分值',
+        '盈亏',
+        '总费用'
+    ];
+
+    const rows = list.map(p => [
+        p.patientId ?? '',
+        p.ruyuanrq ?? '',
+        p.patientName ?? '',
+        p.patientDept ?? '',
+        p.zhuyuanysxm ?? '',
+        p.zhenduan ?? '',
+        p.dip_zhenduan ?? '',
+        p.groupName ?? '',
+        p.dipRatio ?? '',
+        p.score1 ?? '',
+        p.score2 ?? '',
+        p.profitLoss ?? '',
+        p.totalCost ?? ''
+    ]);
+
+    exportCSV(headers, rows, '当天修改病案首页');
+}
+
+
+function exportCSV(headers, rows, title) {
+    const csv = [];
+    csv.push(headers.join(','));
+
+    rows.forEach(row => {
+        csv.push(
+            row.map(v => `"${String(v).replace(/"/g, '""')}"`).join(',')
+        );
+    });
+
+    const now = new Date();
+    const date =
+        now.getFullYear() +
+        String(now.getMonth() + 1).padStart(2, '0') +
+        String(now.getDate()).padStart(2, '0');
+
+    const fileName = `${title}_${date}.csv`;
+
+    const blob = new Blob(['\uFEFF' + csv.join('\n')], {
+        type: 'text/csv;charset=utf-8;'
+    });
+
+    const link = document.createElement('a');
+    link.href = URL.createObjectURL(blob);
+    link.download = fileName;
+    link.click();
+}
+
+
+</script>
+</body>
+</html>
