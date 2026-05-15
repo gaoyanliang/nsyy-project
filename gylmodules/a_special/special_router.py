@@ -283,6 +283,11 @@ def unsubmitted():
 def modified_today():
     return special_server.query_dip_patients()
 
+@special_system.route('/all-dip', methods=['POST', 'GET'])
+@api_response
+def all_dip():
+    return special_server.query_all_dip_patients()
+
 
 """刷新病人pid信息"""
 

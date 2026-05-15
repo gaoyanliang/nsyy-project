@@ -31,6 +31,17 @@ def query_dip_patients():
 
     return data
 
+def query_all_dip_patients():
+    redis_client = redis.Redis(connection_pool=pool)
+    if not redis_client.exists('all_dip_patients'):
+        return []
+
+    data = []
+    for item in redis_client.hscan_iter('all_dip_patients'):
+        data.append(json.loads(item[1]))
+
+    return data
+
 def query_medical_page_update_record():
     redis_client = redis.Redis(connection_pool=pool)
     # 尝试设置更新锁
@@ -105,6 +116,7 @@ where
         item['zhenduan'] = item.get('zhenduan', '')
 
         redis_client.hset('dip_patients', item.get('bingrenzyid'), json.dumps(item, ensure_ascii=False, default=str))
+        redis_client.hset('all_dip_patients', item.get('bingrenzyid'), json.dumps(item, ensure_ascii=False, default=str))
 
     sql = """select zb.bingrenzyid from df_jj_zhuyuan.zy_bingrenxx zb where
             (( zb.zaiyuanzt = '0' and ( zb.yiliaolbmc = '生育住院'
@@ -172,6 +184,7 @@ def refresh_patient_dip_info(bingrenzyid):
         patient_info['score2'] = dip_drg.get('dipJsJzfz') or ''
 
     redis_client.hset('dip_patients', bingrenzyid, json.dumps(patient_info, ensure_ascii=False, default=str))
+    redis_client.hset('all_dip_patients', bingrenzyid, json.dumps(patient_info, ensure_ascii=False, default=str))
     redis_client.delete('patient_dip_update_lock')
     return patient_info
 
@@ -289,6 +302,70 @@ def ocr_try_variants(img_b64):
 
     session.close()
     raise Exception(f"OCR 识别失败，已重试 {max_retries} 次")
+
+
+def query_all_dip_record():
+    start_time = time.time()
+    redis_client = redis.Redis(connection_pool=pool)
+    # 尝试设置更新锁
+    if not redis_client.set(f"all_dip_query_lock", 1, ex=20*60, nx=True):
+        raise Exception("正在获取数据，大概需要10-20分钟，请稍后重试")
+
+    sql = """select zb.bingrenzyid, zb.xingming, zb.dangqianksmc, zb.zhuyuanysxm, zb.ruyuanrq ,
+	(select string_agg(zz.zhenduanmc || '-' || zz.icd10 , '、' order by shunxuhao) from df_jj_zhuyuan.zy_zhenduanzl zz
+	where zz.zuofeibz = '0'
+		and zz.zhenduanlb like '13%'
+		and zz.bingrenzyid = zb.bingrenzyid) zhenduan from df_jj_zhuyuan.zy_bingrenxx zb
+        where
+	zb.zaiyuanzt = '0'
+	and zb.xingming not like '%测试%'
+	and zb.dangqianksmc not like '%测试%'
+	and zb.dangqianbqmc not like '%测试%'
+	and zb.quxiaorybz = '0'"""
+
+    data_list = global_tools.call_new_his_pg(sql)
+    if not data_list:
+        redis_client.delete('all_dip_query_lock')
+        return
+
+
+    logger.debug(f'dip 一共查询到 {len(data_list)} 条总记录')
+
+    redis_client = redis.Redis(connection_pool=pool)
+    redis_client.delete('all_dip_patients')
+    for item in data_list:
+        if not item.get('bingrenzyid'):
+            continue
+        dip = get_dip(item.get('bingrenzyid'))
+        if dip:
+            dip_drg = dip.get('dipDrg') or {}
+            # dip 分组
+            item['groupName'] = "{} {}".format(dip_drg.get('dipRzmc') or '', dip_drg.get('dipRz') or '').strip()
+            # dip 诊断
+            item['dip_zhenduan'] = "{} {}".format(dip_drg.get('dipZdmc') or '', dip_drg.get('dipZd') or '').strip()
+            # dip倍率
+            item['dipRatio'] = dip_drg.get('dipJsFybl') or ''
+            # 总费用
+            item['totalCost'] = dip_drg.get('zfy') or ''
+            # 盈亏
+            item['profitLoss'] = dip_drg.get('dipJsJyyg') or ''
+            # 标准分值
+            item['score1'] = dip_drg.get('dipMlfz') or ''
+            # 校正分值
+            item['score2'] = dip_drg.get('dipJsJzfz') or ''
+
+        item['patientId'] = item.get('bingrenzyid', '')
+        item['patientName'] = item.get('xingming', '')
+        item['patientDept'] = item.get('dangqianksmc', '')
+        item['zhuyuanysxm'] = item.get('zhuyuanysxm', '')
+        item['ruyuanrq'] = item.get('ruyuanrq')
+        item['zhenduan'] = item.get('zhenduan', '')
+
+        redis_client.hset('all_dip_patients', item.get('bingrenzyid'), json.dumps(item, ensure_ascii=False, default=str))
+
+    logger.info(f'dip 一共处理了 {len(data_list)} 条总记录, 用时 {time.time() - start_time}秒')
+    redis_client.delete('all_dip_query_lock')
+
 
 if __name__ == "__main__":
     start_time = time.time()

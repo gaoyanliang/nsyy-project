@@ -313,6 +313,7 @@ tr.updated.fade {
     <div class="tabs">
         <div class="tab active" onclick="switchTab('unsubmitted')">入院三天未提交病案首页</div>
         <div class="tab" onclick="switchTab('modified')">当天修改病案首页</div>
+        <div class="tab" onclick="switchTab('all')">全院</div>
     </div>
 
     <!-- 未提交 -->
@@ -364,15 +365,44 @@ tr.updated.fade {
             <tbody id="modifiedBody"></tbody>
         </table>
         </div>
-
-
         <div class="pagination" id="modifiedPager"></div>
     </div>
 
+    <!-- 全院 -->
+    <div id="allTab" class="hidden">
+        <button onclick="exportAll()" style="margin-bottom: 12px;">
+            导出
+        </button>
+        <div class="table-scroll-x">
+            <table id="table3">
+                <thead>
+                    <tr>
+                        <th class="col-id">病人住院ID</th>
+                        <th class="col-rq">入院日期</th>
+                        <th class="col-name">姓名</th>
+                        <th class="col-dept">科室</th>
+                        <th class="col-doc">住院医师</th>
+                        <th class="col-diagnosis1">HIS诊断</th>
+                        <th class="col-diagnosis">DIP诊断</th>
+                        <th class="col-group">DIP分组</th>
+                        <th class="col-ratio">DIP倍率</th>
+                        <th class="col-score1">标准分值</th>
+                        <th class="col-score2">校正分值</th>
+                        <th class="col-profit">盈亏</th>
+                        <th class="col-cost">总费用</th>
+                        <th class="col-action">操作</th>
+                    </tr>
+                </thead>
+            <tbody id="allBody"></tbody>
+        </table>
+        </div>
+
+        <div class="pagination" id="allPager"></div>
+    </div>
+
+
+
 </div>
-
-
-
 
 <!-- 艾登弹窗 -->
 <dialog id="detailModal" class="modal">
@@ -389,31 +419,32 @@ tr.updated.fade {
 
 
 
-
-
-
 <script>
 /* ================== 基础配置 ================== */
 const API = {
     // unsubmitted: 'http://127.0.0.1:8080/gyl/special/unsubmitted',
     // modified: 'http://127.0.0.1:8080/gyl/special/modified-today',
-    // update: 'http://127.0.0.1:8080/gyl/special/patients_update'
+    // update: 'http://127.0.0.1:8080/gyl/special/patients_update',
+    // all: 'http://127.0.0.1:8080/gyl/special/all-dip'
 
     unsubmitted: 'http://192.168.3.12:6080/gyl/special/unsubmitted',
     modified: 'http://192.168.3.12:6080/gyl/special/modified-today',
-    update: 'http://192.168.3.12:6080/gyl/special/patients_update'
+    update: 'http://192.168.3.12:6080/gyl/special/patients_update',
+    all: 'http://192.168.3.12:6080/gyl/special/all-dip'
 };
 
 const pageSize = 8;
 const state = {
     unsubmitted: { data: [], page: 1 },
-    modified: { data: [], page: 1 }
+    modified: { data: [], page: 1 },
+    all: { data: [], page: 1 }
 };
 
 /* ================== Tab ================== */
 function switchTab(tab) {
     document.getElementById('unsubmittedTab').classList.toggle('hidden', tab !== 'unsubmitted');
     document.getElementById('modifiedTab').classList.toggle('hidden', tab !== 'modified');
+    document.getElementById('allTab').classList.toggle('hidden', tab !== 'all');
     document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
     document.querySelector(`.tab[onclick*="${tab}"]`).classList.add('active');
 }
@@ -445,6 +476,19 @@ async function loadModified() {
     renderPage('modified');
 }
 
+async function loadAll() {
+    const res = await fetch(API.all, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        // body: JSON.stringify(getDateParam())
+    });
+    const json = await res.json();
+    if (json.code !== 20000) return alert('查询失败');
+    state.all.data = json.data || [];
+    state.all.page = 1;
+    renderPage('all');
+}
+
 /* ================== 分页渲染 ================== */
 function renderPage(type) {
     const { data, page } = state[type];
@@ -453,8 +497,8 @@ function renderPage(type) {
     const tbody = document.getElementById(type + 'Body');
 
     tbody.innerHTML = slice.length === 0
-        ? `<tr><td colspan="${type === 'modified' ? 7 : 4}">暂无数据</td></tr>`
-        : slice.map(p => type === 'modified'
+        ? `<tr><td colspan="${type === 'modified' || type === 'all' ? 7 : 4}">暂无数据</td></tr>`
+        : slice.map(p => type === 'modified' || type === 'all'
             ? renderModifiedRow(p)
             : `<tr>
                 <td>${p.bingrenzyid ?? ''}</td>
@@ -613,6 +657,7 @@ function renderModifiedRow(p) {
 function reloadAll() {
     loadUnsubmitted();
     loadModified();
+    loadAll();
 }
 
 function showDetail(url, patientName = '艾登数据') {
@@ -639,6 +684,7 @@ function showDetail(url, patientName = '艾登数据') {
 /* ================== 初始化 ================== */
 loadUnsubmitted();
 loadModified();
+loadAll();
 
 
 function exportUnsubmitted() {
@@ -710,6 +756,49 @@ function exportModified() {
     ]);
 
     exportCSV(headers, rows, '当天修改病案首页');
+}
+
+
+function exportAll() {
+    const list = state.all.data || [];
+    if (!list.length) {
+        alert('暂无数据可导出');
+        return;
+    }
+
+    const headers = [
+        '病人住院ID',
+        '入院日期',
+        '姓名',
+        '科室',
+        '住院医师',
+        'HIS诊断',
+        'DIP诊断',
+        'DIP分组',
+        'DIP倍率',
+        '标准分值',
+        '校正分值',
+        '盈亏',
+        '总费用'
+    ];
+
+    const rows = list.map(p => [
+        p.patientId ?? '',
+        p.ruyuanrq ?? '',
+        p.patientName ?? '',
+        p.patientDept ?? '',
+        p.zhuyuanysxm ?? '',
+        p.zhenduan ?? '',
+        p.dip_zhenduan ?? '',
+        p.groupName ?? '',
+        p.dipRatio ?? '',
+        p.score1 ?? '',
+        p.score2 ?? '',
+        p.profitLoss ?? '',
+        p.totalCost ?? ''
+    ]);
+
+    exportCSV(headers, rows, '全院患者DIP');
 }
 
 
