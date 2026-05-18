@@ -157,7 +157,7 @@ def copy_schedule(source_date, target_date, pid, did, rid, copy_by: str = 'docto
         db = DbUtil(global_config.DB_HOST, global_config.DB_USERNAME, global_config.DB_PASSWORD,
                     global_config.DB_DATABASE_GYL)
         # 要复制的排班日期后面 不能有排班记录
-        query_sql = f"""select 1 from {table_name} WHERE {date_sql} {condition_sql} """
+        query_sql = f"""select 1 from {table_name} s WHERE {date_sql} {condition_sql} """
         if db.query_all(query_sql):
             del db
             raise Exception("目标日期后有排班记录，请先删除")
