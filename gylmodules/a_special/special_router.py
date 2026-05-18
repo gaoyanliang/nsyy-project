@@ -7,6 +7,9 @@ import time
 import uuid
 from datetime import datetime
 import hashlib
+import zipfile
+import shutil
+from pathlib import Path
 
 import paramiko
 import requests
@@ -353,9 +356,21 @@ def tax_fapiao():
             "path": save_path
         }
 
+    # ✅ 1. 安全文件名
+    from werkzeug.utils import secure_filename
+    filename = secure_filename(file.filename)
+    # ✅ 2. 本地临时目录
+    local_dir = "/tmp/tax_fapiao_upload"
+    os.makedirs(local_dir, exist_ok=True)
+    local_path = os.path.join(local_dir, filename)
+    file.save(local_path)
+
     # 远程目录（按月份）
-    remote_dir = f"/home/gyl/tax_fapiao/{datetime.now().month}"
+    remote_dir = f"/home/gyl/tax_fapiao/{datetime.now().year}/{datetime.now().month:02d}"
+    if file.filename.lower().endswith(".zip"):
+        remote_dir = f"{remote_dir}/zip"
     remote_path = f"{remote_dir}/{file.filename}"
+
     # 远程服务器配置
     remote_host = "192.168.9.75"
     remote_user = "gyl"
@@ -375,11 +390,14 @@ def tax_fapiao():
             else:
                 raise
 
-        # 上传文件
-        sftp.putfo(file.stream, remote_path)
+        # ✅ 5. 用 put 上传
+        sftp.put(local_path, remote_path)
 
         sftp.close()
         transport.close()
+
+        # ✅ 6. 可选：删除本地临时文件
+        os.remove(local_path)
 
         return {
             "code": 0,
