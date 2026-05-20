@@ -1049,9 +1049,10 @@ def general_dept_shift_change(reg_sqls, shift_classes, time_slot, dept_list, sho
         filtered_patient_count = [dept for dept in patient_count if dept['所在病区id'] in dept_list]
         patient_count_list = fill_missing_types(filtered_patient_count, shift_change_config.ward_people_count, 2)
 
+    # 需要将移动护理id 转为his id
+    for item in chuangwei_info2:
+        item['所在病区id'] = str(shift_change_config.his_dept_id_dict.get(item['所在病区id'], ''))
     chuangwei_info_list = chuangwei_info1 + chuangwei_info2
-    for item in chuangwei_info_list:
-        item['所在病区id'] = str(shift_change_config.his_dept_dict.get(item['所在病区'], ''))
     filtered_chuangwei_info = [dept for dept in chuangwei_info_list if dept['所在病区id'] in dept_list]
 
     filtered_patients = [dept for dept in all_patient_info if dept['所在病区id'] in dept_list]
