@@ -7,9 +7,6 @@ import time
 import uuid
 from datetime import datetime
 import hashlib
-import zipfile
-import shutil
-from pathlib import Path
 
 import paramiko
 import requests
@@ -339,6 +336,10 @@ def tax_fapiao():
         return {"code": 50000, "data": '', "res": "没有文件"}
 
     file = request.files["file"]
+    comp_dir_name = 'no_comp'
+    if request.form and 'comp_dir_name' in request.form:
+        comp_dir_name = request.form.get('comp_dir_name')
+
     if global_config.run_in_local:
         save_path = f"/Users/gaoyanliang/nsyy/nsyy-project/gylmodules/a_special/upload/{datetime.now().month}"
         # 确保目录存在
@@ -366,7 +367,7 @@ def tax_fapiao():
     file.save(local_path)
 
     # 远程目录（按月份）
-    remote_dir = f"/home/gyl/tax_fapiao/{datetime.now().year}/{datetime.now().month:02d}"
+    remote_dir = f"/home/gyl/tax_fapiao/{datetime.now().year}/{datetime.now().month:02d}/{comp_dir_name}"
     if file.filename.lower().endswith(".zip"):
         remote_dir = f"{remote_dir}/zip"
     remote_path = f"{remote_dir}/{file.filename}"
@@ -381,14 +382,36 @@ def tax_fapiao():
         transport.connect(username=remote_user, password=remote_pass)
         sftp = paramiko.SFTPClient.from_transport(transport)
 
-        # 确保远程目录存在
-        try:
-            sftp.stat(remote_dir)
-        except IOError as e:
-            if e.errno == errno.ENOENT:
-                sftp.mkdir(remote_dir)
+        # === 修复点开始：使用递归方式创建远程目录 ===
+        # 将路径切分，逐级检查并创建
+        dir_path = remote_dir
+        # 兼容 Windows/Linux 路径分隔符
+        folders = dir_path.split(os.sep)
+        # 重新拼凑路径进行检查和创建
+        current_path = ""
+        if dir_path.startswith('/'):
+            current_path = "/"
+
+        for folder in folders:
+            if not folder:
+                continue
+            if current_path == "/":
+                new_path = current_path + folder
             else:
-                raise
+                new_path = current_path + "/" + folder
+
+            try:
+                sftp.stat(new_path)
+            except IOError as e:
+                # 如果报错是“没有那个文件或目录”，说明需要创建
+                if e.errno == errno.ENOENT:
+                    print(f"Creating remote directory: {new_path}")
+                    sftp.mkdir(new_path)
+                else:
+                    raise  # 其他错误（如权限问题）抛出
+
+            current_path = new_path
+        # === 修复点结束 ===
 
         # ✅ 5. 用 put 上传
         sftp.put(local_path, remote_path)
