@@ -17,6 +17,10 @@ def apply_vip_car(json_data):
 def approval(json_data):
     return parking_server.approval_and_enable(json_data, 'approval')
 
+@parking.route('/refuse', methods=['POST'])
+@api_response
+def refuse(json_data):
+    return parking_server.approval_and_enable(json_data, 'refuse')
 
 @parking.route('/enable', methods=['POST'])
 @api_response
