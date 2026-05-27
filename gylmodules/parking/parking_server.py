@@ -57,9 +57,11 @@ def approval_and_enable(json_data, type):
     if 'plate_no' in json_data:
         json_data['plate_no'] = json_data.get('plate_no').replace(' ', '')
     car_id = json_data.get('plate_no')
-    operator = json_data.pop('operater')
-    operator_id = json_data.pop('operater_id')
-    refuse_reason = json_data.pop('refuse_reason', '')
+    operator = json_data.pop('operater', '')
+    operator_id = json_data.pop('operater_id', '')
+    refuse_reason = json_data.get('refuse_reason', '')
+    if not operator or not operator_id:
+        raise Exception(f"操作人信息异常, 请重新登录后再次操作, type={type}, plate_no={car_id}")
 
     with DbUtil(global_config.DB_HOST, global_config.DB_USERNAME,
                 global_config.DB_PASSWORD, global_config.DB_DATABASE_GYL) as db:
