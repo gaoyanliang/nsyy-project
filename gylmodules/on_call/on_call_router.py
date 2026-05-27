@@ -115,6 +115,12 @@ def copy_schedules(json_data):
     on_call_server.copy_schedules(json_data)
 
 
+@on_call.route('/schedules/copy_doctor', methods=['POST'])
+@api_response
+def copy_doctor_schedules(json_data):
+    on_call_server.copy_doctor_schedules(json_data)
+
+
 """批量删除排班"""
 @on_call.route('/schedules/batch_delete', methods=['POST'])
 @api_response

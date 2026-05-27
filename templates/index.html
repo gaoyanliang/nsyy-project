@@ -1,0 +1,3683 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>医院急诊一键通知系统</title>
+<!--    <link rel="stylesheet" href="../static/style.css">-->
+<!--    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">-->
+</head>
+<style>
+    /* 医院急诊一键通知系统 - 样式表 */
+
+:root {
+    --primary-color: #1890ff;
+    --success-color: #52c41a;
+    --warning-color: #faad14;
+    --danger-color: #f5222d;
+    --text-color: #333;
+    --text-secondary: #666;
+    --border-color: #e8e8e8;
+    --bg-color: #f5f5f5;
+    --white: #fff;
+    --shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+}
+
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+}
+
+body {
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+    background: var(--bg-color);
+    color: var(--text-color);
+    line-height: 1.6;
+}
+
+.container {
+    max-width: 1400px;
+    margin: 0 auto;
+    padding: 20px;
+}
+
+/* 顶部导航 */
+.header {
+    background: var(--white);
+    padding: 20px 30px;
+    border-radius: 8px;
+    margin-bottom: 20px;
+    box-shadow: var(--shadow);
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.header h1 {
+    font-size: 24px;
+    color: var(--primary-color);
+}
+
+.nav {
+    display: flex;
+    gap: 10px;
+    flex-wrap: wrap;
+}
+
+.nav-btn {
+    padding: 10px 20px;
+    border: none;
+    background: var(--bg-color);
+    color: var(--text-secondary);
+    border-radius: 6px;
+    cursor: pointer;
+    font-size: 14px;
+    transition: all 0.3s;
+}
+
+.nav-btn:hover {
+    background: var(--primary-color);
+    color: var(--white);
+}
+
+.nav-btn.active {
+    background: var(--primary-color);
+    color: var(--white);
+}
+
+/* 页面切换 */
+.page {
+    display: none;
+}
+
+.page.active {
+    display: block;
+}
+
+/* 卡片 */
+.card {
+    background: var(--white);
+    border-radius: 8px;
+    padding: 24px;
+    margin-bottom: 20px;
+    box-shadow: var(--shadow);
+}
+
+.card-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 20px;
+}
+
+.card-header h2 {
+    font-size: 18px;
+}
+
+.card-actions {
+    display: flex;
+    gap: 10px;
+}
+
+.card h2 {
+    margin-bottom: 20px;
+}
+
+.card h3 {
+    margin-bottom: 15px;
+    font-size: 16px;
+}
+
+.subtitle {
+    color: var(--text-secondary);
+    margin-bottom: 20px;
+}
+
+/* 按钮 */
+.btn {
+    padding: 10px 20px;
+    border: none;
+    border-radius: 6px;
+    cursor: pointer;
+    font-size: 14px;
+    transition: all 0.3s;
+}
+
+.btn-primary {
+    background: var(--primary-color);
+    color: var(--white);
+}
+
+.btn-primary:hover {
+    background: #40a9ff;
+}
+
+.btn-secondary {
+    background: var(--bg-color);
+    color: var(--text-color);
+    border: 1px solid var(--border-color);
+}
+
+.btn-secondary:hover {
+    border-color: var(--primary-color);
+    color: var(--primary-color);
+}
+
+.btn-success {
+    background: var(--success-color);
+    color: var(--white);
+}
+
+.btn-warning {
+    background: var(--warning-color);
+    color: var(--white);
+}
+
+.btn-danger {
+    background: var(--danger-color);
+    color: var(--white);
+}
+
+.btn-lg {
+    padding: 15px 30px;
+    font-size: 16px;
+}
+
+.btn-block {
+    width: 100%;
+    display: block;
+}
+
+/* 快捷操作 */
+.quick-actions {
+    display: flex;
+    gap: 15px;
+    flex-wrap: wrap;
+}
+
+/* 表单 */
+.form-group {
+    margin-bottom: 20px;
+}
+
+.form-group label {
+    display: block;
+    margin-bottom: 8px;
+    font-weight: 500;
+}
+
+.form-group input,
+.form-group select,
+.form-group textarea {
+    width: 100%;
+    padding: 12px;
+    border: 1px solid var(--border-color);
+    border-radius: 6px;
+    font-size: 14px;
+}
+
+.form-group textarea {
+    min-height: 100px;
+    resize: vertical;
+}
+
+.form-row {
+    display: flex;
+    gap: 15px;
+    align-items: center;
+}
+
+.form-row input,
+.form-row select {
+    flex: 1;
+}
+
+/* 过滤器 */
+.filter-bar {
+    display: flex;
+    gap: 15px;
+    margin-bottom: 20px;
+    flex-wrap: wrap;
+}
+
+.filter-bar input,
+.filter-bar select {
+    padding: 10px 15px;
+    border: 1px solid var(--border-color);
+    border-radius: 6px;
+}
+
+/* 排班管理 - 网格视图 */
+.duty-card {
+    padding: 0;
+    overflow: hidden;
+    border: none;
+}
+
+.duty-card .card-header {
+    padding: 20px 24px;
+    border-bottom: 1px solid var(--border-color);
+}
+
+.duty-card .filter-bar {
+    padding: 15px 24px;
+    border-bottom: 1px solid var(--border-color);
+    background: #fafbfc;
+}
+
+.schedule-grid-container {
+    overflow: hidden;
+    background: var(--white);
+    border-radius: 0 0 8px 8px;
+}
+
+.schedule-grid-wrapper {
+    display: flex;
+    max-height: 650px;
+    border-radius: 0 0 8px 8px;
+    overflow: hidden;
+}
+
+/* 左侧固定列 */
+.schedule-left {
+    flex-shrink: 0;
+    width: 380px;
+    background: linear-gradient(180deg, #f8fafc 0%, #f0f4f8 100%);
+    border-right: 2px solid #d0d7de;
+    overflow-y: auto;
+    overflow-x: hidden;
+    box-shadow: 2px 0 8px rgba(0,0,0,0.05);
+}
+
+.schedule-left::-webkit-scrollbar {
+    display: none;
+}
+
+/* 右侧可滚动区域 */
+.schedule-right {
+    flex: 1;
+    overflow: auto;
+    background: var(--white);
+}
+
+/* 日期头部行 */
+.schedule-header-row {
+    display: flex;
+    position: sticky;
+    top: 0;
+    z-index: 10;
+    background: linear-gradient(180deg, #f0f4f8 0%, #e8ecf0 100%);
+    border-bottom: 2px solid #d0d7de;
+}
+
+.schedule-left .schedule-header-row {
+    position: sticky;
+    left: 0;
+    z-index: 11;
+    background: linear-gradient(180deg, #e8ecf0 0%, #dfe3e8 100%);
+}
+
+.date-header {
+    min-width: max-content;
+}
+
+.date-header .schedule-cell {
+    flex-shrink: 0;
+}
+
+/* 排班单元格 */
+.schedule-cell {
+    padding: 10px 8px;
+    text-align: center;
+    border-right: 1px solid #f0f0f0;
+    border-bottom: 1px solid #f0f0f0;
+    min-height: 44px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 13px;
+    cursor: pointer;
+    transition: all 0.2s ease;
+}
+
+.schedule-cell:hover {
+    background: #f0f7ff !important;
+    transform: scale(1.02);
+    box-shadow: 0 2px 8px rgba(24, 144, 255, 0.15);
+    z-index: 5;
+    position: relative;
+}
+
+/* 头部单元格 */
+.header-cell {
+    font-weight: 600;
+    background: transparent;
+    position: sticky;
+}
+
+/* 左侧固定列的单元格 */
+.dept-cell {
+    width: 120px;
+    justify-content: flex-start;
+    font-weight: 500;
+
+    white-space: normal;      /* 允许换行 */
+    word-break: break-word;   /* 长单词/连续字符断行 */
+    line-height: 1.3;         /* 适当行高，便于多行显示 */
+    padding: 8px 6px;         /* 调整内边距，保证多行时的舒适度 */
+}
+
+.title-cell {
+    width: 80px;
+    justify-content: center;
+    font-size: 12px;
+}
+
+.name-cell {
+    flex: 1;
+    justify-content: flex-start;
+    font-weight: 500;
+}
+
+/* 电话列宽度 */
+.phone-cell {
+    width: 120px;
+    justify-content: center;
+}
+
+/* 日期单元格 */
+.date-cell {
+    width: 70px;
+    flex-direction: column;
+    gap: 3px;
+}
+
+.date-cell .date-day {
+    font-weight: 600;
+    font-size: 13px;
+    color: #333;
+}
+
+.date-cell .date-week {
+    font-size: 11px;
+    color: #888;
+}
+
+/* 周末样式 */
+.weekend {
+    background: #fef9f3 !important;
+}
+
+.weekend .date-week {
+    color: #e8590c;
+}
+
+/* 人员列表 */
+.schedule-personnel-list {
+    overflow-y: auto;
+}
+
+.schedule-personnel-list::-webkit-scrollbar {
+    width: 6px;
+}
+
+.schedule-personnel-list::-webkit-scrollbar-track {
+    background: #f1f1f1;
+}
+
+.schedule-personnel-list::-webkit-scrollbar-thumb {
+    background: #c1c1c1;
+    border-radius: 3px;
+}
+
+.personnel-row {
+    display: flex;
+    border-bottom: 1px solid #e8eef3;
+    min-height: 44px;
+    background: var(--white);
+}
+
+.personnel-row:hover {
+    background: #f8fafc;
+}
+
+.department-row {
+    display: flex;
+    background: linear-gradient(90deg, #e8f4fc 0%, #d8edf8 100%);
+    font-weight: 600;
+    cursor: pointer;
+    min-height: 40px;
+}
+
+.department-row:hover {
+    background: linear-gradient(90deg, #d8edf8 0%, #c8e4f4 100%);
+}
+
+.toggle-icon {
+    font-size: 10px;
+    margin-left: 5px;
+    transition: transform 0.2s;
+}
+
+/* 排班内容区 */
+.schedule-content {
+    min-width: max-content;
+    background: var(--white);
+}
+
+.schedule-row {
+    display: flex;
+    border-bottom: 1px solid #f0f0f0;
+}
+
+.schedule-row:hover {
+    background: #fafcff;
+}
+
+.schedule-row-content {
+    background: linear-gradient(90deg, #e8f4fc 0%, #d8edf8 100%);
+    min-height: 40px;
+}
+
+.empty-cell {
+    color: #ccc;
+    background: #fafcff;
+}
+
+/* 班次颜色 */
+.shift-main {
+    background: linear-gradient(135deg, #e6f7ff 0%, #bae7ff 100%);
+    color: #0050b3;
+    font-weight: 600;
+    border-radius: 4px;
+}
+
+.shift-night {
+    background: linear-gradient(135deg, #fff7e6 0%, #ffe58f 100%);
+    color: #ad6800;
+    font-weight: 600;
+    border-radius: 4px;
+}
+
+.shift-normal {
+    background: linear-gradient(135deg, #f6ffed 0%, #b7eb8f 100%);
+    color: #389e0d;
+    font-weight: 500;
+    border-radius: 4px;
+}
+
+.shift-off {
+    background: linear-gradient(135deg, #f5f5f5 0%, #d9d9d9 100%);
+    color: #666;
+    border-radius: 4px;
+}
+
+/* 今日值班列表 */
+.duty-list {
+    max-height: 400px;
+    overflow-y: auto;
+}
+
+.duty-item {
+    padding: 15px;
+    border-bottom: 1px solid var(--border-color);
+}
+
+.duty-item:last-child {
+    border-bottom: none;
+}
+
+.duty-dept {
+    font-weight: bold;
+    color: var(--primary-color);
+    margin-bottom: 10px;
+}
+
+.duty-doctors {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+}
+
+.duty-doctor-tag {
+    background: var(--bg-color);
+    padding: 5px 12px;
+    border-radius: 15px;
+    font-size: 13px;
+}
+
+/* 值班预览 */
+.today-duty-preview {
+    background: #fafafa;
+    padding: 20px;
+    border-radius: 8px;
+    margin: 20px 0;
+}
+
+.duty-preview-list {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+    gap: 10px;
+}
+
+.duty-preview-item {
+    background: var(--white);
+    padding: 10px 15px;
+    border-radius: 6px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    border: 1px solid var(--border-color);
+}
+
+.duty-preview-name {
+    font-weight: 500;
+}
+
+.duty-preview-dept {
+    color: var(--text-secondary);
+    font-size: 12px;
+}
+
+/* 会诊群列表 */
+.groups-list {
+    display: grid;
+    gap: 15px;
+}
+
+.group-item {
+    background: var(--bg-color);
+    padding: 20px;
+    border-radius: 8px;
+    cursor: pointer;
+    transition: all 0.3s;
+}
+
+.group-item:hover {
+    box-shadow: var(--shadow);
+}
+
+.group-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 10px;
+}
+
+.group-patient {
+    font-weight: bold;
+    font-size: 16px;
+}
+
+.group-status {
+    padding: 5px 12px;
+    border-radius: 15px;
+    font-size: 12px;
+}
+
+.status-active {
+    background: #fff1f0;
+    color: var(--danger-color);
+}
+
+.status-closed {
+    background: #f5f5f5;
+    color: var(--text-secondary);
+}
+
+.group-info {
+    display: flex;
+    gap: 20px;
+    color: var(--text-secondary);
+    font-size: 14px;
+}
+
+.group-info span {
+    display: flex;
+    align-items: center;
+}
+
+.group-time {
+    color: var(--text-secondary);
+    font-size: 13px;
+    margin-top: 8px;
+}
+
+/* 模态框 */
+.modal {
+    display: none;
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: rgba(0, 0, 0, 0.5);
+    z-index: 1000;
+    align-items: center;
+    justify-content: center;
+}
+
+.modal.active {
+    display: flex;
+}
+
+.modal-content {
+    background: var(--white);
+    border-radius: 8px;
+    width: 90%;
+    max-width: 600px;
+    max-height: 90vh;
+    overflow-y: auto;
+}
+
+.modal-header {
+    padding: 20px;
+    border-bottom: 1px solid var(--border-color);
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.modal-header h3 {
+    margin: 0;
+}
+
+.modal-close {
+    background: none;
+    border: none;
+    font-size: 24px;
+    cursor: pointer;
+    color: var(--text-secondary);
+}
+
+.modal-body {
+    padding: 20px;
+}
+
+.modal-footer {
+    padding: 20px;
+    border-top: 1px solid var(--border-color);
+    display: flex;
+    justify-content: flex-end;
+    gap: 10px;
+}
+
+/* 会诊详情模态框 */
+.patient-info-card {
+    background: #fff1f0;
+    padding: 20px;
+    border-radius: 8px;
+    margin-bottom: 20px;
+}
+
+.patient-info-card h4 {
+    margin-bottom: 15px;
+    color: var(--danger-color);
+}
+
+.patient-details p {
+    margin-bottom: 8px;
+}
+
+.members-section {
+    margin-bottom: 20px;
+}
+
+.members-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(90px, 1fr));
+    gap: 5px;
+}
+
+.member-card {
+    background: var(--bg-color);
+    padding: 15px;
+    border-radius: 6px;
+    text-align: center;
+}
+
+.member-name {
+    font-weight: bold;
+    margin-bottom: 5px;
+}
+
+.member-dept {
+    color: var(--text-secondary);
+    font-size: 12px;
+    margin-bottom: 5px;
+}
+
+.member-status {
+    display: inline-block;
+    padding: 3px 10px;
+    border-radius: 10px;
+    font-size: 12px;
+}
+
+.member-pending {
+    background: #ffe58f;
+    color: #d48806;
+}
+
+.member-accepted {
+    background: #b7eb8f;
+    color: #389e0d;
+}
+
+.member-full {
+    background: #ffccc7;
+    color: #cf1322;
+}
+
+.member-transfer {
+    background: #d9d9d9;
+    color: #434343;
+}
+
+/* 消息区域 */
+.messages-section {
+    margin-bottom: 20px;
+}
+
+.messages-list {
+    max-height: 300px;
+    overflow-y: auto;
+    margin-bottom: 15px;
+}
+
+.message-item {
+    padding: 12px;
+    margin-bottom: 10px;
+    border-radius: 8px;
+}
+
+.message-system {
+    background: #e6f7ff;
+}
+
+.message-notification {
+    background: #fff1f0;
+}
+
+.message-response {
+    background: #f6ffed;
+}
+
+.message-normal {
+    background: var(--bg-color);
+}
+
+.message-sender {
+    font-weight: bold;
+    color: var(--primary-color);
+    margin-bottom: 5px;
+}
+
+.message-content {
+    word-break: break-all;
+}
+
+.message-time {
+    color: var(--text-secondary);
+    font-size: 12px;
+    margin-top: 5px;
+}
+
+.message-input-area {
+    display: flex;
+    gap: 10px;
+}
+
+.message-input-area input {
+    flex: 1;
+    padding: 12px;
+    border: 1px solid var(--border-color);
+    border-radius: 6px;
+}
+
+/* 响应按钮 */
+.response-buttons {
+    display: flex;
+    gap: 10px;
+    justify-content: center;
+}
+
+/* Toast提示 */
+.toast {
+    position: fixed;
+    top: 20px;
+    right: 20px;
+    padding: 15px 25px;
+    background: var(--white);
+    border-radius: 8px;
+    box-shadow: var(--shadow);
+    z-index: 2000;
+    transform: translateX(400px);
+    transition: transform 0.3s;
+}
+
+.toast.active {
+    transform: translateX(0);
+}
+
+.toast.success {
+    border-left: 4px solid var(--success-color);
+}
+
+.toast.error {
+    border-left: 4px solid var(--danger-color);
+}
+
+.toast.info {
+    border-left: 4px solid var(--primary-color);
+}
+
+/* 加载状态 */
+.loading {
+    text-align: center;
+    padding: 40px;
+    color: var(--text-secondary);
+}
+
+.empty {
+    text-align: center;
+    padding: 40px;
+    color: var(--text-secondary);
+}
+
+.error {
+    text-align: center;
+    padding: 40px;
+    color: var(--danger-color);
+}
+
+.hint {
+    color: var(--text-secondary);
+    font-size: 12px;
+    margin-top: 10px;
+}
+
+/* 快捷复制按钮 */
+.quick-copy-buttons {
+    display: flex;
+    gap: 10px;
+    margin-top: 15px;
+}
+
+/* 历史列表 */
+.history-list {
+    max-height: 400px;
+    overflow-y: auto;
+}
+
+.history-item {
+    padding: 15px;
+    border-bottom: 1px solid var(--border-color);
+    cursor: pointer;
+}
+
+.history-item:last-child {
+    border-bottom: none;
+}
+
+.history-item:hover {
+    background: #fafafa;
+}
+
+.history-header {
+    display: flex;
+    justify-content: space-between;
+    margin-bottom: 10px;
+}
+
+.history-patient {
+    font-weight: bold;
+}
+
+.history-time {
+    color: var(--text-secondary);
+    font-size: 13px;
+}
+
+.history-content {
+    color: var(--text-secondary);
+    font-size: 14px;
+}
+
+/* 响应式设计 */
+@media (max-width: 768px) {
+    .container {
+        padding: 10px;
+    }
+
+    .header {
+        flex-direction: column;
+        gap: 15px;
+    }
+
+    .nav {
+        justify-content: center;
+    }
+
+    .form-row {
+        flex-direction: column;
+    }
+
+    .filter-bar {
+        flex-direction: column;
+    }
+
+    .quick-actions {
+        flex-direction: column;
+    }
+
+    .modal-content {
+        width: 95%;
+    }
+}
+
+/* 统一右侧单元格宽度 */
+.schedule-right .schedule-cell {
+    width: 70px;
+    flex-shrink: 0;
+    justify-content: center;
+    white-space: nowrap;
+}
+
+/* 固定行高 */
+.schedule-left .personnel-row,
+.schedule-left .department-row,
+.schedule-right .schedule-row,
+.schedule-right .department-row-content {
+    height: 44px;
+    min-height: 44px;
+}
+
+.schedule-header-row .schedule-cell {
+    height: 44px;
+    min-height: 44px;
+}
+
+.date-cell {
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+}
+
+.schedule-left .schedule-cell {
+    white-space: normal;
+    word-break: break-word;
+
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.department-row-content {
+    background: linear-gradient(90deg, #e8f4fc 0%, #d8edf8 100%);
+}
+
+.filter-input {
+    width: 100%;
+    padding: 8px 10px;
+    margin-bottom: 8px;
+    border: 1px solid var(--border-color);
+    border-radius: 4px;
+    font-size: 14px;
+    box-sizing: border-box;
+}
+
+.filter-input:focus {
+    outline: none;
+    border-color: var(--primary-color);
+}
+
+/* 可搜索下拉框样式 */
+.searchable-select {
+    position: relative;
+    width: 100%;
+}
+
+.searchable-select input {
+    width: 100%;
+    padding: 8px 10px;
+    border: 1px solid var(--border-color);
+    border-radius: 4px;
+    font-size: 14px;
+    box-sizing: border-box;
+}
+
+.searchable-select .select-options {
+    position: absolute;
+    top: 100%;
+    left: 0;
+    right: 0;
+    max-height: 200px;
+    overflow-y: auto;
+    background: white;
+    border: 1px solid var(--border-color);
+    border-top: none;
+    border-radius: 0 0 4px 4px;
+    z-index: 1000;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+}
+
+.searchable-select .option-item {
+    padding: 8px 12px;
+    cursor: pointer;
+    font-size: 14px;
+}
+
+.searchable-select .option-item:hover {
+    background-color: #f0f0f0;
+}
+
+.searchable-select .option-item.selected {
+    background-color: var(--primary-color);
+    color: white;
+}
+
+/* 多选下拉框容器 */
+.multi-select {
+    position: relative;
+    width: 100%;
+    border: 1px solid var(--border-color);
+    border-radius: 4px;
+    background: #fff;
+}
+
+/* 显示区域 */
+.multi-select-display {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 5px;
+    padding: 6px 8px;
+    min-height: 40px;
+    cursor: pointer;
+}
+
+/* 已选标签容器 */
+.selected-tags {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 5px;
+}
+
+/* 单个标签 */
+.tag {
+    background: #e6f7ff;
+    padding: 2px 8px;
+    border-radius: 12px;
+    font-size: 12px;
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+}
+
+.tag-remove {
+    cursor: pointer;
+    font-weight: bold;
+    color: #999;
+}
+
+.tag-remove:hover {
+    color: #f5222d;
+}
+
+/* 搜索输入框 */
+#dept-search-input {
+    flex: 1;
+    min-width: 100px;
+    border: none;
+    outline: none;
+    padding: 4px 0;
+    background: transparent;
+}
+
+/* 下拉选项面板 */
+.multi-select-dropdown {
+    position: absolute;
+    top: 100%;
+    left: 0;
+    right: 0;
+    max-height: 250px;
+    overflow-y: auto;
+    background: #fff;
+    border: 1px solid #d9d9d9;
+    border-top: none;
+    margin-top: -1px;
+    border-radius: 0 0 4px 4px;
+    z-index: 1000;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.15);
+}
+
+/* 选项项 */
+.dropdown-options .option {
+    padding: 8px 12px;
+    cursor: pointer;
+    font-size: 14px;
+    transition: background 0.2s;
+}
+
+.dropdown-options .option:hover {
+    background: #f0f0f0;
+}
+
+.dropdown-options .option.selected {
+    background: var(--primary-color);
+    color: #fff;
+}
+
+</style>
+<body>
+    <div class="container">
+        <!-- 顶部导航 -->
+        <header class="header">
+            <h1>医院急诊一键通知系统</h1>
+            <nav class="nav">
+                <button class="nav-btn active" data-page="dashboard">仪表盘</button>
+                <button class="nav-btn" data-page="duty">值班管理</button>
+                <button class="nav-btn" data-page="notification">急诊通知</button>
+                <button class="nav-btn" data-page="records">会诊记录</button>
+            </nav>
+        </header>
+
+        <!-- 仪表盘页面 -->
+        <section id="dashboard-page" class="page active">
+            <div class="card">
+                <h2>快捷操作</h2>
+                <div class="quick-actions">
+                    <button class="btn btn-primary btn-lg" onclick="switchPage('notification')">
+                        🚨 一键通知
+                    </button>
+                    <button class="btn btn-secondary" onclick="switchPage('duty')">
+                        📋 排班管理
+                    </button>
+                     <button class="btn btn-secondary" onclick="switchPage('groups')">
+                        💬 会诊群聊
+                    </button>
+                </div>
+            </div>
+
+            <div class="card">
+                <h2>今日值班概览</h2>
+                <div class="filter-bar">
+                    <input type="text" id="duty-search" placeholder="搜索医生姓名或科室" style="width: 250px;">
+                    <button class="btn btn-secondary" onclick="filterDutyList()">🔍 搜索</button>
+                </div>
+                <div id="today-duty-list" class="duty-list">
+                    <p class="loading">加载中...</p>
+                </div>
+            </div>
+        </section>
+
+        <!-- 值班管理页面 -->
+        <section id="duty-page" class="page">
+            <div class="card duty-card">
+                <div class="card-header">
+                    <h2>排班管理</h2>
+                    <div class="card-actions">
+                        <button class="btn btn-secondary" onclick="toggleDepartmentView()"> 👁 按科室/全部切换 </button>
+                        <button class="btn btn-primary" onclick="showAddScheduleModal()">➕ 新增排班 </button>
+                        <button class="btn btn-secondary" onclick="showCopyScheduleModal()"> 📋 批量复制排班 </button>
+                        <button class="btn btn-secondary" onclick="exportSchedules()"> 📥 导出排班 </button>
+                    </div>
+                </div>
+
+                <div class="filter-bar">
+                    <input type="text" id="doctor-search-filter" placeholder="医生姓名或科室" style="width: 180px;">
+                    <select id="duty-department-filter">
+                        <option value="">全部科室</option>
+                    </select>
+                    <select id="duty-month-select">
+                        <option value="">选择月份</option>
+                    </select>
+                    <button class="btn btn-secondary" onclick="loadScheduleGrid()">刷新</button>
+                </div>
+
+                <div class="schedule-grid-container">
+                    <div class="schedule-grid-wrapper">
+                        <!-- 左侧固定列（人员信息） -->
+                        <div class="schedule-left" id="schedule-left">
+                            <div class="schedule-header-row">
+                                <div class="schedule-cell header-cell dept-cell">科室</div>
+                                <div class="schedule-cell header-cell title-cell">职称</div>
+                                <div class="schedule-cell header-cell name-cell">姓名</div>
+                                <div class="schedule-cell header-cell phone-cell">电话</div>
+                            </div>
+                            <div id="schedule-personnel-list" class="schedule-personnel-list">
+                                <!-- 人员列表将通过JS动态生成 -->
+                            </div>
+                        </div>
+
+                        <!-- 右侧可滚动区域（日期） -->
+                        <div class="schedule-right" id="schedule-right">
+                            <!-- 日期行 -->
+                            <div class="schedule-header-row date-header" id="schedule-date-header">
+                                <!-- 日期将通过JS动态生成 -->
+                            </div>
+                            <!-- 排班内容区 -->
+                            <div class="schedule-content" id="schedule-content">
+                                <!-- 排班数据将通过JS动态生成 -->
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 编辑排班弹窗 -->
+            <div id="edit-schedule-modal" class="modal">
+                <div class="modal-content modal-sm">
+                    <div class="modal-header">
+                        <h3 id="edit-modal-title">修改排班</h3>
+                        <button class="modal-close" onclick="closeEditModal()">&times;</button>
+                    </div>
+                    <div class="modal-body">
+                        <input type="hidden" id="edit-schedule-id">
+                        <input type="hidden" id="edit-doctor-id">
+                        <input type="hidden" id="edit-shift-date">
+                        <input type="hidden" id="edit-doc-name">
+                        <input type="hidden" id="edit-dept-id">
+                        <input type="hidden" id="edit-dept-name">
+                        <div class="form-group">
+                            <label id="edit-info-label">医生：- 日期：-</label>
+                        </div>
+                        <div class="form-group">
+                            <label>班次类型</label>
+                            <select id="edit-shift-type">
+                                <option value="主班">主班</option>
+                                <option value="副班">副班</option>
+                                <option value="夜班">夜班</option>
+                                <option value="正常班">正常班</option>
+                                <option value="休息">休息</option>
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label>备注</label>
+                            <input type="text" id="edit-notes" placeholder="如：主、夜、下">
+                        </div>
+                    </div>
+                    <div class="modal-footer">
+                        <button class="btn btn-secondary" onclick="closeEditModal()">取消</button>
+                        <button class="btn btn-danger" onclick="deleteScheduleFromModal()">删除</button>
+                        <button class="btn btn-primary" onclick="saveScheduleFromModal()">保存</button>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- 急诊通知页面 -->
+        <section id="notification-page" class="page">
+            <div class="card">
+                <h2>一键通知</h2>
+                <p class="subtitle">填写患者信息，选择需要会诊的科室，系统将通知对应值班医生</p>
+
+                <form id="emergency-form" class="emergency-form">
+                    <div class="form-group">
+                        <label>患者姓名 *</label>
+                        <input type="text" id="patient-name" required placeholder="请输入患者姓名">
+                    </div>
+
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label>年龄</label>
+                            <input type="number" id="patient-age" placeholder="年龄">
+                        </div>
+                        <div class="form-group">
+                            <label>性别</label>
+                            <select id="patient-gender">
+                                <option value="男">男</option>
+                                <option value="女">女</option>
+                                <option value="未知">未知</option>
+                            </select>
+                        </div>
+                    </div>
+
+                    <div class="form-group">
+                        <label>患者情况 *</label>
+                        <textarea id="patient-condition" required placeholder="主诉、症状、已采取的急救措施等"></textarea>
+                    </div>
+
+                    <!-- 会诊科室选择 - 自定义多选下拉框 -->
+                    <div class="form-group">
+                        <label>会诊科室 *（可多选）</label>
+                        <div class="multi-select" id="multi-select-dept">
+                            <div class="multi-select-display" onclick="toggleDeptDropdown()">
+                                <div class="selected-tags" id="selected-dept-tags"></div>
+                                <input type="text" id="dept-search-input" placeholder="搜索科室..."
+                                       onclick="event.stopPropagation()" oninput="filterDeptOptions(this.value)">
+                            </div>
+                            <div class="multi-select-dropdown" id="dept-dropdown" style="display: none;">
+                                <div class="dropdown-options" id="dept-options-list"></div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- 今日值班预览（根据选中科室动态显示） -->
+                    <div class="today-duty-preview">
+                        <h3>今日值班医生预览</h3>
+                        <div id="duty-preview" class="duty-preview-list">
+                            <p class="empty">请选择科室查看值班医生</p>
+                        </div>
+                    </div>
+
+                    <button type="submit" class="btn btn-primary btn-lg btn-block">
+                        🚀 一键通知
+                    </button>
+                </form>
+            </div>
+
+            <div class="card">
+                <h3>最近会诊记录</h3>
+                <div id="notification-history" class="history-list">
+                    <p class="loading">加载中...</p>
+                </div>
+            </div>
+        </section>
+
+        <!-- 会诊记录页面 -->
+        <section id="records-page" class="page">
+            <div class="card">
+                <h2>会诊记录</h2>
+                <div class="filter-bar">
+                    <select id="group-status-filter">
+                        <option value="">全部状态</option>
+                        <option value="进行中" selected>进行中</option>
+                        <option value="已结束">已结束</option>
+                    </select>
+                    <button class="btn btn-secondary" onclick="loadGroups()">查询</button>
+                </div>
+
+                <div id="groups-list" class="groups-list">
+                    <p class="loading">加载中...</p>
+                </div>
+            </div>
+
+            <!-- 会诊详情模态框 -->
+            <div id="group-detail-modal" class="modal">
+                <div class="modal-content">
+                    <div class="modal-header">
+                        <h3 id="modal-group-title">会诊详情</h3>
+                        <button class="modal-close" onclick="closeGroupModal()">&times;</button>
+                    </div>
+                    <div class="modal-body">
+                        <div class="patient-info-card">
+                            <h4>患者信息</h4>
+                            <div class="patient-details">
+                                <p><strong>姓名：</strong><span id="modal-patient-name">-</span></p>
+                                <p><strong>患者情况：</strong><span id="modal-chief-complaint">-</span></p>
+                            </div>
+                        </div>
+
+                        <div class="members-section">
+                            <h4>参与医生 :<span id="modal-member-dept"></span></h4>
+                            <h4>参与医生 (<span id="modal-member-count">0</span>)</h4>
+                            <div id="modal-members" class="members-grid"></div>
+                        </div>
+
+                        <div class="messages-section">
+                            <h4>消息记录</h4>
+                            <div id="modal-messages" class="messages-list"></div>
+
+                            <div class="message-input-area">
+                                <input type="text" id="message-input" placeholder="输入消息...">
+                                <button class="btn btn-primary" onclick="sendMessage()">发送</button>
+                            </div>
+                        </div>
+
+                    </div>
+                    <div class="modal-footer">
+                        <button class="btn btn-secondary" onclick="closeGroupModal()">关闭</button>
+                        <button class="btn btn-primary" onclick="closeConsultation()">关闭会诊</button>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- 模态框：复制排班 -->
+        <div id="copy-schedule-modal" class="modal">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h3>复制排班</h3>
+                    <button class="modal-close" onclick="closeCopyModal()">&times;</button>
+                </div>
+                <div class="modal-body">
+                    <div class="form-group">
+                        <label>目标科室</label>
+                        <select id="copy-target-dept" style="width:100%;">
+                            <option value="">所有科室（不修改科室）</option>
+                            <!-- 动态加载科室选项 -->
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label>源时间段</label>
+                        <div class="form-row">
+                            <input type="date" id="source-start">
+                            <span>至</span>
+                            <input type="date" id="source-end">
+                        </div>
+                    </div>
+                    <div class="form-group">
+                        <label>目标时间段</label>
+                        <div class="form-row">
+                            <input type="date" id="target-start">
+                            <span>至</span>
+                            <input type="date" id="target-end">
+                        </div>
+                    </div>
+                    <div class="quick-copy-buttons">
+                        <button class="btn btn-secondary" onclick="quickCopy('week')">复制上一周</button>
+                        <button class="btn btn-secondary" onclick="quickCopy('month')">复制上一月</button>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button class="btn btn-secondary" onclick="closeCopyModal()">取消</button>
+                    <button class="btn btn-primary" onclick="copySchedule()">确认复制</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- 模态框：导入排班 -->
+        <div id="import-modal" class="modal">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h3>导入排班</h3>
+                    <button class="modal-close" onclick="closeImportModal()">&times;</button>
+                </div>
+                <div class="modal-body">
+                    <div class="form-group">
+                        <label>选择Excel文件</label>
+                        <input type="file" id="import-file" accept=".xlsx,.xls,.csv">
+                    </div>
+                    <p class="hint">支持 .xlsx, .xls, .csv 格式</p>
+                    <p class="hint">文件格式应与您的排班表格式一致</p>
+                </div>
+                <div class="modal-footer">
+                    <button class="btn btn-secondary" onclick="closeImportModal()">取消</button>
+                    <button class="btn btn-primary" onclick="importSchedules()">开始导入</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- 提示消息 -->
+        <div id="toast" class="toast"></div>
+
+        <!-- 新增排班模态框 -->
+        <div id="add-schedule-modal" class="modal">
+            <div class="modal-content modal-sm">
+                <div class="modal-header">
+                    <h3>新增排班</h3>
+                    <button class="modal-close" onclick="closeAddScheduleModal()">&times;</button>
+                </div>
+                <div class="modal-body">
+                    <!-- 医生选择器（可搜索下拉框） -->
+                    <div class="form-group">
+                        <label>选择人员 *</label>
+                        <div class="searchable-select">
+                            <input type="text" id="doctor-search" placeholder="输入姓名或科室过滤" autocomplete="off">
+                            <div class="select-options" id="doctor-options" style="display:none;">
+                                <!-- 动态填充医生选项 -->
+                            </div>
+                            <select id="add-doctor-id" size="1" style="display:none;"></select>
+                            <input type="hidden" id="selected-doctor-id">
+                        </div>
+                    </div>
+
+                    <!-- 科室选择器（可搜索下拉框） -->
+                    <div class="form-group">
+                        <label>科室 *</label>
+                        <div class="searchable-select">
+                            <input type="text" id="dept-search" placeholder="输入科室名过滤" autocomplete="off">
+                            <div class="select-options" id="dept-options" style="display:none;"></div>
+                            <select id="add-dept-id" size="1" style="display:none;"></select>
+                            <input type="hidden" id="selected-dept-id">
+                        </div>
+                    </div>
+
+                    <div class="form-group">
+                        <label>班次类型 *</label>
+                        <select id="add-shift-type" required></select>
+                    </div>
+                    <div class="form-group">
+                        <label>日期 *</label>
+                        <input type="date" id="add-shift-date" required>
+                    </div>
+                    <div class="form-group">
+                        <label>备注</label>
+                        <input type="text" id="add-notes" placeholder="如：主、夜、下">
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button class="btn btn-secondary" onclick="closeAddScheduleModal()">取消</button>
+                    <button class="btn btn-primary" onclick="submitAddSchedule()">保存</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- 批量操作模态框 -->
+        <div id="batch-modal" class="modal">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h3 id="batch-modal-title">批量操作</h3>
+                    <button class="modal-close" onclick="closeBatchModal()">&times;</button>
+                </div>
+                <div class="modal-body">
+                    <p>医生：<span id="batch-doctor-name"></span></p>
+                    <p>科室：<span id="batch-dept-name"></span></p>
+                    <input type="hidden" id="batch-doctor-id">
+                    <input type="hidden" id="batch-dept-id">
+                    <div class="form-group">
+                        <label>开始日期</label>
+                        <input type="date" id="batch-start-date">
+                    </div>
+                    <div class="form-group">
+                        <label>结束日期</label>
+                        <input type="date" id="batch-end-date">
+                    </div>
+                    <div class="form-group">
+                        <label>操作类型</label>
+                        <select id="batch-action">
+                            <option value="delete">删除排班</option>
+                            <option value="update">修改班次</option>
+                            <option value="copy">复制排班</option>
+                        </select>
+                    </div>
+                    <div class="form-group" id="batch-shift-group" style="display:none;">
+                        <label>班次类型</label>
+                        <select id="batch-shift-type"></select>
+                    </div>
+                    <div class="form-group" id="batch-notes-group" style="display:none;">
+                        <label>备注</label>
+                        <input type="text" id="batch-notes" placeholder="可选">
+                    </div>
+                    <div class="form-group" id="batch-copy-group" style="display:none;">
+                        <label>源时间段</label>
+                        <div class="form-row">
+                            <input type="date" id="batch-copy-source-start">
+                            <span>至</span>
+                            <input type="date" id="batch-copy-source-end">
+                        </div>
+                        <label style="margin-top:10px;">目标时间段</label>
+                        <div class="form-row">
+                            <input type="date" id="batch-copy-target-start">
+                            <span>至</span>
+                            <input type="date" id="batch-copy-target-end">
+                        </div>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button class="btn btn-secondary" onclick="closeBatchModal()">取消</button>
+                    <button class="btn btn-danger" id="batch-delete-all-btn" onclick="deleteAllSchedules()">🗑️ 一键删除全部排班</button>
+                    <button class="btn btn-danger" id="batch-confirm-btn" onclick="executeBatchAction()">确认执行</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- 通用确认对话框 -->
+        <div id="confirm-dialog" class="modal">
+            <div class="modal-content modal-sm">
+                <div class="modal-header">
+                    <h3>确认操作</h3>
+                    <button class="modal-close" onclick="closeConfirmDialog()">&times;</button>
+                </div>
+                <div class="modal-body">
+                    <p id="confirm-message">确定要执行此操作吗？</p>
+                </div>
+                <div class="modal-footer">
+                    <button class="btn btn-secondary" id="confirm-cancel-btn">取消</button>
+                    <button class="btn btn-danger" id="confirm-ok-btn">确定</button>
+                </div>
+            </div>
+        </div>
+
+    </div>
+
+<!--    <script src="../static/app.js"></script>-->
+<!--    <script src="{{ url_for('static', filename='app.js') }}"></script>-->
+
+<script>
+    /**
+ * 医院急诊一键通知系统 - 前端逻辑
+ * Hospital Emergency Notification System - Frontend JavaScript
+ */
+
+// 全局变量
+let currentUser = { id: 110100, name: 'admin' };
+let currentGroup = null;
+let departments = [];
+let shiftTypes = [];
+let shiftTypesLoaded = false;
+// 全局存储原始数据
+let allDoctors = [];
+let allDepartments = [];
+const API_BASE = 'http://192.168.3.12:6080/gyl/on_call';
+<!--const API_BASE = 'http://127.0.0.1:8080/gyl/on_call';-->
+let confirmCallback = null;
+
+let allDeptOptions = [];   // 存储所有科室 {id, name}
+let selectedDepts = [];    // 已选中的科室 {id, name}
+
+let currentDoctorFilter = '';   // 存储医生姓名/科室搜索关键词
+let rawScheduleData = [];
+
+// ==================== 初始化 ====================
+
+document.addEventListener('DOMContentLoaded', function() {
+    initApp();
+
+    // 在页面初始化或切换到通知页面时调用
+    if (document.getElementById('notification-page')) {
+        loadDeptCheckboxes();
+    }
+
+    // 值班管理页面搜索
+    const doctorFilterInput = document.getElementById('doctor-search-filter');
+    if (doctorFilterInput) {
+        doctorFilterInput.addEventListener('input', (e) => {
+            currentDoctorFilter = e.target.value;
+            refreshScheduleView();
+        });
+    }
+    // 仪表盘页面搜索
+    const dutySearchInput = document.getElementById('duty-search');
+    if (dutySearchInput) {
+        dutySearchInput.addEventListener('input', filterDutyList);
+    }
+
+});
+
+async function initApp() {
+    // 加载数据
+    await loadTodayDuty();
+    await loadGroups();
+
+    loadShiftTypes();
+
+    // 初始化页面
+    initNavigation();
+    initForms();
+    initDutyPage();
+
+    // 设置默认日期
+    setDefaultDates();
+}
+
+function initNavigation() {
+    const navBtns = document.querySelectorAll('.nav-btn');
+    navBtns.forEach(btn => {
+        btn.addEventListener('click', function() {
+            const page = this.dataset.page;
+            switchPage(page);
+        });
+    });
+}
+
+function switchPage(pageName) {
+    // 更新导航按钮状态
+    document.querySelectorAll('.nav-btn').forEach(btn => {
+        btn.classList.remove('active');
+        if (btn.dataset.page === pageName) {
+            btn.classList.add('active');
+        }
+    });
+
+    // 更新页面显示
+    document.querySelectorAll('.page').forEach(page => {
+        page.classList.remove('active');
+    });
+    document.getElementById(`${pageName}-page`).classList.add('active');
+
+    // 加载页面数据
+    switch (pageName) {
+        case 'dashboard':
+            loadTodayDuty();
+            break;
+        case 'duty':
+            loadSchedules();
+            break;
+        case 'notification':
+            loadTodayDutyPreview();
+            loadNotificationHistory();
+            break;
+        case 'records':
+            loadGroups();
+            break;
+    }
+}
+
+// ==================== 表单初始化 ====================
+
+function initForms() {
+    // 急诊通知表单
+    document.getElementById('emergency-form').addEventListener('submit', handleEmergencySubmit);
+}
+
+function initFilters() {
+    // 科室筛选
+    loadDepartmentOptions();
+}
+
+// ==================== 数据加载函数 ====================
+async function loadShiftTypes() {
+    try {
+        const response = await fetch(`${API_BASE}/shift_types`);
+        const data = await response.json();
+        shiftTypes = data.data;
+        const select = document.getElementById('edit-shift-type');
+        if (select) {
+            select.innerHTML = shiftTypes.map(type => `<option value="${type}">${type}</option>`).join('');
+        }
+    } catch(e) {
+        console.error('加载班次类型失败', e);
+        // 降级使用默认选项
+        const defaultTypes = ['主班', '24时班', '白班', '夜班', '正常班', '行政班', '门诊', '休息', '进修', '婚假', '其他'];
+        const select = document.getElementById('edit-shift-type');
+        select.innerHTML = defaultTypes.map(type => `<option value="${type}">${type}</option>`).join('');
+    }
+}
+
+
+async function loadTodayDuty() {
+    try {
+        const response = await fetch(`${API_BASE}/duty/today`);
+        const data = await response.json();
+
+        const container = document.getElementById('today-duty-list');
+
+        // 处理数据结构 - 根据后端返回格式调整
+        if (data && Object.keys(data).length > 0) {
+            let html = '';
+            Object.values(data).forEach(dept => {
+                html += `
+                    <div class="duty-item">
+                        <div class="duty-dept">${dept.dept_name || '未知科室'} (${dept.doctors ? dept.doctors.length : 0}人)</div>
+                        <div class="duty-doctors">
+                            ${(dept.doctors || []).map(d => `
+                                <span class="duty-doctor-tag">
+                                    ${d.title || ''} - ${d.doc_name || d.doctor_name || '未知'} (${d.phone || ''}) - ${d.shift_type || d.original_shift || '值班'}
+                                </span>
+                            `).join('')}
+                        </div>
+                    </div>
+                `;
+            });
+            container.innerHTML = html || '<p class="empty">今日暂无值班记录</p>';
+        } else {
+            container.innerHTML = '<p class="empty">今日暂无值班记录</p>';
+        }
+    } catch (error) {
+        console.error('加载今日值班失败:', error);
+        document.getElementById('today-duty-list').innerHTML = '<p class="error">加载失败</p>';
+    }
+}
+
+async function loadTodayDutyPreview() {
+    try {
+        const response = await fetch(`${API_BASE}/duty/today`);
+        const data = await response.json();
+
+        const container = document.getElementById('duty-preview');
+
+        if (data && Object.keys(data).length > 0) {
+            let html = '';
+            Object.values(data).forEach(dept => {
+                (dept.doctors || []).forEach(d => {
+                    html += `
+                        <div class="duty-preview-item">
+                            <span class="duty-preview-name">${d.doc_name || d.doctor_name || '未知'}</span>
+                            <span class="duty-preview-dept">${dept.dept_name || '未知科室'}</span>
+                        </div>
+                    `;
+                });
+            });
+            container.innerHTML = html || '<p class="empty">暂无值班医生</p>';
+        } else {
+            container.innerHTML = '<p class="empty">今日暂无值班医生</p>';
+        }
+    } catch (error) {
+        console.error('加载值班预览失败:', error);
+    }
+}
+
+async function loadNotificationHistory() {
+    try {
+        const response = await fetch(`${API_BASE}/notification/records`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ key: 'all' })
+        });
+        const data = await response.json();
+        const groups = data.data || data || [];
+
+        const container = document.getElementById('notification-history');
+        if (groups.length > 0) {
+            let html = '';
+            groups.forEach(group => {
+                html += `
+                    <div class="history-item" onclick="openGroupDetail(${group.id})">
+                        <div class="history-header">
+                            <span class="history-patient">${group.patient_name || '未知患者'}</span>
+                            <span class="history-time">${formatDateTime(group.created_at)}</span>
+                        </div>
+                        <div class="history-content">
+                            主诉: ${group.patient_info || '暂无'} |
+                            参与: ${group.dept_name_list ? group.dept_name_list.split(',').length : 0}个科室
+                        </div>
+                    </div>
+                `;
+            });
+            container.innerHTML = html;
+        } else {
+            container.innerHTML = '<p class="empty">暂无通知记录</p>';
+        }
+    } catch (error) {
+        console.error('加载通知历史失败:', error);
+    }
+}
+
+
+// 仪表盘今日值班过滤
+function filterDutyList() {
+    const keyword = document.getElementById('duty-search').value.trim().toLowerCase();
+    const items = document.querySelectorAll('#today-duty-list .duty-item');
+    if (!items.length) return;
+
+    items.forEach(item => {
+        const deptName = item.querySelector('.duty-dept')?.innerText.toLowerCase() || '';
+        const doctorNames = Array.from(item.querySelectorAll('.duty-doctor-tag'))
+            .map(tag => tag.innerText.toLowerCase()).join(' ');
+        const match = deptName.includes(keyword) || doctorNames.includes(keyword);
+        item.style.display = match ? '' : 'none';
+    });
+}
+
+
+
+
+
+
+// ==================== 排班管理 - 网格视图 ====================
+
+let scheduleData = [];
+let currentDepartmentFilter = '';
+let departmentGrouped = true;
+
+// 初始化排班页面
+function initDutyPage() {
+    loadDepartmentOptions();
+    initMonthSelect();
+}
+
+// 初始化月份选择器
+function initMonthSelect() {
+    const select = document.getElementById('duty-month-select');
+    const now = new Date();
+    const months = [];
+
+    // 生成最近6个月和未来3个月
+    for (let i = -3; i <= 3; i++) {
+        const d = new Date(now.getFullYear(), now.getMonth() + i, 1);
+        const value = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
+        const label = `${d.getFullYear()}年${d.getMonth() + 1}月`;
+        months.push({ value, label });
+    }
+
+    select.innerHTML = months.map(m => `<option value="${m.value}">${m.label}</option>`).join('');
+
+    // 默认选中当前月
+    const currentMonth = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
+    select.value = currentMonth;
+}
+
+// 加载网格视图排班
+async function loadScheduleGrid() {
+    const monthSelect = document.getElementById('duty-month-select');
+    const departmentFilter = document.getElementById('duty-department-filter');
+    currentDepartmentFilter = departmentFilter.value;
+
+    const selectedMonth = monthSelect.value;
+    if (!selectedMonth) {
+        showToast('请选择月份', 'error');
+        return;
+    }
+
+    const [year, month] = selectedMonth.split('-').map(Number);
+    const firstDay = new Date(year, month - 1, 1);
+    const lastDay = new Date(year, month, 0);
+    const startDate = formatLocalDate(firstDay);
+    const endDate = formatLocalDate(lastDay);
+
+    try {
+        const response = await fetch(`${API_BASE}/schedules`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                start_date: startDate,
+                end_date: endDate,
+                dept_id: currentDepartmentFilter
+            })
+        });
+
+        const result = await response.json();
+        scheduleData = result.data || result || [];
+
+        rawScheduleData = [...scheduleData];
+
+        // 生成日期列表
+        generateDateHeader(firstDay, lastDay);
+
+        // 生成人员列表
+        generatePersonnelList();
+
+        // 生成排班内容
+        generateScheduleContent(firstDay, lastDay);
+
+
+    } catch (error) {
+        console.error('加载排班失败:', error);
+        showToast('加载排班失败', 'error');
+    }
+}
+
+// 生成日期头部
+function generateDateHeader(firstDay, lastDay) {
+    const header = document.getElementById('schedule-date-header');
+    const days = [];
+    const current = new Date(firstDay);
+
+    while (current <= lastDay) {
+        days.push(new Date(current));
+        current.setDate(current.getDate() + 1);
+    }
+
+    let html = '';
+    days.forEach(day => {
+        const dayOfWeek = ['日', '一', '二', '三', '四', '五', '六'][day.getDay()];
+        const isWeekend = day.getDay() === 0 || day.getDay() === 6;
+        const isHoliday = isChineseHoliday(day);
+        const weekendClass = (isWeekend || isHoliday) ? ' weekend' : '';
+
+        html += `
+            <div class="schedule-cell header-cell date-cell${weekendClass}">
+                <div class="date-day">${day.getMonth() + 1}月${day.getDate()}日</div>
+                <div class="date-week">${dayOfWeek}</div>
+            </div>
+        `;
+    });
+
+    header.innerHTML = html;
+}
+
+// 判断是否为节假日
+function isChineseHoliday(date) {
+    return false;
+}
+
+// 生成人员列表（左侧固定列）
+function generatePersonnelList() {
+    const personnelList = document.getElementById('schedule-personnel-list');
+
+    if (scheduleData.length === 0) {
+        personnelList.innerHTML = '<div class="empty">暂无排班数据</div>';
+        return;
+    }
+
+    // 按科室分组整理人员
+    const groupedData = {};
+    scheduleData.forEach(s => {
+        const key = s.dept_id || 0;
+        if (!groupedData[key]) {
+            groupedData[key] = {
+                department_name: s.dept_name || '未分组',
+                doctors: []
+            };
+        }
+
+        // 检查是否已添加该医生
+        const exists = groupedData[key].doctors.find(d => d.doctor_id === s.doc_id);
+        if (!exists) {
+            groupedData[key].doctors.push({
+                doctor_id: s.doc_id,
+                doctor_name: s.doc_name || '未知',
+                doctor_title: s.title || '',
+                department_name: s.dept_name || '',
+                doctor_phone: s.phone || '',    // 新增
+                department_id: s.dept_id || ''
+            });
+        }
+    });
+
+    let html = '';
+
+    // 如果启用分组，按科室显示
+    if (departmentGrouped) {
+        Object.values(groupedData).forEach(group => {
+            // 科室标题行
+            html += `
+                <div class="department-row" onclick="toggleDepartment('${group.department_name}')">
+                    <div class="schedule-cell header-cell dept-cell">
+                        ${group.department_name}
+                        <span class="toggle-icon">▼</span>
+                    </div>
+                    <div class="schedule-cell header-cell title-cell">-</div>
+                    <div class="schedule-cell header-cell name-cell">-</div>
+                </div>
+            `;
+
+            // 该科室下的医生
+            group.doctors.forEach(doc => {
+                html += `
+                    <div class="personnel-row" data-dept="${group.department_name}">
+                        <div class="schedule-cell dept-cell">-</div>
+                        <div class="schedule-cell title-cell">${doc.doctor_title || '-'}</div>
+                        <div class="schedule-cell name-cell"
+                             onclick="showBatchModal('${doc.doctor_id}', '${doc.department_id}', '${doc.doctor_name}', '${doc.department_name}')">
+                            ${doc.doctor_name}
+                        </div>
+                        <div class="schedule-cell phone-cell">${doc.doctor_phone || '-'}</div>
+                    </div>
+                `;
+            });
+        });
+    } else {
+        // 不分组，全部平铺
+        let lastDoctorId = null;
+        scheduleData.forEach(s => {
+            if (s.doc_id !== lastDoctorId) {
+                lastDoctorId = s.doc_id;
+                html += `
+                    <div class="personnel-row">
+                        <div class="schedule-cell dept-cell">${s.dept_name || '-'}</div>
+                        <div class="schedule-cell title-cell">${s.title || '-'}</div>
+                        <div class="schedule-cell name-cell"
+                             onclick="showBatchModal('${s.doc_id}', '${s.dept_id}', '${s.doc_name}', '${s.dept_name}')">
+                            ${s.doc_name}
+                        </div>
+                        <div class="schedule-cell phone-cell">${s.phone || '-'}</div>
+                    </div>
+                `;
+            }
+        });
+    }
+
+    personnelList.innerHTML = html;
+}
+
+// 生成排班内容（右侧可滚动区域）
+function generateScheduleContent(firstDay, lastDay) {
+    const content = document.getElementById('schedule-content');
+    const days = [];
+    const current = new Date(firstDay);
+
+    while (current <= lastDay) {
+        days.push(new Date(current));
+        current.setDate(current.getDate() + 1);
+    }
+
+    // 整理排班数据为二维结构 {doc_id: {date: schedule}}
+    const scheduleMap = {};
+    scheduleData.forEach(s => {
+        if (!scheduleMap[s.doc_id]) {
+            scheduleMap[s.doc_id] = {};
+        }
+        // 处理日期格式
+        const dateStr = s.shift_date ? s.shift_date.split('T')[0] : '';
+        scheduleMap[s.doc_id][dateStr] = s;
+    });
+
+    // 获取人员列表（去重医生）
+    const doctors = [];
+    const seenDoctors = new Set();
+    scheduleData.forEach(s => {
+        if (!seenDoctors.has(s.doc_id)) {
+            seenDoctors.add(s.doc_id);
+            doctors.push({
+                doctor_id: s.doc_id,
+                doctor_name: s.doc_name || '未知',
+                doctor_title: s.title || '',
+                department_name: s.dept_name || '',
+                department_id: s.dept_id
+            });
+        }
+    });
+
+    let html = '';
+
+    if (departmentGrouped) {
+        // 按科室分组显示
+        const groupedData = {};
+        doctors.forEach(doc => {
+            const key = doc.department_id || 0;
+            if (!groupedData[key]) {
+                groupedData[key] = {
+                    department_name: doc.department_name,
+                    doctors: []
+                };
+            }
+            groupedData[key].doctors.push(doc);
+        });
+
+        Object.values(groupedData).forEach(group => {
+            // 科室标题行（空白，为对齐左侧）
+            html += '<div class="schedule-row department-row-content">';
+            days.forEach(() => {
+                html += '<div class="schedule-cell empty-cell"></div>';
+            });
+            html += '</div>';
+
+            // 医生行
+            group.doctors.forEach(doc => {
+                html += '<div class="schedule-row">';
+                days.forEach(day => {
+                    const dateStr = formatLocalDate(day);
+                    const schedule = scheduleMap[doc.doctor_id]?.[dateStr];
+                    const shiftClass = schedule ? getShiftClass(schedule.shift_type) : '';
+                    const cellClass = schedule ? '' : 'empty-cell';
+                    const isWeekend = day.getDay() === 0 || day.getDay() === 6;
+                    const weekendClass = isWeekend ? ' weekend' : '';
+
+                    if (schedule) {
+                        html += `
+                            <div class="schedule-cell ${cellClass}${weekendClass} ${shiftClass}"
+                                 onclick="openEditModal(${schedule.id}, '${schedule.doc_id}', '${dateStr}', '${schedule.shift_type || ''}', '${schedule.notes || ''}', ${schedule.is_duty || 0}, '${schedule.doc_name}', '${schedule.dept_name}')">
+                                ${schedule.shift_type || '-'}
+                            </div>
+                        `;
+                    } else {
+                        html += `
+                            <div class="schedule-cell ${cellClass}${weekendClass}"
+                                 onclick="openNewScheduleModal('${doc.doctor_id}', '${dateStr}', '${doc.doctor_name}', '${doc.department_id}', '${doc.department_name}')">
+                                -
+                            </div>
+                        `;
+                    }
+                });
+                html += '</div>';
+            });
+        });
+    } else {
+        // 不分组，全部平铺
+        doctors.forEach(doc => {
+            html += '<div class="schedule-row">';
+            days.forEach(day => {
+                const dateStr = formatLocalDate(day);
+                const schedule = scheduleMap[doc.doctor_id]?.[dateStr];
+                const shiftClass = schedule ? getShiftClass(schedule.shift_type) : '';
+                const cellClass = schedule ? '' : 'empty-cell';
+                const isWeekend = day.getDay() === 0 || day.getDay() === 6;
+                const weekendClass = isWeekend ? ' weekend' : '';
+
+                if (schedule) {
+                    html += `
+                        <div class="schedule-cell ${cellClass}${weekendClass} ${shiftClass}"
+                             onclick="openEditModal(${schedule.id}, '${schedule.doc_id}', '${dateStr}', '${schedule.shift_type || ''}', '${schedule.notes || ''}', ${schedule.is_duty || 0}, '${schedule.doc_name}', '${schedule.dept_name}')">
+                            ${schedule.notes || schedule.shift_type || '-'}
+                        </div>
+                    `;
+                } else {
+                    html += `
+                        <div class="schedule-cell ${cellClass}${weekendClass}"
+                             onclick="openNewScheduleModal('${doc.doctor_id}', '${dateStr}', '${doc.doctor_name}', '${doc.department_id}', '${doc.department_name}')">
+                            -
+                        </div>
+                    `;
+                }
+            });
+            html += '</div>';
+        });
+    }
+
+    content.innerHTML = html;
+
+    // 同步滚动
+    setupScrollSync();
+}
+
+// 设置左右联动滚动
+function setupScrollSync() {
+    const left = document.getElementById('schedule-left');
+    const right = document.getElementById('schedule-right');
+    const dateHeader = document.getElementById('schedule-date-header');
+
+    // 右边滚动时同步左边和日期头部
+    right.addEventListener('scroll', function() {
+        left.scrollTop = this.scrollTop;
+        dateHeader.scrollLeft = this.scrollLeft;
+    });
+
+    // 阻止左边滚动影响右边（单向同步：右→左）
+    left.addEventListener('scroll', function(e) {
+        e.stopPropagation();
+    });
+
+    // 阻止日期头部滚动影响右边面板
+    dateHeader.addEventListener('scroll', function(e) {
+        right.scrollLeft = this.scrollLeft;
+        e.stopPropagation();
+    });
+}
+
+// 切换科室分组视图
+function toggleDepartmentView() {
+    departmentGrouped = !departmentGrouped;
+    loadScheduleGrid();
+}
+
+// 打开编辑弹窗（已有排班）
+async function openEditModal(id, doctorId, date, shiftType, originalShift, isDuty, doctorName, deptName) {
+    await ensureShiftTypesLoaded();
+    document.getElementById('edit-schedule-id').value = id;
+    document.getElementById('edit-doctor-id').value = doctorId;
+    document.getElementById('edit-shift-date').value = date;
+
+    document.getElementById('edit-info-label').innerHTML = `医生：${doctorName} <br><br> 科室：${deptName} <br><br> 日期：${date}`;
+
+    document.getElementById('edit-shift-type').value = shiftType || '正常班';
+    document.getElementById('edit-notes').value = originalShift || '';
+    document.getElementById('edit-modal-title').textContent = '修改排班';
+
+    document.getElementById('edit-schedule-modal').classList.add('active');
+}
+
+// 打开新增弹窗（空白排班）
+async function openNewScheduleModal(doctorId, date, doctorName, deptId, deptName) {
+    console.log('openNewScheduleModal', doctorId, date, doctorName, deptId, deptName);
+    await ensureShiftTypesLoaded();
+    document.getElementById('edit-schedule-id').value = '';
+    document.getElementById('edit-doctor-id').value = doctorId;
+    document.getElementById('edit-shift-date').value = date;
+    document.getElementById('edit-info-label').innerHTML = `医生：${doctorName} <br><br> 科室：${deptName} <br><br> 日期：${date}`;
+    document.getElementById('edit-shift-type').value = '正常班';
+    document.getElementById('edit-notes').value = '';
+
+    document.getElementById('edit-doc-name').value = doctorName;
+    document.getElementById('edit-dept-id').value = deptId;
+    document.getElementById('edit-dept-name').value = deptName;
+    document.getElementById('edit-modal-title').textContent = '新增排班';
+
+    document.getElementById('edit-schedule-modal').classList.add('active');
+}
+
+// 关闭编辑弹窗
+function closeEditModal() {
+    document.getElementById('edit-schedule-modal').classList.remove('active');
+}
+
+// 保存排班
+async function saveScheduleFromModal() {
+    const id = document.getElementById('edit-schedule-id').value;
+    const doctorId = document.getElementById('edit-doctor-id').value;
+    let doctorName = document.getElementById('edit-doc-name').value;
+    const date = document.getElementById('edit-shift-date').value;
+    const shiftType = document.getElementById('edit-shift-type').value;
+    const originalShift = document.getElementById('edit-notes').value;
+
+    const payload = {
+        doc_id: doctorId,
+        doc_name: doctorName,
+        shift_date: date,
+        shift_type: shiftType,
+        notes: originalShift
+    };
+
+    try {
+        let response;
+        if (id) {
+            // 更新
+            payload.id = id;
+            response = await fetch(`${API_BASE}/update_schedules`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(payload)
+            });
+        } else {
+            // 新增
+            let deptId = document.getElementById('edit-dept-id').value;
+            let deptName = document.getElementById('edit-dept-name').value;
+            if (!doctorName || !deptId || !deptName) {
+                showToast('缺少医生或科室信息', 'error');
+                return;
+            }
+
+            payload.dept_id = deptId;
+            payload.dept_name = deptName;
+            response = await fetch(`${API_BASE}/new_schedules`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(payload)
+            });
+        }
+
+        const result = await response.json();
+        if (result.success !== false) {
+            showToast('保存成功', 'success');
+            closeEditModal();
+            loadScheduleGrid();
+        } else {
+            showToast(result.error || '保存失败', 'error');
+        }
+    } catch (error) {
+        console.error('保存排班失败:', error);
+        showToast('保存失败', 'error');
+    }
+}
+
+// 删除排班
+async function deleteScheduleFromModal() {
+    const id = document.getElementById('edit-schedule-id').value;
+    if (!id) {
+        showToast('无排班记录可删除', 'error');
+        return;
+    }
+
+    showConfirmDialog(
+        `确定要删除这条排班记录吗？`,
+        async () => {
+            try {
+                const response = await fetch(`${API_BASE}/schedules/`, {
+                    method: 'DELETE',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ id: id })
+                });
+                const result = await response.json();
+
+                if (result.success !== false) {
+                    showToast('删除成功', 'success');
+                    closeEditModal();
+                    loadScheduleGrid();
+                } else {
+                    showToast(result.error || '删除失败', 'error');
+                }
+            } catch(e) {
+                console.error('删除排班失败:', error);
+                showToast('删除失败', 'error');
+            }
+        }
+    );
+
+
+}
+
+// 保留原有的loadSchedules函数以兼容其他功能
+async function loadSchedules() {
+    loadScheduleGrid();
+}
+
+function getShiftClass(shiftType) {
+    switch (shiftType) {
+        case '主班': return 'shift-main';
+        case '夜班': return 'shift-night';
+        case '副班': return 'shift-main';
+        case '正常班': return 'shift-normal';
+        case '休息': return 'shift-off';
+        default: return 'shift-normal';
+    }
+}
+
+
+async function showBatchModal(doctorId, deptId, doctorName, deptName) {
+    console.log('showBatchModal', doctorId, deptId, doctorName, deptName);
+    await ensureShiftTypesLoaded();
+
+    document.getElementById('batch-doctor-id').value = doctorId;
+    document.getElementById('batch-dept-id').value = deptId;
+    document.getElementById('batch-doctor-name').innerText = `${doctorName}`;
+    document.getElementById('batch-dept-name').innerText = `${deptName}`;
+    document.getElementById('batch-doctor-name').value = doctorName;
+    document.getElementById('batch-dept-name').value = deptName;
+    // 设置默认日期范围：当前月份
+    const now = new Date();
+    const firstDay = new Date(now.getFullYear(), now.getMonth(), 1);
+    const lastDay = new Date(now.getFullYear(), now.getMonth() + 1, 0);
+    document.getElementById('batch-start-date').value = formatLocalDate(firstDay);
+    document.getElementById('batch-end-date').value = formatLocalDate(lastDay);
+
+    // 设置复制排班的默认时间段
+    const sourceFirst = new Date(now.getFullYear(), now.getMonth(), 1);
+    const sourceLast = new Date(now.getFullYear(), now.getMonth() + 1, 0);
+    const targetFirst = new Date(now.getFullYear(), now.getMonth() + 1, 1);
+    const targetLast = new Date(now.getFullYear(), now.getMonth() + 2, 0);
+    document.getElementById('batch-copy-source-start').value = formatLocalDate(sourceFirst);
+    document.getElementById('batch-copy-source-end').value = formatLocalDate(sourceLast);
+    document.getElementById('batch-copy-target-start').value = formatLocalDate(targetFirst);
+    document.getElementById('batch-copy-target-end').value = formatLocalDate(targetLast);
+
+    // 清空备注
+    document.getElementById('batch-notes').value = '';
+
+    // 填充班次类型下拉框
+    const shiftSelect = document.getElementById('batch-shift-type');
+    shiftSelect.innerHTML = shiftTypes.map(t => `<option value="${t}">${t}</option>`).join('');
+
+    // 监听操作类型切换
+    const actionSelect = document.getElementById('batch-action');
+    const shiftGroup = document.getElementById('batch-shift-group');
+    const notesGroup = document.getElementById('batch-notes-group');
+    const confirmBtn = document.getElementById('batch-confirm-btn');
+
+    const toggleFields = () => {
+        const action = actionSelect.value;
+        const isUpdate = action === 'update';
+        const isCopy = action === 'copy';
+        shiftGroup.style.display = isUpdate ? 'block' : 'none';
+        notesGroup.style.display = isUpdate ? 'block' : 'none';
+        const copyGroup = document.getElementById('batch-copy-group');
+        if (copyGroup) copyGroup.style.display = isCopy ? 'block' : 'none';
+        confirmBtn.className = isCopy ? 'btn btn-primary' : (isUpdate ? 'btn btn-primary' : 'btn btn-danger');
+        confirmBtn.innerText = isCopy ? '确认复制' : (isUpdate ? '确认修改' : '确认删除');
+    };
+    actionSelect.onchange = toggleFields;
+    toggleFields();
+
+    document.getElementById('batch-modal').classList.add('active');
+}
+
+function closeBatchModal() {
+    document.getElementById('batch-modal').classList.remove('active');
+}
+
+async function executeBatchAction() {
+    const doctorId = document.getElementById('batch-doctor-id').value;
+    const doctorName = document.getElementById('batch-doctor-name').value;
+    const deptId = document.getElementById('batch-dept-id').value;
+    const deptName = document.getElementById('batch-dept-name').value;
+    const startDate = document.getElementById('batch-start-date').value;
+    const endDate = document.getElementById('batch-end-date').value;
+    const action = document.getElementById('batch-action').value;
+
+    if (!startDate || !endDate) {
+        showToast('请选择完整的时间段', 'error');
+        return;
+    }
+    if (startDate > endDate) {
+        showToast('开始日期不能大于结束日期', 'error');
+        return;
+    }
+
+    if (action === 'delete') {
+        showConfirmDialog(
+            `确定要删除医生在 ${startDate} 至 ${endDate} 期间的所有排班吗？`,
+            async () => {
+                try {
+                    const response = await fetch(`${API_BASE}/schedules/batch_delete`, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ doc_id: doctorId, dept_id: deptId, start_date: startDate, end_date: endDate })
+                    });
+                    const result = await response.json();
+                    if (result.code === 20000) {
+                        showToast(result.msg || '删除成功', 'success');
+                        closeBatchModal();
+                        loadScheduleGrid(); // 刷新排班表
+                    } else {
+                        showToast(result.error || '删除失败', 'error');
+                    }
+                } catch(e) {
+                    console.error(e);
+                    showToast('删除失败', 'error');
+                }
+            }
+        );
+
+    } else if (action === 'update') {
+        const shiftType = document.getElementById('batch-shift-type').value;
+        const notes = document.getElementById('batch-notes').value;
+        const docName = document.getElementById('batch-doctor-name').value;
+        const deptName = document.getElementById('batch-dept-name').value;
+        console.log(shiftType, notes, docName, deptName);
+        if (!shiftType) {
+            showToast('请选择班次类型', 'error');
+            return;
+        }
+
+        showConfirmDialog(
+            `确定要将 ${startDate} 至 ${endDate} 期间的所有排班改为“${shiftType}”吗？`,
+            async () => {
+                try {
+                    const response = await fetch(`${API_BASE}/schedules/batch_update`, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ doc_id: doctorId, doc_name: docName, dept_id: deptId, dept_name: deptName,
+                         start_date: startDate, end_date: endDate, shift_type: shiftType, notes: notes })
+                    });
+                    const result = await response.json();
+                    if (result.code === 20000) {
+                        showToast(result.msg || '修改成功', 'success');
+                        closeBatchModal();
+                        loadScheduleGrid();
+                    } else {
+                        showToast(result.error || '修改失败', 'error');
+                    }
+                } catch(e) {
+                    console.error(e);
+                    showToast('修改失败', 'error');
+                }
+            }
+        );
+    } else if (action === 'copy') {
+        const sourceStart = document.getElementById('batch-copy-source-start').value;
+        const sourceEnd = document.getElementById('batch-copy-source-end').value;
+        const targetStart = document.getElementById('batch-copy-target-start').value;
+        const targetEnd = document.getElementById('batch-copy-target-end').value;
+        if (!sourceStart || !sourceEnd || !targetStart || !targetEnd) {
+            showToast('请填写完整的时间段', 'error');
+            return;
+        }
+        if (sourceStart > sourceEnd || targetStart > targetEnd) {
+            showToast('时间段无效', 'error');
+            return;
+        }
+        const daysDiff = (new Date(sourceEnd) - new Date(sourceStart)) / (1000 * 3600 * 24);
+        const targetDaysDiff = (new Date(targetEnd) - new Date(targetStart)) / (1000 * 3600 * 24);
+        if (daysDiff !== targetDaysDiff) {
+            showToast('源时间段和目标时间段天数必须一致', 'error');
+            return;
+        }
+        showConfirmDialog(
+            `确定要将 ${deptName}-${doctorName} 在 ${sourceStart} 至 ${sourceEnd} 的排班复制到 ${targetStart} 至 ${targetEnd} 吗？<br>目标时间段内已有的排班将被覆盖！`,
+            async () => {
+                try {
+                    const response = await fetch(`${API_BASE}/schedules/copy_doctor`, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({
+                            doc_id: doctorId,
+                            dept_id: deptId,
+                            source_start: sourceStart,
+                            source_end: sourceEnd,
+                            target_start: targetStart,
+                            target_end: targetEnd
+                        })
+                    });
+                    const result = await response.json();
+                    if (result.code === 20000) {
+                        showToast(result.msg || '复制成功', 'success');
+                        closeBatchModal();
+                        loadScheduleGrid();
+                    } else {
+                        showToast(result.error || '复制失败', 'error');
+                    }
+                } catch(e) {
+                    console.error(e);
+                    showToast('复制失败', 'error');
+                }
+            }
+        );
+    }
+}
+
+async function deleteAllSchedules() {
+    const doctorId = document.getElementById('batch-doctor-id').value;
+    const doctorName = document.getElementById('batch-doctor-name').innerText;
+    const deptName = document.getElementById('batch-dept-name').innerText;
+    if (!doctorId) {
+        showToast('医生信息无效', 'error');
+        return;
+    }
+    showConfirmDialog(
+        `⚠️ 确定要删除医生 ${doctorName} 的【所有】排班记录吗？<br>此操作不可恢复！`,
+        async () => {
+            try {
+                const startDate = '1900-01-01';
+                const endDate = '2099-12-31';
+                const response = await fetch(`${API_BASE}/schedules/batch_delete`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ doc_id: doctorId, start_date: startDate, end_date: endDate })
+                });
+                const result = await response.json();
+                if (result.code === 20000) {
+                    showToast(result.msg || `已删除医生 ${doctorName} 的全部排班`, 'success');
+                    closeBatchModal();
+                    loadScheduleGrid();
+                } else {
+                    showToast(result.error || '删除失败', 'error');
+                }
+            } catch(e) {
+                console.error('删除全部排班失败:', e);
+                showToast('删除失败，请稍后重试', 'error');
+            }
+        }
+    );
+
+}
+
+
+
+
+function showConfirmDialog(message, onConfirm, onCancel = null) {
+    const dialog = document.getElementById('confirm-dialog');
+    const msgEl = document.getElementById('confirm-message');
+    msgEl.innerHTML = message;
+    confirmCallback = onConfirm;
+
+    // 重新绑定按钮事件（避免重复绑定）
+    const okBtn = document.getElementById('confirm-ok-btn');
+    const cancelBtn = document.getElementById('confirm-cancel-btn');
+
+    // 克隆替换以清除旧监听
+    const newOkBtn = okBtn.cloneNode(true);
+    okBtn.parentNode.replaceChild(newOkBtn, okBtn);
+    const newCancelBtn = cancelBtn.cloneNode(true);
+    cancelBtn.parentNode.replaceChild(newCancelBtn, cancelBtn);
+
+    newOkBtn.onclick = () => {
+        closeConfirmDialog();
+        if (onConfirm) onConfirm();
+    };
+    newCancelBtn.onclick = () => {
+        closeConfirmDialog();
+        if (onCancel) onCancel();
+    };
+
+    dialog.classList.add('active');
+}
+
+function closeConfirmDialog() {
+    document.getElementById('confirm-dialog').classList.remove('active');
+    confirmCallback = null;
+}
+
+
+function applyScheduleFilter() {
+    if (!scheduleData.length) return;
+    // 获取当前月份的开始和结束日期（用于重新生成网格，保持日期不变）
+    const monthSelect = document.getElementById('duty-month-select');
+    if (!monthSelect.value) return;
+    const [year, month] = monthSelect.value.split('-').map(Number);
+    const firstDay = new Date(year, month - 1, 1);
+    const lastDay = new Date(year, month, 0);
+    // 重新生成左侧人员和右侧网格（会使用 currentDoctorFilter 过滤）
+    generatePersonnelList();
+    generateScheduleContent(firstDay, lastDay);
+}
+
+
+
+
+function refreshScheduleView() {
+    if (!rawScheduleData.length) return;
+    const keyword = currentDoctorFilter.trim().toLowerCase();
+    if (!keyword) {
+        scheduleData = [...rawScheduleData];
+    } else {
+        scheduleData = rawScheduleData.filter(s =>
+            (s.doc_name && s.doc_name.toLowerCase().includes(keyword)) ||
+            (s.dept_name && s.dept_name.toLowerCase().includes(keyword))
+        );
+    }
+    const monthSelect = document.getElementById('duty-month-select');
+    if (!monthSelect.value) return;
+    const [year, month] = monthSelect.value.split('-').map(Number);
+    const firstDay = new Date(year, month - 1, 1);
+    const lastDay = new Date(year, month, 0);
+    generateDateHeader(firstDay, lastDay);
+    generatePersonnelList();
+    generateScheduleContent(firstDay, lastDay);
+}
+
+
+
+
+
+
+
+
+
+
+
+// ==================== 一键通知 ====================
+
+async function loadDeptCheckboxes() {
+    try {
+        await fetchDepartments();
+        const deptMap = new Map();
+        allDepartments.forEach(s => {
+            if (s.his_dept_id && s.dept_name) {
+                deptMap.set(s.his_dept_id, s.dept_name);
+            }
+        });
+        allDepartments.forEach(s => {
+            if (s.his_dept_id && s.dept_name && !deptMap.has(s.his_dept_id)) {
+                deptMap.set(s.his_dept_id, s.dept_name);
+            }
+        });
+        allDeptOptions = Array.from(deptMap.entries()).map(([id, name]) => ({ id, name }));
+        // 清空已选
+        selectedDepts = [];
+        renderSelectedTags();
+        renderDeptDropdown('');
+
+        // 确保下拉框初始隐藏
+        const dropdown = document.getElementById('dept-dropdown');
+        if (dropdown) dropdown.style.display = 'none';
+
+        // 重新绑定搜索输入事件（确保不重复绑定）
+        const searchInput = document.getElementById('dept-search-input');
+        if (searchInput) {
+            searchInput.oninput = (e) => filterDeptOptions(e.target.value);
+        }
+    } catch(e) {
+        console.error('加载科室列表失败', e);
+        const container = document.getElementById('dept-options-list');
+        if (container) container.innerHTML = '<div class="option">加载失败，请刷新重试</div>';
+
+    }
+}
+
+function renderDeptDropdown(filterText = '') {
+    const container = document.getElementById('dept-options-list');
+    if (!container) return;
+    const filtered = allDeptOptions.filter(d => d.name.includes(filterText));
+    if (filtered.length === 0) {
+        container.innerHTML = '<div class="option">无匹配科室</div>';
+    } else {
+        container.innerHTML = filtered.map(d => `
+            <div class="option ${selectedDepts.some(s => s.id == d.id) ? 'selected' : ''}"
+                 data-id="${d.id}" data-name="${d.name.replace(/"/g, '&quot;')}"
+                 onclick="toggleDeptSelection(this)">
+                ${d.name}
+            </div>
+        `).join('');
+    }
+}
+
+function toggleDeptSelection(element) {
+    const id = element.getAttribute('data-id');
+    const name = element.getAttribute('data-name');
+    const index = selectedDepts.findIndex(d => d.id == id);
+    if (index === -1) {
+        selectedDepts.push({ id, name });
+    } else {
+        selectedDepts.splice(index, 1);
+    }
+    renderSelectedTags();
+    // 刷新下拉选项的高亮状态
+    renderDeptDropdown(document.getElementById('dept-search-input').value);
+    updateDutyPreview();  // 更新值班预览
+}
+
+function renderSelectedTags() {
+    const container = document.getElementById('selected-dept-tags');
+    if (!container) return;
+    container.innerHTML = selectedDepts.map(d => `
+        <span class="tag">
+            ${d.name}
+            <span class="tag-remove" onclick="event.stopPropagation(); removeDeptTag('${d.id}')">×</span>
+        </span>
+    `).join('');
+}
+
+function removeDeptTag(id) {
+    selectedDepts = selectedDepts.filter(d => d.id != id);
+    renderSelectedTags();
+    renderDeptDropdown(document.getElementById('dept-search-input').value);
+    updateDutyPreview();
+}
+
+function toggleDeptDropdown() {
+    const dropdown = document.getElementById('dept-dropdown');
+    if (!dropdown) return;
+    if (dropdown.style.display === 'none') {
+        dropdown.style.display = 'block';
+        // 重新渲染下拉选项（确保最新）
+        renderDeptDropdown(document.getElementById('dept-search-input').value);
+    } else {
+        dropdown.style.display = 'none';
+    }
+}
+
+function filterDeptOptions(value) {
+    renderDeptDropdown(value);
+}
+
+// 点击其他地方关闭下拉框
+document.addEventListener('click', function(e) {
+    const container = document.getElementById('multi-select-dept');
+    const dropdown = document.getElementById('dept-dropdown');
+    if (container && !container.contains(e.target) && dropdown) {
+        dropdown.style.display = 'none';
+    }
+});
+
+async function updateDutyPreview() {
+    if (selectedDepts.length === 0) {
+        document.getElementById('duty-preview').innerHTML = '<p class="empty">请选择科室查看值班医生</p>';
+        return;
+    }
+    try {
+        const response = await fetch(`${API_BASE}/duty/today`);
+        const dutyData = await response.json();
+        console.log('值班数据:', dutyData);
+
+        let html = '';
+        for (let dept of selectedDepts) {
+            const deptId = dept.id;
+            const deptName = dept.name;
+            const deptInfo = dutyData[deptId];
+            if (deptInfo && deptInfo.doctors && deptInfo.doctors.length) {
+                deptInfo.doctors.forEach(doc => {
+                    html += `<div class="duty-preview-item">
+                                <span class="duty-preview-name">${doc.doc_name}</span>
+                                <span class="duty-preview-dept">${deptInfo.dept_name} (${doc.shift_type || '值班'})</span>
+                            </div>`;
+                });
+            } else {
+                html += `<div class="duty-preview-item">科室 ${deptName} 今日无值班医生</div>`;
+            }
+        }
+        document.getElementById('duty-preview').innerHTML = html || '<p class="empty">所选科室今日无值班医生</p>';
+    } catch(e) {
+        console.error('加载值班预览失败', e);
+        document.getElementById('duty-preview').innerHTML = '<p class="error">加载失败</p>';
+    }
+}
+
+async function handleEmergencySubmit(e) {
+    e.preventDefault();
+
+    const patientName = document.getElementById('patient-name').value.trim();
+    const patientGender = document.getElementById('patient-gender').value;
+    const patientAge = document.getElementById('patient-age').value;
+    const patientCondition = document.getElementById('patient-condition').value.trim();
+
+    if (!patientName || !patientCondition) {
+        showToast('请填写患者姓名和患者情况', 'error');
+        return;
+    }
+
+    if (selectedDepts.length === 0) {
+        showToast('请至少选择一个会诊科室', 'error');
+        return;
+    }
+
+    // 构建患者情况字符串（包含年龄、性别、主诉等）
+    let patientInfo = `年龄：${patientAge || '未知'}，性别：${patientGender}，情况：${patientCondition}`;
+
+    const data = {
+        patient_name: patientName,
+        patient_info: patientInfo,
+        dept_list: selectedDepts,
+        sender_id: currentUser.id,
+        sender_name: currentUser.name
+    };
+
+    try {
+        const response = await fetch(`${API_BASE}/notification/emergency`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(data)
+        });
+
+        const result = await response.json();
+
+        if (result.success !== false) {
+            showToast('会诊通知已发送', 'success');
+            // 清空表单
+            document.getElementById('emergency-form').reset();
+            // 刷新数据
+            loadNotificationHistory();
+            selectedDepts = [];
+        } else {
+            showToast(result.error || '通知失败', 'error');
+        }
+    } catch (error) {
+        console.error('发送通知失败:', error);
+        showToast('发送通知失败', 'error');
+    }
+    selectedDepts = [];
+}
+
+// ==================== 会诊记录 ====================
+
+async function loadGroups() {
+    const status = document.getElementById('group-status-filter').value;
+    try {
+        const response = await fetch(`${API_BASE}/notification/records`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ key: 'all' })
+        });
+        const result = await response.json();
+        const groups = result.data || result || [];
+
+        const container = document.getElementById('groups-list');
+        if (groups.length > 0) {
+            let html = '';
+            groups.forEach(group => {
+                const isActive = group.status === 1 || group.status === '进行中';
+                const statusClass = isActive ? 'status-active' : 'status-closed';
+                const statusText = isActive ? '进行中' : '进行中';
+
+                html += `
+                    <div class="group-item" onclick="openGroupDetail(${group.id})">
+                        <div class="group-header">
+                            <span class="group-patient">${group.patient_name || '未知患者'}</span>
+                            <span class="group-status ${statusClass}">${statusText}</span>
+                        </div>
+                        <div class="group-info">
+                            <span>主诉: ${group.patient_info ? group.patient_info.split('\n')[0] : '暂无'}</span>
+                            <span>科室: ${group.dept_name_list ? group.dept_name_list.split(',').length : 0}个</span>
+                        </div>
+                        <div class="group-time">${formatDateTime(group.created_at)}</div>
+                    </div>
+                `;
+            });
+            container.innerHTML = html;
+        } else {
+            container.innerHTML = '<p class="empty">暂无会诊记录</p>';
+        }
+    } catch (error) {
+        console.error('加载会诊记录失败:', error);
+        document.getElementById('groups-list').innerHTML = '<p class="error">加载失败</p>';
+    }
+}
+
+async function openGroupDetail(recordId) {
+    console.log('打开会诊详情', recordId);
+    try {
+        const response = await fetch(`${API_BASE}/notification/record/detail`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                record_id: recordId
+            })
+        });
+        const result = await response.json();
+        const group = result.data || result || [];
+
+        currentGroup = { id: recordId };
+
+        console.log('会诊详情', group);
+
+        // 更新模态框内容
+        document.getElementById('modal-group-title').textContent = `会诊 - ${group.patient_name || '未知患者'}`;
+        document.getElementById('modal-patient-name').textContent = group.patient_name || '未知';
+        document.getElementById('modal-chief-complaint').textContent = group.patient_info || '暂无';
+        document.getElementById('modal-member-dept').textContent = group.dept_name_list || '';
+        document.getElementById('modal-member-count').textContent = group.doctors ? group.doctors.length : 0;
+
+        // 渲染成员（科室）
+        const membersContainer = document.getElementById('modal-members');
+        if (group.dept_name_list) {
+            const depts = group.doctors;
+            membersContainer.innerHTML = depts.map(dept => `
+                <div class="member-card">
+                    <div class="member-name">${dept.doc_name}</div>
+                    <div class="member-dept">${dept.dept_name}</div>
+                </div>
+            `).join('');
+        } else {
+            membersContainer.innerHTML = '<p class="empty">暂无科室</p>';
+        }
+
+        console.log('会诊详情渲染成功');
+
+        // 渲染消息 - 需要单独获取
+        loadMessages(recordId);
+
+        console.log('会诊详情消息渲染成功');
+
+        // 显示模态框
+        document.getElementById('group-detail-modal').classList.add('active');
+
+        console.log('会诊渲染成功');
+
+    } catch (error) {
+        console.error('加载会诊详情失败:', error);
+        showToast('加载会诊详情失败', 'error');
+    }
+}
+
+async function loadMessages(recordId) {
+    const messagesContainer = document.getElementById('modal-messages');
+    if (!messagesContainer) return;
+
+    try {
+
+        const response = await fetch(`${API_BASE}/record/message`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ record_id: recordId })
+        });
+        const result = await response.json();
+        // 处理后端返回格式（可能是 {code:20000, data: [...]} 或直接数组）
+        let messages = [];
+        if (result.code === 20000) {
+            messages = result.data || [];
+        } else if (Array.isArray(result)) {
+            messages = result;
+        } else {
+            messages = result.data || result || [];
+        }
+
+        if (messages.length === 0) {
+            messagesContainer.innerHTML = '<p class="empty">暂无消息记录</p>';
+            return;
+        }
+
+        // 按时间升序排列（确保旧消息在上，新消息在下）
+        messages.sort((a, b) => new Date(a.created_at) - new Date(b.created_at));
+
+        const html = messages.map(msg => {
+            // 根据消息类型添加样式类
+            let msgClass = 'message-normal';
+            if (msg.content && msg.content.includes('【急诊会诊通知】')) {
+                msgClass = 'message-notification';
+            } else if (msg.content && (msg.content.includes('已通知医生') || msg.content.includes('会诊'))) {
+                msgClass = 'message-system';
+            }
+            return `
+                <div class="message-item ${msgClass}">
+                    <div class="message-sender">${escapeHtml(msg.sender_name || '系统')}</div>
+                    <div class="message-content">${escapeHtml(msg.content || '')}</div>
+                    <div class="message-time">${formatDateTime(msg.created_at)}</div>
+                </div>
+            `;
+        }).join('');
+
+        messagesContainer.innerHTML = html;
+        // 滚动到底部显示最新消息
+        messagesContainer.scrollTop = messagesContainer.scrollHeight;
+    } catch (error) {
+        console.error('加载消息记录失败:', error);
+        messagesContainer.innerHTML = '<p class="error">加载消息失败</p>';
+    }
+}
+
+// 辅助函数：防止XSS
+function escapeHtml(str) {
+    if (!str) return '';
+    return str.replace(/[&<>]/g, function(m) {
+        if (m === '&') return '&amp;';
+        if (m === '<') return '&lt;';
+        if (m === '>') return '&gt;';
+        return m;
+    }).replace(/[\uD800-\uDBFF][\uDC00-\uDFFF]/g, function(c) {
+        return c;
+    });
+}
+
+function closeGroupModal() {
+    document.getElementById('group-detail-modal').classList.remove('active');
+    currentGroup = null;
+}
+
+async function sendMessage() {
+    const input = document.getElementById('message-input');
+    const content = input.value.trim();
+
+    if (!content || !currentGroup) {
+        return;
+    }
+
+    try {
+        await fetch(`${API_BASE}/notification/record/message`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                record_id: currentGroup.id,
+                sender_id: currentUser.id,
+                sender_name: currentUser.name,
+                message: content
+            })
+        });
+
+        input.value = '';
+        showToast('消息已发送', 'success');
+        loadMessages(currentGroup.id);
+    } catch (error) {
+        console.error('发送消息失败:', error);
+        showToast('发送消息失败', 'error');
+    }
+}
+
+
+async function closeConsultation() {
+    if (!currentGroup) return;
+    showToast('会诊已关闭', 'success');
+    closeGroupModal();
+    loadGroups();
+}
+
+// ==================== 复制排班 ====================
+
+async function showCopyScheduleModal() {
+    const today = new Date();
+    const lastWeekStart = new Date(today);
+    lastWeekStart.setDate(today.getDate() - 7);
+    const lastWeekEnd = new Date(today);
+    lastWeekEnd.setDate(today.getDate() - 1);
+
+    const nextWeekStart = new Date(today);
+    nextWeekStart.setDate(today.getDate() + 1);
+    const nextWeekEnd = new Date(today);
+    nextWeekEnd.setDate(today.getDate() + 7);
+
+    const formatDate = (date) => formatLocalDate(date);
+
+    document.getElementById('source-start').value = formatDate(lastWeekStart);
+    document.getElementById('source-end').value = formatDate(lastWeekEnd);
+    document.getElementById('target-start').value = formatDate(nextWeekStart);
+    document.getElementById('target-end').value = formatDate(nextWeekEnd);
+
+    // 填充目标科室下拉框（需要先确保 allDepartments 已加载）
+    try {
+        await fetchDepartments();
+        const targetDeptSelect = document.getElementById('copy-target-dept');
+        targetDeptSelect.innerHTML = '<option value="">所有科室（不修改科室）</option>';
+        allDepartments.forEach(dept => {
+            if (dept.his_dept_id && dept.dept_name) {
+                targetDeptSelect.innerHTML += `<option value="${dept.his_dept_id}" data-name="${dept.dept_name}">${dept.dept_name}</option>`;
+            }
+        });
+    } catch(e) {
+        console.error('加载科室列表失败', e);
+    }
+
+    document.getElementById('copy-schedule-modal').classList.add('active');
+}
+
+function closeCopyModal() {
+    document.getElementById('copy-schedule-modal').classList.remove('active');
+}
+
+function quickCopy(type) {
+    const today = new Date();
+
+    if (type === 'week') {
+        const lastWeekStart = new Date(today);
+        lastWeekStart.setDate(today.getDate() - 7);
+        const lastWeekEnd = new Date(today);
+        lastWeekEnd.setDate(today.getDate() - 1);
+
+        const nextWeekStart = new Date(today);
+        nextWeekStart.setDate(today.getDate() + 1);
+        const nextWeekEnd = new Date(today);
+        nextWeekEnd.setDate(today.getDate() + 7);
+
+        const formatDate = (date) => formatLocalDate(date);
+
+        document.getElementById('source-start').value = formatDate(lastWeekStart);
+        document.getElementById('source-end').value = formatDate(lastWeekEnd);
+        document.getElementById('target-start').value = formatDate(nextWeekStart);
+        document.getElementById('target-end').value = formatDate(nextWeekEnd);
+    } else if (type === 'month') {
+        const lastMonthStart = new Date(today.getFullYear(), today.getMonth() - 1, 1);
+        const lastMonthEnd = new Date(today.getFullYear(), today.getMonth(), 0);
+
+        const nextMonthStart = new Date(today.getFullYear(), today.getMonth(), 1);
+        const nextMonthEnd = new Date(today.getFullYear(), today.getMonth() + 1, 0);
+
+        const formatDate = (date) => formatLocalDate(date);
+
+        document.getElementById('source-start').value = formatDate(lastMonthStart);
+        document.getElementById('source-end').value = formatDate(lastMonthEnd);
+        document.getElementById('target-start').value = formatDate(nextMonthStart);
+        document.getElementById('target-end').value = formatDate(nextMonthEnd);
+    }
+}
+
+async function copySchedule() {
+    const sourceStart = document.getElementById('source-start').value;
+    const sourceEnd = document.getElementById('source-end').value;
+    const targetStart = document.getElementById('target-start').value;
+    const targetEnd = document.getElementById('target-end').value;
+    const targetDeptId = document.getElementById('copy-target-dept').value;
+    const targetDeptName = document.getElementById('copy-target-dept').selectedOptions[0]?.getAttribute('data-name') || '';
+
+    if (!sourceStart || !sourceEnd || !targetStart || !targetEnd || !targetDeptId || !targetDeptName) {
+        showToast('请填写完整的时间段', 'error');
+        return;
+    }
+
+    if (!targetDeptId || !targetDeptName) {
+        showToast('请选择一个科室', 'error');
+        return;
+    }
+
+    try {
+        const response = await fetch(`${API_BASE}/schedules/copy`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                source_start: sourceStart,
+                source_end: sourceEnd,
+                target_start: targetStart,
+                target_end: targetEnd,
+                target_dept_id: targetDeptId,
+                target_dept_name: targetDeptName
+            })
+        });
+
+        const result = await response.json();
+
+        if (result.success !== false) {
+            showToast('复制成功', 'success');
+            closeCopyModal();
+            loadScheduleGrid();
+        } else {
+            showToast(result.error || '复制失败', 'error');
+        }
+    } catch (error) {
+        console.error('复制排班失败:', error);
+        showToast('复制排班失败', 'error');
+    }
+}
+
+// ==================== 导入导出 ====================
+
+function showImportModal() {
+    document.getElementById('import-file').value = '';
+    document.getElementById('import-modal').classList.add('active');
+}
+
+function closeImportModal() {
+    document.getElementById('import-modal').classList.remove('active');
+}
+
+async function importSchedules() {
+    showToast('导入功能开发中', 'info');
+    closeImportModal();
+}
+
+
+async function exportSchedules() {
+    if (!scheduleData || scheduleData.length === 0) {
+        showToast('暂无排班数据可导出', 'error');
+        return;
+    }
+
+    // 获取当前月份的所有日期
+    const monthSelect = document.getElementById('duty-month-select');
+    const selectedMonth = monthSelect.value;
+    if (!selectedMonth) {
+        showToast('请先选择月份', 'error');
+        return;
+    }
+    const [year, month] = selectedMonth.split('-').map(Number);
+    const firstDay = new Date(year, month - 1, 1);
+    const lastDay = new Date(year, month, 0);
+    const days = [];
+    let current = new Date(firstDay);
+    while (current <= lastDay) {
+        days.push(new Date(current));
+        current.setDate(current.getDate() + 1);
+    }
+
+    // 获取当前显示的医生列表（去重）
+    const doctorMap = new Map();
+    scheduleData.forEach(s => {
+        if (!doctorMap.has(s.doc_id)) {
+            doctorMap.set(s.doc_id, {
+                doc_id: s.doc_id,
+                doc_name: s.doc_name,
+                dept_name: s.dept_name
+            });
+        }
+    });
+    const doctorList = Array.from(doctorMap.values());
+
+    // 构建排班映射 { doctor_id: { dateStr: schedule } }
+    const scheduleMap = {};
+    scheduleData.forEach(s => {
+        const dateStr = s.shift_date ? s.shift_date.split('T')[0] : '';
+        if (!scheduleMap[s.doc_id]) scheduleMap[s.doc_id] = {};
+        scheduleMap[s.doc_id][dateStr] = s;
+    });
+
+    // 生成 CSV 表头
+    const dateHeaders = days.map(day => {
+        const monthDay = `${day.getMonth()+1}月${day.getDate()}日`;
+        const week = ['日','一','二','三','四','五','六'][day.getDay()];
+        return `${monthDay}(${week})`;
+    });
+    const headers = ['医生姓名', '科室', ...dateHeaders];
+
+    // 生成每一行数据
+    const rows = doctorList.map(doctor => {
+        const row = [doctor.doc_name, doctor.dept_name];
+        days.forEach(day => {
+            const dateStr = formatLocalDate(day);
+            const schedule = scheduleMap[doctor.doc_id]?.[dateStr];
+            let cell = '';
+            if (schedule) {
+                cell = schedule.notes ? `${schedule.shift_type}(${schedule.notes})` : schedule.shift_type;
+            }
+            row.push(cell);
+        });
+        return row;
+    });
+
+    // 构建 CSV 内容
+    const csvRows = [headers, ...rows];
+    const csvContent = csvRows.map(row =>
+        row.map(cell => `"${String(cell).replace(/"/g, '""')}"`).join(',')
+    ).join('\n');
+
+    const blob = new Blob(["\uFEFF" + csvContent], { type: 'text/csv;charset=utf-8;' });
+    const link = document.createElement('a');
+    const url = URL.createObjectURL(blob);
+    link.href = url;
+    link.setAttribute('download', `排班表_${year}年${month}月.csv`);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+    showToast('导出成功');
+}
+
+
+
+// 初始化可搜索下拉框
+function initSearchableSelect(inputId, optionsContainerId, dataArray, displayKey, valueKey, hiddenInputId, onSelectCallback) {
+    const input = document.getElementById(inputId);
+    const container = document.getElementById(optionsContainerId);
+    if (!input || !container) return;
+
+    // 显示选项
+    function renderOptions(filterText = '') {
+        const filtered = dataArray.filter(item => {
+            let display = '';
+            if (typeof displayKey === 'function') {
+                display = displayKey(item).toLowerCase();
+            } else {
+                display = (item[displayKey] || '').toLowerCase();
+            }
+            return display.includes(filterText.toLowerCase());
+        });
+        container.innerHTML = '';
+        if (filtered.length === 0) {
+            const emptyDiv = document.createElement('div');
+            emptyDiv.className = 'option-item';
+            emptyDiv.textContent = '无匹配项';
+            container.appendChild(emptyDiv);
+        } else {
+            filtered.forEach(item => {
+                const div = document.createElement('div');
+                div.className = 'option-item';
+                const displayText = typeof displayKey === 'function' ? displayKey(item) : item[displayKey];
+                div.textContent = displayText;
+                div.dataset.value = item[valueKey];
+                div.dataset.data = JSON.stringify(item);
+                div.onclick = () => {
+                    input.value = displayText;
+                    const hidden = document.getElementById(hiddenInputId);
+                    if (hidden) hidden.value = item[valueKey];
+                    if (onSelectCallback) onSelectCallback(item);
+                    container.style.display = 'none';
+                };
+                container.appendChild(div);
+            });
+        }
+        container.style.display = 'block';
+    }
+
+    input.addEventListener('input', () => renderOptions(input.value));
+    input.addEventListener('focus', () => renderOptions(input.value));
+    document.addEventListener('click', function(e) {
+        if (!input.contains(e.target) && !container.contains(e.target)) {
+            container.style.display = 'none';
+        }
+    });
+}
+
+// 显示新增排班模态框
+async function showAddScheduleModal() {
+    await ensureShiftTypesLoaded();
+    await fetchDoctors();
+    await fetchDepartments();
+
+    // 初始化医生选择器
+    initSearchableSelect('doctor-search', 'doctor-options', allDoctors,
+        'doc_name',
+        'doc_id',
+        'selected-doctor-id',
+    );
+
+    // 初始化科室选择器
+    initSearchableSelect('dept-search', 'dept-options', allDepartments,
+        'dept_name',
+        'his_dept_id',
+        'selected-dept-id',
+    );
+
+    // 填充班次类型
+    const shiftSelect = document.getElementById('add-shift-type');
+    shiftSelect.innerHTML = shiftTypes.map(t => `<option value="${t}">${t}</option>`).join('');
+
+    // 设置默认日期
+    document.getElementById('add-shift-date').value = formatLocalDate(new Date());
+    document.getElementById('add-notes').value = '';
+
+    // 清空输入框
+    document.getElementById('doctor-search').value = '';
+    document.getElementById('dept-search').value = '';
+    document.getElementById('selected-doctor-id').value = '';
+    document.getElementById('selected-dept-id').value = '';
+
+    // 显示模态框
+    document.getElementById('add-schedule-modal').classList.add('active');
+}
+
+function closeAddScheduleModal() {
+    document.getElementById('add-schedule-modal').classList.remove('active');
+}
+
+async function submitAddSchedule() {
+    const docId = document.getElementById('selected-doctor-id').value;
+    const deptId = document.getElementById('selected-dept-id').value;
+    const shiftDate = document.getElementById('add-shift-date').value;
+    const shiftType = document.getElementById('add-shift-type').value;
+    const notes = document.getElementById('add-notes').value;
+
+    if (!docId || !deptId || !shiftDate || !shiftType) {
+        showToast('请完整填写信息', 'error');
+        return;
+    }
+
+    // 从原始数据中获取医生和科室详细信息
+    const doctor = allDoctors.find(d => d.doc_id == docId);
+    const dept = allDepartments.find(d => d.his_dept_id == deptId);
+    if (!doctor || !dept) {
+        showToast('人员或科室信息无效', 'error');
+        return;
+    }
+
+    const body = {
+        doc_id: docId,
+        doc_name: doctor.doc_name,
+        dept_id: deptId,
+        dept_name: dept.dept_name,
+        shift_date: shiftDate,
+        shift_type: shiftType,
+        notes: notes
+    };
+
+    try {
+        response = await fetch(`${API_BASE}/new_schedules`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(body)
+        });
+        const result = await response.json();
+
+        if (result.code == 20000) {
+            showToast('新增成功', 'success');
+            closeAddScheduleModal();
+            loadScheduleGrid();
+        } else {
+            showToast(result.error || '复制失败', 'error');
+        }
+    } catch(e) {
+        console.log('新增失败', e);
+        showToast('新增失败', 'error', );
+    }
+}
+
+function closeAddScheduleModal() {
+    const modal = document.getElementById('add-schedule-modal');
+    if (modal) modal.classList.remove('active');
+
+    // 清空医生搜索框及选项
+    const doctorSearch = document.getElementById('doctor-search');
+    if (doctorSearch) doctorSearch.value = '';
+    const doctorOptions = document.getElementById('doctor-options');
+    if (doctorOptions) doctorOptions.style.display = 'none';
+
+    // 清空科室搜索框及选项
+    const deptSearch = document.getElementById('dept-search');
+    if (deptSearch) deptSearch.value = '';
+    const deptOptions = document.getElementById('dept-options');
+    if (deptOptions) deptOptions.style.display = 'none';
+
+    // 清空隐藏域
+    const selectedDoctor = document.getElementById('selected-doctor-id');
+    if (selectedDoctor) selectedDoctor.value = '';
+    const selectedDept = document.getElementById('selected-dept-id');
+    if (selectedDept) selectedDept.value = '';
+}
+
+// 获取医生列表
+async function fetchDoctors() {
+    try {
+        const response = await fetch(`${API_BASE}/doctors`, {
+            method: 'GET',
+            headers: { 'Content-Type': 'application/json' }
+        });
+
+        const result = await response.json();
+
+        if (result.code == 20000) {
+            allDoctors = result.data;
+            return result.data;
+        } else {
+            return  [];
+        }
+    } catch(e) {
+        console.error('获取医生列表失败', e);
+        return [];
+    }
+}
+
+// 获取科室列表
+async function fetchDepartments() {
+    try {
+        const response = await fetch(`${API_BASE}/depts`, {
+            method: 'GET',
+            headers: { 'Content-Type': 'application/json' }
+        });
+
+        const result = await response.json();
+
+        if (result.code == 20000) {
+            allDepartments = result.data;
+            return result.data;
+        } else {
+            return  [];
+        }
+    } catch(e) {
+        console.error('获取科室列表失败', e);
+        return [];
+    }
+}
+
+
+// ==================== 科室选项 ====================
+
+async function loadDepartmentOptions() {
+    console.log('dept list')
+    const select = document.getElementById('duty-department-filter');
+    if (!select) return;
+
+    try {
+        const response = await fetch(`${API_BASE}/depts`, {
+            method: 'GET',
+            headers: { 'Content-Type': 'application/json' }
+        });
+        const result = await response.json();
+
+        console.log('dept list', result)
+        // 兼容 {code:20000, data: [...]} 或直接数组
+        let departments = [];
+        if (result.code === 20000) {
+            departments = result.data || [];
+        } else if (Array.isArray(result)) {
+            departments = result;
+        } else {
+            departments = result.data || result || [];
+        }
+
+        // 使用 his_dept_id 作为 value，dept_name 作为显示文本
+        let options = '<option value="">全部科室</option>';
+        departments.forEach(dept => {
+            if (dept.his_dept_id && dept.dept_name) {
+                options += `<option value="${dept.his_dept_id}">${dept.dept_name}</option>`;
+            }
+        });
+        select.innerHTML = options;
+    } catch (error) {
+        console.error('加载科室列表失败:', error);
+        select.innerHTML = '<option value="">全部科室</option><option disabled>加载失败</option>';
+    }
+}
+
+// ==================== 工具函数 ====================
+
+async function ensureShiftTypesLoaded() {
+    if (!shiftTypesLoaded && shiftTypes.length === 0) {
+        await loadShiftTypes();
+        shiftTypesLoaded = true;
+    }
+}
+
+function formatLocalDate(date) {
+    const year = date.getFullYear();
+    const month = String(date.getMonth() + 1).padStart(2, '0');
+    const day = String(date.getDate()).padStart(2, '0');
+    return `${year}-${month}-${day}`;
+}
+
+
+function formatDateTime(createdAt) {
+    if (!createdAt) return '';
+
+    // "Tue, 19 May 2026 18:29:57 GMT"
+    const date = new Date(createdAt);
+
+    const Y = date.getUTCFullYear();
+    const M = String(date.getUTCMonth() + 1).padStart(2, '0');
+    const D = String(date.getUTCDate()).padStart(2, '0');
+    const h = String(date.getUTCHours()).padStart(2, '0');
+    const m = String(date.getUTCMinutes()).padStart(2, '0');
+    const s = String(date.getUTCSeconds()).padStart(2, '0');
+
+    return `${Y}-${M}-${D} ${h}:${m}:${s}`;
+}
+
+function showToast(message, type = 'success') {
+    const toast = document.getElementById('toast');
+    toast.textContent = message;
+    toast.className = `toast ${type} active`;
+
+    setTimeout(() => {
+        toast.classList.remove('active');
+    }, 3000);
+}
+
+// 绑定回车发送消息
+document.addEventListener('keydown', function(e) {
+    if (e.key === 'Enter' && document.getElementById('message-input') && document.activeElement.id === 'message-input') {
+        sendMessage();
+    }
+});
+
+function setDefaultDates() {
+    // 设置复制排班模态框的默认日期
+}
+
+</script>
+
+</body>
+</html>

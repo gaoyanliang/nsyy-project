@@ -274,12 +274,14 @@ def get_schedules(json_data):
 
     with DbUtil(global_config.DB_HOST, global_config.DB_USERNAME,
                 global_config.DB_PASSWORD, global_config.DB_DATABASE_GYL) as db:
-        schedules = db.query_all(f"SELECT * FROM nsyy_gyl.on_call_schedule where 1=1 {conditation_sql}")
+        sql = f"SELECT * FROM nsyy_gyl.on_call_schedule where 1=1 {conditation_sql}"
+        schedules = db.query_all(sql)
+
+    if not schedules:
+        return []
 
     redis_client = redis.Redis(connection_pool=pool)
     doctor_schedule_data = redis_client.hgetall('doctor_schedule')
-    if not schedules:
-        return []
     for item in schedules:
         doc = doctor_schedule_data.get(item.get('doc_id'), {})
         doc = json.loads(doc)
@@ -335,6 +337,12 @@ def copy_schedules(data):
     target_start = datetime.strptime(data['target_start'], '%Y-%m-%d').date()
     target_end = datetime.strptime(data['target_end'], '%Y-%m-%d').date()
 
+    # 目标科室（可选）
+    target_dept_id = data.get('target_dept_id')
+    target_dept_name = data.get('target_dept_name')
+    if not target_dept_id or not target_dept_name:
+        raise Exception('请选择目标科室')
+
     if (target_end - target_start).days != (source_end - source_start).days:
         raise Exception('源时间段和目标时间段天数不一致')
 
@@ -342,38 +350,85 @@ def copy_schedules(data):
                 global_config.DB_PASSWORD, global_config.DB_DATABASE_GYL) as db:
 
         # 1️⃣ 查询源排班
-        sql_select = """ SELECT * FROM nsyy_gyl.on_call_schedule
-            WHERE shift_date BETWEEN %s AND %s """
-        source_schedules = db.fetch_all(sql_select, (source_start, source_end))
+        sql_select = f""" SELECT * FROM nsyy_gyl.on_call_schedule
+            WHERE dept_id = '{target_dept_id}' AND shift_date BETWEEN '{source_start}' AND '{source_end}' """
+        source_schedules = db.query_all(sql_select)
 
         insert_data = []
         for row in source_schedules:
-            (_id, doc_id, doc_name, dept_id, dept_name, shift_date,
-                shift_type, notes, is_duty, created_at) = row
-
+            shift_date_str = row['shift_date']
+            shift_date_obj = datetime.strptime(shift_date_str, '%Y-%m-%d').date()
             # 2️⃣ 计算目标日期
-            days_diff = (shift_date - source_start).days
+            days_diff = (shift_date_obj - source_start).days
             new_date = target_start + timedelta(days=days_diff)
 
-            insert_data.append((doc_id, doc_name, dept_id, dept_name, shift_date,
-                shift_type, '', is_duty, datetime.now().strftime("%Y-%m-%d %H:%M:%S")))
+            insert_data.append((row.get('doc_id'), row.get('doc_name'), row.get('dept_id'), row.get('dept_name'),
+                                new_date.strftime("%Y-%m-%d"), row.get('shift_type'), '',
+                                datetime.now().strftime("%Y-%m-%d %H:%M:%S")))
 
         insert_sql = """
                          INSERT INTO nsyy_gyl.on_call_schedule (doc_id, doc_name, dept_id, dept_name, shift_date, 
-                         shift_type, notes, is_duty, created_at) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)
+                         shift_type, notes, created_at) VALUES (%s, %s, %s, %s, %s, %s, %s, %s)
                          ON DUPLICATE KEY UPDATE doc_id = VALUES(doc_id), doc_name = VALUES(doc_name), 
                          dept_id = VALUES(dept_id), dept_name = VALUES(dept_name),
                          shift_date = VALUES(shift_date), shift_type = VALUES(shift_type), 
-                         notes = VALUES(notes), is_duty = VALUES(is_duty)
+                         notes = VALUES(notes)
                      """
         db.execute_many(insert_sql, insert_data, need_commit=True)
+
+
+def copy_doctor_schedules(data):
+    doc_id = data['doc_id']
+    dept_id = data['dept_id']
+    source_start = datetime.strptime(data['source_start'], '%Y-%m-%d').date()
+    source_end = datetime.strptime(data['source_end'], '%Y-%m-%d').date()
+    target_start = datetime.strptime(data['target_start'], '%Y-%m-%d').date()
+    target_end = datetime.strptime(data['target_end'], '%Y-%m-%d').date()
+
+    if (target_end - target_start).days != (source_end - source_start).days:
+        raise Exception('源时间段和目标时间段天数不一致')
+
+    with DbUtil(global_config.DB_HOST, global_config.DB_USERNAME,
+                global_config.DB_PASSWORD, global_config.DB_DATABASE_GYL) as db:
+        # 查询源时间段内该医生的排班
+        sql_select = f""" SELECT * FROM nsyy_gyl.on_call_schedule
+            WHERE doc_id = '{doc_id}' AND dept_id = '{dept_id}' AND shift_date BETWEEN '{source_start}' AND '{source_end}' """
+        source_schedules = db.query_all(sql_select)
+
+        insert_data = []
+        for row in source_schedules:
+            shift_date_str = row['shift_date']
+            shift_date_obj = datetime.strptime(shift_date_str, '%Y-%m-%d').date()
+            days_diff = (shift_date_obj - source_start).days
+            new_date = target_start + timedelta(days=days_diff)
+            insert_data.append((
+                doc_id,
+                row['doc_name'],
+                dept_id,
+                row['dept_name'],  # 使用传入的科室名称，保持一致
+                new_date.strftime('%Y-%m-%d'),
+                row['shift_type'],
+                row.get('notes', ''),
+                datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+            ))
+
+        insert_sql = """
+            INSERT INTO nsyy_gyl.on_call_schedule
+            (doc_id, doc_name, dept_id, dept_name, shift_date, shift_type, notes, created_at)
+            VALUES (%s, %s, %s, %s, %s, %s, %s, %s)
+            ON DUPLICATE KEY UPDATE
+            shift_type = VALUES(shift_type),
+            notes = VALUES(notes)
+        """
+        db.execute_many(insert_sql, insert_data, need_commit=True)
+        return f"成功复制 {len(insert_data)} 条排班记录"
 
 
 def batch_delete_schedules(data):
     with DbUtil(global_config.DB_HOST, global_config.DB_USERNAME,
                 global_config.DB_PASSWORD, global_config.DB_DATABASE_GYL) as db:
-        sql = "DELETE FROM nsyy_gyl.on_call_schedule WHERE doc_id = %s AND shift_date BETWEEN %s AND %s"
-        rows = db.execute(sql, (data['doc_id'], data['start_date'], data['end_date']), need_commit=True)
+        sql = "DELETE FROM nsyy_gyl.on_call_schedule WHERE doc_id = %s AND dept_id = %s AND shift_date BETWEEN %s AND %s"
+        rows = db.execute(sql, (data['doc_id'], data['dept_id'], data['start_date'], data['end_date']), need_commit=True)
         return f"成功删除 {rows} 条记录"
 
 
