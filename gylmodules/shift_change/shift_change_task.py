@@ -415,9 +415,9 @@ def aicu_shift_change(reg_sqls, shift_classes, time_slot, dept_id, flush: bool =
             else:
                 yushu_count += 1
         patient_count.append({"患者类别": '预术', "人数": yushu_count, "所在科室id": 0, "所在科室": '',
-                              "所在病区id": str(dept_id), "所在病区": dept_name})
+                              "所在病区id": str(dept_id), "所在病区": dept_name.replace("'", "")})
         patient_count.append({"患者类别": '手术', "人数": shoushu_count, "所在科室id": 0, "所在科室": '',
-                              "所在病区id": str(dept_id), "所在病区": dept_name})
+                              "所在病区id": str(dept_id), "所在病区": dept_name.replace("'", "")})
 
     if chuyuan_ydhl:
         for patient in siwang_patients:
@@ -487,8 +487,9 @@ def aicu_shift_change(reg_sqls, shift_classes, time_slot, dept_id, flush: bool =
 
     if all_cvs:
         patient_count.append({"患者类别": '危急值', "人数": len(all_cvs), "所在科室id": 0, "所在科室": '',
-                              "所在病区id": str(dept_id), "所在病区": dept_name})
-        patient_count = fill_missing_types(patient_count, shift_change_config.ward_people_count, 2)
+                              "所在病区id": str(dept_id), "所在病区": dept_name.replace("'", "")})
+
+    patient_count = fill_missing_types(patient_count, shift_change_config.ward_people_count, 2)
 
     all_patients = merge_patient_cv_data(all_cvs, all_patient_info, 2, [str(dept_id)], pid)
 
@@ -655,7 +656,7 @@ def ob_gyn_shift_change(reg_sqls, shift_classes, time_slot, shoushu, flush: bool
     if all_cvs:
         patient_count.append({"患者类别": '危急值', "人数": len(all_cvs), "所在科室id": 0, "所在科室": '',
                               "所在病区id": '1000961', "所在病区": '妇产科护理单元'})
-        patient_count = fill_missing_types(patient_count, shift_change_config.ward_people_count + ['顺生'], 2)
+    patient_count = fill_missing_types(patient_count, shift_change_config.ward_people_count + ['顺生'], 2)
 
     all_patients = merge_patient_cv_data(all_cvs, all_patient_info, 2, ["1000961"], pid)
     all_patients = merge_patient_shuhou_data(shuhou_patients, all_patients, shoushu, pid)
@@ -782,7 +783,7 @@ def icu_shift_change(reg_sqls, shift_classes, time_slot, flush: bool = False, pi
     if all_cvs:
         patient_count.append({"患者类别": '危急值', "人数": len(all_cvs), "所在科室id": 0, "所在科室": '',
                               "所在病区id": '1000962', "所在病区": 'ICU护理单元'})
-        patient_count = fill_missing_types(patient_count, shift_change_config.ward_people_count, 2)
+    patient_count = fill_missing_types(patient_count, shift_change_config.ward_people_count, 2)
 
     all_patients = merge_patient_cv_data(all_cvs, all_patient_info, 2, ["1000962"], pid)
     all_patients = all_patients + yu_shoushus
@@ -2033,10 +2034,13 @@ if __name__ == '__main__':
     timed_shift_change()
 
     # single_run_shift_change({
-    #     "shift_date": "2026-04-17",
+    #     "shift_date": "2026-05-26",
     #     "shift_type": 2,
     #     "shift_classes": 3,
-    #     "time_slot": "17:30-07:30",
-    #     "dept_id": 1001002
+    #     "time_slot": "21:30-7:30",
+    #     "dept_id": 1001120
     # })
 
+# '1000965' AICU
+#
+# '1001120' CCU
