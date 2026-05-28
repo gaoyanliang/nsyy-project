@@ -1817,6 +1817,14 @@ def send_to_his(cv_record):
         'nurse_recv_time') else '0'
     nurse_send_time = cv_record.get('nurse_send_time').strftime("%Y-%m-%d %H:%M:%S") if cv_record.get(
         'nurse_send_time') else '0'
+    nurse_recv_id = cv_record.get('nurse_recv_id') if cv_record.get('nurse_recv_id') else ''
+    nurse_recv_name = cv_record.get('nurse_recv_name') if cv_record.get('nurse_recv_name') else ''
+    # 2026-05-27 信息科张俊 添加
+    if nurse_recv_time == '0' or nurse_send_time == '0':
+        nurse_recv_time = '0'
+        nurse_send_time = '0'
+        nurse_recv_id = ''
+        nurse_recv_name = ''
 
     baogaosj = shenqing_data[0].get('报告时间') if shenqing_data[0].get('报告时间') else '0'
     zhixingsj = shenqing_data[0].get('执行时间') if shenqing_data[0].get('执行时间') else '0'
@@ -1868,16 +1876,16 @@ def send_to_his(cv_record):
         .replace('{huifuysxm}', cv_record.get('handle_doctor_name') if cv_record.get('handle_doctor_name') else '0') \
         .replace('{yishenghfsj}', handle_time) \
         .replace('{yishengclnr}', cv_record.get('method') if cv_record.get('method') else '0') \
-        .replace('{huifuhsid}', str(cv_record.get('nurse_recv_id')) if cv_record.get('nurse_recv_id') else '') \
-        .replace('{huifuhsxm}', cv_record.get('nurse_recv_name') if cv_record.get('nurse_recv_name') else '') \
+        .replace('{huifuhsid}', nurse_recv_id) \
+        .replace('{huifuhsxm}', nurse_recv_name) \
         .replace('{hushihfsj}', nurse_recv_time) \
         .replace('{hushiclnr}', cv_record.get('nurse_recv_info') if cv_record.get('nurse_recv_info') else '0') \
-        .replace('{jieshouhsid}', str(cv_record.get('nurse_recv_id')) if cv_record.get('nurse_recv_id') else '') \
-        .replace('{jieshouhsxm}', cv_record.get('nurse_recv_name') if cv_record.get('nurse_recv_name') else '') \
+        .replace('{jieshouhsid}', nurse_recv_id) \
+        .replace('{jieshouhsxm}', nurse_recv_name) \
         .replace('{jieshousj}', nurse_send_time) \
         .replace('{hushicksj}', nurse_recv_time) \
-        .replace('{chakanhsid}', str(cv_record.get('nurse_recv_id')) if cv_record.get('nurse_recv_id') else '') \
-        .replace('{chakanhsxm}', cv_record.get('nurse_recv_name') if cv_record.get('nurse_recv_name') else '') \
+        .replace('{chakanhsid}', nurse_recv_id) \
+        .replace('{chakanhsxm}', nurse_recv_name) \
         .replace('{tongzhiyssj}', nurse_send_time) \
         .replace('{tongzhiysxm}', cv_record.get('handle_doctor_name') if cv_record.get('handle_doctor_name') else '0') \
         .replace('{tongzhiysid}', str(cv_record.get('handle_doctor_id')) if cv_record.get('handle_doctor_id') else '0') \
