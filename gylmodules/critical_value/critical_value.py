@@ -1876,15 +1876,15 @@ def send_to_his(cv_record):
         .replace('{huifuysxm}', cv_record.get('handle_doctor_name') if cv_record.get('handle_doctor_name') else '0') \
         .replace('{yishenghfsj}', handle_time) \
         .replace('{yishengclnr}', cv_record.get('method') if cv_record.get('method') else '0') \
-        .replace('{huifuhsid}', nurse_recv_id) \
+        .replace('{huifuhsid}', str(nurse_recv_id)) \
         .replace('{huifuhsxm}', nurse_recv_name) \
         .replace('{hushihfsj}', nurse_recv_time) \
         .replace('{hushiclnr}', cv_record.get('nurse_recv_info') if cv_record.get('nurse_recv_info') else '0') \
-        .replace('{jieshouhsid}', nurse_recv_id) \
+        .replace('{jieshouhsid}', str(nurse_recv_id)) \
         .replace('{jieshouhsxm}', nurse_recv_name) \
         .replace('{jieshousj}', nurse_send_time) \
         .replace('{hushicksj}', nurse_recv_time) \
-        .replace('{chakanhsid}', nurse_recv_id) \
+        .replace('{chakanhsid}', str(nurse_recv_id)) \
         .replace('{chakanhsxm}', nurse_recv_name) \
         .replace('{tongzhiyssj}', nurse_send_time) \
         .replace('{tongzhiysxm}', cv_record.get('handle_doctor_name') if cv_record.get('handle_doctor_name') else '0') \
