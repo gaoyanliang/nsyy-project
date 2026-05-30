@@ -1484,8 +1484,6 @@ def medical_record_template(json_data):
 
 """数据回传"""
 def data_feedback(cv_id, cv_source, confirmer, timer, confirm_info, type: int):
-    if cv_source == cv_config.CV_SOURCE_XINDIAN_TESHU_SYSTEM:
-        return
     datal, updatel, datel, intl = [], [], [], []
     if type == 1:
         # 护士确认
