@@ -14,23 +14,23 @@ def index():
     return render_template('index.html')
 
 
-@on_call.route('/shift_types', methods=['GET'])
+@on_call.route('/shift_types', methods=['GET', 'POST'])
 @api_response
 def get_shift_types():
     return on_call_config.SHIFT_TYPE_MAPPING
 
-@on_call.route('/cache', methods=['GET'])
+@on_call.route('/cache', methods=['GET', 'POST'])
 @api_response
 def cache():
     return global_tools.fetch_doctor()
 
 
-@on_call.route('/doctors', methods=['GET'])
+@on_call.route('/doctors', methods=['GET', 'POST'])
 @api_response
 def get_all_doctors():
     return on_call_server.get_all_doctors()
 
-@on_call.route('/depts', methods=['GET'])
+@on_call.route('/depts', methods=['GET', 'POST'])
 @api_response
 def get_all_depts():
     return shift_change_server.dept_list(1)
@@ -38,7 +38,8 @@ def get_all_depts():
 
 # ==================== 今日值班接口 ====================
 
-@on_call.route('/duty/today', methods=['GET'])
+@on_call.route('/duty/today', methods=['GET', 'POST'])
+@api_response
 def get_today_duty():
     """获取今日值班信息"""
     return on_call_server.get_today_duty()
