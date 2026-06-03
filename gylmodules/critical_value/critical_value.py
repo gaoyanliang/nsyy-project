@@ -1780,7 +1780,7 @@ def send_to_his(cv_record):
         sql = f"""
             select xingming 姓名, xingbiemc 性别,nianling 年龄,jiuzhenid 病人住院id,null 住院号,null 病案号,
             bingrenid 病人id,null 当前床位编码, jiuzhenksid 当前科室,jiuzhenksmc 当前科室名称,null 当前病区,null 当前病区名称, 
-            jiezhensj 接诊时间 from df_lc_menzhen.zj_jiuzhenxx where zuofeibz=0 
+            jiezhensj 接诊时间, jiuzhenkh 就诊卡号, jiuzhenid 就诊序号 from df_lc_menzhen.zj_jiuzhenxx where zuofeibz=0 
             and (jiuzhenkh='{patient_treat_id}' or bingrenid='{patient_treat_id}') order by jiezhensj desc
         """
     patient_data = global_tools.call_new_his(sql)
@@ -1795,6 +1795,11 @@ def send_to_his(cv_record):
             "当前科室": cv_record.get('dept_id') if cv_record.get('dept_id') else "0",
             "当前科室名称": cv_record.get('dept_name') if cv_record.get('dept_name') else "0"
         }]
+
+    jiuzhenkh, jiuzhenid = '0', '0'
+    if int(cv_record.get("patient_type")) != 3:
+        jiuzhenkh = str(patient_data[0].get('就诊卡号')) if patient_data[0].get('就诊卡号') else '0'
+        jiuzhenid = str(patient_data[0].get('就诊序号')) if patient_data[0].get('就诊序号') else '0'
 
     shenqing_data = query_shenqingdan_info(cv_record)
     if not shenqing_data:
@@ -1845,6 +1850,8 @@ def send_to_his(cv_record):
         .replace('{weijizhiid}', str(cv_record.get('cv_id'))) \
         .replace('{bingrenid}', str(patient_data[0].get('病人ID')) if patient_data[0].get('病人ID') else '0') \
         .replace('{leixing}', str(leixing)) \
+        .replace('{jiuzhenkh}', jiuzhenkh) \
+        .replace('{jiuzhenid}', jiuzhenid) \
         .replace('{bingrenzyid}', bingrenzyid) \
         .replace('{menzhenzybz}', menzhenzybz) \
         .replace('{bingrenxm}', str(patient_data[0].get('姓名')) if patient_data[0].get('姓名') else '0') \

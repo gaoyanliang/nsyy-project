@@ -103,6 +103,8 @@ HIS_SYNCHRONIZE_DATA = """
         <weijizhiid>{weijizhiid}</weijizhiid>
         <bingrenid>{bingrenid}</bingrenid>
         <leixing>{leixing}</leixing>
+        <jiuzhenkh>{jiuzhenkh}</jiuzhenkh>
+        <jiuzhenid>{jiuzhenid}</jiuzhenid>
         <bingrenzyid>{bingrenzyid}</bingrenzyid>
         <menzhenzybz>{menzhenzybz}</menzhenzybz>
         <bingrenxm>{bingrenxm}</bingrenxm>
