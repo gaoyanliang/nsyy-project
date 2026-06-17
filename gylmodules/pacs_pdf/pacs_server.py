@@ -1,22 +1,25 @@
 #!/usr/bin/env python3
 import logging
 import sys
-from datetime import datetime
+from gylmodules import global_config
 
 sys.path.insert(0, '/home/gyl/gyl_server')  # 就这一行！
 
+handlers = [
+    logging.StreamHandler(sys.stdout)  # 控制台日志，始终保留
+]
+# ✅ 仅在生产环境添加文件日志
+if not global_config.run_in_local:
+    handlers.append(
+        logging.FileHandler("pacs_server.log")
+    )
 # 添加日志配置
 # 配置日志系统
 logging.basicConfig(
     level=logging.DEBUG,
     format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
     datefmt='%Y-%m-%d %H:%M:%S',
-    handlers=[
-        # 输出到控制台
-        logging.StreamHandler(sys.stdout),
-        # 输出到同级目录的日志文件
-        logging.FileHandler(f'pacs_server.log')
-    ]
+    handlers=handlers
 )
 # 设置第三方库日志级别为 WARNING
 for lib in ['urllib3', 'requests', 'asyncio', 'httpx', 'selenium', 'paramiko']:
