@@ -1773,8 +1773,8 @@ def send_to_his(cv_record):
             select xingming 姓名, xingbiemc 性别, nianling 年龄, 
             bingrenzyid	病人住院ID, zhuyuanhao 住院号, binganhao 病案号, bingrenid 病人ID, dangqiancwbm 当前床位编码, 
             dangqianksid 当前科室, dangqianksmc 当前科室名称, dangqianbqid 当前病区, dangqianbqmc 当前病区名称 
-            from df_jj_zhuyuan.zy_bingrenxx where zhuyuanhao = '{patient_treat_id}' or jiuzhenkh = '{patient_treat_id}' 
-            or bingrenid = '{patient_treat_id}' ORDER BY jiandangrq DESC
+            from df_jj_zhuyuan.zy_bingrenxx where (zhuyuanhao = '{patient_treat_id}' or jiuzhenkh = '{patient_treat_id}' 
+            or bingrenid = '{patient_treat_id}') and zaiyuanzt = 0 ORDER BY jiandangrq DESC
         """
     else:
         sql = f"""
