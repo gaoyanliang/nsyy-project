@@ -667,11 +667,11 @@ def ob_gyn_shift_change(reg_sqls, shift_classes, time_slot, shoushu, flush: bool
 """重症科室 1000962 交班信息查询"""
 def icu_shift_change(reg_sqls, shift_classes, time_slot, flush: bool = False, pid: str = None, pzyid: str = None):
     if int(shift_classes) == 1:
-        trunc = '17'
+        trunc = '1020'
     elif int(shift_classes) == 2:
-        trunc = '21.5'
+        trunc = '1290'
     else:
-        trunc = '7'
+        trunc = '420'
     start_time = time.time()
     start = start_time
     shift_start, shift_end = get_complete_time_slot(time_slot)
@@ -1925,7 +1925,7 @@ def single_run_shift_change(json_data):
 
     try:
         shoushu_patients = []
-        if int(shift_classes) == 3:
+        if int(shift_classes) == 3 and len(dept_list) == 1 and (dept_list[0] not in ['1000965', '1001120', '1000962']):
             shoushu_patients = query_shoushu_patient_zhuyuanhao()
 
         if shift_type == 1:
@@ -1946,30 +1946,24 @@ def single_run_shift_change(json_data):
         elif shift_type == 2:
             if len(dept_list) == 1 and ('1000965' in dept_list or '1001120' in dept_list):
                 # AICU/CCU交接班
-                shoushu = []
                 aicu_shift_change(reg_sqls, shift_classes, time_slot, dept_list[0], True, patient_id)
-
                 redis_client.delete(f"timed_shift_change")
                 return
             if len(dept_list) == 1 and '1000961' in dept_list:
                 # 妇产科交接班
                 shoushu = [item for item in shoushu_patients if str(item.get('所在病区id')) == '1000961']
                 ob_gyn_shift_change(reg_sqls, shift_classes, time_slot, shoushu, True, patient_id)
-
                 redis_client.delete(f"timed_shift_change")
                 return
             if len(dept_list) == 1 and '1000962' in dept_list:
                 # 重症 ICU 交接班
-                shoushu = [item for item in shoushu_patients if str(item.get('所在病区id')) == '1000962']
                 icu_shift_change(reg_sqls, shift_classes, time_slot, True, patient_id, bingrenzyid)
-
                 redis_client.delete(f"timed_shift_change")
                 return
             if len(dept_list) == 1 and '1001005' in dept_list:
                 # EICU 护理单元
                 shoushu = [item for item in shoushu_patients if str(item.get('所在病区id')) == '1001005']
                 general_dept_shift_change(reg_sqls, shift_classes, time_slot, ['1001005'], shoushu, True, patient_id)
-
                 redis_client.delete(f"timed_shift_change")
                 return
 
