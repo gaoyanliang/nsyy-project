@@ -1404,7 +1404,7 @@ def query_all_appt_project(type: int, target_pid: int, only_today: bool = False)
                         total = sum(int(v) for k, v in room_quantity.items() if int(k) >= current_slot)
                         if 'doc_id' in rinfo:
                             rinfo['doctor'] = doctor_map.get(str(rinfo['doc_id']))
-                            if rinfo['doctor']['his_status'] == 0:
+                            if rinfo['doctor']['his_status'] == 0 and date_key == today_str:
                                 continue
                             rinfo['price'] = float(doctor_map.get(str(rinfo['doc_id']))['fee']) if doctor_map.get(str(rinfo['doc_id'])) else 0
 
