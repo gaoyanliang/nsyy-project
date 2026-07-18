@@ -5,6 +5,7 @@ import json
 import logging
 import time
 import uuid
+from collections import defaultdict
 from datetime import datetime
 import hashlib
 
@@ -96,16 +97,6 @@ def surgical_transfer_data(json_data):
         db.execute(insert_sql, args, need_commit=True)
 
     return data
-
-
-# json_data = {
-#     "patient_code": "BR|10151903|1",
-#     "scan_timing": 1
-# }
-#
-# surgical_transfer_data(json_data)
-
-
 
 
 @special_system.route('/invoice_verification', methods=['POST', 'GET'])
@@ -250,24 +241,6 @@ def invoice_to_cn(data: dict) -> dict:
         result['发票类型'] = INVOICE_TYPE_MAP.get(result['发票类型'], result['发票类型'])
 
     return result
-
-
-
-# parms = {
-#     "fphm": "25442000000742066777",
-#     "kprq": "20251126",
-#     "noTaxAmount": "24.65",
-#     "jshj": "24.90"
-# }
-#
-#
-# parms = {
-#     "code": "01,32,,25442000000742066777,24.90,20251126,,70EC"
-# }
-#
-#
-# data = invoice_verification(parms)
-# print(data)
 
 
 
@@ -588,7 +561,7 @@ def receive_data():
                 "imei": received.get('heartHealthList')[0].get('imei'),
                 # 创建时间
                 "createTime": handle_time(received.get('heartHealthList')[0].get('createTime'))
-            })
+            }, HEALTH_FILE)
 
         # 记录日志
         logger.debug(f"Received {request.method} request, action={action}, from {request.remote_addr}")
@@ -647,6 +620,7 @@ def api_heart():
     end = request.args.get('end', '').strip() or None
 
     records = read_file_data(HEALTH_FILE, imei, start, end, 'createTime')
+    records = sorted(records, key=lambda x: x.get('createTime'), reverse=True)
     total = len(records)
     start_idx = page * size
     end_idx = start_idx + size
@@ -659,6 +633,55 @@ def api_heart():
         'number': page
     })
 
+@special_system.route('/data/heart1', methods=['GET'])
+def api_heart1():
+    page = int(request.args.get('page', 0))
+    size = int(request.args.get('size', 20))
+    imei = request.args.get('imei', '').strip() or None
+    start = request.args.get('start', '').strip() or None
+    end = request.args.get('end', '').strip() or None
+
+    sql = """ SELECT  病人id AS 住院id, CONVERT(VARCHAR(20), 时间点, 120) AS createTime,
+    MAX(CASE WHEN 项目分类 = '生命体征' AND 项目名称 = '心率' THEN 结果 ELSE NULL END) AS heartRate,
+    MAX(CASE WHEN 项目分类 = '生命体征' AND 项目名称 = '血氧饱和度' THEN 结果 ELSE NULL END) AS bloodOxygen,
+    MAX(CASE WHEN 项目分类 = '生命体征' AND 项目名称 = '体温' THEN 结果 ELSE NULL END) AS temperature,
+    MAX(CASE WHEN 项目分类 = '生命体征' AND 项目名称 = '脉搏' THEN 结果 ELSE NULL END) AS 脉搏,
+    MAX(CASE WHEN 项目分类 = '生命体征' AND 项目名称 = '呼吸' THEN 结果 ELSE NULL END) AS 呼吸,
+    MAX(CASE WHEN 项目分类 = '生命体征' AND 项目名称 = '收缩压' THEN 结果 ELSE NULL END) AS systolicPressure,
+    MAX(CASE WHEN 项目分类 = '生命体征' AND 项目名称 = '舒张压' THEN 结果 ELSE NULL END) AS diastolicPressure,
+    0 uploadType, 1 wearStatus, '865593070726763' imei  FROM clinicdata.dbo.特护单 
+    WHERE 病人id = '6978939'  AND 时间点 >= '2026-06-26' GROUP BY 病人id, CONVERT(VARCHAR(20), 时间点, 120)
+    ORDER BY createTime desc """
+    if start and end :
+        sql = f""" SELECT  病人id AS 住院id, CONVERT(VARCHAR(20), 时间点, 120) AS createTime,
+        MAX(CASE WHEN 项目分类 = '生命体征' AND 项目名称 = '心率' THEN 结果 ELSE NULL END) AS heartRate,
+        MAX(CASE WHEN 项目分类 = '生命体征' AND 项目名称 = '血氧饱和度' THEN 结果 ELSE NULL END) AS bloodOxygen,
+        MAX(CASE WHEN 项目分类 = '生命体征' AND 项目名称 = '体温' THEN 结果 ELSE NULL END) AS temperature,
+        MAX(CASE WHEN 项目分类 = '生命体征' AND 项目名称 = '脉搏' THEN 结果 ELSE NULL END) AS 脉搏,
+        MAX(CASE WHEN 项目分类 = '生命体征' AND 项目名称 = '呼吸' THEN 结果 ELSE NULL END) AS 呼吸,
+        MAX(CASE WHEN 项目分类 = '生命体征' AND 项目名称 = '收缩压' THEN 结果 ELSE NULL END) AS systolicPressure,
+        MAX(CASE WHEN 项目分类 = '生命体征' AND 项目名称 = '舒张压' THEN 结果 ELSE NULL END) AS diastolicPressure,
+        0 uploadType, 1 wearStatus, '865593070726763' imei  FROM clinicdata.dbo.特护单 
+        WHERE 病人id = '6978939'  AND 时间点 >= '{start}' AND 时间点 <= '{end}' GROUP BY 病人id, CONVERT(VARCHAR(20), 时间点, 120)
+        ORDER BY createTime desc """
+
+
+
+    records = global_tools.call_query_sqlserver(sql)
+
+    total = len(records)
+    start_idx = page * size
+    end_idx = start_idx + size
+    content = records[start_idx:end_idx]
+    return jsonify({
+        'content': content,
+        'totalElements': total,
+        'totalPages': (total + size - 1) // size if total else 0,
+        'size': size,
+        'number': page
+    })
+
+
 @special_system.route('/data/position', methods=['GET'])
 def api_position():
     page = int(request.args.get('page', 0))
@@ -668,6 +691,7 @@ def api_position():
     end = request.args.get('end', '').strip() or None
 
     records = read_file_data(POSITION_FILE, imei, start, end, 'dateTime')
+    records = sorted(records, key=lambda x: x.get('dateTime'), reverse=True)
     total = len(records)
     start_idx = page * size
     end_idx = start_idx + size
@@ -689,6 +713,7 @@ def api_alarm():
     end = request.args.get('end', '').strip() or None
 
     records = read_file_data(ALARM_FILE, imei, start, end, 'alarmTime')
+    records = sorted(records, key=lambda x: x.get('alarmTime'), reverse=True)
     total = len(records)
     start_idx = page * size
     end_idx = start_idx + size
@@ -735,64 +760,6 @@ def safe_get(record: dict, field: str, default=""):
     value = record.get(field, default)
     return value if value is not None else default
 
-@special_system.route("/export_grouped_excel", methods=["POST"])
-def export_grouped_excel():
-    req_json = request.get_json()
-    if not req_json:
-        return jsonify({"error": "请求体必须是 JSON 格式", 'code': 40000})
-
-    # 兼容两种入参格式
-    group_size = 30  # 默认分组大小
-    if isinstance(req_json, list):
-        data = req_json
-    elif isinstance(req_json, dict):
-        data = req_json.get("data")
-        if not isinstance(data, list):
-            return jsonify({"error": "data 字段必须是列表", 'code': 40000})
-    else:
-        return jsonify({"error": "请求体必须是列表或包含 data 字段的对象", 'code': 40000})
-
-    if not data:
-        return jsonify({"error": "患者数据列表不能为空", 'code': 40000})
-
-    name_prefix = data[0].get('出院科室', '未知科室')
-    total = len(data)
-    # 计算分组信息：每组 (start, end) 是全局序号（从1开始）
-    groups = []
-    for i in range(0, total, group_size):
-        start = i + 1
-        end = min(i + group_size, total)
-        group_data = data[i:i+group_size]
-        groups.append((start, end, group_data))
-
-    zip_buffer = BytesIO()
-    with zipfile.ZipFile(zip_buffer, "w", zipfile.ZIP_DEFLATED) as zf:
-        for idx, (start, end, group_data) in enumerate(groups, start=1):
-            rows = []
-            for record in group_data:
-                row = {field: safe_get(record, field) for field in FIELDS}
-                rows.append(row)
-
-            df = pd.DataFrame(rows, columns=FIELDS)
-            excel_buffer = BytesIO()
-            df.to_excel(excel_buffer, index=False, engine="openpyxl")
-            excel_buffer.seek(0)
-
-            filename = f"{name_prefix}_数据_{idx}_{start}_至_{end}.xlsx"
-            zf.writestr(filename, excel_buffer.getvalue())
-
-    zip_buffer.seek(0)
-
-
-    # todo 根据患者诊断 过滤病种目录库
-
-    return send_file(
-        zip_buffer,
-        mimetype="application/zip",
-        as_attachment=True,
-        download_name=f"{name_prefix}_分组数据.zip"
-    )
-
 @special_system.route("/upload_ai_dip", methods=["POST"])
 def upload_ai_dip():
     req_json = request.get_json()
@@ -815,11 +782,11 @@ def upload_ai_dip():
     if not data:
         return jsonify({"error": "上传数据不能为空", 'code': 40000})
 
-    special_server.handle_ai_dip1(data)
+    special_server.handle_ai_dip(data)
 
     return jsonify({"data": "success", 'code': 20000})
 
-@special_system.route("/export_grouped_excel1", methods=["POST"])
+@special_system.route("/export_grouped_excel3", methods=["POST"])
 def export_grouped_excel1():
     req_json = request.get_json()
     if not req_json:
@@ -829,6 +796,7 @@ def export_grouped_excel1():
     departments = req_json.get('dept_names')
     start_date_str = req_json.get('start_date')
     end_date_str = req_json.get('end_date')
+    comp_name = req_json.get('comp_name')
 
     if not departments or not start_date_str or not end_date_str:
         return jsonify({
@@ -847,7 +815,7 @@ def export_grouped_excel1():
         return jsonify({"error": "开始日期不能晚于结束日期", 'code': 40000})
 
     # 3. 从数据库查询数据（假设模型字段：departments, discharge_date）
-    data = special_server.query_dept_patients(departments, start_date.strftime('%Y-%m-%d'), end_date.strftime('%Y-%m-%d'))
+    data = special_server.query_dept_patients(departments, start_date.strftime('%Y-%m-%d'), end_date.strftime('%Y-%m-%d'), comp_name)
     if not data:
         return jsonify({"error": "未查询到符合条件的数据", 'code': 40000})
 
@@ -940,6 +908,167 @@ def export_grouped_excel1():
         as_attachment=True,
         download_name=f"{departments[0]}_分组数据.zip"
     )
+
+
+@special_system.route("/export_grouped_excel1", methods=["POST"])
+def export_grouped_excel3():
+    req_json = request.get_json()
+    if not req_json:
+        return jsonify({"error": "请求体必须是 JSON 格式", 'code': 40000})
+
+    # 1. 获取并校验入参
+    departments = req_json.get('dept_names')
+    start_date_str = req_json.get('start_date')
+    end_date_str = req_json.get('end_date')
+    comp_name = req_json.get('comp_name')
+
+    if not departments or not start_date_str or not end_date_str:
+        return jsonify({
+            "error": "缺少必要参数: department, start_date, end_date",
+            'code': 40000
+        })
+
+    # 2. 解析日期（格式：YYYY-MM-DD）
+    try:
+        start_date = datetime.strptime(start_date_str, '%Y-%m-%d').date()
+        end_date = datetime.strptime(end_date_str, '%Y-%m-%d').date()
+    except ValueError:
+        return jsonify({"error": "日期格式错误，请使用 YYYY-MM-DD", 'code': 40000})
+
+    if start_date > end_date:
+        return jsonify({"error": "开始日期不能晚于结束日期", 'code': 40000})
+
+    # 3. 从数据库查询数据（假设模型字段：departments, discharge_date）
+    data = special_server.query_dept_patients(departments, start_date.strftime('%Y-%m-%d'),
+                                              end_date.strftime('%Y-%m-%d'), comp_name)
+    if not data:
+        return jsonify({"error": "未查询到符合条件的数据", 'code': 40000})
+
+    # ---------- 预读固定文件 ----------
+    prompt_path = '/Users/gaoyanliang/各个系统文档整理/ai-dip/各科室患者DIP数据/脑病重症病区/提供给AI的提示词.txt' if global_config.run_in_local else '/home/gyl/提供给AI的提示词.txt'
+    prompt_content = b""
+    if os.path.exists(prompt_path):
+        with open(prompt_path, "rb") as f:
+            prompt_content = f.read()
+    extra_files_base = {
+        "提供给AI的提示词.txt": prompt_content,
+        "跑AI时不需要再上传综合组排除操作文件.txt": b"No need to upload ..."
+    }
+
+    # ---------- 2. 预读 DIP 目录库并缓存每个前缀的过滤结果 ----------
+    # 定义合并规则，有些科室病种不能分的太细
+    MERGE_GROUPS = {
+        'I': ['I0', 'I2', 'I3', 'I4', 'I5'],
+        # 未来可增加，例如：
+        # 'A': ['A1', 'A2'],
+    }
+    # 构建前缀→组名映射
+    prefix_to_group = {}
+    for group_name, prefixes in MERGE_GROUPS.items():
+        for p in prefixes:
+            prefix_to_group[p] = group_name
+
+    # ---------- 2. 预扫描数据，收集原始前缀、组名及组→前缀列表 ----------
+    group_to_prefixes = defaultdict(list)  # 组名 → 该组包含的所有原始前缀（去重）
+    group_names = set()  # 所有用到的组名
+    temp_data = []  # 暂存每项的原始前缀，避免二次计算（可选）
+
+    for item in data:
+        dip_code = item.get("现DIP代码", "").replace(' ', '')
+        original_pref = dip_code[:2] if len(dip_code) >= 2 else (dip_code + '0' if dip_code else '未知')
+        group_key = prefix_to_group.get(original_pref, original_pref)
+        group_names.add(group_key)
+        if original_pref not in group_to_prefixes[group_key]:
+            group_to_prefixes[group_key].append(original_pref)
+        # 可将 (item, original_pref, group_key) 暂存，供后续分组直接用，减少再次遍历
+        temp_data.append((item, original_pref, group_key))
+
+    # ---------- 3. 按组生成 DIP 目录库缓存（替代原 filter_excel_cache 逻辑） ----------
+    filtered_excel_cache = {}
+    dip_path = '/Users/gaoyanliang/各个系统文档整理/ai-dip/各科室患者DIP数据/脑病重症病区/2026年DIP病种目录库.xlsx' \
+        if global_config.run_in_local else '/home/gyl/2026年DIP病种目录库.xlsx'
+
+    if os.path.exists(dip_path):
+        try:
+            df_dip = pd.read_excel(dip_path, dtype=str, engine='openpyxl')
+            df_dip['诊断编码'] = df_dip['诊断编码'].astype(str).str.strip().fillna('')
+            for gname, prefixes_list in group_to_prefixes.items():
+                # 若组内含有 '未知'，则无法按诊断编码过滤，直接使用完整目录
+                if '未知' in prefixes_list:
+                    df_filtered = df_dip
+                else:
+                    df_filtered = df_dip[df_dip['诊断编码'].str[:2].isin(prefixes_list)]
+                if df_filtered.empty:
+                    logging.warning(f"组 {gname} 的前缀 {prefixes_list} 在目录库中无匹配项，将使用完整目录库")
+                    df_filtered = df_dip
+                buffer = BytesIO()
+                with pd.ExcelWriter(buffer, engine='xlsxwriter') as writer:
+                    df_filtered.to_excel(writer, index=False)
+                buffer.seek(0)
+                filtered_excel_cache[gname] = buffer.getvalue()
+        except Exception as e:
+            logging.error(f"读取/过滤目录库失败: {e}")
+            # 降级：读取原始文件作为统一内容
+            with open(dip_path, "rb") as f:
+                raw_content = f.read()
+            for gname in group_names:
+                filtered_excel_cache[gname] = raw_content
+    else:
+        # 文件不存在，填充提示信息
+        for gname in group_names:
+            buffer = BytesIO()
+            with pd.ExcelWriter(buffer, engine='xlsxwriter') as writer:
+                pd.DataFrame([{"备注": "DIP目录库文件未找到"}]).to_excel(writer, index=False)
+            buffer.seek(0)
+            filtered_excel_cache[gname] = buffer.getvalue()
+
+    # ---------- 3. 按 DIP 前缀分组 ----------
+    grouped = defaultdict(list)
+    for item, original_pref, group_key in temp_data:
+        # 注意：此处需要 pop 掉 "现DIP代码"，但 item 是原始字典的引用，pop 会影响后续，不过不再使用原数据，可以
+        item.pop("现DIP代码", None)  # 原代码已经 pop，此处保持一致
+        grouped[group_key].append(item)
+
+    # ---------- 4. 生成总 ZIP ----------
+    final_zip_buffer = BytesIO()
+    with zipfile.ZipFile(final_zip_buffer, "w", zipfile.ZIP_DEFLATED) as final_zf:
+        for dip_prefix, patients_in_group in grouped.items():
+            # 准备当前分组的额外文件
+            extra_files = extra_files_base.copy()
+            extra_files["2026年DIP病种目录库.xlsx"] = filtered_excel_cache.get(dip_prefix, b"")
+
+            # 创建子 ZIP
+            sub_zip_buffer = BytesIO()
+            with zipfile.ZipFile(sub_zip_buffer, "w", zipfile.ZIP_DEFLATED) as sub_zf:
+                chunk_size = 20
+                for chunk_idx, start_idx in enumerate(range(0, len(patients_in_group), chunk_size)):
+                    chunk = patients_in_group[start_idx:start_idx + chunk_size]
+                    part_num = chunk_idx + 1
+
+                    rows = [{field: safe_get(record, field) for field in FIELDS} for record in chunk]
+                    df_chunk = pd.DataFrame(rows, columns=FIELDS)
+                    excel_buffer = BytesIO()
+                    with pd.ExcelWriter(excel_buffer, engine='xlsxwriter') as writer:
+                        df_chunk.to_excel(writer, index=False)
+                    excel_buffer.seek(0)
+                    sub_zf.writestr(f"{dip_prefix}_第{part_num}部分.xlsx", excel_buffer.getvalue())
+
+                # 写入固定文件
+                for fname, fcontent in extra_files.items():
+                    if fcontent:
+                        sub_zf.writestr(fname, fcontent)
+
+            sub_zip_buffer.seek(0)
+            final_zf.writestr(f"{dip_prefix}_分组数据.zip", sub_zip_buffer.getvalue())
+
+    final_zip_buffer.seek(0)
+    return send_file(
+        final_zip_buffer,
+        mimetype="application/zip",
+        as_attachment=True,
+        download_name=f"{departments[0]}_DIP分组汇总.zip"
+    )
+
 
 
 
