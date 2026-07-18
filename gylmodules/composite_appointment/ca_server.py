@@ -1382,9 +1382,14 @@ def query_all_appt_project(type: int, target_pid: int, only_today: bool = False)
         # 5. 使用生成器处理时间段
         def process_slots():
             for date_key, slots in bookable_data.items():
-                # 只返回当天的数据
+                # 只返回当天的数据  小程序当日挂号仅返回当天的数据
                 if date_key != today_str and only_today:
                     continue
+
+                # 小程序 预约 不返回当天的数据
+                if not only_today and date_key == today_str:
+                    continue
+
                 for period, rooms in slots.items():
                     # 时间有效性检查
                     if date_key == today_str and not if_the_current_time_period_is_available(period):
