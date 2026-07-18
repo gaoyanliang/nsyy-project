@@ -672,8 +672,15 @@ def auto_fetch_data():
                 db.execute(sql, params, need_commit=True)
 
         # 将所有过期的 VIP 车辆自动删除
-        db.execute("UPDATE nsyy_gyl.parking_vip_cars SET plate_no = CONCAT(DATE_FORMAT(NOW(), '%Y-%m-%d %H:%i:%s'), '_', plate_no), "
-                   "deleted = 1 WHERE vip_status = 2 and vehicle_group = 'VIP' and deleted = 0", need_commit=True)
+        remove_cars = db.query_all("select id from nsyy_gyl.parking_vip_cars where vip_status = 2 and vehicle_group = 'VIP' and deleted = 0")
+        if remove_cars:
+            for item in remove_cars:
+                operate_vip_car('remove', {
+                    "car_id": item.get('id'),
+                    "operater": "admin",
+                    "operater_id": "110100"
+                })
+
 
 def auto_freeze_car():
     if parking_config.enable_auto_freeze and not global_config.run_in_local:
