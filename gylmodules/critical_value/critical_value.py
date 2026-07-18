@@ -880,6 +880,7 @@ def create_cv_by_system(json_data, cv_source):
     # 插入危机值
     fileds = ','.join(cvd.keys())
     args = str(tuple(cvd.values()))
+    logger.info(f" ======> 插入危机值: {cvd['cv_id']} 上报时间 {cvd['alertdt']} 创建时间 {cvd['time']} ")
     insert_sql = f"INSERT INTO nsyy_gyl.cv_info ({fileds}) VALUES {args}"
     last_rowid = db.execute(insert_sql, need_commit=True)
     if last_rowid == -1:
@@ -1525,6 +1526,7 @@ def data_feedback(cv_id, cv_source, confirmer, timer, confirm_info, type: int):
 
 """心电系统数据回写"""
 def xindian_data_feedback(json_data):
+    return ''
     try:
         cv_id = json_data.get('cv_id')
         doc_id = json_data.get('doc_id')
