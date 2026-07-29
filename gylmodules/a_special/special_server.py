@@ -119,7 +119,7 @@ where
         item['zhenduan'] = item.get('zhenduan', '')
 
         redis_client.hset('dip_patients', item.get('bingrenzyid'), json.dumps(item, ensure_ascii=False, default=str))
-        redis_client.hset('all_dip_patients', item.get('bingrenzyid'), json.dumps(item, ensure_ascii=False, default=str))
+        # redis_client.hset('all_dip_patients', item.get('bingrenzyid'), json.dumps(item, ensure_ascii=False, default=str))
 
     sql = """select zb.bingrenzyid from df_jj_zhuyuan.zy_bingrenxx zb where
             (( zb.zaiyuanzt = '0' and ( zb.yiliaolbmc = '生育住院'
@@ -187,7 +187,7 @@ def refresh_patient_dip_info(bingrenzyid):
         patient_info['score2'] = dip_drg.get('dipJsJzfz') or ''
 
     redis_client.hset('dip_patients', bingrenzyid, json.dumps(patient_info, ensure_ascii=False, default=str))
-    redis_client.hset('all_dip_patients', bingrenzyid, json.dumps(patient_info, ensure_ascii=False, default=str))
+    # redis_client.hset('all_dip_patients', bingrenzyid, json.dumps(patient_info, ensure_ascii=False, default=str))
     redis_client.delete('patient_dip_update_lock')
     return patient_info
 
@@ -610,5 +610,6 @@ if __name__ == "__main__":
 
     unmedical_page_list()
     query_medical_page_update_record()
+    query_all_dip_record()
 
     print(datetime.now(), "dip 数据查询耗时", time.time() - start_time)

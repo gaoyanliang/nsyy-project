@@ -1071,5 +1071,24 @@ def export_grouped_excel3():
 
 
 
+@special_system.route("/run_tax/<vm_id>/<path:subpath>", methods=["GET", "POST"])
+def forward_request(vm_id, subpath):
+
+    target_url = f"http://192.168.3.121:5000/run_tax/{vm_id}/{subpath}"
+    # 把原请求的参数、方法、body 都转过去
+    if request.method == "GET":
+        resp = requests.get(target_url, params=request.args, timeout=30)
+    else:
+        resp = requests.request(
+            method=request.method,
+            url=target_url,
+            params=request.args,
+            data=request.data,
+            headers={k: v for k, v in request.headers if k.lower() != "host"},
+            timeout=30,
+        )
+    # 把目标响应原样返回
+    return (resp.content, resp.status_code, dict(resp.headers))
+
 
 
