@@ -15,6 +15,7 @@
 2. 192.168.3.12  gyl/gyl123    
 3. 192.168.3.45  yifei/yifei
 4. 192.168.3.92  cc/NSYYnsyy@123    邮箱服务器
+5. 192.168.9.75  gyl/nsyy0601.      文件服务器
 
  
 
@@ -121,3 +122,68 @@ git remote set-url origin git@github.com:gaoyanliang/nsyy-project.git
 
 # 5. 再次尝试推送
 git push origin main
+
+
+
+## 在眼科医院服务器上部署多个前端项目
+
+sudo su (nsyy0601.)
+
+进入 /var/www/ 创建对应项目的目录 （例如 dip）
+
+然后将 index.html 放入对应目录
+
+在 vim /etc/nginx/sites-available/default 中添加配置
+
+```nginx.conf
+# 添加一个子路径页面
+        location = /dip {
+                return 301 /dip/;
+        }
+        location /dip/ {
+                alias /var/www/dip/;
+                index index.html;
+                try_files $uri $uri/ /dip/index.html =404;
+        }
+```
+
+检查配置是否有问题
+
+```shell
+root@nsyy-yk:/var/www# nginx -t
+nginx: the configuration file /etc/nginx/nginx.conf syntax is ok
+nginx: configuration file /etc/nginx/nginx.conf test is successful
+root@nsyy-yk:/var/www# 
+```
+
+reload nginx
+
+sudo nginx -s reload
+
+
+
+
+
+# 一下文件和目录数据 文件取号机服务实现
+nsyy-project
+    mz_business_window
+    mz_doctor_window
+    mz_pharmacy
+    mz_summary
+    outpatient_queue
+    mz_main.py
+    index.html
+
+nohup python3 -u ./mz_main.py >> nohup_mz.log 2>&1 &
+
+
+# 其他服务数据 OA GYL
+
+nohup python3 -u ./main_gyl.py >> nohup.log 2>&1 &
+    
+
+
+
+
+
+

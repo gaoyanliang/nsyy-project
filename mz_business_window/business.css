@@ -1,0 +1,414 @@
+/* ========================================
+   患者展示 - 排队叫号系统样式
+   简洁大气 干净美观
+   ======================================== */
+
+/* 重置与基础 */
+*, *::before, *::after {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+}
+
+:root {
+    /* 主色调 - 清新的蓝色 */
+    --primary: #3B82F6;
+    --primary-light: #60A5FA;
+    --primary-dark: #2563EB;
+    --primary-bg: #EFF6FF;
+
+    /* 辅助色 */
+    --success: #10B981;
+    --success-bg: #D1FAE5;
+    --warning: #F59E0B;
+    --warning-bg: #FEF3C7;
+    --error: #EF4444;
+    --error-bg: #FEE2E2;
+
+    /* 中性色 */
+    --bg-page: #F8FAFC;
+    --bg-card: #FFFFFF;
+    --border: #E2E8F0;
+    --border-light: #F1F5F9;
+    --text-primary: #1E293B;
+    --text-secondary: #64748B;
+    --text-muted: #94A3B8;
+
+    /* 阴影 */
+    --shadow-sm: 0 1px 2px rgba(0,0,0,0.04);
+    --shadow-md: 0 4px 6px -1px rgba(0,0,0,0.07), 0 2px 4px -2px rgba(0,0,0,0.05);
+    --shadow-lg: 0 10px 15px -3px rgba(0,0,0,0.08), 0 4px 6px -4px rgba(0,0,0,0.05);
+    --shadow-xl: 0 20px 25px -5px rgba(0,0,0,0.1), 0 8px 10px -6px rgba(0,0,0,0.05);
+
+    /* 圆角 */
+    --radius-sm: 8px;
+    --radius-md: 12px;
+    --radius-lg: 16px;
+    --radius-xl: 24px;
+}
+
+body {
+    font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    background: var(--bg-page);
+    color: var(--text-primary);
+    line-height: 1.6;
+    min-height: 100vh;
+    padding: 24px;
+}
+
+/* 主容器 */
+.container {
+    max-width: 1600px;
+    margin: 0 auto;
+    padding: 100px 14px;
+}
+
+/* 顶部导航 */
+.header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 32px;
+    flex-wrap: wrap;
+    gap: 16px;
+}
+
+.hospital-logo {
+    width: 56px;
+    height: 56px;
+    background: linear-gradient(135deg, var(--primary) 0%, var(--primary-dark) 100%);
+    border-radius: var(--radius-lg);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: white;
+    box-shadow: var(--shadow-md);
+}
+
+.hospital-logo svg {
+    width: 32px;
+    height: 32px;
+}
+
+.header-title {
+    text-align: center;
+    flex: 1;
+}
+
+.header-title h1 {
+    font-size: 2rem;
+    font-weight: 700;
+    color: var(--text-primary);
+    letter-spacing: 2px;
+}
+
+.header-title .subtitle {
+    font-size: 1rem;
+    color: var(--text-secondary);
+    margin-top: 4px;
+}
+
+.window-info {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    background: var(--bg-card);
+    padding: 10px 16px;
+    border-radius: var(--radius-md);
+    border: 1px solid var(--border);
+}
+
+.window-info svg {
+    width: 20px;
+    height: 20px;
+    color: var(--primary);
+}
+
+.window-info select {
+    padding: 8px 14px;
+    border: 2px solid var(--border);
+    border-radius: var(--radius-sm);
+    font-size: 0.9rem;
+    font-family: inherit;
+    background: white;
+    cursor: pointer;
+    min-width: 140px;
+}
+
+.window-info select:focus {
+    outline: none;
+    border-color: var(--primary);
+}
+
+/* 当前叫号大屏 */
+.current-call-display {
+    background: linear-gradient(135deg, var(--primary) 0%, #1D4ED8 100%);
+    border-radius: var(--radius-xl);
+    padding: 60px 40px;
+    color: white;
+    text-align: center;
+    margin-bottom: 32px;
+    box-shadow: var(--shadow-xl);
+    position: relative;
+    overflow: hidden;
+}
+
+.current-call-display::before {
+    content: '';
+    position: absolute;
+    top: -50%;
+    left: -50%;
+    width: 200%;
+    height: 200%;
+    background: radial-gradient(circle, rgba(255,255,255,0.1) 0%, transparent 60%);
+    animation: shimmer 3s infinite;
+}
+
+@keyframes shimmer {
+    0% { transform: rotate(0deg); }
+    100% { transform: rotate(360deg); }
+}
+
+.call-content {
+    position: relative;
+    z-index: 1;
+}
+
+.call-label {
+    display: inline-flex;
+    align-items: center;
+    gap: 10px;
+    font-size: 1.25rem;
+    opacity: 0.9;
+    margin-bottom: 20px;
+    background: rgba(255,255,255,0.15);
+    padding: 10px 24px;
+    border-radius: 30px;
+}
+
+.call-label svg {
+    width: 24px;
+    height: 24px;
+}
+
+.call-number {
+    font-size: 8rem;
+    font-weight: 700;
+    letter-spacing: 8px;
+    line-height: 1;
+    margin-bottom: 16px;
+    text-shadow: 0 4px 20px rgba(0,0,0,0.2);
+}
+
+.patient-name {
+    font-size: 2.5rem;
+    opacity: 0.95;
+    margin-bottom: 24px;
+}
+
+.window-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 10px;
+    background: rgba(255,255,255,0.2);
+    padding: 14px 28px;
+    border-radius: var(--radius-lg);
+    font-size: 1.25rem;
+    font-weight: 500;
+}
+
+.window-badge svg {
+    width: 22px;
+    height: 22px;
+}
+
+/* 等待队列 */
+.queue-section {
+    background: var(--bg-card);
+    border-radius: var(--radius-xl);
+    padding: 28px;
+    margin-bottom: 24px;
+    box-shadow: var(--shadow-lg);
+    border: 1px solid var(--border-light);
+}
+
+.section-header {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin-bottom: 24px;
+    padding-bottom: 16px;
+    border-bottom: 2px solid var(--border-light);
+}
+
+.section-header svg {
+    width: 24px;
+    height: 24px;
+    color: var(--primary);
+}
+
+.section-header h2 {
+    font-size: 1.25rem;
+    font-weight: 600;
+    color: var(--text-primary);
+}
+
+.queue-count {
+    margin-left: auto;
+    background: var(--error-bg);
+    color: var(--error);
+    padding: 6px 16px;
+    border-radius: 20px;
+    font-size: 0.9rem;
+    font-weight: 600;
+}
+
+.queue-list {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+    gap: 12px;
+}
+
+.queue-item {
+    background: var(--bg-page);
+    border-radius: var(--radius-md);
+    padding: 20px 16px;
+    text-align: center;
+    transition: all 0.2s;
+    border: 2px solid transparent;
+}
+
+.queue-item:hover {
+    background: var(--primary-bg);
+    border-color: var(--primary-light);
+    transform: translateY(-2px);
+}
+
+.queue-number {
+    font-size: 1.5rem;
+    font-weight: 700;
+    color: var(--primary);
+    margin-bottom: 4px;
+}
+
+.queue-label {
+    font-size: 0.8rem;
+    color: var(--text-muted);
+}
+
+.empty-state {
+    grid-column: 1 / -1;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 60px 20px;
+    color: var(--text-muted);
+    background: var(--bg-page);
+    border-radius: var(--radius-lg);
+}
+
+.empty-state svg {
+    width: 56px;
+    height: 56px;
+    margin-bottom: 16px;
+    opacity: 0.4;
+}
+
+.empty-state span {
+    font-size: 1.1rem;
+}
+
+/* 提示信息 */
+.tips {
+    display: flex;
+    justify-content: center;
+    gap: 150px;
+    padding: 20px;
+    background: var(--bg-card);
+    border-radius: var(--radius-lg);
+    box-shadow: var(--shadow-sm);
+}
+
+.tip-item {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    color: var(--text-secondary);
+    font-size: 0.95rem;
+}
+
+.tip-item svg {
+    width: 22px;
+    height: 22px;
+    color: var(--primary);
+}
+
+/* 叫号动画 */
+@keyframes callPulse {
+    0%, 100% { transform: scale(1); opacity: 1; }
+    50% { transform: scale(1.02); opacity: 0.9; }
+}
+
+.calling-animation {
+    animation: callPulse 1s ease-in-out infinite;
+}
+
+/* 响应式 */
+@media (max-width: 768px) {
+    body {
+        padding: 16px;
+    }
+
+    .header {
+        flex-direction: column;
+        text-align: center;
+    }
+
+    .header-title h1 {
+        font-size: 1.5rem;
+    }
+
+    .call-number {
+        font-size: 5rem;
+        letter-spacing: 4px;
+    }
+
+    .patient-name {
+        font-size: 1.8rem;
+    }
+
+    .current-call-display {
+        padding: 40px 24px;
+    }
+
+    .queue-list {
+        grid-template-columns: repeat(auto-fill, minmax(100px, 1fr));
+        gap: 10px;
+    }
+
+    .queue-number {
+        font-size: 1.2rem;
+    }
+
+    .tips {
+        flex-direction: column;
+        gap: 16px;
+        align-items: center;
+    }
+}
+
+@media (max-width: 480px) {
+    .call-number {
+        font-size: 4rem;
+    }
+
+    .patient-name {
+        font-size: 1.5rem;
+    }
+
+    .window-badge {
+        padding: 10px 20px;
+        font-size: 1rem;
+    }
+}

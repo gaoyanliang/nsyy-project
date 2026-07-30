@@ -1,0 +1,688 @@
+/* ========== 智慧候诊排队系统 - 适配1920x904视口 ========== */
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+}
+
+:root {
+    --primary: #3B82F6;
+    --primary-dark: #2563EB;
+    --primary-bg: #EFF6FF;
+    --success: #10B981;
+    --success-bg: #D1FAE5;
+    --error: #EF4444;
+    --error-bg: #FEE2E2;
+    --bg-page: #F1F5F9;
+    --bg-card: #FFFFFF;
+    --border: #E2E8F0;
+    --text-primary: #0F172A;
+    --text-secondary: #475569;
+    --text-muted: #64748B;
+    --radius-md: 10px;
+    --radius-lg: 14px;
+}
+
+html, body {
+    height: 100%;
+    overflow: hidden;
+    background: var(--bg-page);
+}
+
+body {
+    font-family: 'PingFang SC', 'Microsoft YaHei', 'Helvetica Neue', Arial, sans-serif;
+    color: var(--text-primary);
+    overflow: hidden;
+}
+
+/* 主容器 - 严格适配视口高度 */
+.container {
+    height: 100vh;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    padding: 6px 16px;
+    overflow: hidden;
+    background: var(--bg-page);
+}
+
+/* 公用卡片样式 */
+.header, .current-calls-section, .business-boards-section, .skipped-section {
+    background: var(--bg-card);
+    border-radius: var(--radius-lg);
+    box-shadow: 0 2px 4px rgba(0,0,0,0.06);
+    flex-shrink: 0;
+    transition: all 0.1s ease;
+}
+
+/* ========= 头部区域 ========= */
+.header {
+    border-radius: var(--radius-lg);
+    overflow: hidden;
+}
+
+.header-top {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 10px 20px;
+    background: white;
+}
+
+.header-left, .header-center, .header-right {
+    flex: 1;
+    display: flex;
+    align-items: center;
+}
+
+.header-left { justify-content: flex-start; }
+.header-center { justify-content: center; }
+.header-right { justify-content: flex-end; }
+
+.header-title h1 {
+    font-size: 1.8rem;
+    font-weight: 700;
+    letter-spacing: 2px;
+    background: linear-gradient(135deg, var(--primary), #1E40AF);
+    background-clip: text;
+    -webkit-background-clip: text;
+    color: transparent;
+    line-height: 1.3;
+}
+
+.datetime {
+    display: flex;
+    gap: 16px;
+    font-size: 1.1rem;
+    font-weight: 500;
+    background: var(--bg-page);
+    padding: 6px 16px;
+    border-radius: 30px;
+}
+
+.datetime .time {
+    color: var(--primary);
+    font-weight: 700;
+}
+
+.system-status {
+    padding: 6px 16px;
+    font-size: 1rem;
+    background: var(--success-bg);
+    border-radius: 20px;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+
+.status-dot {
+    width: 8px;
+    height: 8px;
+    background: var(--success);
+    border-radius: 50%;
+    display: inline-block;
+    animation: pulse 1.5s infinite;
+}
+
+@keyframes pulse {
+    0% { opacity: 0.4; }
+    100% { opacity: 1; }
+}
+
+/* 公告栏 */
+.announcement-bar {
+    background: linear-gradient(90deg, var(--primary), var(--primary-dark));
+    padding: 8px 20px;
+    color: white;
+    overflow-x: hidden;
+    white-space: nowrap;
+    border-radius: 0 0 var(--radius-lg) var(--radius-lg);
+}
+
+.announcement-text {
+    font-size: 1.2rem;
+    display: inline-block;
+    white-space: nowrap;
+    animation: scroll 25s linear infinite;
+    font-weight: 500;
+}
+
+@keyframes scroll {
+    0% { transform: translateX(60%); }
+    100% { transform: translateX(-60%); }
+}
+
+/* ========= 当前叫号区域 ========= */
+.current-calls-section {
+    padding: 8px 18px;
+}
+
+.section-header {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 8px;
+    border-bottom: 2px solid var(--border);
+    padding-bottom: 6px;
+}
+
+.section-header svg {
+    width: 24px;
+    height: 24px;
+    color: var(--primary);
+}
+
+.section-header h2 {
+    font-size: 1.3rem;
+    font-weight: 600;
+}
+
+/* 当前叫号轮播容器 */
+.calls-carousel-container {
+    position: relative;
+    width: 100%;
+}
+
+.calls-carousel-wrapper {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+}
+
+.calls-viewport {
+    flex: 1;
+    overflow: hidden;
+    border-radius: var(--radius-md);
+}
+
+.calls-track {
+    display: flex;
+    transition: transform 0.3s ease;
+}
+
+/* repeat(5, 1fr) 可以控制当前叫号 一页显示的卡片数量，但需同时修改 js中的 CALLS_PAGE_SIZE */
+.calls-page {
+    flex: 0 0 100%;
+    display: grid;
+    grid-template-columns: repeat(5, 1fr);
+    gap: 14px;
+}
+
+/* 卡片容器 */
+.call-card {
+    min-height: 80px;
+    justify-content: center;  /* 垂直居中 */
+
+    background: linear-gradient(135deg, var(--primary), var(--primary-dark));
+    border-radius: var(--radius-md);
+    padding: 14px 18px;
+    color: white;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+}
+
+/* ===== 顶部行：窗口名 + 业务标签 ===== */
+.call-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.call-window {
+    font-size: 1.1rem;
+    font-weight: 500;
+    opacity: 0.9;
+}
+
+.call-business {
+    font-size: 0.95rem;
+    background: rgba(255, 255, 255, 0.2);
+    padding: 4px 12px;
+    border-radius: 20px;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+}
+
+.call-business svg {
+    width: 14px;
+    height: 14px;
+    stroke: white;
+}
+
+/* ===== 中间行：号码 + 患者名 ===== */
+.call-body {
+    display: flex;
+    align-items: baseline;
+    justify-content: center;
+    gap: 24px;          /* 号码与患者名之间的间隔 */
+    padding: 3px 0;
+}
+
+.call-number {
+    font-size: 2.0rem;
+    font-weight: 800;
+    letter-spacing: 3px;
+    line-height: 1.2;
+}
+
+.call-patient {
+    font-size: 1.8rem;
+    opacity: 0.95;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    max-width: 200px;   /* 防止名字过长溢出 */
+}
+
+.calls-carousel-btn {
+    width: 36px;
+    height: 36px;
+    border-radius: 50%;
+    background: #F1F5F9;
+    border: 1px solid var(--border);
+    font-size: 20px;
+    cursor: pointer;
+    flex-shrink: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: 0.1s;
+    color: var(--primary-dark);
+}
+
+.calls-carousel-btn:hover {
+    background: #e2e8f0;
+}
+
+.calls-dots {
+    display: flex;
+    justify-content: center;
+    gap: 8px;
+    margin-top: 8px;
+}
+
+.calls-dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: #CBD5E1;
+    cursor: pointer;
+    transition: 0.1s;
+}
+
+.calls-dot.active {
+    width: 24px;
+    border-radius: 4px;
+    background: var(--primary);
+}
+
+.empty-calls {
+    text-align: center;
+    padding: 24px;
+    color: var(--text-muted);
+    font-size: 1.1rem;
+    background: #F8FAFE;
+    border-radius: var(--radius-md);
+}
+
+/* ========= 等候队列区域 ========= */
+.business-boards-section {
+    flex: 0.70;
+    min-height: 0;
+    display: flex;
+    flex-direction: column;
+    padding: 8px 18px;
+    overflow: hidden;
+}
+
+.business-boards {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(340px, 1fr));
+    gap: 12px;
+    align-items: stretch;
+    flex: 1;
+    height: 100%;
+}
+
+.board {
+    display: flex;
+    flex-direction: column;
+    background: white;
+    border-radius: var(--radius-md);
+    overflow: hidden;
+    border: 1px solid var(--border);
+    box-shadow: 0 1px 3px rgba(0,0,0,0.03);
+}
+
+.board-header {
+    padding: 10px 16px;
+    color: white;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    flex-shrink: 0;
+    font-size: 1.1rem;
+}
+
+.board-title {
+    font-size: 1.15rem;
+    font-weight: 600;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.board-title svg {
+    width: 20px;
+    height: 20px;
+    stroke: white;
+}
+
+.waiting-count {
+    font-size: 0.95rem;
+    background: rgba(0,0,0,0.15);
+    padding: 4px 12px;
+    border-radius: 20px;
+}
+
+.waiting-count strong {
+    font-size: 1.1rem;
+    margin-left: 4px;
+}
+
+/* 队列轮播容器 */
+.queue-carousel-container {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    padding: 10px 10px 8px 10px;
+    background: #FFFFFF;
+    min-height: 0;
+}
+
+.queue-carousel-inner {
+    display: flex;
+    flex-direction: column;
+    height: 100%;
+    min-height: 0;
+}
+
+.queue-carousel-wrapper {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex: 1;
+    min-height: 0;
+}
+
+.queue-viewport {
+    flex: 1;
+    overflow: hidden;
+    border-radius: var(--radius-md);
+    display: flex;
+    flex-direction: column;
+    min-height: 0;
+}
+
+.queue-track {
+    display: flex;
+    transition: transform 0.3s ease;
+    height: 100%;
+}
+
+/* 原 .queue-page 为 grid，改为 flex 列 */
+.queue-page {
+    flex: 0 0 100%;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;          /* 项之间的间距，保留 */
+    height: 100%;
+}
+
+/* 每个队列项 flex:1 自动平分高度 */
+.queue-item {
+    flex: 1;           /* 关键：均分剩余空间 */
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    background: #F8FAFE;
+    padding: 6px 12px;
+    border-radius: 8px;
+    border-left: 4px solid var(--primary);
+    min-height: 0;     /* 防止溢出 */
+    /* 其他已有样式保持不变 */
+}
+
+.queue-info {
+    display: flex;
+    align-items: baseline;
+    gap: 12px;
+    flex-wrap: wrap;
+}
+
+.queue-number {
+    font-size: 1.2rem;
+    font-weight: 700;
+    color: var(--primary-dark);
+    min-width: 65px;
+}
+
+.patient-name {
+    font-size: 1.05rem;
+    color: var(--text-secondary);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    max-width: 130px;
+}
+
+.queue-time {
+    font-size: 0.9rem;
+    color: var(--text-muted);
+    background: #EFF3F8;
+    padding: 3px 10px;
+    border-radius: 20px;
+    white-space: nowrap;
+}
+
+.queue-carousel-btn {
+    width: 32px;
+    height: 32px;
+    border-radius: 50%;
+    background: #F1F5F9;
+    border: 1px solid var(--border);
+    font-size: 18px;
+    cursor: pointer;
+    flex-shrink: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: 0.1s;
+    color: var(--primary-dark);
+}
+
+.queue-carousel-btn:hover {
+    background: #e2e8f0;
+}
+
+.queue-carousel-dots {
+    display: flex;
+    justify-content: center;
+    gap: 8px;
+    margin-top: 10px;
+    min-height: 14px;
+}
+
+.queue-dot {
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background: #CBD5E1;
+    cursor: pointer;
+    transition: 0.1s;
+}
+
+.queue-dot.active {
+    width: 22px;
+    border-radius: 4px;
+    background: var(--primary);
+}
+
+/* 空状态样式：填充整个高度并居中 */
+.empty-queue {
+    flex: 1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    text-align: center;
+    color: var(--text-muted);
+    font-size: 1.1rem;
+    background: #F8FAFE;
+    border-radius: var(--radius-md);
+}
+
+/* ========= 过号记录区域 ========= */
+.skipped-section {
+    flex: 0.30;
+    padding: 8px 18px;
+}
+
+.skipped-section .section-header {
+    margin-bottom: 6px;
+}
+
+.skipped-count-badge {
+    background: var(--error-bg);
+    color: var(--error);
+    padding: 2px 12px;
+    border-radius: 20px;
+    font-size: 1.2rem;
+    font-weight: 700;
+}
+
+.skipped-carousel {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex: 1;
+    min-height: 0;
+}
+
+.carousel-btn {
+    width: 30px;
+    height: 30px;
+    border-radius: 50%;
+    background: #F1F5F9;
+    border: 1px solid var(--border);
+    font-size: 18px;
+    cursor: pointer;
+    flex-shrink: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: 0.1s;
+}
+
+.carousel-btn:hover {
+    background: #e2e8f0;
+}
+
+.carousel-viewport {
+    flex: 1;
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+    min-height: 0;
+}
+
+.carousel-track {
+    display: flex;
+    transition: transform 0.25s ease;
+    height: 100%;
+}
+
+.card-page {
+    flex: 0 0 100%;
+    display: grid;
+    grid-template-columns: repeat(5, 1fr);   /* 5列 */
+    grid-template-rows: repeat(2, 1fr);      /* 2行 */
+    gap: 10px;                               /* 间距 */
+    height: 100%;                            /* 填满容器 */
+    align-content: center;                   /* 垂直居中（可选） */
+}
+
+.skipped-card {
+    background: #FEF2F2;
+    border-left: 4px solid var(--error);
+    padding: 8px 12px;
+    border-radius: 8px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 6px;
+    font-size: 1rem;            /* 适当缩小字号以容纳更多内容 */
+    flex-shrink: 0;
+}
+
+.skipped-number {
+    font-weight: 800;
+    color: var(--error);
+    min-width: 55px;
+    font-size: 1.1rem;
+}
+
+.skipped-patient, .skipped-business {
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    max-width: 75px;
+}
+
+.skipped-time {
+    font-size: 0.85rem;
+    color: #64748B;
+    flex-shrink: 0;
+}
+
+.carousel-dots {
+    display: flex;
+    justify-content: center;
+    gap: 6px;
+    margin-top: 6px;
+}
+
+.dot {
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background: #CBD5E1;
+    cursor: pointer;
+}
+
+.dot.active {
+    width: 20px;
+    border-radius: 4px;
+    background: var(--primary);
+}
+
+.empty-state, .loading-state {
+    text-align: center;
+    padding: 14px;
+    color: var(--text-muted);
+    font-size: 1rem;
+}
+
+/* 自定义滚动条 */
+.business-boards-section::-webkit-scrollbar {
+    width: 6px;
+    background: #E2E8F0;
+    border-radius: 10px;
+}
+
+.business-boards-section::-webkit-scrollbar-thumb {
+    background: #94A3B8;
+    border-radius: 10px;
+}

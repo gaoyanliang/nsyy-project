@@ -1,0 +1,109 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <title>南石候诊大屏</title>
+    <!-- PWA 支持 -->
+<!--    <link rel="manifest" href="manifest.json">-->
+    <meta name="theme-color" content="#3B82F6">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="apple-mobile-web-app-title" content="智慧候诊">
+    <!-- 引入外部样式 -->
+    <link rel="stylesheet" href="summary.css">
+</head>
+<body>
+<div class="container">
+    <!-- 头部区域 -->
+    <header class="header">
+        <div class="header-top">
+            <div class="header-left">
+                <div class="datetime">
+                    <span id="currentDate">2024-01-01</span>
+                    <span id="currentTime" class="time">00:00</span>
+                </div>
+            </div>
+            <div class="header-center">
+                <div class="header-title">
+                    <h1>
+                        <span id="fullscreenTrigger">🏥 候诊大厅</span>
+                    </h1>
+                </div>
+            </div>
+            <div class="header-right">
+                <div class="system-status">
+                    <span class="status-dot"></span>
+                    <span>系统正常</span>
+                </div>
+            </div>
+        </div>
+        <div class="announcement-bar">
+            <div class="announcement-text" id="announcementMsg">🔔 请在等候区稍候，注意听语音叫号，过号请到服务台重新激活</div>
+        </div>
+    </header>
+
+    <!-- 当前叫号区域 - 轮播结构 -->
+    <section class="current-calls-section">
+        <div class="section-header">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/>
+                <path d="M19.07 4.93a10 10 0 0 1 0 14.14"/>
+                <path d="M15.54 8.46a5 5 0 0 1 0 7.07"/>
+            </svg>
+            <h2>正在呼叫</h2>
+        </div>
+        <div class="calls-carousel-container" id="callsCarouselContainer">
+            <div class="calls-carousel-wrapper">
+                <button class="calls-carousel-btn" id="callsPrevBtn" aria-label="上一页">‹</button>
+                <div class="calls-viewport" id="callsViewport">
+                    <div class="calls-track" id="callsTrack"></div>
+                </div>
+                <button class="calls-carousel-btn" id="callsNextBtn" aria-label="下一页">›</button>
+            </div>
+            <div class="calls-dots" id="callsDots"></div>
+        </div>
+    </section>
+
+    <!-- 等候队列（每个业务独立左右轮播，每页最多6条） -->
+    <section class="business-boards-section">
+        <div class="section-header">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <rect x="3" y="3" width="7" height="7"/>
+                <rect x="14" y="3" width="7" height="7"/>
+                <rect x="14" y="14" width="7" height="7"/>
+                <rect x="3" y="14" width="7" height="7"/>
+            </svg>
+            <h2>等候队列</h2>
+        </div>
+        <div class="business-boards" id="businessBoards">
+            <div class="loading-state">加载中...</div>
+        </div>
+    </section>
+
+    <!-- 过号记录（轮播） -->
+    <section class="skipped-section">
+        <div class="section-header">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <circle cx="12" cy="12" r="10"/>
+                <line x1="12" y1="8" x2="12" y2="12"/>
+                <line x1="12" y1="16" x2="12.01" y2="16"/>
+            </svg>
+            <h2>过号记录</h2>
+            <span class="skipped-count-badge" id="skippedCount">0</span>
+        </div>
+        <div class="skipped-carousel">
+            <button class="carousel-btn prev-btn" id="prevPageBtn">‹</button>
+            <div class="carousel-viewport">
+                <div class="carousel-track" id="skippedTrack"></div>
+            </div>
+            <button class="carousel-btn next-btn" id="nextPageBtn">›</button>
+        </div>
+        <div class="carousel-dots" id="carouselDots"></div>
+    </section>
+</div>
+
+<!-- 引入外部脚本 -->
+<script src="summary.js"></script>
+</body>
+</html>

@@ -7,7 +7,6 @@ from gylmodules.a_special.special_router import special_system
 from gylmodules.app_version.app_version_router import app_version
 from gylmodules.critical_value.critical_value_router import cv
 from gylmodules.file_system.file_router import file_system
-from gylmodules.global_tools import setup_logging
 from gylmodules.group.group_router import group_router
 from gylmodules.hospital_class.hosp_class_router import hosp_class
 from gylmodules.hyperbaric_oxygen_therapy.hbot_router import hbot

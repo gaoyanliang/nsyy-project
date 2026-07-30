@@ -1,0 +1,980 @@
+/* ========================================
+   门诊取药管理 - 样式
+   简洁大气 干净美观
+   ======================================== */
+
+/* 重置与基础 */
+*, *::before, *::after {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+}
+
+:root {
+    /* 主色调 - 药品主题色（绿色系） */
+    --primary: #10B981;
+    --primary-light: #34D399;
+    --primary-dark: #059669;
+    --primary-bg: #ECFDF5;
+
+    /* 辅助色 */
+    --success: #10B981;
+    --success-bg: #D1FAE5;
+    --warning: #F59E0B;
+    --warning-bg: #FEF3C7;
+    --error: #EF4444;
+    --error-bg: #FEE2E2;
+    --completed: #64748B;
+    --completed-bg: #F1F5F9;
+
+    /* 中性色 */
+    --bg-page: #F8FAFC;
+    --bg-card: #FFFFFF;
+    --border: #E2E8F0;
+    --border-light: #F1F5F9;
+    --text-primary: #1E293B;
+    --text-secondary: #64748B;
+    --text-muted: #94A3B8;
+
+    /* 阴影 */
+    --shadow-sm: 0 1px 2px rgba(0,0,0,0.04);
+    --shadow-md: 0 4px 6px -1px rgba(0,0,0,0.07), 0 2px 4px -2px rgba(0,0,0,0.05);
+    --shadow-lg: 0 10px 15px -3px rgba(0,0,0,0.08), 0 4px 6px -4px rgba(0,0,0,0.05);
+    --shadow-xl: 0 20px 25px -5px rgba(0,0,0,0.1), 0 8px 10px -6px rgba(0,0,0,0.05);
+
+    /* 圆角 */
+    --radius-sm: 8px;
+    --radius-md: 12px;
+    --radius-lg: 16px;
+    --radius-xl: 24px;
+}
+
+body {
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+    background: var(--bg-page);
+    color: var(--text-primary);
+    line-height: 1.6;
+    min-height: 100vh;
+    padding: 24px;
+    padding-bottom: 60px;
+}
+
+/* 主容器 */
+.container {
+    max-width: 1600px;
+    margin: 0 auto;
+}
+
+/* 顶部导航 */
+.header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    background: var(--bg-card);
+    border-radius: var(--radius-xl);
+    padding: 24px 32px;
+    margin-bottom: 20px;
+    box-shadow: var(--shadow-md);
+}
+
+.header-left {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+}
+
+.hospital-logo {
+    width: 56px;
+    height: 56px;
+    background: linear-gradient(135deg, var(--primary) 0%, var(--primary-dark) 100%);
+    border-radius: var(--radius-lg);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: white;
+    box-shadow: var(--shadow-md);
+}
+
+.hospital-logo svg {
+    width: 32px;
+    height: 32px;
+}
+
+.header-title h1 {
+    font-size: 1.75rem;
+    font-weight: 700;
+    color: var(--text-primary);
+}
+
+.header-title .subtitle {
+    font-size: 0.95rem;
+    color: var(--text-secondary);
+}
+
+.header-center {
+    text-align: center;
+}
+
+.datetime {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+}
+
+.datetime .date {
+    font-size: 1.1rem;
+    color: var(--text-secondary);
+    margin-bottom: 4px;
+}
+
+.datetime .time {
+    font-size: 2rem;
+    font-weight: 700;
+    color: var(--primary);
+    font-variant-numeric: tabular-nums;
+    letter-spacing: 2px;
+}
+
+.header-right {
+    display: flex;
+    align-items: center;
+}
+
+.system-status {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 10px 20px;
+    background: var(--success-bg);
+    border-radius: var(--radius-lg);
+    color: var(--success);
+    font-size: 0.95rem;
+    font-weight: 500;
+}
+
+.system-status.disconnected {
+    background: var(--error-bg);
+    color: var(--error);
+}
+
+.status-dot {
+    width: 10px;
+    height: 10px;
+    background: var(--success);
+    border-radius: 50%;
+    animation: pulse 2s infinite;
+}
+
+.system-status.disconnected .status-dot {
+    background: var(--error);
+    animation: none;
+}
+
+/* 发药窗口切换按钮 */
+.window-switch-btn {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 10px 20px;
+    background: linear-gradient(135deg, var(--primary) 0%, var(--primary-dark) 100%);
+    border-radius: var(--radius-lg);
+    color: white;
+    font-size: 0.95rem;
+    font-weight: 600;
+    text-decoration: none;
+    transition: all 0.3s ease;
+    box-shadow: var(--shadow-md);
+    margin-right: 12px;
+}
+
+.window-switch-btn:hover {
+    transform: translateY(-2px);
+    box-shadow: var(--shadow-lg);
+    color: white;
+}
+
+.window-switch-btn:active {
+    transform: translateY(0);
+}
+
+.window-switch-btn svg {
+    width: 18px;
+    height: 18px;
+}
+
+@keyframes pulse {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.5; }
+}
+
+/* Tab切换 */
+.tab-container {
+    display: flex;
+    gap: 12px;
+    margin-bottom: 20px;
+}
+
+.tab-btn {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 10px;
+    padding: 16px 24px;
+    background: var(--bg-card);
+    border: 2px solid var(--border);
+    border-radius: var(--radius-lg);
+    cursor: pointer;
+    transition: all 0.3s ease;
+    font-size: 1.1rem;
+    font-weight: 600;
+    color: var(--text-secondary);
+}
+
+.tab-btn svg {
+    width: 24px;
+    height: 24px;
+}
+
+.tab-btn:hover {
+    border-color: var(--primary-light);
+    color: var(--primary);
+}
+
+.tab-btn.active {
+    background: var(--primary-bg);
+    border-color: var(--primary);
+    color: var(--primary-dark);
+}
+
+.tab-count {
+    background: var(--error);
+    color: white;
+    padding: 2px 10px;
+    border-radius: 20px;
+    font-size: 0.85rem;
+    font-weight: 600;
+}
+
+.tab-count.completed {
+    background: var(--completed);
+}
+
+/* 主内容区域 */
+.main-content {
+    background: var(--bg-card);
+    border-radius: var(--radius-xl);
+    padding: 24px;
+    box-shadow: var(--shadow-md);
+}
+
+.patient-list-container {
+    width: 100%;
+}
+
+.section-header {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin-bottom: 20px;
+    padding-bottom: 16px;
+    border-bottom: 2px solid var(--border-light);
+}
+
+.section-header svg {
+    width: 24px;
+    height: 24px;
+    color: var(--primary);
+}
+
+.section-header h2 {
+    font-size: 1.25rem;
+    font-weight: 600;
+    color: var(--text-primary);
+}
+
+/* 语音开关 */
+.voice-toggle {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-left: auto;
+}
+
+.voice-label {
+    font-size: 0.9rem;
+    color: var(--text-secondary);
+    font-weight: 500;
+}
+
+/* Switch开关样式 */
+.switch {
+    position: relative;
+    display: inline-block;
+    width: 48px;
+    height: 26px;
+}
+
+.switch input {
+    opacity: 0;
+    width: 0;
+    height: 0;
+}
+
+.slider {
+    position: absolute;
+    cursor: pointer;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background-color: var(--border);
+    transition: 0.3s;
+    border-radius: 26px;
+}
+
+.slider:before {
+    position: absolute;
+    content: "";
+    height: 20px;
+    width: 20px;
+    left: 3px;
+    bottom: 3px;
+    background-color: white;
+    transition: 0.3s;
+    border-radius: 50%;
+    box-shadow: var(--shadow-sm);
+}
+
+input:checked + .slider {
+    background-color: var(--primary);
+}
+
+input:checked + .slider:before {
+    transform: translateX(22px);
+}
+
+/* 患者列表 - 新布局 */
+.patient-list {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+}
+
+/* 患者卡片 - 可展开的 */
+.patient-item {
+    background: var(--bg-page);
+    border-radius: var(--radius-md);
+    border: 2px solid transparent;
+    overflow: hidden;
+    transition: all 0.2s ease;
+}
+
+.patient-item:hover {
+    border-color: var(--primary-light);
+}
+
+.patient-item.selected {
+    border-color: var(--primary);
+}
+
+/* 患者卡片头部 */
+.patient-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 16px 20px;
+    cursor: pointer;
+}
+
+.patient-header:hover {
+    background: var(--primary-bg);
+}
+
+.patient-info {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+}
+
+.patient-avatar {
+    width: 48px;
+    height: 48px;
+    background: linear-gradient(135deg, var(--primary) 0%, var(--primary-dark) 100%);
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: white;
+    font-weight: 600;
+    font-size: 1.2rem;
+}
+
+.patient-details {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+}
+
+.patient-name {
+    font-size: 1.1rem;
+    font-weight: 600;
+    color: var(--text-primary);
+}
+
+.patient-id {
+    font-size: 0.95rem;
+    font-weight: 600;
+    color: var(--text-muted);
+
+}
+
+.patient-meta {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+}
+
+.patient-time {
+    font-size: 0.85rem;
+    color: var(--text-muted);
+}
+
+.expand-icon {
+    width: 24px;
+    height: 24px;
+    color: var(--text-muted);
+    transition: transform 0.3s ease;
+}
+
+.patient-item.selected .expand-icon {
+    transform: rotate(180deg);
+}
+
+/* 患者状态标签 */
+.patient-state {
+    font-size: 0.8rem;
+    font-weight: 600;
+    padding: 5px 30px;
+    border-radius: 20px;
+    white-space: nowrap;
+}
+
+/* 已完成药品收集 */
+.patient-state.completed {
+    background: var(--success-bg);
+    color: var(--success);
+}
+
+.patient-state svg {
+    width: 14px;
+    height: 14px;
+    margin-right: 4px;
+    vertical-align: -2px;
+}
+
+/* 状态标签扩展 */
+.patient-state.waiting {
+    background: var(--warning-bg);
+    color: var(--warning);
+}
+
+.patient-state.in-progress {
+    background: var(--primary-bg);
+    color: var(--primary-dark);
+}
+
+.patient-state.completed {
+    background: var(--success-bg);
+    color: var(--success);
+}
+
+/* 使 SVG 图标在状态标签内对齐 */
+.patient-state svg {
+    width: 14px;
+    height: 14px;
+    vertical-align: -2px;
+    margin-right: 4px;
+}
+
+/* 药品详情展开区域 */
+.patient-medicines {
+    display: none;
+    padding: 0 20px 20px 20px;
+    border-top: 1px solid var(--border-light);
+    margin-top: 0;
+}
+
+.patient-item.selected .patient-medicines {
+    display: block;
+}
+
+/* 药品统计 */
+.medicine-stats {
+    display: flex;
+    gap: 12px;
+    margin: 16px 0;
+}
+
+.stat-card {
+    flex: 1;
+    padding: 12px;
+    border-radius: var(--radius-md);
+    text-align: center;
+}
+
+.stat-card.paid {
+    background: var(--success-bg);
+}
+
+.stat-card.unpaid {
+    background: var(--warning-bg);
+}
+
+.stat-card.total {
+    background: var(--primary-bg);
+}
+
+.stat-value {
+    font-size: 1.5rem;
+    font-weight: 700;
+}
+
+.stat-card.paid .stat-value {
+    color: var(--success);
+}
+
+.stat-card.unpaid .stat-value {
+    color: var(--warning);
+}
+
+.stat-card.total .stat-value {
+    color: var(--primary);
+}
+
+.stat-label {
+    font-size: 0.85rem;
+    color: var(--text-secondary);
+    margin-top: 4px;
+}
+
+/* 药品列表 */
+.medicine-list {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+
+.medicine-item {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 12px 16px;
+    background: white;
+    border-radius: var(--radius-sm);
+    border: 1px solid var(--border-light);
+    transition: all 0.2s;
+}
+
+.medicine-item:hover {
+    border-color: var(--primary-light);
+}
+
+.medicine-info {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+}
+
+.medicine-name {
+    font-size: 1rem;
+    font-weight: 600;
+    color: var(--text-primary);
+}
+
+.medicine-spec {
+    font-size: 0.85rem;
+    color: var(--text-muted);
+}
+
+.medicine-status {
+    padding: 6px 6px;
+    border-radius: 20px;
+    font-size: 0.85rem;
+    font-weight: 600;
+}
+
+.medicine-status.paid {
+    background: var(--success-bg);
+    color: var(--success);
+}
+
+.medicine-status.unpaid {
+    background: var(--error-bg);
+    color: var(--error);
+}
+
+.status-group {
+    display: flex;
+    gap: 6px;
+}
+
+/* 操作按钮 */
+.action-buttons {
+    margin-top: 16px;
+    padding-top: 16px;
+    border-top: 2px solid var(--border-light);
+}
+
+.completed-btn {
+
+    width: 100%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 10px;
+    padding: 16px 24px;
+    background: #f5f5f5;
+    border: none;
+    border-radius: var(--radius-lg);
+    color: #999;
+    font-size: 1.1rem;
+    font-weight: 600;
+    cursor: not-allowed;
+    transition: all 0.3s ease;
+    box-shadow: var(--shadow-md);
+}
+
+.complete-btn {
+    width: 100%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 10px;
+    padding: 16px 24px;
+    background: linear-gradient(135deg, var(--primary) 0%, var(--primary-dark) 100%);
+    border: none;
+    border-radius: var(--radius-lg);
+    color: white;
+    font-size: 1.1rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    box-shadow: var(--shadow-md);
+}
+
+.complete-btn:hover {
+    transform: translateY(-2px);
+    box-shadow: var(--shadow-lg);
+}
+
+.complete-btn:active {
+    transform: translateY(0);
+}
+
+.complete-btn svg {
+    width: 24px;
+    height: 24px;
+}
+
+.completed-btn svg {
+    width: 24px;
+    height: 24px;
+}
+
+/* 弹窗 */
+.modal-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: rgba(0,0,0,0.5);
+    display: none;
+    align-items: center;
+    justify-content: center;
+    z-index: 1000;
+}
+
+.modal-overlay.show {
+    display: flex;
+}
+
+.modal {
+    background: var(--bg-card);
+    border-radius: var(--radius-xl);
+    width: 90%;
+    max-width: 500px;
+    max-height: 80vh;
+    overflow: hidden;
+    box-shadow: var(--shadow-xl);
+}
+
+.modal-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 20px 24px;
+    border-bottom: 2px solid var(--border-light);
+}
+
+.modal-header h3 {
+    font-size: 1.25rem;
+    font-weight: 600;
+    color: var(--text-primary);
+}
+
+.modal-close {
+    background: none;
+    border: none;
+    cursor: pointer;
+    padding: 8px;
+    border-radius: var(--radius-sm);
+    color: var(--text-muted);
+    transition: all 0.2s;
+}
+
+.modal-close:hover {
+    background: var(--bg-page);
+    color: var(--text-primary);
+}
+
+.modal-close svg {
+    width: 20px;
+    height: 20px;
+}
+
+.modal-body {
+    padding: 24px;
+    overflow-y: auto;
+    max-height: calc(80vh - 80px);
+}
+
+/* 加载状态 */
+.loading-state {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 60px 20px;
+    color: var(--text-muted);
+}
+
+.spinner {
+    width: 40px;
+    height: 40px;
+    border: 3px solid var(--border);
+    border-top-color: var(--primary);
+    border-radius: 50%;
+    animation: spin 1s linear infinite;
+    margin-bottom: 16px;
+}
+
+@keyframes spin {
+    to { transform: rotate(360deg); }
+}
+
+/* 空状态 */
+.empty-state {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 60px 20px;
+    color: var(--text-muted);
+}
+
+.empty-state svg {
+    width: 56px;
+    height: 56px;
+    margin-bottom: 16px;
+    opacity: 0.4;
+}
+
+.empty-state span {
+    font-size: 1.1rem;
+}
+
+/* 已完成患者样式 */
+.patient-item.completed {
+    opacity: 0.7;
+}
+
+.patient-item.completed .patient-name {
+    text-decoration: line-through;
+}
+
+/* 成功提示 */
+.success-toast {
+    position: fixed;
+    top: 20px;
+    right: 20px;
+    background: var(--success);
+    color: white;
+    padding: 16px 24px;
+    border-radius: var(--radius-lg);
+    box-shadow: var(--shadow-lg);
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    font-weight: 500;
+    animation: slideIn 0.3s ease-out;
+    z-index: 1001;
+}
+
+.success-toast.error {
+    background: var(--error);
+}
+
+.success-toast svg {
+    width: 20px;
+    height: 20px;
+}
+
+@keyframes slideIn {
+    from {
+        opacity: 0;
+        transform: translateY(-10px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+/* 响应式 */
+@media (max-width: 768px) {
+    body {
+        padding: 16px;
+    }
+
+    .header {
+        flex-direction: column;
+        text-align: center;
+        gap: 16px;
+    }
+
+    .header-left,
+    .header-center,
+    .header-right {
+        width: 100%;
+        justify-content: center;
+    }
+
+    .tab-container {
+        flex-direction: column;
+    }
+
+    .patient-header {
+        flex-wrap: wrap;
+        gap: 8px;
+    }
+
+    .patient-meta {
+        width: 100%;
+        justify-content: space-between;
+    }
+
+    .medicine-stats {
+        flex-direction: column;
+    }
+}
+
+/* 自定义滚动条 */
+.patient-list::-webkit-scrollbar {
+    width: 6px;
+}
+
+.patient-list::-webkit-scrollbar-track {
+    background: var(--border-light);
+    border-radius: 3px;
+}
+
+.patient-list::-webkit-scrollbar-thumb {
+    background: var(--text-muted);
+    border-radius: 3px;
+}
+
+.patient-list::-webkit-scrollbar-thumb:hover {
+    background: var(--text-secondary);
+}
+
+/* 动画 */
+@keyframes fadeIn {
+    from {
+        opacity: 0;
+        transform: translateY(-8px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+.patient-item {
+    animation: fadeIn 0.3s ease-out;
+}
+
+.medicine-item {
+    animation: fadeIn 0.2s ease-out;
+}
+
+/* 药品加载状态 */
+.medicines-loading {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 12px;
+    padding: 40px;
+    color: var(--text-muted);
+}
+
+.medicines-loading .spinner {
+    width: 24px;
+    height: 24px;
+}
+
+/* 无药品提示 */
+.no-medicines {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 40px;
+    color: var(--text-muted);
+}
+
+.no-medicines svg {
+    width: 48px;
+    height: 48px;
+    margin-bottom: 12px;
+    opacity: 0.5;
+}
+
+/* 可复制文本样式 */
+.patient-name,
+.patient-id {
+    cursor: pointer;
+    transition: color 0.2s;
+}
+.patient-name:hover,
+.patient-id:hover {
+    color: var(--primary);
+    text-decoration: underline;
+}
+
+/* ===== 复制提示图标 ===== */
+.copy-hint {
+    font-size: 0.75rem;
+    opacity: 0.3;
+    margin-left: 4px;
+    transition: all 0.25s ease;
+    user-select: none;
+    display: inline-block;
+}
+
+.patient-name:hover .copy-hint,
+.patient-id:hover .copy-hint {
+    opacity: 1;
+    color: var(--primary);
+    transform: scale(1.15);
+}
