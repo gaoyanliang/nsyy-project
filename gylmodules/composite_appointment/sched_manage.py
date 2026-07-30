@@ -79,12 +79,11 @@ def get_schedule(start_date, end_date, query_by, pid, rid: int = 45):
         rid = 0
     if query_by == 'doctor':
         if pid:
-            query_sql = f"""SELECT s.dsid, s.did, s.shift_date, s.shift_type, s.status,
-                         d.his_name FROM nsyy_gyl.appt_schedules_doctor s
-                        JOIN nsyy_gyl.appt_schedules ss ON s.did = ss.did and s.shift_date = ss.shift_date 
-                        and s.shift_type = ss.shift_type 
-                        JOIN nsyy_gyl.appt_doctor d ON s.did = d.id WHERE s.shift_date 
-                        BETWEEN '{start_date}' AND '{end_date}' and ss.pid = {int(pid)} 
+            query_sql = f"""SELECT s.dsid, s.did, s.shift_date, s.shift_type, s.status, d.his_name 
+                        FROM nsyy_gyl.appt_schedules_doctor s JOIN nsyy_gyl.appt_doctor d ON s.did = d.id 
+                        WHERE s.shift_date BETWEEN '{start_date}' AND '{end_date}' and s.did in 
+                        (select DISTINCT did from nsyy_gyl.appt_schedules where shift_date 
+                        BETWEEN '{start_date}' AND '{end_date}' and pid = {int(pid)} )
                         ORDER BY d.his_name, s.shift_date"""
         else:
             query_sql = f"""SELECT s.dsid, s.did, s.shift_date, s.shift_type, s.status,
