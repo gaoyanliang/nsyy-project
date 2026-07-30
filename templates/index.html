@@ -1651,8 +1651,8 @@ let shiftTypesLoaded = false;
 // 全局存储原始数据
 let allDoctors = [];
 let allDepartments = [];
-const API_BASE = 'http://192.168.3.12:6080/gyl/on_call';
-<!--const API_BASE = 'http://127.0.0.1:8080/gyl/on_call';-->
+<!--const API_BASE = 'http://192.168.3.12:6080/gyl/on_call';-->
+const API_BASE = 'http://127.0.0.1:8080/gyl/on_call';
 let confirmCallback = null;
 
 let allDeptOptions = [];   // 存储所有科室 {id, name}
@@ -1781,7 +1781,8 @@ async function loadShiftTypes() {
 async function loadTodayDuty() {
     try {
         const response = await fetch(`${API_BASE}/duty/today`);
-        const data = await response.json();
+        const rp_data = await response.json();
+        const data = rp_data.data || {};
 
         const container = document.getElementById('today-duty-list');
 
@@ -1815,7 +1816,8 @@ async function loadTodayDuty() {
 async function loadTodayDutyPreview() {
     try {
         const response = await fetch(`${API_BASE}/duty/today`);
-        const data = await response.json();
+        const rp_data = await response.json();
+        const data = rp_data.data || {};
 
         const container = document.getElementById('duty-preview');
 
@@ -2849,6 +2851,7 @@ async function updateDutyPreview() {
     try {
         const response = await fetch(`${API_BASE}/duty/today`);
         const dutyData = await response.json();
+        const data = rp_data.data || {};
         console.log('值班数据:', dutyData);
 
         let html = '';

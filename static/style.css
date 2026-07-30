@@ -1,0 +1,1157 @@
+/* 医院急诊一键通知系统 - 样式表 */
+
+:root {
+    --primary-color: #1890ff;
+    --success-color: #52c41a;
+    --warning-color: #faad14;
+    --danger-color: #f5222d;
+    --text-color: #333;
+    --text-secondary: #666;
+    --border-color: #e8e8e8;
+    --bg-color: #f5f5f5;
+    --white: #fff;
+    --shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+}
+
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+}
+
+body {
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+    background: var(--bg-color);
+    color: var(--text-color);
+    line-height: 1.6;
+}
+
+.container {
+    max-width: 1400px;
+    margin: 0 auto;
+    padding: 20px;
+}
+
+/* 顶部导航 */
+.header {
+    background: var(--white);
+    padding: 20px 30px;
+    border-radius: 8px;
+    margin-bottom: 20px;
+    box-shadow: var(--shadow);
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.header h1 {
+    font-size: 24px;
+    color: var(--primary-color);
+}
+
+.nav {
+    display: flex;
+    gap: 10px;
+    flex-wrap: wrap;
+}
+
+.nav-btn {
+    padding: 10px 20px;
+    border: none;
+    background: var(--bg-color);
+    color: var(--text-secondary);
+    border-radius: 6px;
+    cursor: pointer;
+    font-size: 14px;
+    transition: all 0.3s;
+}
+
+.nav-btn:hover {
+    background: var(--primary-color);
+    color: var(--white);
+}
+
+.nav-btn.active {
+    background: var(--primary-color);
+    color: var(--white);
+}
+
+/* 页面切换 */
+.page {
+    display: none;
+}
+
+.page.active {
+    display: block;
+}
+
+/* 卡片 */
+.card {
+    background: var(--white);
+    border-radius: 8px;
+    padding: 24px;
+    margin-bottom: 20px;
+    box-shadow: var(--shadow);
+}
+
+.card-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 20px;
+}
+
+.card-header h2 {
+    font-size: 18px;
+}
+
+.card-actions {
+    display: flex;
+    gap: 10px;
+}
+
+.card h2 {
+    margin-bottom: 20px;
+}
+
+.card h3 {
+    margin-bottom: 15px;
+    font-size: 16px;
+}
+
+.subtitle {
+    color: var(--text-secondary);
+    margin-bottom: 20px;
+}
+
+/* 按钮 */
+.btn {
+    padding: 10px 20px;
+    border: none;
+    border-radius: 6px;
+    cursor: pointer;
+    font-size: 14px;
+    transition: all 0.3s;
+}
+
+.btn-primary {
+    background: var(--primary-color);
+    color: var(--white);
+}
+
+.btn-primary:hover {
+    background: #40a9ff;
+}
+
+.btn-secondary {
+    background: var(--bg-color);
+    color: var(--text-color);
+    border: 1px solid var(--border-color);
+}
+
+.btn-secondary:hover {
+    border-color: var(--primary-color);
+    color: var(--primary-color);
+}
+
+.btn-success {
+    background: var(--success-color);
+    color: var(--white);
+}
+
+.btn-warning {
+    background: var(--warning-color);
+    color: var(--white);
+}
+
+.btn-danger {
+    background: var(--danger-color);
+    color: var(--white);
+}
+
+.btn-lg {
+    padding: 15px 30px;
+    font-size: 16px;
+}
+
+.btn-block {
+    width: 100%;
+    display: block;
+}
+
+/* 快捷操作 */
+.quick-actions {
+    display: flex;
+    gap: 15px;
+    flex-wrap: wrap;
+}
+
+/* 表单 */
+.form-group {
+    margin-bottom: 20px;
+}
+
+.form-group label {
+    display: block;
+    margin-bottom: 8px;
+    font-weight: 500;
+}
+
+.form-group input,
+.form-group select,
+.form-group textarea {
+    width: 100%;
+    padding: 12px;
+    border: 1px solid var(--border-color);
+    border-radius: 6px;
+    font-size: 14px;
+}
+
+.form-group textarea {
+    min-height: 100px;
+    resize: vertical;
+}
+
+.form-row {
+    display: flex;
+    gap: 15px;
+    align-items: center;
+}
+
+.form-row input,
+.form-row select {
+    flex: 1;
+}
+
+/* 过滤器 */
+.filter-bar {
+    display: flex;
+    gap: 15px;
+    margin-bottom: 20px;
+    flex-wrap: wrap;
+}
+
+.filter-bar input,
+.filter-bar select {
+    padding: 10px 15px;
+    border: 1px solid var(--border-color);
+    border-radius: 6px;
+}
+
+/* 排班管理 - 网格视图 */
+.duty-card {
+    padding: 0;
+    overflow: hidden;
+    border: none;
+}
+
+.duty-card .card-header {
+    padding: 20px 24px;
+    border-bottom: 1px solid var(--border-color);
+}
+
+.duty-card .filter-bar {
+    padding: 15px 24px;
+    border-bottom: 1px solid var(--border-color);
+    background: #fafbfc;
+}
+
+.schedule-grid-container {
+    overflow: hidden;
+    background: var(--white);
+    border-radius: 0 0 8px 8px;
+}
+
+.schedule-grid-wrapper {
+    display: flex;
+    max-height: 650px;
+    border-radius: 0 0 8px 8px;
+    overflow: hidden;
+}
+
+/* 左侧固定列 */
+.schedule-left {
+    flex-shrink: 0;
+    width: 280px;
+    background: linear-gradient(180deg, #f8fafc 0%, #f0f4f8 100%);
+    border-right: 2px solid #d0d7de;
+    overflow-y: auto;
+    overflow-x: hidden;
+    box-shadow: 2px 0 8px rgba(0,0,0,0.05);
+}
+
+.schedule-left::-webkit-scrollbar {
+    display: none;
+}
+
+/* 右侧可滚动区域 */
+.schedule-right {
+    flex: 1;
+    overflow: auto;
+    background: var(--white);
+}
+
+/* 日期头部行 */
+.schedule-header-row {
+    display: flex;
+    position: sticky;
+    top: 0;
+    z-index: 10;
+    background: linear-gradient(180deg, #f0f4f8 0%, #e8ecf0 100%);
+    border-bottom: 2px solid #d0d7de;
+}
+
+.schedule-left .schedule-header-row {
+    position: sticky;
+    left: 0;
+    z-index: 11;
+    background: linear-gradient(180deg, #e8ecf0 0%, #dfe3e8 100%);
+}
+
+.date-header {
+    min-width: max-content;
+}
+
+.date-header .schedule-cell {
+    flex-shrink: 0;
+}
+
+/* 排班单元格 */
+.schedule-cell {
+    padding: 10px 8px;
+    text-align: center;
+    border-right: 1px solid #f0f0f0;
+    border-bottom: 1px solid #f0f0f0;
+    min-height: 44px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 13px;
+    cursor: pointer;
+    transition: all 0.2s ease;
+}
+
+.schedule-cell:hover {
+    background: #f0f7ff !important;
+    transform: scale(1.02);
+    box-shadow: 0 2px 8px rgba(24, 144, 255, 0.15);
+    z-index: 5;
+    position: relative;
+}
+
+/* 头部单元格 */
+.header-cell {
+    font-weight: 600;
+    background: transparent;
+    position: sticky;
+}
+
+/* 左侧固定列的单元格 */
+.dept-cell {
+    width: 120px;
+    justify-content: flex-start;
+    font-weight: 500;
+
+    white-space: normal;      /* 允许换行 */
+    word-break: break-word;   /* 长单词/连续字符断行 */
+    line-height: 1.3;         /* 适当行高，便于多行显示 */
+    padding: 8px 6px;         /* 调整内边距，保证多行时的舒适度 */
+}
+
+.title-cell {
+    width: 80px;
+    justify-content: center;
+    font-size: 12px;
+}
+
+.name-cell {
+    flex: 1;
+    justify-content: flex-start;
+    font-weight: 500;
+}
+
+/* 日期单元格 */
+.date-cell {
+    width: 70px;
+    flex-direction: column;
+    gap: 3px;
+}
+
+.date-cell .date-day {
+    font-weight: 600;
+    font-size: 13px;
+    color: #333;
+}
+
+.date-cell .date-week {
+    font-size: 11px;
+    color: #888;
+}
+
+/* 周末样式 */
+.weekend {
+    background: #fef9f3 !important;
+}
+
+.weekend .date-week {
+    color: #e8590c;
+}
+
+/* 人员列表 */
+.schedule-personnel-list {
+    overflow-y: auto;
+}
+
+.schedule-personnel-list::-webkit-scrollbar {
+    width: 6px;
+}
+
+.schedule-personnel-list::-webkit-scrollbar-track {
+    background: #f1f1f1;
+}
+
+.schedule-personnel-list::-webkit-scrollbar-thumb {
+    background: #c1c1c1;
+    border-radius: 3px;
+}
+
+.personnel-row {
+    display: flex;
+    border-bottom: 1px solid #e8eef3;
+    min-height: 44px;
+    background: var(--white);
+}
+
+.personnel-row:hover {
+    background: #f8fafc;
+}
+
+.department-row {
+    display: flex;
+    background: linear-gradient(90deg, #e8f4fc 0%, #d8edf8 100%);
+    font-weight: 600;
+    cursor: pointer;
+    min-height: 40px;
+}
+
+.department-row:hover {
+    background: linear-gradient(90deg, #d8edf8 0%, #c8e4f4 100%);
+}
+
+.toggle-icon {
+    font-size: 10px;
+    margin-left: 5px;
+    transition: transform 0.2s;
+}
+
+/* 排班内容区 */
+.schedule-content {
+    min-width: max-content;
+    background: var(--white);
+}
+
+.schedule-row {
+    display: flex;
+    border-bottom: 1px solid #f0f0f0;
+}
+
+.schedule-row:hover {
+    background: #fafcff;
+}
+
+.schedule-row-content {
+    background: linear-gradient(90deg, #e8f4fc 0%, #d8edf8 100%);
+    min-height: 40px;
+}
+
+.empty-cell {
+    color: #ccc;
+    background: #fafcff;
+}
+
+/* 班次颜色 */
+.shift-main {
+    background: linear-gradient(135deg, #e6f7ff 0%, #bae7ff 100%);
+    color: #0050b3;
+    font-weight: 600;
+    border-radius: 4px;
+}
+
+.shift-night {
+    background: linear-gradient(135deg, #fff7e6 0%, #ffe58f 100%);
+    color: #ad6800;
+    font-weight: 600;
+    border-radius: 4px;
+}
+
+.shift-normal {
+    background: linear-gradient(135deg, #f6ffed 0%, #b7eb8f 100%);
+    color: #389e0d;
+    font-weight: 500;
+    border-radius: 4px;
+}
+
+.shift-off {
+    background: linear-gradient(135deg, #f5f5f5 0%, #d9d9d9 100%);
+    color: #666;
+    border-radius: 4px;
+}
+
+/* 今日值班列表 */
+.duty-list {
+    max-height: 400px;
+    overflow-y: auto;
+}
+
+.duty-item {
+    padding: 15px;
+    border-bottom: 1px solid var(--border-color);
+}
+
+.duty-item:last-child {
+    border-bottom: none;
+}
+
+.duty-dept {
+    font-weight: bold;
+    color: var(--primary-color);
+    margin-bottom: 10px;
+}
+
+.duty-doctors {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+}
+
+.duty-doctor-tag {
+    background: var(--bg-color);
+    padding: 5px 12px;
+    border-radius: 15px;
+    font-size: 13px;
+}
+
+/* 值班预览 */
+.today-duty-preview {
+    background: #fafafa;
+    padding: 20px;
+    border-radius: 8px;
+    margin: 20px 0;
+}
+
+.duty-preview-list {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+    gap: 10px;
+}
+
+.duty-preview-item {
+    background: var(--white);
+    padding: 10px 15px;
+    border-radius: 6px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    border: 1px solid var(--border-color);
+}
+
+.duty-preview-name {
+    font-weight: 500;
+}
+
+.duty-preview-dept {
+    color: var(--text-secondary);
+    font-size: 12px;
+}
+
+/* 会诊群列表 */
+.groups-list {
+    display: grid;
+    gap: 15px;
+}
+
+.group-item {
+    background: var(--bg-color);
+    padding: 20px;
+    border-radius: 8px;
+    cursor: pointer;
+    transition: all 0.3s;
+}
+
+.group-item:hover {
+    box-shadow: var(--shadow);
+}
+
+.group-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 10px;
+}
+
+.group-patient {
+    font-weight: bold;
+    font-size: 16px;
+}
+
+.group-status {
+    padding: 5px 12px;
+    border-radius: 15px;
+    font-size: 12px;
+}
+
+.status-active {
+    background: #fff1f0;
+    color: var(--danger-color);
+}
+
+.status-closed {
+    background: #f5f5f5;
+    color: var(--text-secondary);
+}
+
+.group-info {
+    display: flex;
+    gap: 20px;
+    color: var(--text-secondary);
+    font-size: 14px;
+}
+
+.group-info span {
+    display: flex;
+    align-items: center;
+}
+
+.group-time {
+    color: var(--text-secondary);
+    font-size: 13px;
+    margin-top: 8px;
+}
+
+/* 模态框 */
+.modal {
+    display: none;
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: rgba(0, 0, 0, 0.5);
+    z-index: 1000;
+    align-items: center;
+    justify-content: center;
+}
+
+.modal.active {
+    display: flex;
+}
+
+.modal-content {
+    background: var(--white);
+    border-radius: 8px;
+    width: 90%;
+    max-width: 600px;
+    max-height: 90vh;
+    overflow-y: auto;
+}
+
+.modal-header {
+    padding: 20px;
+    border-bottom: 1px solid var(--border-color);
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.modal-header h3 {
+    margin: 0;
+}
+
+.modal-close {
+    background: none;
+    border: none;
+    font-size: 24px;
+    cursor: pointer;
+    color: var(--text-secondary);
+}
+
+.modal-body {
+    padding: 20px;
+}
+
+.modal-footer {
+    padding: 20px;
+    border-top: 1px solid var(--border-color);
+    display: flex;
+    justify-content: flex-end;
+    gap: 10px;
+}
+
+/* 会诊详情模态框 */
+.patient-info-card {
+    background: #fff1f0;
+    padding: 20px;
+    border-radius: 8px;
+    margin-bottom: 20px;
+}
+
+.patient-info-card h4 {
+    margin-bottom: 15px;
+    color: var(--danger-color);
+}
+
+.patient-details p {
+    margin-bottom: 8px;
+}
+
+.members-section {
+    margin-bottom: 20px;
+}
+
+.members-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(90px, 1fr));
+    gap: 5px;
+}
+
+.member-card {
+    background: var(--bg-color);
+    padding: 15px;
+    border-radius: 6px;
+    text-align: center;
+}
+
+.member-name {
+    font-weight: bold;
+    margin-bottom: 5px;
+}
+
+.member-dept {
+    color: var(--text-secondary);
+    font-size: 12px;
+    margin-bottom: 5px;
+}
+
+.member-status {
+    display: inline-block;
+    padding: 3px 10px;
+    border-radius: 10px;
+    font-size: 12px;
+}
+
+.member-pending {
+    background: #ffe58f;
+    color: #d48806;
+}
+
+.member-accepted {
+    background: #b7eb8f;
+    color: #389e0d;
+}
+
+.member-full {
+    background: #ffccc7;
+    color: #cf1322;
+}
+
+.member-transfer {
+    background: #d9d9d9;
+    color: #434343;
+}
+
+/* 消息区域 */
+.messages-section {
+    margin-bottom: 20px;
+}
+
+.messages-list {
+    max-height: 300px;
+    overflow-y: auto;
+    margin-bottom: 15px;
+}
+
+.message-item {
+    padding: 12px;
+    margin-bottom: 10px;
+    border-radius: 8px;
+}
+
+.message-system {
+    background: #e6f7ff;
+}
+
+.message-notification {
+    background: #fff1f0;
+}
+
+.message-response {
+    background: #f6ffed;
+}
+
+.message-normal {
+    background: var(--bg-color);
+}
+
+.message-sender {
+    font-weight: bold;
+    color: var(--primary-color);
+    margin-bottom: 5px;
+}
+
+.message-content {
+    word-break: break-all;
+}
+
+.message-time {
+    color: var(--text-secondary);
+    font-size: 12px;
+    margin-top: 5px;
+}
+
+.message-input-area {
+    display: flex;
+    gap: 10px;
+}
+
+.message-input-area input {
+    flex: 1;
+    padding: 12px;
+    border: 1px solid var(--border-color);
+    border-radius: 6px;
+}
+
+/* 响应按钮 */
+.response-buttons {
+    display: flex;
+    gap: 10px;
+    justify-content: center;
+}
+
+/* Toast提示 */
+.toast {
+    position: fixed;
+    top: 20px;
+    right: 20px;
+    padding: 15px 25px;
+    background: var(--white);
+    border-radius: 8px;
+    box-shadow: var(--shadow);
+    z-index: 2000;
+    transform: translateX(400px);
+    transition: transform 0.3s;
+}
+
+.toast.active {
+    transform: translateX(0);
+}
+
+.toast.success {
+    border-left: 4px solid var(--success-color);
+}
+
+.toast.error {
+    border-left: 4px solid var(--danger-color);
+}
+
+.toast.info {
+    border-left: 4px solid var(--primary-color);
+}
+
+/* 加载状态 */
+.loading {
+    text-align: center;
+    padding: 40px;
+    color: var(--text-secondary);
+}
+
+.empty {
+    text-align: center;
+    padding: 40px;
+    color: var(--text-secondary);
+}
+
+.error {
+    text-align: center;
+    padding: 40px;
+    color: var(--danger-color);
+}
+
+.hint {
+    color: var(--text-secondary);
+    font-size: 12px;
+    margin-top: 10px;
+}
+
+/* 快捷复制按钮 */
+.quick-copy-buttons {
+    display: flex;
+    gap: 10px;
+    margin-top: 15px;
+}
+
+/* 历史列表 */
+.history-list {
+    max-height: 400px;
+    overflow-y: auto;
+}
+
+.history-item {
+    padding: 15px;
+    border-bottom: 1px solid var(--border-color);
+    cursor: pointer;
+}
+
+.history-item:last-child {
+    border-bottom: none;
+}
+
+.history-item:hover {
+    background: #fafafa;
+}
+
+.history-header {
+    display: flex;
+    justify-content: space-between;
+    margin-bottom: 10px;
+}
+
+.history-patient {
+    font-weight: bold;
+}
+
+.history-time {
+    color: var(--text-secondary);
+    font-size: 13px;
+}
+
+.history-content {
+    color: var(--text-secondary);
+    font-size: 14px;
+}
+
+/* 响应式设计 */
+@media (max-width: 768px) {
+    .container {
+        padding: 10px;
+    }
+
+    .header {
+        flex-direction: column;
+        gap: 15px;
+    }
+
+    .nav {
+        justify-content: center;
+    }
+
+    .form-row {
+        flex-direction: column;
+    }
+
+    .filter-bar {
+        flex-direction: column;
+    }
+
+    .quick-actions {
+        flex-direction: column;
+    }
+
+    .modal-content {
+        width: 95%;
+    }
+}
+
+/* 统一右侧单元格宽度 */
+.schedule-right .schedule-cell {
+    width: 70px;
+    flex-shrink: 0;
+    justify-content: center;
+    white-space: nowrap;
+}
+
+/* 固定行高 */
+.schedule-left .personnel-row,
+.schedule-left .department-row,
+.schedule-right .schedule-row,
+.schedule-right .department-row-content {
+    height: 44px;
+    min-height: 44px;
+}
+
+.schedule-header-row .schedule-cell {
+    height: 44px;
+    min-height: 44px;
+}
+
+.date-cell {
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+}
+
+.schedule-left .schedule-cell {
+    white-space: normal;
+    word-break: break-word;
+
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.department-row-content {
+    background: linear-gradient(90deg, #e8f4fc 0%, #d8edf8 100%);
+}
+
+.filter-input {
+    width: 100%;
+    padding: 8px 10px;
+    margin-bottom: 8px;
+    border: 1px solid var(--border-color);
+    border-radius: 4px;
+    font-size: 14px;
+    box-sizing: border-box;
+}
+
+.filter-input:focus {
+    outline: none;
+    border-color: var(--primary-color);
+}
+
+/* 可搜索下拉框样式 */
+.searchable-select {
+    position: relative;
+    width: 100%;
+}
+
+.searchable-select input {
+    width: 100%;
+    padding: 8px 10px;
+    border: 1px solid var(--border-color);
+    border-radius: 4px;
+    font-size: 14px;
+    box-sizing: border-box;
+}
+
+.searchable-select .select-options {
+    position: absolute;
+    top: 100%;
+    left: 0;
+    right: 0;
+    max-height: 200px;
+    overflow-y: auto;
+    background: white;
+    border: 1px solid var(--border-color);
+    border-top: none;
+    border-radius: 0 0 4px 4px;
+    z-index: 1000;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+}
+
+.searchable-select .option-item {
+    padding: 8px 12px;
+    cursor: pointer;
+    font-size: 14px;
+}
+
+.searchable-select .option-item:hover {
+    background-color: #f0f0f0;
+}
+
+.searchable-select .option-item.selected {
+    background-color: var(--primary-color);
+    color: white;
+}
+
+
+
+
+/* 多选下拉框容器 */
+.multi-select {
+    position: relative;
+    width: 100%;
+    border: 1px solid var(--border-color);
+    border-radius: 4px;
+    background: #fff;
+}
+
+/* 显示区域 */
+.multi-select-display {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 5px;
+    padding: 6px 8px;
+    min-height: 40px;
+    cursor: pointer;
+}
+
+/* 已选标签容器 */
+.selected-tags {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 5px;
+}
+
+/* 单个标签 */
+.tag {
+    background: #e6f7ff;
+    padding: 2px 8px;
+    border-radius: 12px;
+    font-size: 12px;
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+}
+
+.tag-remove {
+    cursor: pointer;
+    font-weight: bold;
+    color: #999;
+}
+
+.tag-remove:hover {
+    color: #f5222d;
+}
+
+/* 搜索输入框 */
+#dept-search-input {
+    flex: 1;
+    min-width: 100px;
+    border: none;
+    outline: none;
+    padding: 4px 0;
+    background: transparent;
+}
+
+/* 下拉选项面板 */
+.multi-select-dropdown {
+    position: absolute;
+    top: 100%;
+    left: 0;
+    right: 0;
+    max-height: 250px;
+    overflow-y: auto;
+    background: #fff;
+    border: 1px solid #d9d9d9;
+    border-top: none;
+    margin-top: -1px;
+    border-radius: 0 0 4px 4px;
+    z-index: 1000;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.15);
+}
+
+/* 选项项 */
+.dropdown-options .option {
+    padding: 8px 12px;
+    cursor: pointer;
+    font-size: 14px;
+    transition: background 0.2s;
+}
+
+.dropdown-options .option:hover {
+    background: #f0f0f0;
+}
+
+.dropdown-options .option.selected {
+    background: var(--primary-color);
+    color: #fff;
+}

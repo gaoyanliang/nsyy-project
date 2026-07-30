@@ -8,8 +8,10 @@ from gylmodules.app_version.app_version_router import app_version
 from gylmodules.critical_value.critical_value_router import cv
 from gylmodules.file_system.file_router import file_system
 from gylmodules.global_tools import setup_logging
+from gylmodules.group.group_router import group_router
 from gylmodules.hospital_class.hosp_class_router import hosp_class
 from gylmodules.hyperbaric_oxygen_therapy.hbot_router import hbot
+from gylmodules.on_call.on_call_router import on_call
 from gylmodules.pacs_pdf.pacs_router import pacs_system
 from gylmodules.parking.parking_router import parking
 from gylmodules.pre_hospital_system.phs_router import phs
@@ -19,12 +21,13 @@ from gylmodules.medical_record_analysis.parse_router import parse
 from gylmodules.shift_change.shift_change_router import shift_change
 from gylmodules.workstation.message.message_router import message_router
 from gylmodules.workstation.mail.mail_router import mail_router
+from gylmodules.zhuisuma.zhuisuma_router import zhuisuma_system
 
-# 初始化日志
-if global_config.run_in_local:
-    setup_logging(log_file='my_app.log', level=logging.DEBUG)  # 可按需调整参数
-else:
-    setup_logging(log_file='my_app.log', level=logging.INFO)  # 可按需调整参数
+# # 初始化日志
+# if global_config.run_in_local:
+#     setup_logging(log_file='my_app.log', level=logging.DEBUG)  # 可按需调整参数
+# else:
+#     setup_logging(log_file='my_app.log', level=logging.INFO)  # 可按需调整参数
 logger = logging.getLogger(__name__)
 logger.info("==================== 应用启动 =========================")
 
@@ -142,5 +145,26 @@ gylroute.register_blueprint(pacs_system)
 # ============================
 logger.info('16. 特殊系统路由')
 gylroute.register_blueprint(special_system)
+
+
+# ============================
+# === 17. 追溯码系统路由 ===
+# ============================
+# logger.info('17. 追溯码系统路由')
+# gylroute.register_blueprint(zhuisuma_system)
+
+
+# ============================
+# === 18. 统一群组系统路由 ===
+# ============================
+logger.info('18. 统一群组系统路由')
+gylroute.register_blueprint(group_router)
+
+# ============================
+# === 19. 急诊会诊系统路由 ===
+# ============================
+logger.info('19. 急诊会诊系统路由')
+gylroute.register_blueprint(on_call)
+
 
 logger.info("=============== End 路由注册完成 =====================")

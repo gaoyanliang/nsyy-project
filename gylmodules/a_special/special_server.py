@@ -610,6 +610,6 @@ if __name__ == "__main__":
 
     unmedical_page_list()
     query_medical_page_update_record()
-    query_all_dip_record()
+    # query_all_dip_record()
 
     print(datetime.now(), "dip 数据查询耗时", time.time() - start_time)
