@@ -970,7 +970,7 @@ class DatabaseManager:
 
                             # manager.send_to_pharmacy({'type': 'pharmacy_update'})
                             # 关键修改：使用 asyncio.run 执行异步协程
-                            asyncio.run(manager.send_to_pharmacy({'type': 'pharmacy_update'}))
+                            asyncio.run(manager.broadcast_to_pharmacy({'type': 'pharmacy_update'}))
 
                     # 每10秒执行一次
                     time.sleep(20)

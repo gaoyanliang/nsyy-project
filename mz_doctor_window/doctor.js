@@ -661,7 +661,10 @@ async function callNext(businessType) {
             body: JSON.stringify({
                 call_type: 'next',
                 window_id: currentWindowId,
-                business_type: businessType
+                business_type: businessType,
+                business_id: '',
+                patient_name: '',
+                queue_number: ''
             })
         });
 
@@ -716,6 +719,7 @@ async function callSpecific(queueNumber, patientName, businessType) {
                 call_type: 'specific',
                 window_id: currentWindowId,
                 business_type: businessType,
+                business_id: '',
                 patient_name: patientName,
                 queue_number: queueNumber
             })
@@ -755,6 +759,7 @@ async function completeService() {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
+                status: 0,
                 queue_number: currentCall.queue_number,
                 window_id: currentWindowId
             })

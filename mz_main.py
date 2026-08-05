@@ -101,6 +101,7 @@ mz_business_dir = os.path.join(BASE_DIR, "mz_business_window")
 mz_summary_dir = os.path.join(BASE_DIR, "mz_summary")
 mz_pharmacy_dir = os.path.join(BASE_DIR, "mz_pharmacy")
 test_dir = os.path.join(BASE_DIR, "test")
+asr_dir = os.path.join(BASE_DIR, "asr")
 
 if os.path.exists(mz_summary_dir):
     app.mount("/mz/mz_summary", StaticFiles(directory=mz_summary_dir, html=True), name="mz_summary")
@@ -112,6 +113,9 @@ if os.path.exists(mz_pharmacy_dir):
     app.mount("/mz/mz_pharmacy", StaticFiles(directory=mz_pharmacy_dir, html=True), name="mz_pharmacy")
 if os.path.exists(test_dir):
     app.mount("/mz/test", StaticFiles(directory=test_dir, html=True), name="test")
+if os.path.exists(asr_dir):
+    app.mount("/mz/asr", StaticFiles(directory=asr_dir, html=True), name="asr")
+
 
 
 # ====================== 根路径 ======================
@@ -131,5 +135,5 @@ def startup_event():
 
 # ====================== 启动入口 ======================
 if __name__ == "__main__":
-    uvicorn.run("fastapi_main_gyl:app", host='0.0.0.0', port=8081 if global_config.run_in_local else 6094, access_log=False, reload=False)
+    uvicorn.run("mz_main:app", host='0.0.0.0', port=8081 if global_config.run_in_local else 6094, access_log=False, reload=False)
 

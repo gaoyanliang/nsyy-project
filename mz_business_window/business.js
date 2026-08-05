@@ -39,9 +39,17 @@ let ws = null;
 let refreshTimer = null;
 let businessTypes = {};
 let windows = {};
+let currentWindowInfo = null;
 
-// 缓存当前显示数据，用于增量更新
+// 缓存当前显示数据
 let cachedCurrentCall = null;
+let cachedQueues = [];
+
+// ==================== 控制标志 ====================
+let isInitializing = true;        // 初始化阶段，下拉框事件忽略
+let isSwitching = false;          // 切换窗口锁
+let isClosing = false;            // 主动关闭 ws，防止 onclose 重连
+
 
 // ==================== 辅助函数：标准化API响应 ====================
 function normalizeQueueStatus(rawData) {
@@ -67,6 +75,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // 窗口切换
     document.getElementById('windowSelect').addEventListener('change', (e) => {
+        if (isInitializing) return;
         const newWindowId = parseInt(e.target.value);
         switchWindow(newWindowId);
     });
@@ -79,25 +88,39 @@ document.addEventListener('DOMContentLoaded', () => {
 });
 
 async function init() {
-    // 安全读取 localStorage // 恢复上次窗口ID
-    let windowId = null;
+    isInitializing = true;
     try {
-        if (typeof localStorage !== 'undefined' && localStorage !== null) {
-            const stored = localStorage.getItem('currentWindowId');
-            if (stored) windowId = parseInt(stored);
+        // 安全读取 localStorage // 恢复上次窗口ID
+        let windowId = null;
+        try {
+            if (typeof localStorage !== 'undefined' && localStorage !== null) {
+                const stored = localStorage.getItem('currentWindowId');
+                if (stored) windowId = parseInt(stored);
+            }
+        } catch (e) {
+            console.warn('localStorage 不可用，使用默认值', e);
         }
-    } catch (e) {
-        console.warn('localStorage 不可用，使用默认值', e);
-    }
 
-    if (!windowId || isNaN(windowId)) {
-        const urlParams = new URLSearchParams(window.location.search);
-        windowId = parseInt(urlParams.get('windowId')) || 1;
-    }
+        if (!windowId || isNaN(windowId)) {
+            const urlParams = new URLSearchParams(window.location.search);
+            windowId = parseInt(urlParams.get('windowId')) || 1;
+        }
 
-    // 确保窗口列表先加载
-    await loadWindows();
-    await switchWindow(windowId);
+        // 确保窗口列表先加载
+        await loadWindows();
+        await switchWindow(windowId);
+
+        // 检查 androidTTS 是否注入
+        console.log('androidTTS 对象:', typeof window.androidTTS);
+        if (typeof window.androidTTS !== 'undefined') {
+            console.log('androidTTS.isReady:', window.androidTTS.isReady());
+        } else {
+            console.warn('androidTTS 未定义！');
+        }
+        console.log('当前窗口ID:', currentWindowId);
+    } finally {
+        isInitializing = false;
+    }
 }
 
 // ==================== 窗口加载 ====================
@@ -113,16 +136,13 @@ async function loadWindows(retryCount = 0) {
         }
     } catch (error) {
         console.error('加载窗口数据失败:', error);
-        // 最多重试 3 次，每次间隔 2 秒
         if (retryCount < 3) {
             await new Promise(resolve => setTimeout(resolve, 2000));
             return loadWindows(retryCount + 1);
         } else {
-            // 显示错误提示
             const select = document.getElementById('windowSelect');
             if (select) {
                 select.innerHTML = `<option value="">加载失败，请检查网络</option>`;
-                // 添加重试按钮
                 const retryBtn = document.createElement('button');
                 retryBtn.textContent = '重试';
                 retryBtn.onclick = () => location.reload();
@@ -133,13 +153,10 @@ async function loadWindows(retryCount = 0) {
     }
 }
 
-
 function updateWindowSelect(windows) {
     const select = document.getElementById('windowSelect');
     if (!select) return;
-
     select.innerHTML = '';
-
     for (const [id, info] of Object.entries(windows)) {
         const option = document.createElement('option');
         option.value = id;
@@ -150,59 +167,93 @@ function updateWindowSelect(windows) {
 
 // ==================== 窗口切换 ====================
 async function switchWindow(windowId) {
-    // 如果窗口未加载，先加载
+    // 防重入
+    if (isSwitching) {
+        console.warn('switchWindow 正在执行，跳过本次调用');
+        return;
+    }
+
+    // 如果目标窗口未加载，先加载
     if (!windows || Object.keys(windows).length === 0) {
         await loadWindows();
     }
 
-    if (!windowId || windowId === currentWindowId) return;
+    // 如果目标窗口 ID 无效，或与当前相同
+    if (!windowId) {
+        console.warn('无效窗口 ID');
+        return;
+    }
 
-    // ✅ 1. 立即持久化
-    currentWindowId = windowId;
-//    localStorage.setItem('currentWindowId', windowId);
-    currentWindowInfo = windows[windowId];
-    try {
-        if (typeof localStorage !== 'undefined' && localStorage !== null) {
-            localStorage.setItem('currentWindowId', windowId);
+    // 如果与当前窗口相同，检查 WebSocket 是否已连接，未连接则建立
+    if (windowId === currentWindowId) {
+        console.log('目标窗口与当前相同，检查 WebSocket 状态');
+        if (!ws || ws.readyState !== WebSocket.OPEN) {
+            console.log('WebSocket 未连接，初始化');
+            initWebSocket();
+            startAutoRefresh();
         }
-    } catch (e) {}
-
-    // ✅ 2. UI 同步
-    if (!currentWindowInfo) {
-        const select = document.getElementById('windowSelect');
-        const selectedOption = select?.querySelector(`option[value="${windowId}"]`);
-        const windowName = selectedOption?.textContent || `窗口${windowId}`;
-        document.getElementById('windowName').textContent = windowName;
-        document.getElementById('systemTitle').textContent = windowName;
-    } else {
-        document.getElementById('windowName').textContent = currentWindowInfo.window_name;
-        document.getElementById('systemTitle').textContent = currentWindowInfo.window_name;
-    }
-    document.getElementById('windowSelect').value = windowId;
-
-    // ✅ 3. 清理旧资源
-    if (refreshTimer) {
-        clearInterval(refreshTimer);
-        refreshTimer = null;
+        return;
     }
 
-    if (ws) {
-        ws.close();
-        ws = null;
+    // 锁定，避免并发
+    isSwitching = true;
+    isClosing = true;      // 标记主动关闭，防止 onclose 自动重连
+
+    try {
+        // 1. 清理旧资源
+        if (refreshTimer) {
+            clearInterval(refreshTimer);
+            refreshTimer = null;
+        }
+        if (ws) {
+            ws.close();
+            ws = null;
+        }
+        // 2. 更新 currentWindowId
+        currentWindowId = windowId;
+        currentWindowInfo = windows[windowId] || null;
+
+        // 3. 持久化
+        try {
+            if (typeof localStorage !== 'undefined' && localStorage !== null) {
+                localStorage.setItem('currentWindowId', windowId);
+            }
+        } catch (e) {}
+
+        // 4. UI 同步
+        if (!currentWindowInfo) {
+            const select = document.getElementById('windowSelect');
+            const selectedOption = select && select.querySelector(`option[value="${windowId}"]`);
+            const windowName = (selectedOption && selectedOption.textContent) || `窗口${windowId}`;
+            document.getElementById('windowName').textContent = windowName;
+            document.getElementById('systemTitle').textContent = windowName;
+        } else {
+            document.getElementById('windowName').textContent = currentWindowInfo.window_name;
+            document.getElementById('systemTitle').textContent = currentWindowInfo.window_name;
+        }
+        document.getElementById('windowSelect').value = windowId;
+
+        // 5. 重置显示缓存和当前叫号显示
+        cachedCurrentCall = null;
+        updateCurrentCallDisplay('---', '等待叫号');
+
+        // 6. 重新加载数据
+        await loadQueueStatus();
+
+        // 7. 延迟一帧创建 WebSocket 和自动刷新
+        requestAnimationFrame(() => {
+            // 在创建新连接前，重置主动关闭标志（因为新连接不再是主动关闭）
+            isClosing = false;
+            initWebSocket();
+            startAutoRefresh();
+        });
+
+    } finally {
+        // 解锁，但注意 isClosing 在 requestAnimationFrame 中被重置，但在那之前保持 true
+        isSwitching = false;
+        // 注意：isClosing 会在新连接建立前重置，但这里为了防止某些异常，可以重置
+        // 但为了安全，我们不在这里重置，让 requestAnimationFrame 处理
     }
-
-    // ✅ 4. 重置显示缓存和当前叫号显示
-    cachedCurrentCall = null;
-    updateCurrentCallDisplay('---', '等待叫号');
-
-    // ✅ 5. 重新加载数据
-    await loadQueueStatus();
-
-    // ✅ 6. 延迟一帧创建 WebSocket（非常关键）
-    requestAnimationFrame(() => {
-        initWebSocket();
-        startAutoRefresh();
-    });
 }
 
 // ==================== 队列状态加载 ====================
@@ -224,7 +275,6 @@ async function loadQueueStatus() {
 
 function showError() {
     updateCurrentCallDisplay('---', '系统维护中');
-    updateQueueList([]);
 }
 
 // ==================== 更新显示 - 增量更新（无数据真空期） ====================
@@ -257,8 +307,6 @@ function updateDisplay(data) {
         }
     }
 
-    // 更新等待队列
-    updateQueue(data);
 }
 
 function updateCurrentCallDisplay(queueNumber, patientName) {
@@ -274,103 +322,6 @@ function updateCurrentCallDisplay(queueNumber, patientName) {
     }
 }
 
-function updateQueue(data) {
-    let totalWaiting = 0;
-    const allQueues = [];
-
-    if (data.business_status) {
-        for (const [business, status] of Object.entries(data.business_status)) {
-            if (status.waiting_queues) {
-                totalWaiting += status.waiting_count || 0;
-                allQueues.push(...status.waiting_queues);
-            }
-        }
-    }
-
-    // 更新等待人数
-    const queueCount = document.getElementById('queueCount');
-    if (queueCount) {
-        queueCount.textContent = `${totalWaiting}人`;
-    }
-
-    // 更新队列列表
-    updateQueueList(allQueues);
-}
-
-// 缓存当前队列数据
-let cachedQueues = [];
-
-function updateQueueList(queues) {
-    const container = document.getElementById('queueList');
-    if (!container) return;
-
-    const newQueues = (queues || []).slice(0, 12);
-
-    // 如果数据没变，不更新
-    const newQueueNumbers = new Set(newQueues.map(q => q.queue_number));
-    const cachedQueueNumbers = new Set(cachedQueues.map(q => q.queue_number));
-
-    if (newQueueNumbers.size === cachedQueueNumbers.size &&
-        [...newQueueNumbers].every(num => cachedQueueNumbers.has(num))) {
-        // 数据完全相同，跳过更新
-        return;
-    }
-
-    // 使用增量更新
-    // 1. 构建现有DOM元素Map
-    const existingItems = container.querySelectorAll('.queue-item');
-    const existingMap = new Map();
-    existingItems.forEach(item => {
-        existingMap.set(item.dataset.queueNumber, item);
-    });
-
-    // 2. 删除不再存在的项
-    existingItems.forEach(item => {
-        if (!newQueueNumbers.has(item.dataset.queueNumber)) {
-            item.remove();
-        }
-    });
-
-    // 3. 添加或更新项
-    const fragment = document.createDocumentFragment();
-    newQueues.forEach(queue => {
-        const existingItem = existingMap.get(queue.queue_number);
-        if (existingItem) {
-            container.appendChild(existingItem);
-        } else {
-            const item = document.createElement('div');
-            item.className = 'queue-item';
-            item.dataset.queueNumber = queue.queue_number;
-            item.innerHTML = `
-                <div class="queue-number">${escapeHtml(queue.queue_number)}</div>
-                <div class="queue-label">等待中</div>
-            `;
-            fragment.appendChild(item);
-        }
-    });
-
-    if (fragment.children.length > 0) {
-        container.appendChild(fragment);
-    }
-
-    // 4. 如果没有等待患者
-    if (newQueues.length === 0 && container.querySelectorAll('.queue-item').length === 0) {
-        container.innerHTML = `
-            <div class="empty-state">
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                    <circle cx="12" cy="12" r="10"/>
-                    <path d="M8 14s1.5 2 4 2 4-2 4-2"/>
-                    <line x1="9" y1="9" x2="9.01" y2="9"/>
-                    <line x1="15" y1="9" x2="15.01" y2="9"/>
-                </svg>
-                <span>暂无等待患者</span>
-            </div>
-        `;
-    }
-
-    // 更新缓存
-    cachedQueues = newQueues;
-}
 
 // 简单的防XSS辅助函数
 function escapeHtml(str) {
@@ -385,15 +336,19 @@ function escapeHtml(str) {
 
 // ==================== WebSocket ====================
 function initWebSocket() {
+    // 如果已经存在打开的 ws，先关闭（但通常调用前已关闭）
     if (ws && ws.readyState === WebSocket.OPEN) {
         ws.close();
+        ws = null;
     }
+
+    // 重置主动关闭标志（因为新连接）
+    isClosing = false;
 
     ws = new WebSocket(`${WS_URL}/ws/window/${currentWindowId}`);
 
     ws.onopen = () => {
         console.log('WebSocket连接成功');
-        // 发送更规范的消息格式（兼容两种格式）
         try {
             ws.send(JSON.stringify({ action: 'get_status' }));
         } catch(e) {
@@ -401,27 +356,38 @@ function initWebSocket() {
         }
     };
 
+
     ws.onmessage = (event) => {
+        console.log('=== 收到原始 WebSocket 消息 ===', event.data);  // 新增
+        // 处理 pong
+        if (event.data === 'pong') {
+            console.log('收到 pong');
+            return;
+        }
         try {
             const data = JSON.parse(event.data);
             handleWebSocketMessage(data);
         } catch (e) {
-            if (event.data === 'pong') return;
             console.warn('WebSocket消息解析失败:', e);
         }
     };
 
     ws.onclose = () => {
-        console.log('WebSocket断开，3秒后重连');
-        setTimeout(() => initWebSocket(), 3000);
+        console.log('WebSocket断开');
+        if (!isClosing) {
+            console.log('3秒后重连');
+            setTimeout(() => initWebSocket(), 3000);
+        } else {
+            console.log('主动关闭，不重连');
+        }
     };
-
     ws.onerror = (error) => {
         console.error('WebSocket错误:', error);
     };
 }
 
 function handleWebSocketMessage(data) {
+    console.log('当前窗口ID:', currentWindowId);
     console.log('接收到socket消息:', data);
     console.log('接收到socket消息:', data.type);
     // 处理不同类型的消息
@@ -430,6 +396,9 @@ function handleWebSocketMessage(data) {
     switch (data.type) {
         case 'init':
         case 'status':
+        case 'test':
+            console.log('接收到 test socket消息:', messageData);
+            break
         case 'call_success':
             // 更新当前叫号
             if (messageData && messageData.queue_number) {
@@ -491,17 +460,18 @@ function animateCall() {
 // ==================== 自动刷新 ====================
 function startAutoRefresh() {
     if (refreshTimer) clearInterval(refreshTimer);
-    refreshTimer = setInterval(loadQueueStatus, 5000);
+    refreshTimer = setInterval(loadQueueStatus, 1000*60);
 }
 
 // ==================== 调用android 广告机 TTS进行语音播报 ====================
+
 function speakWithNative(queueNumber, patientName) {
     console.log('调用android TTS进行语音播报:', queueNumber, patientName);
-    text = patientName && patientName.trim()
-        ? `请${queueNumber}号，${patientName}，到${currentWindowInfo?.window_name || '窗口'}办理业务`
-        : `请${queueNumber}号，到${currentWindowInfo?.window_name || '窗口'}办理业务`;
+    const windowName = (currentWindowInfo && currentWindowInfo.window_name) || '窗口';
+    const text = patientName && patientName.trim()
+        ? `请${queueNumber}号，${patientName}，到${windowName}办理业务`
+        : `请${queueNumber}号，到${windowName}办理业务`;
     if (typeof window.androidTTS !== 'undefined') {
-        // 检查是否就绪（可选）
         if (window.androidTTS.isReady && window.androidTTS.isReady()) {
             window.androidTTS.speak(text);
         } else {

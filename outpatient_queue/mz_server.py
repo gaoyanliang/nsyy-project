@@ -3,6 +3,7 @@ from datetime import datetime, date
 import json
 
 import logging
+import websockets
 
 from outpatient_queue.database import DatabaseManager
 from outpatient_queue.models import *
@@ -74,7 +75,7 @@ async def take_number(request: TakeNumberRequest):
 
         if success:
             # 广播更新
-            await manager.broadcast({
+            await manager.broadcast_all({
                 'type': 'queue_update',
                 'action': 'new_queue',
                 'data': {
@@ -319,7 +320,7 @@ async def call_queue(request: CallRequest):
             'call_time': call_time
         }
 
-        await manager.broadcast({
+        await manager.broadcast_all({
             'type': 'call',
             'data': call_data
         })
@@ -344,7 +345,7 @@ async def complete_service(request: CompleteRequest):
     success = db.complete_queue(request.queue_number)
 
     if success:
-        await manager.broadcast({
+        await manager.broadcast_all({
             'type': 'complete',
             'data': {
                 'queue_number': request.queue_number,
@@ -362,7 +363,7 @@ async def medicine_complete(request: CompleteRequest):
     success = db.medicine_complete(request.queue_number, request.status)
 
     if success:
-        await manager.broadcast({
+        await manager.broadcast_all({
             'type': 'complete',
             'data': {
                 'queue_number': request.queue_number,
@@ -382,7 +383,7 @@ async def skip_queue(request: SkipRequest):
     success = db.skip_queue(request.queue_number, request.reason)
 
     if success:
-        await manager.broadcast({
+        await manager.broadcast_all({
             'type': 'skip',
             'data': {
                 'queue_number': request.queue_number,
@@ -424,7 +425,7 @@ async def reactivate_patient_queue(patient_id: str, business_id: str):
             today_total = db.get_today_total(skipped_queue['business_id'])
 
             # 广播队列更新
-            await manager.broadcast({
+            await manager.broadcast_all({
                 'type': 'queue_update',
                 'action': 'reactivate',
                 'data': {
@@ -490,7 +491,7 @@ async def get_status():
 """大屏展示WebSocket连接"""
 @mz_router.websocket("/ws/display")
 async def websocket_display(websocket: WebSocket):
-    await manager.connect(websocket, "display")
+    await manager.connect_display(websocket)
     try:
         # 发送初始数据
         status = db.get_all_business_status()
@@ -553,17 +554,17 @@ async def websocket_display(websocket: WebSocket):
                 }, cls=DateTimeEncoder))
 
     except WebSocketDisconnect:
-        manager.disconnect(websocket)
-        logger.warning("大屏WebSocket连接断开")
+        manager.disconnect_display(websocket)
+        logger.debug("大屏WebSocket连接断开")
     except Exception as e:
         logger.warning(f"大屏WebSocket错误: {e}")
-        manager.disconnect(websocket)
+        manager.disconnect_display(websocket)
 
 
 """窗口WebSocket连接"""
 @mz_router.websocket("/ws/window/{window_id}")
 async def websocket_window(websocket: WebSocket, window_id: int):
-    await manager.connect(websocket, "window", window_id)
+    await manager.connect_window(websocket, window_id)
     try:
         logger.debug(f"窗口 {window_id} WebSocket连接成功")
 
@@ -648,17 +649,17 @@ async def websocket_window(websocket: WebSocket, window_id: int):
                     pass
 
     except WebSocketDisconnect:
-        manager.disconnect(websocket, window_id)
+        manager.disconnect_window(websocket, window_id)
         logger.warning(f"窗口 {window_id} WebSocket连接断开")
     except Exception as e:
         logger.warning(f"窗口 {window_id} WebSocket错误: {e}")
-        manager.disconnect(websocket, window_id)
+        manager.disconnect_window(websocket, window_id)
 
 
 """取药页面WebSocket连接"""
 @mz_router.websocket("/ws/pharmacy")
 async def websocket_pharmacy(websocket: WebSocket):
-    await manager.connect(websocket, "pharmacy")
+    await manager.connect_pharmacy(websocket)
     try:
 
         init_data = {'type': 'init'}
@@ -673,8 +674,274 @@ async def websocket_pharmacy(websocket: WebSocket):
                 await websocket.send_text(json.dumps({'type': 'pharmacy_update'}, cls=DateTimeEncoder))
 
     except WebSocketDisconnect:
-        manager.disconnect(websocket)
+        manager.disconnect_pharmacy(websocket)
         logger.warning("取药WebSocket连接断开")
     except Exception as e:
         logger.warning(f"取药WebSocket错误: {e}")
-        manager.disconnect(websocket)
+        manager.disconnect_pharmacy(websocket)
+
+
+# =================================================================================================================
+# ============================================== 阿里云大模型 实时转写 ==============================================
+# =================================================================================================================
+
+
+API_KEY = "sk-1d02e5ab8bc5420aa4c6c7d2ac9464dd"
+WORKSPACE_ID = "ws-nzup4ofn31zrv9f9"
+ASR_WS_URL = (
+    f"wss://{WORKSPACE_ID}.cn-beijing.maas.aliyuncs.com/api-ws/v1/realtime"
+    "?model=qwen-audio-3.0-realtime-flash"
+)
+
+
+@mz_router.websocket("/ws/transcribe")
+async def websocket_transcribe(websocket: WebSocket):
+    print('------------')
+    await websocket.accept()
+    logger.info("✅ 前端 WebSocket 连接已建立")
+
+    asr_ws = None
+    try:
+        headers = {"Authorization": f"Bearer {API_KEY}"}
+        asr_ws = await websockets.connect(
+            ASR_WS_URL,
+            extra_headers=headers,
+            ping_interval=20,
+            ping_timeout=60,
+        )
+        logger.info("✅ 已连接到阿里云 ASR 服务")
+
+        # 发送会话配置
+        session_config = {
+            "type": "session.update",
+            "session": {
+                "modalities": ["text"],
+                "turn_detection": {
+                    "type": "server_vad",
+                    "threshold": 0.5,
+                    "silence_duration_ms": 800,
+                },
+                "input_audio_format": "pcm",
+                "output_audio_format": "pcm",
+                "instructions": (
+                    "你是一个专业的医疗语音转写助手。请准确识别医生口述的内容，输出时，请尽量保持句子连贯，并使用句号、逗号等标点分隔，使文本自然流畅。"
+                ),
+            },
+        }
+        await asr_ws.send(json.dumps(session_config))
+        logger.info("📋 已发送会话配置")
+
+        # ---------- 消息转发函数 ----------
+        async def forward_to_frontend():
+            """ASR → 前端（全量使用 json.dumps）"""
+            try:
+                async for message in asr_ws:
+                    try:
+                        event = json.loads(message)
+                        if not isinstance(event, dict):
+                            continue
+
+                        event_type = event.get("type", "")
+                        logger.info(f"📨 ASR 事件 {event_type}: {event}")
+
+                        # ---- 实时增量（逐字） ----
+                        if event_type == "response.text.delta":
+                            delta = event.get("delta", "")
+                            if delta:
+                                await websocket.send_text(
+                                    json.dumps({"type": "stash", "text": delta})
+                                )
+                                logger.debug(f"↗️ delta: {delta}")
+
+                        # ---- 最终完整文本（途径1） ----
+                        elif event_type == "response.text.done":
+                            text = event.get("text", "")
+                            if text:
+                                await websocket.send_text(
+                                    json.dumps({"type": "final", "text": text})
+                                )
+                                logger.info(f"📝 final (text.done): {text[:50]}...")
+
+                        # # ---- 最终完整文本（途径2） ----
+                        # elif event_type == "conversation.item.input_audio_transcription.completed":
+                        #     transcript = event.get("transcript", "")
+                        #     if transcript:
+                        #         await websocket.send_text(
+                        #             json.dumps({"type": "final", "text": transcript})
+                        #         )
+                        #         logger.info(f"📝 final (transcription): {transcript[:50]}...")
+                        #
+                        # ---- 另一种中间结果（可能包含 stash） ----
+                        elif event_type == "conversation.item.input_audio_transcription.delta":
+                            stash = event.get("stash", "")
+                            if stash:
+                                await websocket.send_text(
+                                    json.dumps({"type": "stash", "text": stash})
+                                )
+
+                        # ---- 语音开始 / 停止 ----
+                        elif event_type == "input_audio_buffer.speech_started":
+                            await websocket.send_text(json.dumps({"type": "speech_start"}))
+                            logger.info("🎤 语音开始")
+
+                        elif event_type == "input_audio_buffer.speech_stopped":
+                            await websocket.send_text(json.dumps({"type": "speech_stop"}))
+                            logger.info("🔇 语音结束")
+
+                            # ---- 识别完成辅助信号（不携带文本） ----
+                        elif event_type == "conversation.item.input_audio_transcription.completed":
+                            # 仅发送状态，不发送文本
+                            await websocket.send_text(json.dumps({"type": "transcription_completed"}))
+                            logger.info("✅ 识别任务完成")
+
+                        # ---- 错误事件 ----
+                        elif event_type == "error":
+                            error_obj = event.get("error")
+                            if isinstance(error_obj, dict):
+                                err_text = error_obj.get("message", "未知错误")
+                            else:
+                                err_text = str(error_obj) if error_obj else "未知错误"
+                            logger.error(f"❌ ASR 错误: {err_text}")
+                            await websocket.send_text(
+                                json.dumps({"type": "error", "text": f"ASR 错误: {err_text}"})
+                            )
+
+                    except Exception as e:
+                        import traceback
+                        logger.error(f"处理单条消息异常: {e}\n{traceback.format_exc()}")
+
+            except websockets.exceptions.ConnectionClosed as e:
+                logger.info(f"ASR 连接关闭: {e}")
+                try:
+                    await websocket.close(code=1000, reason="ASR 断开")
+                except:
+                    pass
+            except Exception as e:
+                logger.error(f"转发主循环异常: {e}")
+                try:
+                    await websocket.close(code=1011, reason="内部错误")
+                except:
+                    pass
+
+        async def forward_to_asr():
+            """前端 → ASR（音频流）"""
+            try:
+                while True:
+                    raw = await websocket.receive_text()
+                    data = json.loads(raw)
+                    msg_type = data.get("type")
+
+                    if msg_type == "audio":
+                        audio_b64 = data.get("data", "")
+                        if audio_b64:
+                            await asr_ws.send(
+                                json.dumps({"type": "input_audio_buffer.append", "audio": audio_b64})
+                            )
+                    elif msg_type == "commit":
+                        await asr_ws.send(json.dumps({"type": "input_audio_buffer.commit"}))
+                    elif msg_type == "ping":
+                        await websocket.send_text(json.dumps({"type": "pong"}))
+
+            except WebSocketDisconnect:
+                logger.info("前端 WebSocket 断开")
+            except Exception as e:
+                logger.error(f"音频转发异常: {e}")
+
+        import asyncio
+        # 并发执行双向转发
+        await asyncio.gather(
+            forward_to_frontend(),
+            forward_to_asr(),
+            return_exceptions=True
+        )
+
+    except Exception as e:
+        logger.error(f"WebSocket 处理异常: {e}")
+        try:
+            await websocket.send_text(json.dumps({"type": "error", "text": f"服务异常: {e}"}))
+        except:
+            pass
+    finally:
+        if asr_ws:
+            await asr_ws.close()
+        try:
+            await websocket.close()
+        except:
+            pass
+        logger.info("🔌 连接已关闭")
+
+
+@mz_router.post("/api/generate-report")
+async def generate_report(request: AsrRequest):
+    # 可以校验窗口是否存在，或直接推送
+    # data = ai_tool.call_ai_for_patient(request.text)
+    data = f"""
+        ---
+        ## 核心角色与任务设定
+        
+        你是一名心脏超声质控专家。
+        
+        你的核心任务为以下工作：
+        1. 识别文本中的患者超声测量数值，然后填充到标准表格模版中 （最终返回Markdown表格内容 ）
+        2. 基于测量的患者数值，予以患者情况分析，输出超声报告
+        
+        标准表格模版 - Markdown表格模板（可直接复制到支持Markdown的编辑器）：
+        
+        ```markdown
+        | 项目 | 参考范围 | 检查值 | 状态 |
+        |------|----------|--------|------|
+        | **一、腔室内径（mm）** | | | |
+        | 左房前后径 | 25-40 | ___ | ___ |
+        | 左房容积 | — | ___ ml | ___ |
+        | 主动脉瓣环 | — | ___ mm | ___ |
+        | 升主动脉内径 | — | ___ mm | ___ |
+        | 右室前后径 | 16-30 | ___ mm | ___ |
+        | 主肺动脉径 | 16-30 | ___ mm | ___ |
+        | 左室舒张期内径 | 女≤50 / 男≤55 | ___ mm | ___ |
+        | 左室收缩期内径 | — | ___ mm | ___ |
+        | **二、室壁厚度及运动（mm）** | | | |
+        | 室间隔厚度 | 8-12 | ___ | ___ |
+        | 室间隔运动幅度 | — | ___ | ___ |
+        | 左室后壁厚度 | — | ___ | ___ |
+        | 左室后壁运动幅度 | — | ___ | ___ |
+        | **三、血流动力学参数** | | | |
+        | 主动脉流速 | — | ___ m/s | ___ |
+        | 肺动脉流速 | — | ___ m/s | ___ |
+        | 二尖瓣E峰 | — | ___ m/s | ___ |
+        | 二尖瓣A峰 | — | ___ m/s | ___ |
+        | 二尖瓣环间隔侧e | — | ___ cm/s | ___ |
+        | 二尖瓣环侧壁侧e | — | ___ cm/s | ___ |
+        | E/e" | — | ___ | ___ |
+        | 三尖瓣反流流速 | — | ___ m/s | ___ |
+        | 三尖瓣反流压差 | — | ___ mmHg | ___ |
+        | 估测肺动脉收缩压 | — | ___ mmHg | ___ |
+        | **四、心功能参数** | | | |
+        | 左室舒张期容积 | — | ___ ml | ___ |
+        | 左室收缩期容积 | — | ___ ml | ___ |
+        | 左室射血分数（LVEF） | 50-80% | ___ % | ___ |
+        | 左室短轴缩短率 | — | ___ % | ___ |
+        | 每搏输出量 | — | ___ ml | ___ |
+        | 每分钟输出量 | — | ___ L/min | ___ |
+        | 即时心率 | — | ___ bpm | ___ |
+        | **五、结构描述** | | | |
+        | 双房及左室 | — | ___ | ___ |
+        | 左室壁运动 | — | ___ | ___ |
+        | 房室间隔 | — | ___ | ___ |
+        | 心内瓣膜 | — | ___ | ___ |
+        | 大动脉 | — | ___ | ___ |
+        ```
+        ---
+        **以下是患者情况，以及患者超声测量结果**
+        {request.text}
+        """
+
+    if not data:
+        return {
+            'success': False,
+            'report': None
+        }
+    return {
+        'success': True,
+        'report': data
+    }
+

@@ -24,3 +24,10 @@ class CompleteRequest(BaseModel):
 class SkipRequest(BaseModel):
     queue_number: str
     reason: str = "过号"
+
+class AsrRequest(BaseModel):
+    text: str
+    content: str
+    examType: str
+    examPart: str
+
