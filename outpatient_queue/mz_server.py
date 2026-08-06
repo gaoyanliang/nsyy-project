@@ -696,7 +696,6 @@ ASR_WS_URL = (
 
 @mz_router.websocket("/ws/transcribe")
 async def websocket_transcribe(websocket: WebSocket):
-    print('------------')
     await websocket.accept()
     logger.info("✅ 前端 WebSocket 连接已建立")
 
@@ -729,7 +728,7 @@ async def websocket_transcribe(websocket: WebSocket):
             },
         }
         await asr_ws.send(json.dumps(session_config))
-        logger.info("📋 已发送会话配置")
+        logger.debug("📋 已发送会话配置")
 
         # ---------- 消息转发函数 ----------
         async def forward_to_frontend():
@@ -742,7 +741,7 @@ async def websocket_transcribe(websocket: WebSocket):
                             continue
 
                         event_type = event.get("type", "")
-                        logger.info(f"📨 ASR 事件 {event_type}: {event}")
+                        logger.debug(f"📨 ASR 事件 {event_type}: {event}")
 
                         # ---- 实时增量（逐字） ----
                         if event_type == "response.text.delta":
@@ -757,42 +756,29 @@ async def websocket_transcribe(websocket: WebSocket):
                         elif event_type == "response.text.done":
                             text = event.get("text", "")
                             if text:
-                                await websocket.send_text(
-                                    json.dumps({"type": "final", "text": text})
-                                )
-                                logger.info(f"📝 final (text.done): {text[:50]}...")
+                                await websocket.send_text(json.dumps({"type": "final", "text": text}))
+                                logger.debug(f"📝 final (text.done): {text[:50]}...")
 
-                        # # ---- 最终完整文本（途径2） ----
-                        # elif event_type == "conversation.item.input_audio_transcription.completed":
-                        #     transcript = event.get("transcript", "")
-                        #     if transcript:
-                        #         await websocket.send_text(
-                        #             json.dumps({"type": "final", "text": transcript})
-                        #         )
-                        #         logger.info(f"📝 final (transcription): {transcript[:50]}...")
-                        #
                         # ---- 另一种中间结果（可能包含 stash） ----
                         elif event_type == "conversation.item.input_audio_transcription.delta":
                             stash = event.get("stash", "")
                             if stash:
-                                await websocket.send_text(
-                                    json.dumps({"type": "stash", "text": stash})
-                                )
+                                await websocket.send_text(json.dumps({"type": "stash", "text": stash}))
 
                         # ---- 语音开始 / 停止 ----
                         elif event_type == "input_audio_buffer.speech_started":
                             await websocket.send_text(json.dumps({"type": "speech_start"}))
-                            logger.info("🎤 语音开始")
+                            logger.debug("🎤 语音开始")
 
                         elif event_type == "input_audio_buffer.speech_stopped":
                             await websocket.send_text(json.dumps({"type": "speech_stop"}))
-                            logger.info("🔇 语音结束")
+                            logger.debug("🔇 语音结束")
 
                             # ---- 识别完成辅助信号（不携带文本） ----
                         elif event_type == "conversation.item.input_audio_transcription.completed":
                             # 仅发送状态，不发送文本
                             await websocket.send_text(json.dumps({"type": "transcription_completed"}))
-                            logger.info("✅ 识别任务完成")
+                            logger.debug("✅ 识别任务完成")
 
                         # ---- 错误事件 ----
                         elif event_type == "error":
@@ -805,13 +791,11 @@ async def websocket_transcribe(websocket: WebSocket):
                             await websocket.send_text(
                                 json.dumps({"type": "error", "text": f"ASR 错误: {err_text}"})
                             )
-
                     except Exception as e:
-                        import traceback
-                        logger.error(f"处理单条消息异常: {e}\n{traceback.format_exc()}")
+                        logger.error(f"处理单条消息异常: {e}")
 
             except websockets.exceptions.ConnectionClosed as e:
-                logger.info(f"ASR 连接关闭: {e}")
+                logger.debug(f"ASR 连接关闭: {e}")
                 try:
                     await websocket.close(code=1000, reason="ASR 断开")
                 except:
@@ -843,7 +827,7 @@ async def websocket_transcribe(websocket: WebSocket):
                         await websocket.send_text(json.dumps({"type": "pong"}))
 
             except WebSocketDisconnect:
-                logger.info("前端 WebSocket 断开")
+                logger.debug("前端 WebSocket 断开")
             except Exception as e:
                 logger.error(f"音频转发异常: {e}")
 
