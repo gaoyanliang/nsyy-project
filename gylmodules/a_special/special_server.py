@@ -51,7 +51,7 @@ def query_medical_page_update_record():
     if not redis_client.set(f"patient_dip_query_lock", 1, ex=20*60, nx=True):
         raise Exception("正在获取数据，大概需要10-20分钟，请稍后重试")
 
-    sql = """select zb.bingrenzyid, zb.xingming, zb.dangqianksmc, zb.zhuyuanysxm, zb.ruyuanrq ,
+    sql = """select zb.bingrenzyid, zb.xingming, zb.dangqianksmc, zb.zhuyuanysxm, zb.ruyuanrq , zb.zaiyuanzt, 
 	(select string_agg(zz.zhenduanmc || '-' || zz.icd10 , '、' order by shunxuhao) from df_jj_zhuyuan.zy_zhenduanzl zz
 	where zz.zuofeibz = '0'
 		and zb.yiliaolbmc <> '生育住院'
@@ -117,6 +117,7 @@ where
         item['zhuyuanysxm'] = item.get('zhuyuanysxm', '')
         item['ruyuanrq'] = item.get('ruyuanrq')
         item['zhenduan'] = item.get('zhenduan', '')
+        item['zaiyuanzt'] = item.get('zaiyuanzt', 0)
 
         redis_client.hset('dip_patients', item.get('bingrenzyid'), json.dumps(item, ensure_ascii=False, default=str))
         # redis_client.hset('all_dip_patients', item.get('bingrenzyid'), json.dumps(item, ensure_ascii=False, default=str))
@@ -314,7 +315,7 @@ def query_all_dip_record():
     if not redis_client.set(f"all_dip_query_lock", 1, ex=20*60, nx=True):
         raise Exception("正在获取数据，大概需要10-20分钟，请稍后重试")
 
-    sql = """select zb.bingrenzyid, zb.xingming, zb.dangqianksmc, zb.zhuyuanysxm, zb.ruyuanrq ,
+    sql = """select zb.bingrenzyid, zb.xingming, zb.dangqianksmc, zb.zhuyuanysxm, zb.ruyuanrq , zb.zaiyuanzt, 
 	(select string_agg(zz.zhenduanmc || '-' || zz.icd10 , '、' order by shunxuhao) from df_jj_zhuyuan.zy_zhenduanzl zz
 	where zz.zuofeibz = '0'
 		and zz.zhenduanlb like '13%'
@@ -362,6 +363,7 @@ def query_all_dip_record():
         item['zhuyuanysxm'] = item.get('zhuyuanysxm', '')
         item['ruyuanrq'] = item.get('ruyuanrq')
         item['zhenduan'] = item.get('zhenduan', '')
+        item['zaiyuanzt'] = item.get('zaiyuanzt', 0)
 
         redis_client.hset('all_dip_patients', item.get('bingrenzyid'), json.dumps(item, ensure_ascii=False, default=str))
 

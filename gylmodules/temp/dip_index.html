@@ -101,10 +101,11 @@ tr:hover {
 
 /* 针对每一列指定宽度（示例，根据你的实际列顺序） */
 .col-id          { width: 100px; }   /* 病人住院ID：固定宽度够用 */
-.col-name        { width: 90px; }    /* 姓名：短 */
+.col-name        { width: 190px; }    /* 姓名：短 */
 
 .col-rq        { width: 90px; }    /* 姓名：短 */
-.col-doc        { width: 90px; }    /* 姓名：短 */
+.col-doc        { width: 190px; }    /* 姓名：短 */
+.col-zaiyuanzt        { width: 190px; }    /* 姓名：短 */
 .col-diagnosis1        { width: 90px; }    /* 姓名：短 */
 
 
@@ -351,6 +352,7 @@ tr.updated.fade {
                         <th class="col-name">姓名</th>
                         <th class="col-dept">科室</th>
                         <th class="col-doc">住院医师</th>
+                        <th class="col-zaiyuanzt">在院状态</th>
                         <th class="col-diagnosis1">HIS诊断</th>
                         <th class="col-diagnosis">DIP诊断</th>
                         <th class="col-group">DIP分组</th>
@@ -382,6 +384,7 @@ tr.updated.fade {
                         <th class="col-name">姓名</th>
                         <th class="col-dept">科室</th>
                         <th class="col-doc">住院医师</th>
+                        <th class="col-zaiyuanzt">在院状态</th>
                         <th class="col-diagnosis1">HIS诊断</th>
                         <th class="col-diagnosis">DIP诊断</th>
                         <th class="col-group">DIP分组</th>
@@ -630,6 +633,12 @@ function renderModifiedRow(p) {
     const cls = p.profitLoss >= 0 ? 'profit' : 'loss';
      // 构造详情页 URL，gl_wybs 替换为 patientId
     const detailUrl = `http://192.168.9.26//ast/?source=doctor&gl_wybs=${p.patientId}&user_id=DBA`;
+    const statusMap = {
+        '0': '在院',
+        '1': '预出院',
+        '2': '出院'
+    };
+    const statusText = statusMap[p.zaiyuanzt] || '未知';
 
     return `
         <tr>
@@ -638,6 +647,7 @@ function renderModifiedRow(p) {
             <td>${p.patientName}</td>
             <td>${p.patientDept}</td>
             <td>${p.zhuyuanysxm}</td>
+            <td>${statusText}</td>
             <td>${p.zhenduan}</td>
             <td>${p.dip_zhenduan}</td>
             <td>${p.groupName}</td>
@@ -729,6 +739,7 @@ function exportModified() {
         '姓名',
         '科室',
         '住院医师',
+        '在院状态 0=在院 1=预出院 2=出院',
         'HIS诊断',
         'DIP诊断',
         'DIP分组',
@@ -745,6 +756,7 @@ function exportModified() {
         p.patientName ?? '',
         p.patientDept ?? '',
         p.zhuyuanysxm ?? '',
+        p.zaiyuanzt ?? '',
         p.zhenduan ?? '',
         p.dip_zhenduan ?? '',
         p.groupName ?? '',
@@ -772,6 +784,7 @@ function exportAll() {
         '姓名',
         '科室',
         '住院医师',
+        '在院状态 0=在院 1=预出院 2=出院',
         'HIS诊断',
         'DIP诊断',
         'DIP分组',
@@ -788,6 +801,7 @@ function exportAll() {
         p.patientName ?? '',
         p.patientDept ?? '',
         p.zhuyuanysxm ?? '',
+        p.zaiyuanzt ?? '',
         p.zhenduan ?? '',
         p.dip_zhenduan ?? '',
         p.groupName ?? '',
