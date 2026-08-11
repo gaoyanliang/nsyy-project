@@ -274,7 +274,7 @@ async function loadQueueStatus() {
 }
 
 function showError() {
-    updateCurrentCallDisplay('---', '系统维护中');
+    updateCurrentCallDisplay('---', '等待叫号');
 }
 
 // ==================== 更新显示 - 增量更新（无数据真空期） ====================

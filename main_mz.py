@@ -3,8 +3,10 @@ import logging
 import os
 import uuid
 import threading
+from contextlib import asynccontextmanager
 from datetime import datetime, date
 
+from apscheduler.schedulers.background import BackgroundScheduler
 from starlette.middleware.base import BaseHTTPMiddleware
 from starlette.responses import JSONResponse
 
@@ -29,7 +31,7 @@ from fastapi import Request
 import uvicorn
 
 # ---------- 导入 FastAPI 应用 ----------
-from outpatient_queue.mz_server import mz_router
+from outpatient_queue.mz_server import mz_router, pacs_indicator_data_task
 
 
 class RequestIDMiddleware(BaseHTTPMiddleware):
@@ -67,7 +69,21 @@ class RequestIDMiddleware(BaseHTTPMiddleware):
 
 
 # ====================== FastAPI 应用 ======================
-app = FastAPI(title="南阳南石医院")
+# 2. 使用 lifespan 管理调度器生命周期
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    # --- 启动时执行 ---
+    scheduler = BackgroundScheduler()
+    # 添加任务：每 3 秒执行一次
+    scheduler.add_job(pacs_indicator_data_task, 'interval', seconds=60)
+    scheduler.start()
+    logger.info("调度器已启动")
+    yield
+    # --- 关闭时执行 ---
+    scheduler.shutdown()
+    logger.info("调度器已关闭")
+
+app = FastAPI(title="南阳南石医院", lifespan=lifespan)
 
 # 中间件（RequestID + CORS）
 app.add_middleware(RequestIDMiddleware)
