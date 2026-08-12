@@ -50,6 +50,10 @@ let isInitializing = true;        // 初始化阶段，下拉框事件忽略
 let isSwitching = false;          // 切换窗口锁
 let isClosing = false;            // 主动关闭 ws，防止 onclose 重连
 
+// 在文件顶部增加心跳定时器变量
+let heartbeatTimer = null;
+let lastMessageTime = Date.now();
+let watchdogTimer = null;
 
 // ==================== 辅助函数：标准化API响应 ====================
 function normalizeQueueStatus(rawData) {
@@ -205,6 +209,10 @@ async function switchWindow(windowId) {
             clearInterval(refreshTimer);
             refreshTimer = null;
         }
+        if (heartbeatTimer) {
+            clearInterval(heartbeatTimer);
+            heartbeatTimer = null;
+        }
         if (ws) {
             ws.close();
             ws = null;
@@ -243,7 +251,7 @@ async function switchWindow(windowId) {
         // 7. 延迟一帧创建 WebSocket 和自动刷新
         requestAnimationFrame(() => {
             // 在创建新连接前，重置主动关闭标志（因为新连接不再是主动关闭）
-            isClosing = false;
+            // isClosing = false;
             initWebSocket();
             startAutoRefresh();
         });
@@ -336,28 +344,65 @@ function escapeHtml(str) {
 
 // ==================== WebSocket ====================
 function initWebSocket() {
+    // 重置主动关闭标志（因为新连接）
+    isClosing = false;
     // 如果已经存在打开的 ws，先关闭（但通常调用前已关闭）
     if (ws && ws.readyState === WebSocket.OPEN) {
         ws.close();
         ws = null;
     }
-
-    // 重置主动关闭标志（因为新连接）
-    isClosing = false;
+    // 清除旧的心跳定时器，防止切换窗口时残留
+    if (heartbeatTimer) {
+        clearInterval(heartbeatTimer);
+        heartbeatTimer = null;
+    }
 
     ws = new WebSocket(`${WS_URL}/ws/window/${currentWindowId}`);
 
     ws.onopen = () => {
         console.log('WebSocket连接成功');
+        // 1. 开启心跳定时器（15秒间隔）
+        heartbeatTimer = setInterval(() => {
+            if (ws && ws.readyState === WebSocket.OPEN) {
+                try {
+                    // 发送心跳，注意格式：如果后端只认 'ping' 字符串则发字符串，若认 JSON 则改
+                    ws.send('ping');
+                    console.log('心跳 ping 发送');
+                } catch (e) {
+                    console.warn('发送心跳异常', e);
+                }
+            } else {
+                // 如果连接已断开，清除定时器，避免内存泄露
+                clearInterval(heartbeatTimer);
+                heartbeatTimer = null;
+            }
+        }, 15000); // 15秒
+
         try {
             ws.send(JSON.stringify({ action: 'get_status' }));
         } catch(e) {
             ws.send('get_status');
         }
+
+        // 在 initWebSocket 的 onopen 末尾添加：
+        watchdogTimer = setInterval(() => {
+            if (ws && ws.readyState === WebSocket.OPEN) {
+                const now = Date.now();
+                // 如果超过 30 秒没有收到任何消息（包括 Pong），认为连接已死
+                if (now - lastMessageTime > 30000) {
+                    console.warn('WebSocket 长时间未收到消息，强制重连');
+                    isClosing = false; // 确保重连
+                    ws.close(); // 触发 onclose 重连
+                    clearInterval(watchdogTimer);
+                    watchdogTimer = null;
+                }
+            }
+        }, 5000);
+
     };
 
-
     ws.onmessage = (event) => {
+        lastMessageTime = Date.now(); // 新增这一行
         console.log('=== 收到原始 WebSocket 消息 ===', event.data);  // 新增
         // 处理 pong
         if (event.data === 'pong') {
