@@ -281,6 +281,9 @@ async function switchWindow(windowId) {
 
     // 更新按钮可见性
     updatePharmacyButtonVisibility(windowId);
+
+    // 切换窗口后 加载历史记录
+    await loadHistory();
 }
 
 function updatePharmacyButtonVisibility(windowId) {
@@ -784,6 +787,8 @@ async function completeService() {
                     console.log('自动叫号跳过：已有请求进行中或已有服务');
                 }
             }, 500);
+
+            loadHistory(); // 新增
         }
     } catch (error) {
         console.log('完成服务失败：网络错误');
@@ -929,6 +934,84 @@ async function playVoice(queueNumber, patientName) {
     }
 }
 
+// ==================== 历史记录加载 ====================
+async function loadHistory() {
+    try {
+        const response = await fetch(`${API_BASE}/api/queue/history/${currentWindowId}`);
+        if (response.ok) {
+            const data = await response.json();
+            updateHistoryList(data.history || []);
+        } else {
+            console.warn('加载历史记录失败，使用空数据');
+            updateHistoryList([]);
+        }
+    } catch (error) {
+        console.error('历史记录加载异常:', error);
+        updateHistoryList([]);
+    }
+}
+
+function updateHistoryList(historyItems) {
+    const container = document.getElementById('historyList');
+    const countSpan = document.getElementById('historyCount');
+    if (!container) return;
+
+    // 更新计数
+    if (countSpan) {
+        countSpan.textContent = `共 ${historyItems.length} 人`;
+    }
+
+    // 清空容器，保留空状态样式（用于无数据时）
+    container.innerHTML = '';
+
+    if (!historyItems || historyItems.length === 0) {
+        container.innerHTML = `
+            <div class="empty-state">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="40" height="40">
+                    <circle cx="12" cy="12" r="10"/>
+                    <line x1="12" y1="8" x2="12" y2="12"/>
+                    <line x1="12" y1="16" x2="12.01" y2="16"/>
+                </svg>
+                <span>暂无已服务患者</span>
+            </div>
+        `;
+        return;
+    }
+
+    // 按服务时间倒序排列（最新的在前）
+    const sorted = [...historyItems].sort((a, b) => {
+        return new Date(b.service_time) - new Date(a.service_time);
+    });
+
+    const fragment = document.createDocumentFragment();
+    sorted.forEach(item => {
+        const div = document.createElement('div');
+        div.className = 'history-item'; // 自定义样式，稍后在 CSS 中补充
+
+        const statusText = item.status === 'completed' ? '已完成' : '已过号';
+        const statusClass = item.status === 'completed' ? 'status-completed' : 'status-skipped';
+
+        div.innerHTML = `
+            <div class="history-info">
+                <span class="history-number">${item.queue_number}</span>
+                <span class="history-name">${item.patient_name || '患者'}</span>
+                <span class="history-biz">${item.business_name || '通用业务'}</span>
+                <span class="history-status ${statusClass}">${statusText}</span>
+            </div>
+            <span class="history-time">${item.service_time}</span>
+        `;
+        fragment.appendChild(div);
+    });
+    container.appendChild(fragment);
+}
+
+// 辅助：格式化时间
+function formatTime(dateString) {
+    if (!dateString) return '--:--';
+    const date = new Date(dateString);
+    return date.toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' });
+}
+
 
 
 // ==================== 日志 ====================
@@ -973,3 +1056,4 @@ function startAutoRefresh() {
 // ==================== 导出全局函数 ====================
 window.callNext = callNext;
 window.callSpecific = callSpecific;
+window.loadHistory = loadHistory;
