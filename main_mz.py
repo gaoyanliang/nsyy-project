@@ -31,7 +31,7 @@ from fastapi import Request
 import uvicorn
 
 # ---------- 导入 FastAPI 应用 ----------
-from outpatient_queue.mz_server import mz_router, pacs_indicator_data_task
+from outpatient_queue.mz_server import mz_router, pacs_indicator_data_task, pacs_auto_report_task_check
 
 
 class RequestIDMiddleware(BaseHTTPMiddleware):
@@ -76,6 +76,7 @@ async def lifespan(app: FastAPI):
     scheduler = BackgroundScheduler()
     # 添加任务：每 3 秒执行一次
     scheduler.add_job(pacs_indicator_data_task, 'interval', seconds=60)
+    scheduler.add_job(pacs_auto_report_task_check, 'interval', seconds=300)
     scheduler.start()
     logger.info("调度器已启动")
     yield
@@ -151,5 +152,5 @@ def startup_event():
 
 # ====================== 启动入口 ======================
 if __name__ == "__main__":
-    uvicorn.run("mz_main:app", host='0.0.0.0', port=8081 if global_config.run_in_local else 6094, access_log=False, reload=False)
+    uvicorn.run("main_mz:app", host='0.0.0.0', port=8081 if global_config.run_in_local else 6094, access_log=False, reload=False)
 
