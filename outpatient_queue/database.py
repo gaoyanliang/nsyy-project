@@ -230,8 +230,10 @@ class DatabaseManager:
             total_sec_map = {}
             for row in completed_rows:
                 bt = row['business_id']
-                completed_map[bt] = row['cnt'] or 0
-                total_sec_map[bt] = row['total_sec'] or 0
+                # 确保 count 为 int（虽然大概率已是 int，但安全起见）
+                completed_map[bt] = int(row['cnt']) if row['cnt'] is not None else 0
+                # 显式将 total_sec 转为 int，处理 None 情况
+                total_sec_map[bt] = int(row['total_sec']) if row['total_sec'] is not None else 0
 
             # 获取所有可能出现的业务类型（从 BUSINESS_TYPES 中提取唯一的 type）
             all_business_ids = set()
@@ -835,6 +837,20 @@ class DatabaseManager:
             else:
                 cursor.execute("""SELECT * FROM hqs_queue_records WHERE status = %s AND queue_date = %s
                     ORDER BY create_time ASC """, (status, datetime.now().strftime('%Y%m%d')))
+            return cursor.fetchall()
+        finally:
+            cursor.close()
+            conn.close()
+
+    def get_history_list(self, window_id: int) -> List[Dict]:
+        if not window_id:
+            return []
+        conn = self.get_connection()
+        try:
+            cursor = conn.cursor(dictionary=True, buffered=True)
+            cursor.execute(f"""SELECT queue_number, status, patient_name, business_name, create_time, complete_time, skip_time 
+                                FROM hqs_queue_records WHERE window_id = {window_id} and status in ('completed', 'skipped') 
+                                AND queue_date = '{datetime.now().strftime('%Y%m%d')}' ORDER BY create_time DESC """)
             return cursor.fetchall()
         finally:
             cursor.close()

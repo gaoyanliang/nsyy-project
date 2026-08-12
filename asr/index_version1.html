@@ -1,0 +1,2047 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>医疗语音转写与报告生成系统</title>
+    <style>
+        :root {
+            --primary: #1a6fb5;
+            --primary-dark: #155a8f;
+            --primary-light: #e8f3fb;
+            --danger: #d14343;
+            --danger-light: #fde8e8;
+            --success: #2d8a56;
+            --success-light: #e6f4ec;
+            --warning: #c0792b;
+            --warning-light: #fdf3e7;
+            --bg: #f5f6f8;
+            --surface: #ffffff;
+            --surface-alt: #f9fafb;
+            --border: #e2e5ea;
+            --border-light: #eef0f3;
+            --text: #1a1d23;
+            --text-secondary: #5f6570;
+            --text-muted: #949aa5;
+            --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.04);
+            --shadow: 0 2px 8px rgba(0, 0, 0, 0.07), 0 1px 3px rgba(0, 0, 0, 0.05);
+            --shadow-lg: 0 8px 30px rgba(0, 0, 0, 0.10), 0 3px 8px rgba(0, 0, 0, 0.06);
+            --radius-sm: 6px;
+            --radius: 10px;
+            --radius-lg: 14px;
+            --transition: 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+            --font-mono: 'SF Mono', 'Cascadia Code', 'Consolas', 'Monaco', 'PingFang SC', monospace;
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        html {
+            font-size: 15px;
+            scroll-behavior: smooth;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'PingFang SC', 'Microsoft YaHei', 'Helvetica Neue', sans-serif;
+            background: var(--bg);
+            color: var(--text);
+            line-height: 1.6;
+            min-height: 100vh;
+            -webkit-font-smoothing: antialiased;
+            -moz-osx-font-smoothing: grayscale;
+        }
+
+        .app-header {
+            background: var(--surface);
+            border-bottom: 1px solid var(--border);
+            padding: 0 24px;
+            height: 56px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            position: sticky;
+            top: 0;
+            z-index: 100;
+            box-shadow: var(--shadow-sm);
+        }
+
+        .logo-area {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+
+        .logo-icon {
+            width: 36px;
+            height: 36px;
+            background: linear-gradient(135deg, var(--primary), #2196F3);
+            border-radius: var(--radius-sm);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: #fff;
+            font-size: 18px;
+            flex-shrink: 0;
+        }
+
+        .logo-text {
+            font-size: 1rem;
+            font-weight: 700;
+            color: var(--text);
+            letter-spacing: -0.01em;
+            white-space: nowrap;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+
+        .logo-subtitle {
+            font-size: 0.75rem;
+            color: var(--text-muted);
+            font-weight: 400;
+        }
+
+        .header-actions {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .header-badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            font-size: 0.75rem;
+            padding: 5px 12px;
+            border-radius: 20px;
+            font-weight: 500;
+            white-space: nowrap;
+        }
+
+        .header-badge.online {
+            background: var(--success-light);
+            color: var(--success);
+        }
+
+        .header-badge.offline {
+            background: var(--danger-light);
+            color: var(--danger);
+        }
+
+        .header-badge.recording {
+            background: var(--danger-light);
+            color: var(--danger);
+            animation: blink-badge 1s ease-in-out infinite;
+        }
+
+        @keyframes blink-badge {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.45; }
+        }
+
+        .header-badge .dot {
+            width: 7px;
+            height: 7px;
+            border-radius: 50%;
+            display: inline-block;
+        }
+
+        .header-badge.online .dot,
+        .header-badge.recording .dot {
+            background: var(--success);
+            animation: pulse-dot 2s infinite;
+        }
+
+        .header-badge.recording .dot {
+            background: var(--danger);
+        }
+
+        @keyframes pulse-dot {
+            0%, 100% { box-shadow: 0 0 0 0 rgba(45, 138, 86, 0.5); }
+            50% { box-shadow: 0 0 0 8px rgba(45, 138, 86, 0); }
+        }
+
+        .cache-clear-btn {
+            font-size: 0.72rem;
+            padding: 3px 10px;
+            border-radius: 12px;
+            border: 1px solid #d0d5db;
+            background: #fff;
+            color: var(--text-muted);
+            cursor: pointer;
+            margin-left: 8px;
+            transition: all 0.2s;
+            font-family: inherit;
+            display: inline-flex;
+            align-items: center;
+            gap: 4px;
+        }
+
+        .cache-clear-btn:hover {
+            background: #fee2e2;
+            border-color: #fecaca;
+            color: #dc2626;
+        }
+
+        .main-container {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 20px;
+            padding: 20px 24px;
+            max-width: 1440px;
+            margin: 0 auto;
+            min-height: calc(100vh - 56px - 48px);
+        }
+
+        .panel {
+            background: var(--surface);
+            border-radius: var(--radius-lg);
+            box-shadow: var(--shadow);
+            padding: 24px;
+            display: flex;
+            flex-direction: column;
+            gap: 18px;
+            transition: box-shadow var(--transition);
+            height: fit-content;
+        }
+
+        .panel:hover {
+            box-shadow: var(--shadow-lg);
+        }
+
+        .panel-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 12px;
+            flex-shrink: 0;
+        }
+
+        .panel-title {
+            font-size: 0.95rem;
+            font-weight: 700;
+            color: var(--text);
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            letter-spacing: -0.01em;
+        }
+
+        .panel-title .icon {
+            width: 28px;
+            height: 28px;
+            border-radius: var(--radius-sm);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 15px;
+            flex-shrink: 0;
+        }
+
+        .icon-blue {
+            background: var(--primary-light);
+            color: var(--primary);
+        }
+
+        .icon-green {
+            background: var(--success-light);
+            color: var(--success);
+        }
+
+        .icon-red {
+            background: var(--danger-light);
+            color: var(--danger);
+        }
+
+        .panel-badge {
+            font-size: 0.7rem;
+            padding: 4px 10px;
+            border-radius: 12px;
+            font-weight: 600;
+            letter-spacing: 0.02em;
+        }
+
+        .badge-recording {
+            background: var(--danger-light);
+            color: var(--danger);
+            animation: blink-badge 1s ease-in-out infinite;
+        }
+
+        .badge-idle {
+            background: #f0f1f3;
+            color: var(--text-muted);
+        }
+
+        .badge-generating {
+            background: #fff8e1;
+            color: #c79100;
+            animation: blink-badge 1.2s ease-in-out infinite;
+        }
+
+        .form-row {
+            display: flex;
+            gap: 12px;
+            flex-wrap: wrap;
+        }
+
+        .form-group {
+            display: flex;
+            flex-direction: column;
+            gap: 5px;
+            flex: 1;
+            min-width: 100px;
+        }
+
+        .form-group label {
+            font-size: 0.75rem;
+            font-weight: 600;
+            color: var(--text-secondary);
+            letter-spacing: 0.02em;
+            text-transform: uppercase;
+            white-space: nowrap;
+        }
+
+        .form-group input,
+        .form-group select {
+            height: 38px;
+            padding: 0 11px;
+            border: 1.5px solid var(--border);
+            border-radius: var(--radius-sm);
+            font-size: 0.875rem;
+            font-family: inherit;
+            color: var(--text);
+            background: var(--surface-alt);
+            transition: all var(--transition);
+            width: 100%;
+            outline: none;
+        }
+
+        .form-group input:focus,
+        .form-group select:focus {
+            border-color: var(--primary);
+            box-shadow: 0 0 0 3px rgba(26, 111, 181, 0.08);
+            background: #fff;
+        }
+
+        .form-group input::placeholder {
+            color: #c0c5cc;
+        }
+
+        .form-group select {
+            cursor: pointer;
+            appearance: none;
+            -webkit-appearance: none;
+            background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%23949aa5' stroke-width='2'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E");
+            background-repeat: no-repeat;
+            background-position: right 10px center;
+            padding-right: 30px;
+        }
+
+        .voice-section {
+            background: var(--surface-alt);
+            border-radius: var(--radius);
+            padding: 20px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 16px;
+            border: 2px dashed var(--border);
+            transition: all var(--transition);
+            position: relative;
+            flex-shrink: 0;
+        }
+
+        .voice-section.recording {
+            border-color: var(--danger);
+            background: #fffbfb;
+            box-shadow: 0 0 0 6px rgba(209, 67, 67, 0.04);
+        }
+
+        .voice-section.recording .voice-hint {
+            color: var(--danger);
+        }
+
+        .voice-btn-wrap {
+            position: relative;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 16px;
+        }
+
+        .voice-btn {
+            width: 72px;
+            height: 72px;
+            border-radius: 50%;
+            border: none;
+            cursor: pointer;
+            font-size: 30px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: all var(--transition);
+            position: relative;
+            z-index: 2;
+            background: var(--primary);
+            color: #fff;
+            box-shadow: 0 4px 16px rgba(26, 111, 181, 0.3);
+            outline: none;
+            -webkit-tap-highlight-color: transparent;
+        }
+
+        .voice-btn:hover {
+            background: var(--primary-dark);
+            box-shadow: 0 6px 22px rgba(26, 111, 181, 0.4);
+            transform: translateY(-1px);
+        }
+
+        .voice-btn:active {
+            transform: scale(0.94);
+            transition: transform 0.1s;
+        }
+
+        .voice-btn.recording {
+            background: var(--danger);
+            box-shadow: 0 4px 20px rgba(209, 67, 67, 0.4);
+            animation: pulse-rec 1.5s ease-in-out infinite;
+        }
+
+        .voice-btn.recording:hover {
+            background: #b83838;
+            box-shadow: 0 6px 26px rgba(209, 67, 67, 0.5);
+        }
+
+        @keyframes pulse-rec {
+            0%, 100% { box-shadow: 0 4px 20px rgba(209, 67, 67, 0.4), 0 0 0 0 rgba(209, 67, 67, 0.25); }
+            50% { box-shadow: 0 4px 20px rgba(209, 67, 67, 0.4), 0 0 0 18px rgba(209, 67, 67, 0); }
+        }
+
+        .voice-btn:disabled {
+            background: #c8cdd4;
+            cursor: not-allowed;
+            box-shadow: none;
+            transform: none;
+        }
+
+        .voice-btn:disabled:hover {
+            background: #c8cdd4;
+            box-shadow: none;
+            transform: none;
+        }
+
+        .stop-btn {
+            width: 56px;
+            height: 56px;
+            border-radius: 50%;
+            border: none;
+            cursor: pointer;
+            font-size: 22px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: all var(--transition);
+            background: var(--danger);
+            color: #fff;
+            box-shadow: 0 4px 12px rgba(209, 67, 67, 0.3);
+            outline: none;
+            -webkit-tap-highlight-color: transparent;
+        }
+
+        .stop-btn:hover {
+            background: #b83838;
+            box-shadow: 0 6px 18px rgba(209, 67, 67, 0.4);
+            transform: translateY(-1px);
+        }
+
+        .stop-btn:active {
+            transform: scale(0.94);
+            transition: transform 0.1s;
+        }
+
+        .stop-btn:disabled {
+            background: #c8cdd4;
+            cursor: not-allowed;
+            box-shadow: none;
+            transform: none;
+        }
+
+        .stop-btn:disabled:hover {
+            background: #c8cdd4;
+            box-shadow: none;
+            transform: none;
+        }
+
+        .voice-ring {
+            position: absolute;
+            width: 72px;
+            height: 72px;
+            border-radius: 50%;
+            border: 2px solid transparent;
+            z-index: 1;
+            pointer-events: none;
+            transition: all 0.3s;
+        }
+
+        .voice-ring.recording {
+            border-color: rgba(209, 67, 67, 0.3);
+            animation: ring-expand 1.5s ease-out infinite;
+        }
+
+        @keyframes ring-expand {
+            0% { width: 72px; height: 72px; opacity: 0.7; }
+            100% { width: 120px; height: 120px; opacity: 0; }
+        }
+
+        .voice-hint {
+            font-size: 0.8rem;
+            color: var(--text-muted);
+            text-align: center;
+            font-weight: 500;
+            min-height: 20px;
+            transition: color var(--transition);
+        }
+
+        .voice-timer {
+            font-size: 1.1rem;
+            font-weight: 700;
+            color: var(--text);
+            font-variant-numeric: tabular-nums;
+            font-family: var(--font-mono);
+            min-height: 24px;
+        }
+
+        .voice-live-text {
+            font-size: 0.85rem;
+            color: var(--text-secondary);
+            text-align: center;
+            min-height: 22px;
+            max-width: 100%;
+            word-break: break-word;
+            background: #fff;
+            padding: 6px 14px;
+            border-radius: 16px;
+            border: 1px solid var(--border-light);
+            transition: all var(--transition);
+            max-height: 80px;
+            overflow-y: auto;
+            position: relative;
+        }
+
+        .voice-live-text.active {
+            color: var(--text);
+            border-color: var(--primary);
+            box-shadow: 0 0 0 3px rgba(26, 111, 181, 0.05);
+        }
+
+        .voice-live-text .typing-cursor {
+            display: inline-block;
+            width: 2px;
+            height: 1em;
+            background: var(--primary);
+            margin-left: 2px;
+            animation: cursor-blink 0.8s ease-in-out infinite;
+            vertical-align: middle;
+        }
+
+        @keyframes cursor-blink {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0; }
+        }
+
+        .voice-live-text .typing-char {
+            display: inline;
+            animation: char-appear 0.05s ease-out forwards;
+            opacity: 0;
+        }
+
+        @keyframes char-appear {
+            from { opacity: 0; transform: translateY(4px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        .transcript-area {
+            background: var(--surface-alt);
+            border-radius: var(--radius);
+            padding: 16px;
+            min-height: 200px;
+            max-height: 350px;
+            overflow-y: auto;
+            border: 1.5px solid var(--border);
+            font-size: 0.9rem;
+            line-height: 1.8;
+            white-space: pre-wrap;
+            word-wrap: break-word;
+            flex: 1;
+        }
+
+        .transcript-area .stash {
+            color: var(--primary);
+            font-weight: 500;
+            border-left: 3px solid var(--primary);
+            padding-left: 8px;
+            margin-left: 4px;
+        }
+
+        .transcript-area .final {
+            color: var(--text);
+        }
+
+        .transcript-area .placeholder {
+            color: var(--text-muted);
+            text-align: center;
+            padding: 40px 0;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .text-editor-area {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+            min-height: 120px;
+        }
+
+        .text-editor-area label {
+            font-size: 0.75rem;
+            font-weight: 600;
+            color: var(--text-secondary);
+            letter-spacing: 0.02em;
+            text-transform: uppercase;
+        }
+
+        .text-editor-area textarea {
+            flex: 1;
+            min-height: 100px;
+            padding: 14px;
+            border: 1.5px solid var(--border);
+            border-radius: var(--radius);
+            font-size: 0.9rem;
+            font-family: inherit;
+            color: var(--text);
+            background: var(--surface-alt);
+            resize: vertical;
+            line-height: 1.7;
+            outline: none;
+            transition: all var(--transition);
+            width: 100%;
+        }
+
+        .text-editor-area textarea:focus {
+            border-color: var(--primary);
+            box-shadow: 0 0 0 3px rgba(26, 111, 181, 0.08);
+            background: #fff;
+        }
+
+        .text-editor-area textarea::placeholder {
+            color: #c0c5cc;
+        }
+
+        .textarea-actions {
+            display: flex;
+            gap: 8px;
+            flex-wrap: wrap;
+            justify-content: flex-end;
+        }
+
+        .btn {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            padding: 9px 18px;
+            border-radius: var(--radius-sm);
+            font-size: 0.85rem;
+            font-weight: 600;
+            border: 1.5px solid transparent;
+            cursor: pointer;
+            transition: all var(--transition);
+            font-family: inherit;
+            white-space: nowrap;
+            letter-spacing: 0.01em;
+            outline: none;
+            -webkit-tap-highlight-color: transparent;
+        }
+
+        .btn:active {
+            transform: scale(0.96);
+            transition: transform 0.08s;
+        }
+
+        .btn-primary {
+            background: var(--primary);
+            color: #fff;
+            border-color: var(--primary);
+            box-shadow: 0 2px 6px rgba(26, 111, 181, 0.2);
+        }
+
+        .btn-primary:hover {
+            background: var(--primary-dark);
+            border-color: var(--primary-dark);
+            box-shadow: 0 4px 12px rgba(26, 111, 181, 0.3);
+        }
+
+        .btn-primary:disabled {
+            background: #a3c8e6;
+            border-color: #a3c8e6;
+            cursor: not-allowed;
+            box-shadow: none;
+        }
+
+        .btn-success {
+            background: var(--success);
+            color: #fff;
+            border-color: var(--success);
+            box-shadow: 0 2px 6px rgba(45, 138, 86, 0.2);
+        }
+
+        .btn-success:hover {
+            background: #257a4a;
+            border-color: #257a4a;
+            box-shadow: 0 4px 12px rgba(45, 138, 86, 0.3);
+        }
+
+        .btn-danger {
+            background: var(--danger);
+            color: #fff;
+            border-color: var(--danger);
+            box-shadow: 0 2px 6px rgba(209, 67, 67, 0.2);
+        }
+
+        .btn-danger:hover {
+            background: #b83838;
+            border-color: #b83838;
+            box-shadow: 0 4px 12px rgba(209, 67, 67, 0.3);
+        }
+
+        .btn-outline {
+            background: #fff;
+            color: var(--text);
+            border-color: var(--border);
+        }
+
+        .btn-outline:hover {
+            background: var(--surface-alt);
+            border-color: #c5c9d0;
+        }
+
+        .btn-ghost {
+            background: transparent;
+            color: var(--text-secondary);
+            border-color: transparent;
+            padding: 6px 10px;
+        }
+
+        .btn-ghost:hover {
+            background: #f0f1f3;
+            color: var(--text);
+        }
+
+        .btn-lg {
+            padding: 12px 24px;
+            font-size: 0.95rem;
+            border-radius: var(--radius);
+        }
+
+        .btn-sm {
+            padding: 5px 12px;
+            font-size: 0.78rem;
+            border-radius: 4px;
+        }
+
+        .stats {
+            display: flex;
+            gap: 24px;
+            padding-top: 12px;
+            border-top: 1px solid var(--border-light);
+            font-size: 0.8rem;
+            color: var(--text-muted);
+        }
+
+        .stats span {
+            font-weight: 600;
+            color: var(--text-secondary);
+        }
+
+        .error-msg {
+            background: var(--danger-light);
+            color: var(--danger);
+            padding: 10px 16px;
+            border-radius: var(--radius-sm);
+            margin-bottom: 12px;
+            display: none;
+            font-size: 0.85rem;
+        }
+
+        .error-msg.show {
+            display: block;
+        }
+
+        .error-msg.success {
+            background: var(--success-light);
+            color: var(--success);
+        }
+
+        .report-placeholder {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            text-align: center;
+            color: var(--text-muted);
+            gap: 12px;
+            padding: 30px;
+        }
+
+        .report-placeholder .placeholder-icon {
+            font-size: 48px;
+            opacity: 0.5;
+        }
+
+        .report-placeholder p {
+            font-size: 0.85rem;
+            max-width: 240px;
+            line-height: 1.5;
+        }
+
+        .report-content {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+            overflow: hidden;
+        }
+
+        .report-content .report-body {
+            flex: 1;
+            background: var(--surface-alt);
+            border-radius: var(--radius);
+            padding: 18px;
+            overflow-y: auto;
+            font-size: 0.9rem;
+            line-height: 1.8;
+            white-space: pre-wrap;
+            word-break: break-word;
+            border: 1px solid var(--border-light);
+            font-family: inherit;
+            color: var(--text);
+            min-height: 180px;
+            max-height: 400px;
+        }
+
+        .report-actions {
+            display: flex;
+            gap: 8px;
+            flex-wrap: wrap;
+            flex-shrink: 0;
+        }
+
+        .report-meta {
+            font-size: 0.72rem;
+            color: var(--text-muted);
+            flex-shrink: 0;
+        }
+
+        .toast-container {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            z-index: 9999;
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+            pointer-events: none;
+        }
+
+        .toast {
+            pointer-events: auto;
+            padding: 12px 18px;
+            border-radius: var(--radius-sm);
+            font-size: 0.85rem;
+            font-weight: 500;
+            color: #fff;
+            box-shadow: var(--shadow-lg);
+            animation: toast-in 0.35s cubic-bezier(0.21, 1.02, 0.58, 1);
+            max-width: 420px;
+            line-height: 1.4;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .toast.success { background: #2d8a56; }
+        .toast.error { background: #d14343; }
+        .toast.info { background: #1a6fb5; }
+        .toast.warning { background: #c0792b; }
+
+        .toast.removing {
+            animation: toast-out 0.3s ease-in forwards;
+        }
+
+        @keyframes toast-in {
+            from { opacity: 0; transform: translateX(60px); }
+            to { opacity: 1; transform: translateX(0); }
+        }
+
+        @keyframes toast-out {
+            from { opacity: 1; transform: translateX(0); }
+            to { opacity: 0; transform: translateX(60px); }
+        }
+
+        .spinner {
+            width: 18px;
+            height: 18px;
+            border: 2.5px solid rgba(255, 255, 255, 0.3);
+            border-top-color: #fff;
+            border-radius: 50%;
+            animation: spin 0.7s linear infinite;
+            display: inline-block;
+            flex-shrink: 0;
+        }
+
+        .spinner-dark {
+            border-color: rgba(0, 0, 0, 0.1);
+            border-top-color: var(--primary);
+        }
+
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+
+        .loading-overlay {
+            position: absolute;
+            inset: 0;
+            background: rgba(255, 255, 255, 0.85);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            border-radius: var(--radius-lg);
+            z-index: 10;
+            flex-direction: column;
+            gap: 12px;
+            font-weight: 600;
+            color: var(--text-secondary);
+            font-size: 0.9rem;
+        }
+
+        @media (max-width: 900px) {
+            .main-container {
+                grid-template-columns: 1fr;
+                padding: 12px 14px;
+                gap: 14px;
+            }
+
+            .panel {
+                padding: 16px;
+                gap: 12px;
+            }
+
+            .form-row {
+                gap: 8px;
+            }
+
+            .voice-btn {
+                width: 60px;
+                height: 60px;
+                font-size: 24px;
+            }
+
+            .voice-ring {
+                width: 60px;
+                height: 60px;
+            }
+
+            .stop-btn {
+                width: 48px;
+                height: 48px;
+                font-size: 18px;
+            }
+
+            .voice-btn-wrap {
+                gap: 12px;
+            }
+
+            .app-header {
+                padding: 0 14px;
+                height: 48px;
+            }
+
+            .app-header .logo-text {
+                font-size: 0.85rem;
+            }
+
+            .app-header .logo-subtitle {
+                display: none;
+            }
+
+            .toast-container {
+                top: 10px;
+                right: 10px;
+                left: 10px;
+            }
+
+            .toast {
+                max-width: 100%;
+                font-size: 0.8rem;
+            }
+        }
+
+        @media (max-width: 480px) {
+            .form-row {
+                flex-direction: column;
+            }
+
+            .btn-lg {
+                width: 100%;
+                justify-content: center;
+            }
+
+            .report-actions {
+                flex-direction: column;
+            }
+
+            .report-actions .btn {
+                width: 100%;
+                justify-content: center;
+            }
+        }
+
+        @media print {
+            body {
+                background: #fff;
+                color: #000;
+            }
+
+            .app-header,
+            .voice-section,
+            .btn,
+            .toast-container,
+            .loading-overlay,
+            .textarea-actions,
+            .form-row,
+            .panel-header .panel-badge,
+            .voice-live-text,
+            .voice-timer,
+            .voice-hint,
+            .voice-btn-wrap,
+            .report-meta,
+            .header-actions {
+                display: none !important;
+            }
+
+            .main-container {
+                display: block;
+                padding: 0;
+                max-width: 100%;
+            }
+
+            .panel {
+                box-shadow: none;
+                border: none;
+                padding: 0;
+            }
+
+            .report-content .report-body {
+                background: #fff;
+                border: none;
+                padding: 0;
+                font-size: 12pt;
+                line-height: 2;
+                color: #000;
+                max-height: none;
+                overflow: visible;
+            }
+        }
+    </style>
+</head>
+<body>
+
+    <header class="app-header">
+        <div class="logo-area">
+            <div class="logo-icon">🏥</div>
+            <div>
+                <div class="logo-text">
+                    医疗语音转写与报告生成
+                    <button class="cache-clear-btn" id="clearCacheBtn" title="清除所有本地暂存数据">🗑 清除暂存</button>
+                </div>
+                <div class="logo-subtitle">基于 Qwen-Audio-3.0-ASR-Flash-Streaming</div>
+            </div>
+        </div>
+        <div class="header-actions">
+            <span id="voiceStatusBadge" class="header-badge online">
+                <span class="dot"></span> 语音就绪
+            </span>
+            <span id="wsStatusBadge" class="header-badge online">
+                <span class="dot"></span> 服务已连接
+            </span>
+        </div>
+    </header>
+
+    <div class="main-container">
+        <div class="panel" id="leftPanel">
+            <div class="panel-header">
+                <div class="panel-title"><span class="icon icon-blue">🎤</span> 语音转写</div>
+                <span id="recordingBadge" class="panel-badge badge-idle">待录入</span>
+            </div>
+
+            <div class="voice-section" id="voiceSection">
+                <div class="voice-btn-wrap">
+                    <div class="voice-ring" id="voiceRing"></div>
+                    <button class="voice-btn" id="startBtn" title="点击开始语音录入" aria-label="开始录音按钮">🎤</button>
+                    <button class="stop-btn" id="stopBtn" title="点击停止录音" aria-label="停止录音按钮" disabled>⏹</button>
+                </div>
+                <div class="voice-timer" id="voiceTimer">00:00</div>
+                <div class="voice-hint" id="voiceHint">点击麦克风开始语音录入</div>
+                <div class="voice-live-text" id="voiceLiveText"></div>
+            </div>
+
+            <div id="errorMsg" class="error-msg"></div>
+
+            <div class="transcript-area" id="transcriptArea">
+                <div class="placeholder" id="placeholder">
+                    🎤 点击上方麦克风开始录音<br/>
+                    转写结果将实时显示在这里
+                </div>
+            </div>
+
+            <div class="textarea-actions">
+                <button class="btn btn-ghost btn-sm" id="btnClear">✕ 清空</button>
+                <button class="btn btn-outline btn-sm" id="btnCopy">📋 复制</button>
+            </div>
+
+            <div class="stats">
+                <div>字数: <span id="wordCount">0</span></div>
+                <div>句子数: <span id="sentenceCount">0</span></div>
+            </div>
+        </div>
+
+        <div class="panel" id="rightPanel">
+            <div class="panel-header">
+                <div class="panel-title"><span class="icon icon-green">📝</span> 报告生成</div>
+                <span id="reportStatusBadge" class="panel-badge badge-idle">待生成</span>
+            </div>
+
+            <div class="form-row">
+                <div class="form-group" style="flex:1;min-width:130px;">
+                    <label>检查类型</label>
+                    <select id="examType">
+                        <option value="">请选择</option>
+                        <optgroup label="影像科">
+                            <option value="CT">CT 计算机断层扫描</option>
+                            <option value="MRI">MRI 磁共振成像</option>
+                            <option value="X光">X光 数字化摄影</option>
+                            <option value="超声">超声检查</option>
+                            <option value="钼靶">钼靶检查</option>
+                            <option value="DSA">DSA 血管造影</option>
+                        </optgroup>
+                        <optgroup label="心电生理科">
+                            <option value="心电图">常规心电图</option>
+                            <option value="动态心电图">动态心电图(Holter)</option>
+                            <option value="超声心动图">超声心动图</option>
+                            <option value="运动平板">运动平板试验</option>
+                        </optgroup>
+                        <option value="其他">其他检查</option>
+                    </select>
+                </div>
+                <div class="form-group" style="flex:1;min-width:130px;">
+                    <label>检查部位</label>
+                    <input type="text" id="examPart" placeholder="如：胸部、头颅" autocomplete="off">
+                </div>
+            </div>
+
+            <div class="text-editor-area">
+                <label>📄 检查所见 / 描述</label>
+                <textarea id="examFindings" placeholder="请输入或通过左侧语音转写检查所见内容..."></textarea>
+            </div>
+
+            <button class="btn btn-primary btn-lg" id="generateBtn" style="width:100%;justify-content:center;">
+                ⚡ 生成报告
+            </button>
+
+            <div class="report-placeholder" id="reportPlaceholder">
+                <div class="placeholder-icon">📄</div>
+                <p>填写检查信息后<br/>点击「生成报告」按钮</p>
+            </div>
+
+            <div class="report-content" id="reportContent" style="display:none;">
+                <div class="report-body" id="reportBody"></div>
+                <div class="report-meta" id="reportMeta"></div>
+                <div class="report-actions">
+                    <button class="btn btn-outline btn-sm" id="copyReportBtn">📋 复制报告</button>
+                    <button class="btn btn-outline btn-sm" id="printReportBtn">🖨 打印报告</button>
+                    <button class="btn btn-ghost btn-sm" id="regenerateBtn">🔄 重新生成</button>
+                </div>
+            </div>
+
+            <div class="loading-overlay" id="loadingOverlay" style="display:none;">
+                <div class="spinner spinner-dark" style="width:32px;height:32px;border-width:3px;"></div>
+                <span>AI正在生成报告，请稍候...</span>
+            </div>
+        </div>
+    </div>
+
+    <div class="toast-container" id="toastContainer"></div>
+
+    <script>
+    (function() {
+        // 根据当前 hostname 获取 API 和 WebSocket 地址
+        function getApiConfig() {
+            const host = window.location.hostname;
+            const portMap = {
+                'oa.nsyy.com.cn':  6080,
+                '192.168.3.12':    6080,
+                '192.168.124.9':   8081,
+                '127.0.0.1':   8081,
+                'localhost':   8081,
+            };
+            let port = portMap[host];
+            if (!port) {
+                // 模糊匹配：如果包含 192.168.124 则用 8080（或自定义规则）
+                if (host.includes('192.168.124')) {
+                    port = 8081;
+                } else {
+                    port = 8081; // 默认值
+                }
+            }
+            if (host === 'oa.nsyy.com.cn') {
+                return {
+                    apiBase: `https://${host}:6081/mz`,
+                    wsUrl: `wss://${host}:6081/mz`
+                };
+            }
+
+            return {
+                apiBase: `http://${host}:${port}/mz`,
+                wsUrl: `ws://${host}:${port}/mz`
+            };
+
+        }
+
+        // 根据当前环境生成配置
+        const config = getApiConfig();
+        const API_BASE = config.apiBase;
+        const WS_URL = config.wsUrl;
+
+
+        // ==================== DOM 元素引用 ====================
+        const $ = (sel) => document.querySelector(sel);
+
+        const startBtn = $('#startBtn');
+        const stopBtn = $('#stopBtn');
+        const voiceRing = $('#voiceRing');
+        const voiceSection = $('#voiceSection');
+        const voiceTimer = $('#voiceTimer');
+        const voiceHint = $('#voiceHint');
+        const voiceLiveText = $('#voiceLiveText');
+        const recordingBadge = $('#recordingBadge');
+        const wsStatusBadge = $('#wsStatusBadge');
+        const voiceStatusBadge = $('#voiceStatusBadge');
+        const transcriptArea = $('#transcriptArea');
+        const placeholder = $('#placeholder');
+        const errorMsg = $('#errorMsg');
+        const btnClear = $('#btnClear');
+        const btnCopy = $('#btnCopy');
+        const wordCountEl = $('#wordCount');
+        const sentenceCountEl = $('#sentenceCount');
+
+        const examTypeSelect = $('#examType');
+        const examPartInput = $('#examPart');
+        const examFindingsTextarea = $('#examFindings');
+        const generateBtn = $('#generateBtn');
+        const reportPlaceholder = $('#reportPlaceholder');
+        const reportContent = $('#reportContent');
+        const reportBody = $('#reportBody');
+        const reportMeta = $('#reportMeta');
+        const loadingOverlay = $('#loadingOverlay');
+        const reportStatusBadge = $('#reportStatusBadge');
+        const copyReportBtn = $('#copyReportBtn');
+        const printReportBtn = $('#printReportBtn');
+        const regenerateBtn = $('#regenerateBtn');
+        const toastContainer = $('#toastContainer');
+        const clearCacheBtn = $('#clearCacheBtn');
+
+        // ==================== 本地暂存键 ====================
+        const STORAGE_KEY = 'medical_asr_report_draft';
+
+        // ==================== ASR 状态变量 ====================
+        let ws = null;
+        let mediaStream = null;
+        let audioContext = null;
+        let source = null;
+        let processor = null;
+        let isRecording = false;
+        let isConnected = false;
+        let fullText = '';
+        let currentStash = '';
+        let sentenceCountVal = 0;
+        let heartbeatInterval = null;
+        let typingAnimationId = null;
+        let connectionStatus = 'disconnected'; // 'disconnected' | 'connecting' | 'connected'
+
+        const SAMPLE_RATE = 16000;
+        const CHUNK_SIZE = 4096;
+
+        // ==================== 报告生成状态 ====================
+        let isGenerating = false;
+        let generatedReportText = '';
+
+        // ==================== 本地暂存函数 ====================
+        function saveDraft() {
+            const draft = {
+                examType: examTypeSelect.value,
+                examPart: examPartInput.value,
+                examFindings: examFindingsTextarea.value,
+                updatedAt: Date.now()
+            };
+            try {
+                localStorage.setItem(STORAGE_KEY, JSON.stringify(draft));
+            } catch (e) {
+                console.warn('暂存数据失败:', e);
+            }
+        }
+
+        function loadDraft() {
+            try {
+                const raw = localStorage.getItem(STORAGE_KEY);
+                if (!raw) return false;
+                const draft = JSON.parse(raw);
+                if (draft.examType) examTypeSelect.value = draft.examType;
+                if (draft.examPart) examPartInput.value = draft.examPart;
+                if (draft.examFindings) {
+                    examFindingsTextarea.value = draft.examFindings;
+                    fullText = draft.examFindings;
+                    updateTranscript();
+                    updateWordCount();
+                }
+                return true;
+            } catch (e) {
+                console.warn('读取暂存数据失败:', e);
+                return false;
+            }
+        }
+
+        function clearDraft() {
+            localStorage.removeItem(STORAGE_KEY);
+        }
+
+        let saveTimeout;
+        function debouncedSave() {
+            clearTimeout(saveTimeout);
+            saveTimeout = setTimeout(saveDraft, 300);
+        }
+
+        const allInputs = [examTypeSelect, examPartInput, examFindingsTextarea];
+        allInputs.forEach(el => {
+            el.addEventListener('input', debouncedSave);
+            el.addEventListener('change', debouncedSave);
+        });
+
+        clearCacheBtn.addEventListener('click', function() {
+            if (confirm('确定要清除所有本地暂存数据吗？')) {
+                clearDraft();
+                examTypeSelect.value = '';
+                examPartInput.value = '';
+                examFindingsTextarea.value = '';
+                fullText = '';
+                currentStash = '';
+                sentenceCountVal = 0;
+                updateTranscript();
+                updateWordCount();
+                sentenceCountEl.textContent = '0';
+                showToast('暂存数据已清除', 'info');
+            }
+        });
+
+        // ==================== Toast 消息 ====================
+        function showToast(message, type = 'info') {
+            const toast = document.createElement('div');
+            toast.className = 'toast ' + type;
+            const icons = { success: '✅', error: '❌', info: 'ℹ️', warning: '⚠️' };
+            toast.textContent = (icons[type] || '') + ' ' + message;
+            toastContainer.appendChild(toast);
+
+            const duration = type === 'error' ? 5000 : 3000;
+            const removeTimer = setTimeout(() => removeToast(toast), duration);
+            toast.addEventListener('click', () => {
+                clearTimeout(removeTimer);
+                removeToast(toast);
+            });
+        }
+
+        function removeToast(toast) {
+            if (toast.parentNode) {
+                toast.classList.add('removing');
+                toast.addEventListener('animationend', () => {
+                    if (toast.parentNode) toast.parentNode.removeChild(toast);
+                }, { once: true });
+            }
+        }
+
+        // ==================== WebSocket 连接 ====================
+        async function connect() {
+            if (isConnected) return;
+            if (connectionStatus === 'connecting') return; // 防止重复连接
+            setConnectionStatus('connecting');
+
+            setStatus('connecting', '⏳ 连接中...');
+            const wsUrl = `${WS_URL}/ws/transcribe`;
+
+            try {
+                ws = new WebSocket(wsUrl);
+
+                ws.onopen = () => {
+                    isConnected = true;
+                    setConnectionStatus('connected');
+                    setStatus('connected', '✅ 已连接');
+                    startBtn.disabled = false;
+                    stopBtn.disabled = true;
+                    showError('');
+                    console.log('WebSocket 连接成功');
+                };
+
+                ws.onmessage = (event) => {
+                    handleMessage(event.data);
+                };
+
+                ws.onclose = () => {
+                    isConnected = false;
+                    setConnectionStatus('disconnected');
+                    setStatus('error', '❌ 连接断开');
+                    startBtn.disabled = false;   // 允许用户再次点击触发连接
+                    stopBtn.disabled = true;
+                    if (isRecording) {
+                        stopRecording();
+                    }
+                    // 显示明确提示，引导用户重新点击麦克风
+                    showToast('语音服务连接已断开，请点击麦克风重新连接', 'warning');
+                    console.log('WebSocket 断开，原因:', event.reason);
+
+                    // setTimeout(() => connect(), 5000);
+                };
+
+                ws.onerror = (error) => {
+                    console.error('WebSocket 错误 url:', wsUrl);
+                    console.error('WebSocket 错误:', error);
+                    setConnectionStatus('disconnected');
+                    showError('WebSocket 连接错误，请检查网络');
+                    showToast('连接失败，请刷新页面或稍后重试', 'error');
+                };
+
+            } catch (err) {
+                console.error('连接失败:', err);
+                setStatus('error', '❌ 连接失败');
+                setConnectionStatus('disconnected');
+                // setTimeout(() => connect(), 5000);
+            }
+        }
+
+        function setConnectionStatus(status) {
+            connectionStatus = status;
+            const badge = wsStatusBadge;
+            badge.className = 'header-badge';
+            if (status === 'connected') {
+                badge.classList.add('online');
+                badge.innerHTML = '<span class="dot"></span> 服务已连接';
+                // 同时更新语音状态提示
+                voiceHint.textContent = '点击麦克风开始语音录入';
+                voiceHint.style.color = '';
+            } else if (status === 'connecting') {
+                badge.classList.add('online');
+                badge.innerHTML = '<span class="dot"></span> 连接中...';
+                voiceHint.textContent = '正在连接语音服务，请稍候...';
+                voiceHint.style.color = 'var(--text-secondary)';
+            } else { // disconnected
+                badge.classList.add('offline');
+                badge.innerHTML = '<span class="dot"></span> 未连接';
+                voiceHint.textContent = '未连接，点击麦克风建立连接';
+                voiceHint.style.color = 'var(--danger)';
+            }
+        }
+
+        function setStatus(state, text) {
+            wsStatusBadge.className = 'header-badge';
+            if (state === 'connected') {
+                wsStatusBadge.classList.add('online');
+                wsStatusBadge.innerHTML = '<span class="dot"></span> ' + text;
+            } else if (state === 'error') {
+                wsStatusBadge.classList.add('offline');
+                wsStatusBadge.innerHTML = '<span class="dot"></span> ' + text;
+            } else if (state === 'connecting') {
+                wsStatusBadge.classList.add('online');
+                wsStatusBadge.innerHTML = '<span class="dot"></span> 连接中...';
+            }
+        }
+
+        function reconnectWebSocket() {
+            if (ws) {
+                try { ws.close(); } catch (e) {}
+            }
+            setTimeout(() => connect(), 2000);
+        }
+
+        // ==================== 消息处理 ====================
+        function handleMessage(rawData) {
+            try {
+                const data = JSON.parse(rawData);
+                const type = data.type;
+
+                console.log('Received message:', type, data);
+                switch (type) {
+
+                    case 'stash':
+                        // 实时增量 - 立即显示，不等待
+                        const delta = data.text || '';
+                        if (delta) {
+                            // 立即追加到 currentStash
+                            currentStash += delta;
+                            // 立即更新显示（使用打字机效果）
+                            updateLiveTextWithTyping(currentStash);
+                            // 实时更新转写区域
+                            updateTranscript();
+                            // 立即更新字数统计
+                            updateWordCount();
+                        }
+                        break;
+
+                    case 'final':
+                        const text = data.text || '';
+                        if (text.trim()) {
+                            currentStash = '';
+                            fullText += text;
+                            if (!text.endsWith('。') && !text.endsWith('！') && !text.endsWith('？')) {
+                                fullText += '。';
+                            }
+                            sentenceCountVal++;
+                            sentenceCountEl.textContent = sentenceCountVal;
+                            updateWordCount();
+                            updateTranscript();
+                            scrollToBottom();
+                            examFindingsTextarea.value = fullText;
+                            saveDraft();
+                            // 清空实时显示区域
+                            voiceLiveText.innerHTML = '';
+                            voiceLiveText.classList.remove('active');
+                        }
+                        break;
+
+                    case 'speech_start':
+                        setRecordingUI(true);
+                        recordingBadge.textContent = '录音中...';
+                        recordingBadge.className = 'panel-badge badge-recording';
+                        voiceStatusBadge.className = 'header-badge recording';
+                        voiceStatusBadge.innerHTML = '<span class="dot"></span> 录音中';
+                        break;
+
+                    case 'speech_stop':
+                        recordingBadge.textContent = '录入完成';
+                        recordingBadge.className = 'panel-badge badge-idle';
+                        voiceStatusBadge.className = 'header-badge online';
+                        voiceStatusBadge.innerHTML = '<span class="dot"></span> 语音就绪';
+                        break;
+
+                    case 'error':
+                        const errText = data.text || 'ASR 服务错误';
+                        showError(errText);
+                        // if (errText.includes('response_idle_timeout')) {
+                        //     reconnectWebSocket();
+                        // }
+                        // 如果是空闲超时，给出明确提示并重置连接
+                        if (errText.includes('response_idle_timeout')) {
+                            showToast('语音服务因长时间无操作已断开，请重新点击麦克风', 'warning');
+                            // 主动关闭 WebSocket 以触发 onclose，重置状态
+                            if (ws && ws.readyState === WebSocket.OPEN) {
+                                ws.close(1000, '空闲超时');
+                            }
+                            // 也可以直接调用 setConnectionStatus('disconnected');
+                        }
+                        break;
+
+                    case 'pong':
+                        break;
+                }
+            } catch (err) {
+                console.error('解析消息失败:', err);
+            }
+        }
+
+        // 实时显示打字效果
+        function updateLiveTextWithTyping(text) {
+            if (!text) {
+                voiceLiveText.innerHTML = '';
+                voiceLiveText.classList.remove('active');
+                return;
+            }
+
+            voiceLiveText.classList.add('active');
+
+            // 转义 HTML 并添加打字光标
+            const escapedText = escapeHtml(text);
+            voiceLiveText.innerHTML = escapedText + '<span class="typing-cursor"></span>';
+
+            // 自动滚动到底部
+            voiceLiveText.scrollTop = voiceLiveText.scrollHeight;
+        }
+
+        function showError(msg, type = 'error') {
+            if (!msg) {
+                errorMsg.classList.remove('show');
+                return;
+            }
+            errorMsg.textContent = msg;
+            errorMsg.className = 'error-msg show';
+            if (type === 'success') {
+                errorMsg.style.background = 'var(--success-light)';
+                errorMsg.style.color = 'var(--success)';
+            } else {
+                errorMsg.style.background = 'var(--danger-light)';
+                errorMsg.style.color = 'var(--danger)';
+            }
+        }
+
+        function updateTranscript() {
+            placeholder.style.display = 'none';
+            let html = '';
+            if (fullText) {
+                html += `<span class="final">${escapeHtml(fullText)}</span>`;
+            }
+            if (currentStash) {
+                html += `<span class="stash">${escapeHtml(currentStash)}</span>`;
+            }
+            transcriptArea.innerHTML = html || '<div class="placeholder">🎤 点击上方麦克风开始录音<br/>转写结果将实时显示在这里</div>';
+        }
+
+        function updateWordCount() {
+            const text = fullText + currentStash;
+            const count = text.replace(/\s/g, '').length;
+            wordCountEl.textContent = count;
+        }
+
+        function scrollToBottom() {
+            transcriptArea.scrollTop = transcriptArea.scrollHeight;
+        }
+
+        function escapeHtml(text) {
+            const div = document.createElement('div');
+            div.textContent = text;
+            return div.innerHTML;
+        }
+
+        function setRecordingUI(recording) {
+            if (recording) {
+                startBtn.classList.add('recording');
+                voiceRing.classList.add('recording');
+                voiceSection.classList.add('recording');
+                startBtn.textContent = '🎤';
+                stopBtn.disabled = false;
+                voiceHint.textContent = '正在录音，点击停止按钮结束';
+            } else {
+                startBtn.classList.remove('recording');
+                voiceRing.classList.remove('recording');
+                voiceSection.classList.remove('recording');
+                startBtn.textContent = '🎤';
+                stopBtn.disabled = true;
+                voiceHint.textContent = '点击麦克风开始语音录入';
+                voiceLiveText.innerHTML = '';
+                voiceLiveText.classList.remove('active');
+            }
+        }
+
+        // ==================== 音频采集 ====================
+        async function startRecording() {
+            if (isRecording) return;
+            // 检查连接是否真正可用：不仅要 isConnected，还要 ws 存在且状态为 OPEN
+            const isWsAlive = isConnected && ws && ws.readyState === WebSocket.OPEN;
+            if (!isWsAlive) {
+                // 如果 ws 对象还挂着但已失效，强制置空以便重新连接
+                if (ws) {
+                    try { ws.close(); } catch(e) {}
+                    ws = null;
+                }
+                isConnected = false;
+                setConnectionStatus('disconnected');
+
+                // 建立新连接
+                await connect();
+                // 等待一小段时间确保连接稳定
+               while (!isConnected && waitCount < 30) {
+                    await new Promise(resolve => setTimeout(resolve, 100));
+                    waitCount++;
+                }
+                if (!isConnected) {
+                    showToast('❌ 无法连接语音服务，请稍后重试', 'error');
+                    return;
+                }
+            }
+
+            try {
+                mediaStream = await navigator.mediaDevices.getUserMedia({
+                    audio: {
+                        sampleRate: SAMPLE_RATE,
+                        channelCount: 1,
+                        echoCancellation: true,
+                        noiseSuppression: true,
+                    }
+                });
+
+                audioContext = new (window.AudioContext || window.webkitAudioContext)({
+                    sampleRate: SAMPLE_RATE,
+                });
+
+                const audioSource = audioContext.createMediaStreamSource(mediaStream);
+                const audioProcessor = audioContext.createScriptProcessor(CHUNK_SIZE, 1, 1);
+
+                audioSource.connect(audioProcessor);
+                audioProcessor.connect(audioContext.destination);
+
+                isRecording = true;
+                startBtn.disabled = true;
+                stopBtn.disabled = false;
+                setRecordingUI(true);
+                setStatus('recording', '🔴 录音中...');
+
+                audioProcessor.onaudioprocess = (e) => {
+                    if (!isRecording || !isConnected) return;
+                    const inputData = e.inputBuffer.getChannelData(0);
+                    const pcmData = float32ToInt16(inputData);
+                    const base64Data = arrayBufferToBase64(pcmData);
+
+                    if (ws && ws.readyState === WebSocket.OPEN) {
+                        ws.send(JSON.stringify({
+                            type: 'audio',
+                            data: base64Data,
+                        }));
+                    }
+                };
+
+                processor = audioProcessor;
+                source = audioSource;
+
+                console.log('🎤 开始录音');
+                startTimer();
+
+                heartbeatInterval = setInterval(() => {
+                    if (ws && ws.readyState === WebSocket.OPEN) {
+                        ws.send(JSON.stringify({ type: 'ping' }));
+                    }
+                }, 15000);
+
+            } catch (err) {
+                console.error('启动录音失败:', err);
+                showError(`麦克风启动失败: ${err.message}`);
+                // 异常时恢复按钮状态
+                startBtn.disabled = false;
+                stopBtn.disabled = true;
+                setRecordingUI(false);
+                isRecording = false;
+            }
+        }
+
+        async function stopRecording() {
+            if (!isRecording) return;
+
+            isRecording = false;
+            startBtn.disabled = false;
+            stopBtn.disabled = true;
+            setRecordingUI(false);
+            setStatus('connected', '✅ 已连接');
+
+            if (ws && ws.readyState === WebSocket.OPEN) {
+                ws.send(JSON.stringify({ type: 'commit' }));
+            }
+
+            if (processor) {
+                processor.disconnect();
+                processor = null;
+            }
+            if (source) {
+                source.disconnect();
+                source = null;
+            }
+            if (audioContext) {
+                await audioContext.close();
+                audioContext = null;
+            }
+            if (mediaStream) {
+                mediaStream.getTracks().forEach(track => track.stop());
+                mediaStream = null;
+            }
+
+            console.log('⏹️ 停止录音');
+            stopTimer();
+            recordingBadge.textContent = '录入完成';
+            recordingBadge.className = 'panel-badge badge-idle';
+            voiceStatusBadge.className = 'header-badge online';
+            voiceStatusBadge.innerHTML = '<span class="dot"></span> 语音就绪';
+
+            if (heartbeatInterval) {
+                clearInterval(heartbeatInterval);
+                heartbeatInterval = null;
+            }
+        }
+
+        let recordingStartTime = null;
+        let timerInterval = null;
+
+        function startTimer() {
+            stopTimer();
+            recordingStartTime = Date.now();
+            updateTimerDisplay();
+            timerInterval = setInterval(updateTimerDisplay, 200);
+        }
+
+        function stopTimer() {
+            if (timerInterval) {
+                clearInterval(timerInterval);
+                timerInterval = null;
+            }
+            voiceTimer.textContent = '00:00';
+        }
+
+        function updateTimerDisplay() {
+            if (!recordingStartTime) return;
+            const elapsed = Math.floor((Date.now() - recordingStartTime) / 1000);
+            const minutes = Math.floor(elapsed / 60);
+            const seconds = elapsed % 60;
+            voiceTimer.textContent = String(minutes).padStart(2, '0') + ':' + String(seconds).padStart(2, '0');
+        }
+
+        function float32ToInt16(float32Array) {
+            const int16Array = new Int16Array(float32Array.length);
+            for (let i = 0; i < float32Array.length; i++) {
+                const s = Math.max(-1, Math.min(1, float32Array[i]));
+                int16Array[i] = s < 0 ? s * 0x8000 : s * 0x7FFF;
+            }
+            return int16Array;
+        }
+
+        function arrayBufferToBase64(buffer) {
+            const bytes = new Uint8Array(buffer.buffer);
+            let binary = '';
+            for (let i = 0; i < bytes.byteLength; i++) {
+                binary += String.fromCharCode(bytes[i]);
+            }
+            return btoa(binary);
+        }
+
+        // ==================== 事件绑定 ====================
+        startBtn.addEventListener('click', function() {
+            if (!isRecording) {
+                startRecording();
+            }
+        });
+
+        stopBtn.addEventListener('click', function() {
+            if (isRecording) {
+                stopRecording();
+            }
+        });
+
+        btnClear.addEventListener('click', function() {
+            fullText = '';
+            currentStash = '';
+            sentenceCountVal = 0;
+            sentenceCountEl.textContent = '0';
+            updateWordCount();
+            updateTranscript();
+            examFindingsTextarea.value = '';
+            saveDraft();
+            showToast('转写内容已清空', 'info');
+        });
+
+        btnCopy.addEventListener('click', function() {
+            const text = fullText + currentStash;
+            if (text.trim()) {
+                navigator.clipboard.writeText(text).then(() => {
+                    showToast('✅ 已复制到剪贴板', 'success');
+                }).catch(() => {
+                    showToast('复制失败，请手动复制', 'error');
+                });
+            }
+        });
+
+        // 键盘快捷键
+        document.addEventListener('keydown', function(e) {
+            if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA' || e.target.tagName === 'SELECT') {
+                return;
+            }
+            if (e.code === 'Space' && !e.ctrlKey && !e.metaKey && !e.altKey) {
+                e.preventDefault();
+                if (isRecording) {
+                    stopRecording();
+                } else {
+                    startRecording();
+                }
+            }
+        });
+
+        // ==================== 报告生成功能 ====================
+        generateBtn.addEventListener('click', function() {
+            if (isRecording) {
+                stopRecording();
+                setTimeout(() => generateReport(), 400);
+            } else {
+                generateReport();
+            }
+        });
+
+        async function generateReport() {
+            const examFindings = examFindingsTextarea.value.trim() || fullText.trim();
+            if (!examFindings) {
+                showToast('请先录入检查所见内容（语音或手动输入）', 'warning');
+                examFindingsTextarea.focus();
+                return;
+            }
+
+            const payload = {
+                text: examFindings,
+                examType: examTypeSelect.value,
+                examPart: examPartInput.value.trim(),
+                timestamp: new Date().toISOString(),
+            };
+
+            let fullTextContent = '';
+            if (payload.examType) fullTextContent += '检查类型：' + payload.examType + '\n';
+            if (payload.examPart) fullTextContent += '检查部位：' + payload.examPart + '\n';
+            fullTextContent += '\n检查所见：\n' + examFindings;
+
+            isGenerating = true;
+            generateBtn.disabled = true;
+            generateBtn.innerHTML = '<span class="spinner"></span> 生成中...';
+            loadingOverlay.style.display = 'flex';
+            reportStatusBadge.textContent = '生成中...';
+            reportStatusBadge.className = 'panel-badge badge-generating';
+            reportPlaceholder.style.display = 'none';
+            reportContent.style.display = 'none';
+
+            try {
+                const response = await fetch(`${API_BASE}/api/generate-report`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        text: fullTextContent,
+                        content: examFindings,
+                        examType: payload.examType,
+                        examPart: payload.examPart,
+                    }),
+                });
+
+                if (!response.ok) {
+                    throw new Error('AI服务返回错误状态: ' + response.status);
+                }
+
+                const data = await response.json();
+                let reportText = data.report || data.result || data.data || JSON.stringify(data, null, 2);
+
+                if (!reportText || reportText.trim().length === 0) {
+                    throw new Error('AI返回了空报告');
+                }
+
+                generatedReportText = reportText.trim();
+                reportBody.textContent = generatedReportText;
+                reportMeta.textContent = '生成时间：' + new Date().toLocaleString('zh-CN') +
+                    ' | 检查类型：' + (payload.examType || '未指定') +
+                    ' | 字数：' + generatedReportText.length;
+                reportPlaceholder.style.display = 'none';
+                reportContent.style.display = 'flex';
+                reportStatusBadge.textContent = '已生成';
+                reportStatusBadge.className = 'panel-badge badge-idle';
+                reportStatusBadge.style.background = 'var(--success-light)';
+                reportStatusBadge.style.color = 'var(--success)';
+                showToast('✅ 报告生成成功！', 'success');
+                reportBody.scrollTop = 0;
+
+            } catch (error) {
+                console.error('报告生成失败:', error);
+                showToast('报告生成失败：' + error.message, 'error');
+                reportPlaceholder.style.display = 'flex';
+                reportContent.style.display = 'none';
+                reportStatusBadge.textContent = '生成失败';
+                reportStatusBadge.className = 'panel-badge badge-idle';
+                reportStatusBadge.style.background = 'var(--danger-light)';
+                reportStatusBadge.style.color = 'var(--danger)';
+            } finally {
+                isGenerating = false;
+                generateBtn.disabled = false;
+                generateBtn.innerHTML = '⚡ 生成报告';
+                loadingOverlay.style.display = 'none';
+            }
+        }
+
+        regenerateBtn.addEventListener('click', function() {
+            if (!isGenerating) {
+                generateReport();
+            }
+        });
+
+        copyReportBtn.addEventListener('click', function() {
+            if (!generatedReportText) {
+                showToast('没有可复制的报告', 'warning');
+                return;
+            }
+            navigator.clipboard.writeText(generatedReportText).then(() => {
+                showToast('报告已复制到剪贴板', 'success');
+            }).catch(() => {
+                showToast('复制失败，请手动复制', 'error');
+            });
+        });
+
+        printReportBtn.addEventListener('click', function() {
+            if (!generatedReportText) {
+                showToast('没有可打印的报告', 'warning');
+                return;
+            }
+            window.print();
+        });
+
+        // ==================== 页面可见性变化 ====================
+        document.addEventListener('visibilitychange', function() {
+            if (document.hidden && isRecording) {
+                voiceHint.textContent = '⚠️ 页面切换，录音可能已中断';
+            }
+        });
+
+        // ==================== 页面卸载前提醒 ====================
+        window.addEventListener('beforeunload', function(e) {
+            if (isRecording) {
+                e.preventDefault();
+                e.returnValue = '录音正在进行中，确定要离开吗？';
+            }
+            if (isGenerating) {
+                e.preventDefault();
+                e.returnValue = '报告正在生成中，确定要离开吗？';
+            }
+        });
+
+        // ==================== 初始化 ====================
+        function init() {
+            const hasDraft = loadDraft();
+            if (hasDraft) {
+                showToast('已恢复上次暂存的数据', 'info');
+            }
+            // 设置按钮初始状态
+            startBtn.disabled = false;   // 允许点击，但点击时会先连接
+            stopBtn.disabled = true;
+            // 状态显示为未连接
+            setStatus('error', '❌ 未连接');
+            setConnectionStatus('disconnected');
+
+            // startBtn.disabled = true;
+            // stopBtn.disabled = true;
+            // connect();
+
+            console.log('医疗语音转写与报告生成系统初始化完成');
+            console.log('快捷键: 空格键 - 开始/停止录音（焦点不在输入框时）');
+        }
+
+        init();
+    })();
+    </script>
+</body>
+</html>

@@ -1,10 +1,18 @@
+import time
+
+import redis
+import requests
 from fastapi import WebSocket, HTTPException, WebSocketDisconnect, APIRouter
+from fastapi import Query
 from datetime import datetime, date
 import json
 
 import logging
 import websockets
 
+from gylmodules import global_config
+from gylmodules.utils.db_utils_new import DbUtil
+from outpatient_queue import ai_tool
 from outpatient_queue.database import DatabaseManager
 from outpatient_queue.models import *
 from outpatient_queue.websocket_manager import manager
@@ -247,6 +255,39 @@ async def get_queue_list(business_id: Optional[str] = None, window_id: Optional[
                 queue['complete_time'], datetime) else queue['complete_time']
 
     return {'queues': queues}
+
+
+
+"""获取排队列表"""
+@mz_router.get("/api/queue/history/{window_id}")
+async def get_history_list(window_id: int):
+    window = db.get_window_info(window_id)
+    if not window:
+        raise HTTPException(status_code=404, detail="窗口不存在")
+    queues = db.get_history_list(window_id)
+
+    # 转换datetime为字符串
+    for queue in queues:
+        if 'create_time' in queue and queue['create_time']:
+            queue['create_time'] = queue['create_time'].strftime("%Y-%m-%d %H:%M:%S") if isinstance(
+                queue['create_time'], datetime) else queue['create_time']
+        if 'skip_time' in queue and queue['skip_time']:
+            queue['skip_time'] = queue['skip_time'].strftime("%Y-%m-%d %H:%M:%S") if isinstance(queue['skip_time'],
+                                                                                                datetime) else queue[
+                'skip_time']
+        if 'complete_time' in queue and queue['complete_time']:
+            queue['complete_time'] = queue['complete_time'].strftime("%Y-%m-%d %H:%M:%S") if isinstance(
+                queue['complete_time'], datetime) else queue['complete_time']
+
+    ret_data = [{
+      "queue_number": item.get('queue_number'),
+      "patient_name": item.get('patient_name'),
+      "business_name": item.get('business_name'),
+      "service_time": item.get('complete_time') if item.get('status') == 'completed' else item.get('skip_time'),
+      "status": item.get('status'),
+    } for item in queues]
+
+    return {'history': ret_data}
 
 
 @mz_router.post("/api/tts_call")
@@ -605,6 +646,7 @@ async def websocket_window(websocket: WebSocket, window_id: int):
             data = await websocket.receive_text()
 
             if data == 'ping':
+                logger.debug(f"ping 窗口 {window_id} WebSocket连接保持")
                 await websocket.send_text('pong')
             elif data == 'get_status':
                 # 客户端请求当前窗口状态
@@ -685,6 +727,13 @@ async def websocket_pharmacy(websocket: WebSocket):
 # ============================================== 阿里云大模型 实时转写 ==============================================
 # =================================================================================================================
 
+pool = redis.ConnectionPool(host=global_config.REDIS_HOST, port=global_config.REDIS_PORT,
+                            db=global_config.REDIS_DB, decode_responses=True)
+INDICATOR_TASK_KEY = 'pacs_indicator_task'
+INDICATOR_TASK_RUNNING_KEY = 'pacs_indicator_task_running'
+
+AUTO_REPORT_TASK_KEY = 'pacs_auto_report_task'
+AUTO_REPORT_TASK_RUNNING_KEY = 'pacs_auto_report_task_running'
 
 API_KEY = "sk-1d02e5ab8bc5420aa4c6c7d2ac9464dd"
 WORKSPACE_ID = "ws-nzup4ofn31zrv9f9"
@@ -730,6 +779,16 @@ async def websocket_transcribe(websocket: WebSocket):
         await asr_ws.send(json.dumps(session_config))
         logger.debug("📋 已发送会话配置")
 
+        async def safe_send(message: dict):
+            """安全发送消息，忽略连接已关闭的错误"""
+            try:
+                # 检查 WebSocket 状态（如果 starlette 提供 client_state）
+                if hasattr(websocket, 'client_state') and websocket.client_state.value != 1:
+                    return
+                await websocket.send_text(json.dumps(message))
+            except (WebSocketDisconnect, RuntimeError, Exception) as e:
+                logger.debug(f"发送消息失败（连接可能已关闭）: {e}")
+
         # ---------- 消息转发函数 ----------
         async def forward_to_frontend():
             """ASR → 前端（全量使用 json.dumps）"""
@@ -747,37 +806,35 @@ async def websocket_transcribe(websocket: WebSocket):
                         if event_type == "response.text.delta":
                             delta = event.get("delta", "")
                             if delta:
-                                await websocket.send_text(
-                                    json.dumps({"type": "stash", "text": delta})
-                                )
+                                await safe_send({"type": "stash", "text": delta})
                                 logger.debug(f"↗️ delta: {delta}")
 
                         # ---- 最终完整文本（途径1） ----
                         elif event_type == "response.text.done":
                             text = event.get("text", "")
                             if text:
-                                await websocket.send_text(json.dumps({"type": "final", "text": text}))
+                                await safe_send({"type": "final", "text": text})
                                 logger.debug(f"📝 final (text.done): {text[:50]}...")
 
                         # ---- 另一种中间结果（可能包含 stash） ----
                         elif event_type == "conversation.item.input_audio_transcription.delta":
                             stash = event.get("stash", "")
                             if stash:
-                                await websocket.send_text(json.dumps({"type": "stash", "text": stash}))
+                                await safe_send({"type": "stash", "text": stash})
 
                         # ---- 语音开始 / 停止 ----
                         elif event_type == "input_audio_buffer.speech_started":
-                            await websocket.send_text(json.dumps({"type": "speech_start"}))
+                            await safe_send({"type": "speech_start"})
                             logger.debug("🎤 语音开始")
 
                         elif event_type == "input_audio_buffer.speech_stopped":
-                            await websocket.send_text(json.dumps({"type": "speech_stop"}))
+                            await safe_send({"type": "speech_stop"})
                             logger.debug("🔇 语音结束")
 
                             # ---- 识别完成辅助信号（不携带文本） ----
                         elif event_type == "conversation.item.input_audio_transcription.completed":
                             # 仅发送状态，不发送文本
-                            await websocket.send_text(json.dumps({"type": "transcription_completed"}))
+                            await safe_send({"type": "transcription_completed"})
                             logger.debug("✅ 识别任务完成")
 
                         # ---- 错误事件 ----
@@ -788,9 +845,7 @@ async def websocket_transcribe(websocket: WebSocket):
                             else:
                                 err_text = str(error_obj) if error_obj else "未知错误"
                             logger.error(f"❌ ASR 错误: {err_text}")
-                            await websocket.send_text(
-                                json.dumps({"type": "error", "text": f"ASR 错误: {err_text}"})
-                            )
+                            await safe_send({"type": "error", "text": f"ASR 错误: {err_text}"})
                     except Exception as e:
                         logger.error(f"处理单条消息异常: {e}")
 
@@ -828,6 +883,11 @@ async def websocket_transcribe(websocket: WebSocket):
 
             except WebSocketDisconnect:
                 logger.debug("前端 WebSocket 断开")
+                # 可选：主动关闭 ASR 连接
+                try:
+                    await asr_ws.close()
+                except:
+                    pass
             except Exception as e:
                 logger.error(f"音频转发异常: {e}")
 
@@ -855,77 +915,344 @@ async def websocket_transcribe(websocket: WebSocket):
         logger.info("🔌 连接已关闭")
 
 
-@mz_router.post("/api/generate-report")
-async def generate_report(request: AsrRequest):
-    # 可以校验窗口是否存在，或直接推送
-    # data = ai_tool.call_ai_for_patient(request.text)
-    data = f"""
-        ---
-        ## 核心角色与任务设定
-        
-        你是一名心脏超声质控专家。
-        
-        你的核心任务为以下工作：
-        1. 识别文本中的患者超声测量数值，然后填充到标准表格模版中 （最终返回Markdown表格内容 ）
-        2. 基于测量的患者数值，予以患者情况分析，输出超声报告
-        
-        标准表格模版 - Markdown表格模板（可直接复制到支持Markdown的编辑器）：
-        
-        ```markdown
-        | 项目 | 参考范围 | 检查值 | 状态 |
-        |------|----------|--------|------|
-        | **一、腔室内径（mm）** | | | |
-        | 左房前后径 | 25-40 | ___ | ___ |
-        | 左房容积 | — | ___ ml | ___ |
-        | 主动脉瓣环 | — | ___ mm | ___ |
-        | 升主动脉内径 | — | ___ mm | ___ |
-        | 右室前后径 | 16-30 | ___ mm | ___ |
-        | 主肺动脉径 | 16-30 | ___ mm | ___ |
-        | 左室舒张期内径 | 女≤50 / 男≤55 | ___ mm | ___ |
-        | 左室收缩期内径 | — | ___ mm | ___ |
-        | **二、室壁厚度及运动（mm）** | | | |
-        | 室间隔厚度 | 8-12 | ___ | ___ |
-        | 室间隔运动幅度 | — | ___ | ___ |
-        | 左室后壁厚度 | — | ___ | ___ |
-        | 左室后壁运动幅度 | — | ___ | ___ |
-        | **三、血流动力学参数** | | | |
-        | 主动脉流速 | — | ___ m/s | ___ |
-        | 肺动脉流速 | — | ___ m/s | ___ |
-        | 二尖瓣E峰 | — | ___ m/s | ___ |
-        | 二尖瓣A峰 | — | ___ m/s | ___ |
-        | 二尖瓣环间隔侧e | — | ___ cm/s | ___ |
-        | 二尖瓣环侧壁侧e | — | ___ cm/s | ___ |
-        | E/e" | — | ___ | ___ |
-        | 三尖瓣反流流速 | — | ___ m/s | ___ |
-        | 三尖瓣反流压差 | — | ___ mmHg | ___ |
-        | 估测肺动脉收缩压 | — | ___ mmHg | ___ |
-        | **四、心功能参数** | | | |
-        | 左室舒张期容积 | — | ___ ml | ___ |
-        | 左室收缩期容积 | — | ___ ml | ___ |
-        | 左室射血分数（LVEF） | 50-80% | ___ % | ___ |
-        | 左室短轴缩短率 | — | ___ % | ___ |
-        | 每搏输出量 | — | ___ ml | ___ |
-        | 每分钟输出量 | — | ___ L/min | ___ |
-        | 即时心率 | — | ___ bpm | ___ |
-        | **五、结构描述** | | | |
-        | 双房及左室 | — | ___ | ___ |
-        | 左室壁运动 | — | ___ | ___ |
-        | 房室间隔 | — | ___ | ___ |
-        | 心内瓣膜 | — | ___ | ___ |
-        | 大动脉 | — | ___ | ___ |
-        ```
-        ---
-        **以下是患者情况，以及患者超声测量结果**
-        {request.text}
-        """
-
-    if not data:
-        return {
-            'success': False,
-            'report': None
+"""根据住院号查询患者信息"""
+@mz_router.get("/api/patient_pacs_info/{zhuyuanhao}")
+async def patient_pacs_info(zhuyuanhao: str):
+    sql = f"""select zb.bingrenzyid, zb.zhuyuanhao, zb.xingming patient_name, zb.nianling patient_age, 
+    zb.xingbiemc patient_sex, yb.yizhuid, yb.kaizhuksmc dept_name, yb.kaizhuksid dept_id, yb.kaizhuysxm,
+    to_char(yb.kaizhusj,'yyyy-mm-dd hh24:mi:ss') kaizhusj, to_char(yb.kaishisj,'yyyy-mm-dd hh24:mi:ss') kaishisj,
+    yb.yizhumc check_item ,yb.shenqingdanzt ,lj.jianchabzfl
+    from df_jj_zhuyuan.zy_bingrenxx zb
+    join df_lc_zhuyuan.yz_bingrenyz yb  on yb.bingrenzyid = zb.bingrenzyid and yb.yizhufl = '23' and yb.yizhuzt in (2,3,4) and yb.shenqingdanzt <560 
+    and yb.yizhumc not like '%加收%' and yb.shenqingdanzt  not in (501,502)
+    join df_shenqingdan.yj_jianchasqdxm yj   on yb.yizhuid=yj.yizhubh 
+    join df_zhushuju.lcgy_jianchaxm lj on lj.jianchaxmid= yj.jianchaxmid 
+    where zb.zaiyuanzt=0 and zb.xingming not like '%测试%' and zb.zhuyuanhao = '{zhuyuanhao}'
+"""
+    patients_info = db.pg_query(sql)
+    if not patients_info:
+        return {}
+    info = {
+            "zhuyuanhao": patients_info[0]["zhuyuanhao"],
+            "patient_name": patients_info[0]["patient_name"],
+            "patient_age": patients_info[0]["patient_age"],
+            "patient_sex": patients_info[0]["patient_sex"],
+            "dept_id": patients_info[0]["dept_id"],
+            "dept_name": patients_info[0]["dept_name"]
         }
+    check_items_list = [{
+        "yizhuid": item["yizhuid"],
+        'check_item': item["check_item"],
+        'kaizhusj': item["kaizhusj"],
+        'kaishisj': item["kaishisj"],
+        "jianchabzfl": patients_info[0]["jianchabzfl"]
+    } for item in patients_info]
+    info['check_items_list'] = check_items_list
+
+    return info
+
+
+
+""" 提交 ai报告申请 """
+@mz_router.post("/api/pacs-submit")
+async def pacs_submit(request: AsrSubmitRequest):
+    if not request.patient_info or len(request.patient_info) < 50:
+        return {"success": False, "message": "口述内容太少，请检查"}
+
+    check_items = request.check_items
+    if not check_items:
+        return {"success": False, "message": "请选择检查项目"}
+    check_items = check_items.split(",")
+    check_items = [item for item in check_items if item and not item.__contains__('加收')]
+    if not check_items:
+        return {"success": False, "message": "没有需要ai处理的检查项目"}
+
+    submit_time = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    with DbUtil(global_config.DB_HOST, global_config.DB_USERNAME,
+                global_config.DB_PASSWORD, global_config.DB_DATABASE_GYL) as db:
+        args = []
+        for item in check_items:
+            args.append((request.zhuyuanhao, request.patient_name, request.patient_age, request.patient_sex, request.dept_id,
+                    request.dept_name, request.yizhuid, item, submit_time, request.patient_info))
+        insert_sql = """INSERT INTO nsyy_gyl.pacs_ai_report (zhuyuanhao, patient_name, patient_age, patient_sex, 
+                        dept_id, dept_name, yizhuid, check_items, submit_time, patient_info) 
+                        VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s)"""
+        # args = (request.zhuyuanhao, request.patient_name, request.patient_age, request.patient_sex, request.dept_id,
+        #         request.dept_name, request.yizhuid, request.check_items, datetime.now().strftime("%Y-%m-%d %H:%M:%S"), request.patient_info)
+        db.execute_many(insert_sql, args, need_commit=True)
+
+    redis_client = redis.Redis(connection_pool=pool)
+    redis_client.set(INDICATOR_TASK_KEY, 1)
+    return {'success': True}
+
+
+""" 查询提交的ai报告列表 """
+@mz_router.get("/api/pacs_ai_reports")
+async def pacs_ai_reports(page: int = Query(1, ge=1),
+    page_size: int = Query(20, ge=1, le=100)):
+
+    offset = (page - 1) * page_size
+    with DbUtil(global_config.DB_HOST, global_config.DB_USERNAME,
+                global_config.DB_PASSWORD, global_config.DB_DATABASE_GYL) as db:
+        # 1️⃣ 查总数
+        total_row = db.query_one("""SELECT COUNT(*) AS total FROM nsyy_gyl.pacs_ai_report""")
+        total = total_row['total'] if total_row else 0
+
+        # 2️⃣ 查分页数据（列表页不查 LONGTEXT）
+        list_sql = f"""
+            SELECT id, zhuyuanhao, patient_name, patient_age, patient_sex, dept_name, check_items, patient_info, indicator_data, indicator_status, 
+            submit_time, IF(ai_report IS NULL, 0, 1) AS report_status FROM nsyy_gyl.pacs_ai_report ORDER BY id DESC LIMIT {page_size} OFFSET {offset}
+        """
+        rows = db.query_all(list_sql)
+        for row in rows:
+            if row['submit_time']:
+                row['submit_time'] = row['submit_time'].strftime("%Y-%m-%d %H:%M:%S")
+
     return {
-        'success': True,
-        'report': data
+        "success": True,
+        "total": total,
+        "total_pages": (total + page_size - 1) // page_size,
+        "data": rows
     }
+
+
+""" 查询某一个ai报告 """
+@mz_router.get("/api/pacs_ai_report/{report_id}")
+async def pacs_ai_report(report_id: int):
+    with DbUtil(global_config.DB_HOST, global_config.DB_USERNAME,
+                global_config.DB_PASSWORD, global_config.DB_DATABASE_GYL) as db:
+        ai_report = db.query_one(f"""SELECT ai_report FROM nsyy_gyl.pacs_ai_report where id = {report_id}""")
+
+    return {
+        "success": True,
+        "report": ai_report
+    }
+
+@mz_router.put("/api/pacs_ai_report/{report_id}")
+async def pacs_ai_report_put(report_id: int):
+    with DbUtil(global_config.DB_HOST, global_config.DB_USERNAME,
+                global_config.DB_PASSWORD, global_config.DB_DATABASE_GYL) as db:
+        ai_report = db.query_one(f"""SELECT ai_report FROM nsyy_gyl.pacs_ai_report where id = {report_id}""")
+
+    return {
+        "success": True,
+        "report": ai_report
+    }
+
+
+@mz_router.put("/api/pacs_ai_report/{report_id}")
+async def update_pacs_report(report_id: int, request: UpdateReportRequest):
+    """
+    更新患者信息或指标数据
+    - 支持单独更新 patient_info 或 indicator_data
+    - 若两个字段都提供则同时更新
+    """
+    # 1. 查询记录是否存在
+    with DbUtil(global_config.DB_HOST, global_config.DB_USERNAME,
+                global_config.DB_PASSWORD, global_config.DB_DATABASE_GYL) as db:
+        report = db.query_one(f"""SELECT id FROM nsyy_gyl.pacs_ai_report where id = {report_id}""")
+    if not report:
+        raise HTTPException(status_code=404, detail="报告记录不存在")
+
+    # 2. 构建更新字段
+    if request.patient_info is None and request.indicator_data is None:
+        raise HTTPException(status_code=400, detail="至少提供一个字段进行更新")
+
+    # 3. 执行更新
+    try:
+        if request.patient_info is not None:
+            with DbUtil(global_config.DB_HOST, global_config.DB_USERNAME,
+                        global_config.DB_PASSWORD, global_config.DB_DATABASE_GYL) as db:
+                report = db.execute(f"""update nsyy_gyl.pacs_ai_report set patient_info = %s where id = %s""",
+                                    (request.patient_info, report_id), need_commit=True)
+
+        # TODO 检查指标是否完善 测试阶段 更新即默认完善
+        if request.indicator_data is not None:
+            with DbUtil(global_config.DB_HOST, global_config.DB_USERNAME,
+                        global_config.DB_PASSWORD, global_config.DB_DATABASE_GYL) as db:
+                report = db.execute(f"""update nsyy_gyl.pacs_ai_report set indicator_data = %s, indicator_status = 1 where id = %s""",
+                                    (request.indicator_data, report_id), need_commit=True)
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"更新失败: {str(e)}")
+
+    # 4. 返回成功响应（可选返回更新后的记录）
+    return {
+        "code": 200,
+        "success": True,
+        "message": "更新成功",
+        "data": {
+            "id": report.id,
+            "patient_info": report.patient_info,
+            "indicator_data": report.indicator_data
+        }
+    }
+
+
+@mz_router.get("/api/trigger_pacs_task")
+async def trigger_pacs_task():
+    redis_client = redis.Redis(connection_pool=pool)
+    redis_client.set(INDICATOR_TASK_KEY, 1)
+    return {
+        "success": True
+    }
+
+
+"""根据检查项目 获取ai提示词"""
+def get_pacs_ai_prompt(check_items):
+    param = {
+        "randstr": "XPFDFZDF7193CIONS1PD7XCJ3AD4ORRC",
+        "type": "get_rpt_templ",
+        "rpt_name": check_items
+    }
+
+    # 动态 URL
+    query_url = "http://192.168.124.53:6080/chaosheng_bingli" if global_config.run_in_local else "http://127.0.0.1:6080/chaosheng_bingli"
+    data = []
+    max_retries, retry_count, retry_delay = 3, 0, 1
+    while retry_count < max_retries:
+        try:
+            response = requests.post(query_url, json=param, timeout=30)
+            # 检查 HTTP 状态码
+            response.raise_for_status()
+            result = response.json()
+            data = result.get('data', {})
+            return data
+        except Exception as e:
+            retry_count += 1
+            if retry_count < max_retries:
+                sleep_time = retry_delay * (2 ** (retry_count - 1))  # 指数退避
+                time.sleep(sleep_time)
+            else:
+                logger.error(f"get_pacs_ai_prompt 已达最大重试次数 {max_retries}。最后错误: {str(e)}")
+                return []
+
+
+def pacs_indicator_data_task():
+    """异步执行所有 指标任务"""
+    redis_client = redis.Redis(connection_pool=pool)
+    if not redis_client.exists(INDICATOR_TASK_KEY):
+        logger.debug("没有需要执行的指标任务")
+        return
+    if redis_client.exists(INDICATOR_TASK_RUNNING_KEY):
+        logger.info("有正在执行的指标任务")
+        return
+
+    while True:
+        with DbUtil(global_config.DB_HOST, global_config.DB_USERNAME,
+                    global_config.DB_PASSWORD, global_config.DB_DATABASE_GYL) as db:
+            records = db.query_all(f"select * from nsyy_gyl.pacs_ai_report "
+                                  f"where indicator_data is null order by submit_time limit 5")
+
+        if not records:
+            logger.info("所有指标任务均已执行完成")
+            redis_client.delete(INDICATOR_TASK_KEY)
+            redis_client.delete(INDICATOR_TASK_RUNNING_KEY)
+            return
+        for record in records:
+            logger.info(f"开始执行指标任务:report id {record.get('id', '')}")
+            # 添加运行标识
+            redis_client.set(INDICATOR_TASK_RUNNING_KEY, record.get('id'))
+            try:
+                # 获取ai提示词
+                check_item = record.get("check_items")
+                text = get_pacs_ai_prompt([check_item])
+                if not text:
+                    with DbUtil(global_config.DB_HOST, global_config.DB_USERNAME,
+                                global_config.DB_PASSWORD, global_config.DB_DATABASE_GYL) as db:
+                        record = db.execute(f""" update nsyy_gyl.pacs_ai_report set indicator_data = '该检查项目没有ai提示词', 
+                        indicator_status = 1 where id = {record.get('id')} """, need_commit=True)
+                    continue
+
+                patient_info = record.get("patient_info")
+                text = text.get(check_item, "") + patient_info
+
+                start_time = time.time()
+                ai_indicator = ai_tool.call_ai_for_patient(text)
+                logging.info(f"pacs 指标任务 {record.get('id')} - 耗时: {time.time() - start_time}")
+                with DbUtil(global_config.DB_HOST, global_config.DB_USERNAME,
+                            global_config.DB_PASSWORD, global_config.DB_DATABASE_GYL) as db:
+                    record = db.execute(""" update nsyy_gyl.pacs_ai_report set indicator_data = %s where id = %s """,
+                                        (ai_indicator, record.get('id')), need_commit=True)
+
+            except Exception as e:
+                logger.error(f"pacs 指标任务 - 异常: {e.__str__()}")
+
+        if not redis_client.exists(AUTO_REPORT_TASK_KEY):
+            redis_client.set(AUTO_REPORT_TASK_KEY, 1)
+            pacs_auto_report_task()
+
+
+# pacs_indicator_data_task()
+
+
+def pacs_auto_report_task():
+    """异步执行所有 自动生成报告任务"""
+    redis_client = redis.Redis(connection_pool=pool)
+    if not redis_client.exists(AUTO_REPORT_TASK_KEY):
+        logger.debug("没有需要执行的 pacs auto report 任务")
+        return
+    if redis_client.exists(AUTO_REPORT_TASK_RUNNING_KEY):
+        logger.info("有正在执行的 pacs auto report 任务")
+        return
+
+    while True:
+        with DbUtil(global_config.DB_HOST, global_config.DB_USERNAME,
+                    global_config.DB_PASSWORD, global_config.DB_DATABASE_GYL) as db:
+            records = db.query_all(f"select id, indicator_data, check_items from nsyy_gyl.pacs_ai_report "
+                                  f"where ai_report is null and indicator_status = 1 order by submit_time limit 5")
+
+        if not records:
+            logger.info("所有 pacs auto report 任务均已执行完成")
+            redis_client.delete(AUTO_REPORT_TASK_KEY)
+            redis_client.delete(AUTO_REPORT_TASK_RUNNING_KEY)
+            return
+        for record in records:
+            logger.info(f"开始执行 pacs auto report 任务:report id {record.get('id', '')}")
+            # 添加运行标识
+            redis_client.set(AUTO_REPORT_TASK_RUNNING_KEY, record.get('id'))
+            try:
+                # TODO 生成报告ai提示词如何获取？？？？？？ 获取ai提示词
+                # check_item = record.get("check_items")
+                # text = get_pacs_ai_prompt([check_item])
+                # if not text:
+                #     with DbUtil(global_config.DB_HOST, global_config.DB_USERNAME,
+                #                 global_config.DB_PASSWORD, global_config.DB_DATABASE_GYL) as db:
+                #         record = db.execute(f""" update nsyy_gyl.pacs_ai_report set indicator_data = '该检查项目没有ai提示词',
+                #         indicator_status = 1 where id = {record.get('id')} """, need_commit=True)
+                #     continue
+                # patient_info = record.get("patient_info")
+                # text = text.get(check_item, "") + patient_info
+
+                text = f"患者检查项目: {record.get('check_items')}, 以下是根据医生检查过程中口述的患者情况提取的关键指标，请根据这些指标为患者生成检查报告。\n " + record.get("indicator_data")
+                start_time = time.time()
+                ai_report = ai_tool.call_ai_for_patient(text)
+                logging.info(f"pacs auto report 任务 {record.get('id')} - 耗时: {time.time() - start_time}")
+                with DbUtil(global_config.DB_HOST, global_config.DB_USERNAME,
+                            global_config.DB_PASSWORD, global_config.DB_DATABASE_GYL) as db:
+                    record = db.execute(""" update nsyy_gyl.pacs_ai_report set ai_report = %s where id = %s """,
+                                        (ai_report, record.get('id')), need_commit=True)
+
+            except Exception as e:
+                logger.error(f"pacs auto report 任务 - 异常: {e.__str__()}")
+
+
+def pacs_auto_report_task_check():
+    """检查是否有自动生成报告任务未执行"""
+    redis_client = redis.Redis(connection_pool=pool)
+    if redis_client.exists(AUTO_REPORT_TASK_RUNNING_KEY):
+        return
+
+    while True:
+        with DbUtil(global_config.DB_HOST, global_config.DB_USERNAME,
+                    global_config.DB_PASSWORD, global_config.DB_DATABASE_GYL) as db:
+            records = db.query_all(f"select id from nsyy_gyl.pacs_ai_report "
+                                  f"where ai_report is null and indicator_status = 1 order by submit_time limit 5")
+
+        if not records:
+            logger.info("所有 pacs auto report 任务均已执行完成")
+            redis_client.delete(AUTO_REPORT_TASK_KEY)
+            redis_client.delete(AUTO_REPORT_TASK_RUNNING_KEY)
+            return
+        redis_client.set(AUTO_REPORT_TASK_KEY, 1)
+        pacs_auto_report_task()
 

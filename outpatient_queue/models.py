@@ -25,9 +25,19 @@ class SkipRequest(BaseModel):
     queue_number: str
     reason: str = "过号"
 
-class AsrRequest(BaseModel):
-    text: str
-    content: str
-    examType: str
-    examPart: str
 
+class AsrSubmitRequest(BaseModel):
+    patient_info: str
+    zhuyuanhao: str
+    patient_name: str
+    patient_age: str
+    patient_sex: str
+    dept_id: int
+    dept_name: str
+    yizhuid: str
+    check_items: str
+
+
+class UpdateReportRequest(BaseModel):
+    patient_info: Optional[str] = None
+    indicator_data: Optional[str] = None
