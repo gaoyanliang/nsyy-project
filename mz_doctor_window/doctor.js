@@ -496,7 +496,7 @@ function updateQueueList(businessType, queues) {
         const safePatientName = queue.patient_name || '';
 
         const isMedicalDone = businessType === 'medicine' && queue.medication_state == 1;
-        console.log('==================', businessType, queue.medication_state, isMedicalDone);
+        //console.log('==================', businessType, queue.medication_state, isMedicalDone);
 
         if (existingItem) {
             // ✅ 完全刷新内部 HTML，确保姓名、按钮参数都是最新的
@@ -642,7 +642,7 @@ function animateCallNumber() {
 // ==================== 叫号功能 ====================
 async function callNext(businessType) {
     // 互斥检查1：当前是否有正在服务的患者
-    if (currentCall) {
+    if (currentCall && currentCall.status === 'calling') {
         console.log('已有正在服务的患者，请先完成服务或过号');
         showToast('请先完成当前服务或过号');
         return;
@@ -751,10 +751,12 @@ async function callSpecific(queueNumber, patientName, businessType) {
 
 // ==================== 服务完成 ====================
 async function completeService() {
-    if (!currentCall) {
+    if (!currentCall || currentCall.status !== 'calling') {
         console.log('没有正在服务的患者');
+        showToast('没有正在服务的患者');
         return;
     }
+    console.log(currentCall);
     if (isCalling) return; // 正在处理其他请求
     isCalling = true;
     try {

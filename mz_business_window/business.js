@@ -481,6 +481,7 @@ function handleWebSocketMessage(data) {
             break;
         case 'tts_call':
             console.log('语音叫号:', messageData);
+            showToast('socket 语音叫号');
             speakWithNative(messageData.queue_number, messageData.patient_name || '--');
             break;
         default:
