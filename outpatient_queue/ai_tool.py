@@ -18,28 +18,6 @@ MAX_WORKERS = 20  # 并发线程数，根据API限制调整
 MAX_RETRIES = 3  # 每个API请求最大重试次数
 RETRY_DELAY = 2  # 初始重试延迟（秒），指数增长
 
-# 设置日志
-# 设置日志同时输出到控制台和文件
-log_file = "logs/ai_tool.log"  # 日志文件路径
-log_dir = os.path.dirname(log_file)
-# 如果目录不存在，则创建（包括父目录）
-if not os.path.exists(log_dir):
-    os.makedirs(log_dir)
-
-# 创建控制台处理器（输出到终端）
-console_handler = logging.StreamHandler()
-console_handler.setLevel(logging.INFO)
-console_format = logging.Formatter('%(asctime)s - %(levelname)s - %(message)s')
-console_handler.setFormatter(console_format)
-
-# 创建文件处理器（输出到文件）
-file_handler = logging.FileHandler(log_file, encoding='utf-8')
-file_handler.setLevel(logging.INFO)
-file_format = logging.Formatter('%(asctime)s - %(levelname)s - %(message)s')
-file_handler.setFormatter(file_format)
-
-# 配置根日志记录器，同时添加两个处理器
-logging.basicConfig(level=logging.INFO, handlers=[console_handler, file_handler])
 logger = logging.getLogger(__name__)
 
 # 全局锁
@@ -110,103 +88,17 @@ def retry_on_rate_limit(max_retries=MAX_RETRIES, delay=RETRY_DELAY):
     return decorator
 
 
-"""线程安全地向文本文件追加一行"""
-def safe_append_to_file(file_path, line):
-    with write_lock:
-        # a 追加
-        # with open(file_path, 'a', encoding='utf-8') as f:
-        #     f.write(line + '\n')
-        with open(file_path, 'w', encoding='utf-8') as f:
-            f.write(line + '\n')
-
-"""线程安全地读取文本文件的所有行，返回字符串列表"""
-def safe_read_from_file(file_path):
-    with write_lock:
-        try:
-            with open(file_path, 'r', encoding='utf-8') as f:
-                lines = f.readlines()
-        except FileNotFoundError:
-            lines = []
-        # 如果需要去除换行符，可使用 strip 或 rstrip('\n')
-        return [line.rstrip('\n') for line in lines]
-
-
-
-
-
 # ---------- 核心API调用（改写为可重用，每个患者独立） ----------
 
 def call_ai_for_patient(info):
     """ 处理单个患者的全部问题，返回结果字典。  内部包含重试和对话历史管理。 """
-    static_system = """
-        ---
-        ## 核心角色与任务设定
-        
-        你是一名心脏超声质控专家。
-        
-        你的核心任务为以下工作：
-        1. 识别文本中的患者超声测量数值，然后填充到标准表格模版中 （最终返回Markdown表格内容 ）
-        2. 基于测量的患者数值，予以患者情况分析，输出超声报告
-        
-        标准表格模版 - Markdown表格模板（可直接复制到支持Markdown的编辑器）：
-        
-        ```markdown
-        | 项目 | 参考范围 | 检查值 | 状态 |
-        |------|----------|--------|------|
-        | **一、腔室内径（mm）** | | | |
-        | 左房前后径 | 25-40 | ___ | ___ |
-        | 左房容积 | — | ___ ml | ___ |
-        | 主动脉瓣环 | — | ___ mm | ___ |
-        | 升主动脉内径 | — | ___ mm | ___ |
-        | 右室前后径 | 16-30 | ___ mm | ___ |
-        | 主肺动脉径 | 16-30 | ___ mm | ___ |
-        | 左室舒张期内径 | 女≤50 / 男≤55 | ___ mm | ___ |
-        | 左室收缩期内径 | — | ___ mm | ___ |
-        | **二、室壁厚度及运动（mm）** | | | |
-        | 室间隔厚度 | 8-12 | ___ | ___ |
-        | 室间隔运动幅度 | — | ___ | ___ |
-        | 左室后壁厚度 | — | ___ | ___ |
-        | 左室后壁运动幅度 | — | ___ | ___ |
-        | **三、血流动力学参数** | | | |
-        | 主动脉流速 | — | ___ m/s | ___ |
-        | 肺动脉流速 | — | ___ m/s | ___ |
-        | 二尖瓣E峰 | — | ___ m/s | ___ |
-        | 二尖瓣A峰 | — | ___ m/s | ___ |
-        | 二尖瓣环间隔侧e | — | ___ cm/s | ___ |
-        | 二尖瓣环侧壁侧e | — | ___ cm/s | ___ |
-        | E/e" | — | ___ | ___ |
-        | 三尖瓣反流流速 | — | ___ m/s | ___ |
-        | 三尖瓣反流压差 | — | ___ mmHg | ___ |
-        | 估测肺动脉收缩压 | — | ___ mmHg | ___ |
-        | **四、心功能参数** | | | |
-        | 左室舒张期容积 | — | ___ ml | ___ |
-        | 左室收缩期容积 | — | ___ ml | ___ |
-        | 左室射血分数（LVEF） | 50-80% | ___ % | ___ |
-        | 左室短轴缩短率 | — | ___ % | ___ |
-        | 每搏输出量 | — | ___ ml | ___ |
-        | 每分钟输出量 | — | ___ L/min | ___ |
-        | 即时心率 | — | ___ bpm | ___ |
-        | **五、结构描述** | | | |
-        | 双房及左室 | — | ___ | ___ |
-        | 左室壁运动 | — | ___ | ___ |
-        | 房室间隔 | — | ___ | ___ |
-        | 心内瓣膜 | — | ___ | ___ |
-        | 大动脉 | — | ___ | ___ |
-        ```
-        ---
-        
-        **以下是患者情况，以及患者超声测量结果**
-
-            {info} """
-
-    static_system = static_system.replace("{info}", json.dumps(info))
-
+    info = info.replace("严格仅输出以下CSV格式表格", "严格仅输出以下CSV格式表格（不要markdown格式）")
     # 每个线程独立的OpenAI客户端（线程安全）
     client = OpenAI(api_key=API_KEY, base_url=BASE_URL)
 
     @retry_on_rate_limit()
     def ask_one():
-        messages = [{"role": "user", "content": static_system}]
+        messages = [{"role": "user", "content": info}]
         return client.chat.completions.create(model=MODEL, messages=messages)
 
     start = time.time()

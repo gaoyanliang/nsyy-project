@@ -743,7 +743,7 @@ ASR_WS_URL = (
 )
 
 
-@mz_router.websocket("/ws/transcribe")
+@mz_router.websocket("/asr/ws/transcribe")
 async def websocket_transcribe(websocket: WebSocket):
     await websocket.accept()
     logger.info("✅ 前端 WebSocket 连接已建立")
@@ -916,7 +916,7 @@ async def websocket_transcribe(websocket: WebSocket):
 
 
 """根据住院号查询患者信息"""
-@mz_router.get("/api/patient_pacs_info/{zhuyuanhao}")
+@mz_router.get("/asr/patient_pacs_info/{zhuyuanhao}")
 async def patient_pacs_info(zhuyuanhao: str):
     sql = f"""select zb.bingrenzyid, zb.zhuyuanhao, zb.xingming patient_name, zb.nianling patient_age, 
     zb.xingbiemc patient_sex, yb.yizhuid, yb.kaizhuksmc dept_name, yb.kaizhuksid dept_id, yb.kaizhuysxm,
@@ -954,7 +954,7 @@ async def patient_pacs_info(zhuyuanhao: str):
 
 
 """ 提交 ai报告申请 """
-@mz_router.post("/api/pacs-submit")
+@mz_router.post("/asr/pacs-submit")
 async def pacs_submit(request: AsrSubmitRequest):
     if not request.patient_info or len(request.patient_info) < 50:
         return {"success": False, "message": "口述内容太少，请检查"}
@@ -987,7 +987,7 @@ async def pacs_submit(request: AsrSubmitRequest):
 
 
 """ 查询提交的ai报告列表 """
-@mz_router.get("/api/pacs_ai_reports")
+@mz_router.get("/asr/pacs_ai_reports")
 async def pacs_ai_reports(page: int = Query(1, ge=1),
     page_size: int = Query(20, ge=1, le=100)):
 
@@ -1017,7 +1017,7 @@ async def pacs_ai_reports(page: int = Query(1, ge=1),
 
 
 """ 查询某一个ai报告 """
-@mz_router.get("/api/pacs_ai_report/{report_id}")
+@mz_router.get("/asr/pacs_ai_report/{report_id}")
 async def pacs_ai_report(report_id: int):
     with DbUtil(global_config.DB_HOST, global_config.DB_USERNAME,
                 global_config.DB_PASSWORD, global_config.DB_DATABASE_GYL) as db:
@@ -1028,19 +1028,8 @@ async def pacs_ai_report(report_id: int):
         "report": ai_report
     }
 
-@mz_router.put("/api/pacs_ai_report/{report_id}")
-async def pacs_ai_report_put(report_id: int):
-    with DbUtil(global_config.DB_HOST, global_config.DB_USERNAME,
-                global_config.DB_PASSWORD, global_config.DB_DATABASE_GYL) as db:
-        ai_report = db.query_one(f"""SELECT ai_report FROM nsyy_gyl.pacs_ai_report where id = {report_id}""")
 
-    return {
-        "success": True,
-        "report": ai_report
-    }
-
-
-@mz_router.put("/api/pacs_ai_report/{report_id}")
+@mz_router.put("/asr/pacs_ai_report/{report_id}")
 async def update_pacs_report(report_id: int, request: UpdateReportRequest):
     """
     更新患者信息或指标数据
@@ -1063,14 +1052,14 @@ async def update_pacs_report(report_id: int, request: UpdateReportRequest):
         if request.patient_info is not None:
             with DbUtil(global_config.DB_HOST, global_config.DB_USERNAME,
                         global_config.DB_PASSWORD, global_config.DB_DATABASE_GYL) as db:
-                report = db.execute(f"""update nsyy_gyl.pacs_ai_report set patient_info = %s where id = %s""",
+                db.execute(f"""update nsyy_gyl.pacs_ai_report set patient_info = %s where id = %s""",
                                     (request.patient_info, report_id), need_commit=True)
 
         # TODO 检查指标是否完善 测试阶段 更新即默认完善
         if request.indicator_data is not None:
             with DbUtil(global_config.DB_HOST, global_config.DB_USERNAME,
                         global_config.DB_PASSWORD, global_config.DB_DATABASE_GYL) as db:
-                report = db.execute(f"""update nsyy_gyl.pacs_ai_report set indicator_data = %s, indicator_status = 1 where id = %s""",
+                db.execute(f"""update nsyy_gyl.pacs_ai_report set indicator_data = %s, indicator_status = 1 where id = %s""",
                                     (request.indicator_data, report_id), need_commit=True)
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"更新失败: {str(e)}")
@@ -1079,16 +1068,11 @@ async def update_pacs_report(report_id: int, request: UpdateReportRequest):
     return {
         "code": 200,
         "success": True,
-        "message": "更新成功",
-        "data": {
-            "id": report.id,
-            "patient_info": report.patient_info,
-            "indicator_data": report.indicator_data
-        }
+        "message": "更新成功"
     }
 
 
-@mz_router.get("/api/trigger_pacs_task")
+@mz_router.get("/asr/trigger_pacs_task")
 async def trigger_pacs_task():
     redis_client = redis.Redis(connection_pool=pool)
     redis_client.set(INDICATOR_TASK_KEY, 1)
@@ -1141,7 +1125,7 @@ def pacs_indicator_data_task():
         with DbUtil(global_config.DB_HOST, global_config.DB_USERNAME,
                     global_config.DB_PASSWORD, global_config.DB_DATABASE_GYL) as db:
             records = db.query_all(f"select * from nsyy_gyl.pacs_ai_report "
-                                  f"where indicator_data is null order by submit_time limit 5")
+                                  f"where indicator_data is null OR CHAR_LENGTH(indicator_data) < 10 order by submit_time limit 5")
 
         if not records:
             logger.info("所有指标任务均已执行完成")
@@ -1199,7 +1183,7 @@ def pacs_auto_report_task():
         with DbUtil(global_config.DB_HOST, global_config.DB_USERNAME,
                     global_config.DB_PASSWORD, global_config.DB_DATABASE_GYL) as db:
             records = db.query_all(f"select id, indicator_data, check_items from nsyy_gyl.pacs_ai_report "
-                                  f"where ai_report is null and indicator_status = 1 order by submit_time limit 5")
+                                  f"where (ai_report is null OR CHAR_LENGTH(ai_report) < 10) and indicator_status = 1 order by submit_time limit 5")
 
         if not records:
             logger.info("所有 pacs auto report 任务均已执行完成")
@@ -1246,10 +1230,10 @@ def pacs_auto_report_task_check():
         with DbUtil(global_config.DB_HOST, global_config.DB_USERNAME,
                     global_config.DB_PASSWORD, global_config.DB_DATABASE_GYL) as db:
             records = db.query_all(f"select id from nsyy_gyl.pacs_ai_report "
-                                  f"where ai_report is null and indicator_status = 1 order by submit_time limit 5")
+                                  f"where (ai_report is null OR CHAR_LENGTH(ai_report) < 10) and indicator_status = 1 order by submit_time limit 5")
 
         if not records:
-            logger.info("所有 pacs auto report 任务均已执行完成")
+            logger.debug("所有 pacs auto report 任务均已执行完成")
             redis_client.delete(AUTO_REPORT_TASK_KEY)
             redis_client.delete(AUTO_REPORT_TASK_RUNNING_KEY)
             return
