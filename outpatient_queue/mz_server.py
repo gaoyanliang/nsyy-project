@@ -198,6 +198,19 @@ async def get_queue_status():
     }
 
 
+
+""" 根据患者id 和业务id 判断患者当天是否重复取号"""
+@mz_router.get("/api/is-repeat/{patient_id}/{business_id}")
+async def is_repeat_queue(patient_id: str, business_id: str):
+    record = db.is_repeat_queue(patient_id, business_id)
+    if record:
+        return {'is_repeat': True, 'message': '当日已取号', 'queue_number': record.get('queue_number'),
+                'queue_time': record.get('create_time'), 'business_name': record.get('business_name')}
+    else:
+        return {'is_repeat': False, 'message': '当日未取号'}
+
+
+
 """获取过号状态"""
 @mz_router.get("/api/queue/overdue")
 async def get_queue_overdue():

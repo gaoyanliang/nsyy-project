@@ -404,6 +404,31 @@ class DatabaseManager:
             cursor.close()
             conn.close()
 
+    def is_repeat_queue(self, patient_id: str, business_id: str) -> dict:
+        """ 判断当天是否已取号 """
+        if business_id not in BUSINESS_TYPES:
+            raise ValueError(f"未知业务类型: {business_id}")
+        conn = self.get_connection()
+        try:
+            cursor = conn.cursor(dictionary=True, buffered=True) # ✅ 解决 Unread result
+            cursor.execute("""SELECT id, queue_number, business_name, create_time
+            FROM hqs_queue_records WHERE patient_id = %s AND business_id = %s AND status = 'waiting' 
+            AND queue_date = %s""", (patient_id, business_id, datetime.now().strftime("%Y%m%d")))
+            row = cursor.fetchone()
+            if not row:
+                return None
+            if row.get('create_time', ''):
+                row['create_time'] = row['create_time'].strftime("%Y-%m-%d %H:%M:%S")
+            return row
+        except Exception as e:
+            logger.error(f"判断当天是否已取号 遇到异常: {e}")
+            return None
+        finally:
+            if cursor:
+                cursor.close()
+            if conn:
+                conn.close()
+
     """添加排队记录 + 事务"""
     def add_queue_record(self, queue_number: str, queue_date: str, patient_id: str,
                          patient_name: str, business_id: str, business_type: str, business_name: str) -> bool:
