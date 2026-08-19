@@ -844,7 +844,8 @@
         .report-list th:nth-child(7), .report-list td:nth-child(7) { width: 10%; }  /* 状态 */
         .report-list th:nth-child(8), .report-list td:nth-child(8) { width: 8%; }  /* 患者信息 */
         .report-list th:nth-child(9), .report-list td:nth-child(9) { width: 8%; }  /* 指标数据 */
-        .report-list th:nth-child(10), .report-list td:nth-child(10) { width: 10%; } /* 操作 */
+        .report-list th:nth-child(10), .report-list td:nth-child(10) { width: 8%; }  /* 指标文本 */
+        .report-list th:nth-child(11), .report-list td:nth-child(11) { width: 10%; } /* 操作 */
 
         .report-list .status-badge {
             display: inline-block;
@@ -1197,7 +1198,38 @@
             padding: 6px 16px;
             font-size: 0.8rem;
         }
+        /* 模态框针对表格编辑放宽宽度 */
+        .modal-box.wide {
+            max-width: 1200px;
+            width: 95%;
+        }
+
+        /* Handsontable 容器高度 */
+        .hot-container {
+            height: 400px;
+            margin: 10px 0;
+        }
+
+        .modal-box.wide .hot-container {
+            height: 500px !important;
+            width: 100% !important;
+        }
+
+        /* Handsontable 表格行高亮 */
+        .highlight-row {
+            background-color: #fff3cd !important; /* 淡黄色 */
+        }
+        /* 也可进一步调整文字颜色 */
+        .highlight-row .htCell {
+            color: #856404;
+        }
     </style>
+
+    <!-- Handsontable -->
+    <link rel="stylesheet" href="handsontable.full.min.css">
+    <script src="handsontable.full.min.js"></script>
+    <!-- Papa Parse（用于 CSV 解析和序列化） -->
+    <script src="papaparse.min.js"></script>
 </head>
 <body>
 
@@ -1340,6 +1372,7 @@
                                 <th>状态</th>
                                 <th>患者信息</th>
                                 <th>指标数据</th>
+                                <th>指标文本</th>
                                 <th>操作</th>
                             </tr>
                         </thead>
@@ -1377,7 +1410,7 @@
                 const host = window.location.hostname;
                 const portMap = {
                     'oa.nsyy.com.cn': 6080,
-                    '192.168.3.12':   6080,
+                    '192.168.3.12':   6083,
                     '192.168.124.9':  8081,
                     '127.0.0.1':      8081,
                     'localhost':      8081,
@@ -1387,6 +1420,12 @@
                     return {
                         apiBase: `https://${host}:6081/mz`,
                         wsUrl: `wss://${host}:6081/mz`
+                    };
+                }
+                if (host === '192.168.3.12') {
+                    return {
+                        apiBase: `https://${host}:6083/mz`,
+                        wsUrl: `wss://${host}:6083/mz`
                     };
                 }
                 return {
@@ -1518,7 +1557,7 @@
             async function connect() {
                 if (isConnected || connectionStatus === 'connecting') return;
                 setConnectionStatus('connecting');
-                const wsUrl = `${WS_URL}/ws/transcribe`;
+                const wsUrl = `${WS_URL}/asr/ws/transcribe`;
                 try {
                     ws = new WebSocket(wsUrl);
                     ws.onopen = () => {
@@ -1894,8 +1933,205 @@
                 let editingRecordId = null;
                 let editingField = null;  // 'patient_info' 或 'indicator_data'
 
-                // 模态框元素引用
                 function openModal(title, content, editable = false, recordId = null, field = null) {
+                    modalTitle.textContent = title;
+                    editingRecordId = recordId;
+                    editingField = field;
+                    isEditMode = editable;
+
+                    modalDetailContent.innerHTML = '';
+                    modalOverlay.querySelector('.modal-box').classList.remove('wide');
+
+                    // ---------- 指标数据表格编辑 ----------
+                    if (editable && field === 'indicator_data') {
+                        modalOverlay.querySelector('.modal-box').classList.add('wide');
+
+                        // 确保 content 有效，若无效则提供默认表格头
+                        let csvData = content;
+                        if (!csvData || csvData.trim() === '' || csvData === '暂无') {
+                            // 提供默认表头（7列与您的CSV结构匹配）
+                            csvData = `"指标类别","标准缩写","标准术语输出","报告原始描述","质控参考值（定性映射）","质控状态","强制质控备注"`;
+                        }
+
+                        try {
+                            const parseResult = Papa.parse(csvData, {
+                                header: false,
+                                skipEmptyLines: true,
+                                trimHeaders: false,
+                            });
+                            if (parseResult.errors.length) {
+                                console.warn('CSV 解析警告:', parseResult.errors);
+                            }
+                            const tableData = parseResult.data;
+
+                            // 如果解析结果为空（例如空字符串），至少保留一行空数据
+                            if (!tableData || tableData.length === 0) {
+                                tableData.push(['']);
+                            }
+
+                            console.log('解析后的表格数据:', tableData); // 调试
+
+                            // 创建容器并强制高度
+                            const container = document.createElement('div');
+                            container.className = 'hot-container';
+                            container.style.cssText = 'height: 500px; width: 100%; margin: 10px 0;';
+                            modalDetailContent.appendChild(container);
+
+                            // 延迟初始化，确保容器可见
+                            setTimeout(() => {
+                                const hot = new Handsontable(container, {
+                                    data: tableData,
+                                    colHeaders: true,
+                                    rowHeaders: true,
+                                    fixedRowsTop: 1,
+                                    licenseKey: 'non-commercial-and-evaluation',
+                                    contextMenu: true,
+                                    filters: true,
+                                    dropdownMenu: true,
+                                    stretchH: 'all',
+                                    wordWrap: true,
+                                    autoRowSize: true,
+                                    manualColumnResize: true,
+                                    manualRowResize: true,
+                                    height: '100%',   // 占满容器高度
+
+                                    // ----- 新增 cells 函数 -----
+                                    cells: function(row, col, prop) {
+                                        const cellProperties = {};
+                                        const rowData = this.instance.getSourceDataAtRow(row);
+                                        // 检查第3列（索引从0开始）是否包含关键词
+                                        const cellValue = rowData[5] || '';
+                                        if (typeof cellValue === 'string' && (cellValue.includes('缺失') || cellValue.includes('缺'))) {
+                                            cellProperties.className = 'highlight-row';
+                                        }
+                                        return cellProperties;
+                                    }
+                                });
+                                window._hotInstance = hot;
+                                console.log('Handsontable 已初始化'); // 调试
+                            }, 50);
+
+                        } catch (err) {
+                            modalDetailContent.innerHTML = `<p style="color:red;">解析 CSV 失败：${err.message}</p>`;
+                            modalOverlay.classList.add('active');
+                            return;
+                        }
+
+                        // 按钮组
+                        const btnGroup = document.createElement('div');
+                        btnGroup.style.cssText = 'margin-top: 12px; display: flex; gap: 8px; flex-wrap: wrap;';
+
+                        const addRowBtn = document.createElement('button');
+                        addRowBtn.className = 'btn btn-outline btn-sm';
+                        addRowBtn.textContent = '➕ 添加行';
+                        addRowBtn.onclick = () => {
+                            const hot = window._hotInstance;
+                            if (!hot) return;
+                            const colCount = hot.getSourceData()[0]?.length || 1;
+                            const newRow = new Array(colCount).fill('');
+                            hot.alter('insert_row_below', hot.countRows() - 1);
+                            // 填充空数据
+                            const rowIndex = hot.countRows() - 1;
+                            hot.setDataAtRowProp(rowIndex, 0, newRow);
+                        };
+
+                        const addColBtn = document.createElement('button');
+                        addColBtn.className = 'btn btn-outline btn-sm';
+                        addColBtn.textContent = '➕ 添加列';
+                        addColBtn.onclick = () => {
+                            const hot = window._hotInstance;
+                            if (hot) hot.alter('insert_col_end');
+                        };
+
+                        const saveBtn = document.createElement('button');
+                        saveBtn.className = 'btn btn-primary';
+                        saveBtn.textContent = '💾 保存表格';
+                        saveBtn.onclick = async () => {
+                            const hot = window._hotInstance;
+                            if (!hot) {
+                                showToastPacs('表格尚未初始化', 'warning');
+                                return;
+                            }
+                            const editedData = hot.getData();
+                            const newCsv = Papa.unparse(editedData, { quotes: true });
+                            await saveFieldData(editingRecordId, editingField, newCsv);
+                        };
+
+                        const cancelBtn = document.createElement('button');
+                        cancelBtn.className = 'btn btn-outline';
+                        cancelBtn.textContent = '取消';
+                        cancelBtn.onclick = closeModal;
+
+                        btnGroup.append(addRowBtn, addColBtn, saveBtn, cancelBtn);
+                        modalDetailContent.appendChild(btnGroup);
+
+                        modalOverlay.classList.add('active');
+                        return;
+                    }
+
+                    // ---------- 其他可编辑字段（文本） ----------
+                    if (editable) {
+                        modalDetailContent.innerHTML = `
+                            <textarea class="edit-area" id="editTextarea">${escapeHtml(content)}</textarea>
+                            <div class="modal-actions">
+                                <button class="btn btn-outline" id="cancelEditBtn">取消</button>
+                                <button class="btn btn-primary" id="saveEditBtn">💾 保存</button>
+                            </div>
+                        `;
+                        document.getElementById('cancelEditBtn').addEventListener('click', closeModal);
+                        document.getElementById('saveEditBtn').addEventListener('click', async function() {
+                            const newData = document.getElementById('editTextarea').value;
+                            await saveFieldData(editingRecordId, editingField, newData);
+                        });
+                        modalOverlay.classList.add('active');
+                        return;
+                    }
+
+                    // ---------- 只读模式 ----------
+                    // modalDetailContent.innerHTML = escapeHtml(content).replace(/\n/g, '<br>');
+                    // modalOverlay.classList.add('active');
+
+                    // ---------- 只读模式（报告详情等） ----------
+                    modalDetailContent.innerHTML = `
+                        <div style="display: flex; justify-content: flex-end; margin-bottom: 12px;">
+                            <button class="btn btn-outline btn-sm" id="copyReportBtn">📋 复制内容</button>
+                        </div>
+                        <div style="white-space: pre-wrap;">${escapeHtml(content).replace(/\n/g, '<br>')}</div>
+                    `;
+
+                    document.getElementById('copyReportBtn')?.addEventListener('click', function() {
+                        const textToCopy = content;
+                        if (navigator.clipboard && navigator.clipboard.writeText) {
+                            navigator.clipboard.writeText(textToCopy)
+                                .then(() => showToast('✅ 报告内容已复制到剪贴板', 'success'))
+                                .catch(() => fallbackCopy(textToCopy));
+                        } else {
+                            fallbackCopy(textToCopy);
+                        }
+                    });
+
+                    function fallbackCopy(text) {
+                        const textarea = document.createElement('textarea');
+                        textarea.value = text;
+                        textarea.style.position = 'fixed';
+                        textarea.style.opacity = '0';
+                        document.body.appendChild(textarea);
+                        textarea.select();
+                        try {
+                            document.execCommand('copy');
+                            showToast('✅ 报告内容已复制到剪贴板', 'success');
+                        } catch (e) {
+                            showToast('❌ 复制失败，请手动选择复制', 'error');
+                        }
+                        document.body.removeChild(textarea);
+                    }
+
+                    modalOverlay.classList.add('active');
+
+                }
+
+                // 模态框元素引用
+                function openModal2(title, content, editable = false, recordId = null, field = null) {
                     console.log('openModal', title, content, editable, recordId, field);
                     modalTitle.textContent = title;
                     editingRecordId = recordId;
@@ -1978,7 +2214,7 @@
                         const updateData = {};
                         updateData[field] = newData;
 
-                        const resp = await fetch(`${API_BASE}/api/pacs_ai_report/${recordId}`, {
+                        const resp = await fetch(`${API_BASE}/asr/pacs_ai_report/${recordId}`, {
                             method: 'PUT',
                             headers: { 'Content-Type': 'application/json' },
                             body: JSON.stringify(updateData)
@@ -2006,7 +2242,7 @@
                     if (!zhuyuanhao) { showToastPacs('请输入住院号', 'warning'); return; }
                     showLoading(true);
                     try {
-                        const resp = await fetch(`${API_BASE}/api/patient_pacs_info/${zhuyuanhao}`);
+                        const resp = await fetch(`${API_BASE}/asr/patient_pacs_info/${zhuyuanhao}`);
                         if (!resp.ok) throw new Error('患者信息查询失败');
                         const data = await resp.json();
                         currentPatient = data;
@@ -2048,7 +2284,7 @@
                         const div = document.createElement('div');
                         div.className = 'check-item-wrapper';
                         div.innerHTML = `
-                            <div class="item-name">${escapeHtml(item.check_item)}</div>
+                            <div class="item-name">${escapeHtml(item.check_item)}  -  ${escapeHtml(item.kaishisj)}</div>
                             <div class="item-meta">
                                 <span>医嘱ID: ${escapeHtml(item.yizhuid)}</span>
                                 <span>开嘱: ${escapeHtml(item.kaizhusj)}</span>
@@ -2114,7 +2350,7 @@
                     showLoading(true);
                     submitBtn.disabled = true;
                     try {
-                        const resp = await fetch(`${API_BASE}/api/pacs-submit`, {
+                        const resp = await fetch(`${API_BASE}/asr/pacs-submit`, {
                             method: 'POST',
                             headers: { 'Content-Type': 'application/json' },
                             body: JSON.stringify(data)
@@ -2152,7 +2388,7 @@
                 async function loadReports(page = 1) {
                     showLoading(true);
                     try {
-                        const url = `${API_BASE}/api/pacs_ai_reports?page=${page}&page_size=${PAGE_SIZE}`;
+                        const url = `${API_BASE}/asr/pacs_ai_reports?page=${page}&page_size=${PAGE_SIZE}`;
                         const resp = await fetch(url);
                         if (!resp.ok) throw new Error('获取列表失败');
                         const result = await resp.json();
@@ -2170,7 +2406,7 @@
 
                 function renderTable(data) {
                     if (!data || data.length === 0) {
-                        reportTableBody.innerHTML = `<tr><td colspan="10" style="text-align:center; color:var(--text-muted);">暂无记录</td></tr>`;
+                        reportTableBody.innerHTML = `<tr><td colspan="11" style="text-align:center; color:var(--text-muted);">暂无记录</td></tr>`;
                         return;
                     }
 
@@ -2201,6 +2437,9 @@
                             <td>
                                 <button class="btn-detail edit-field" data-index="${index}" data-field="indicator_data">✏️ 查看/编辑</button>
                             </td>
+                            <td>   <!-- 新增列 -->
+                                <button class="btn-detail edit-field-text" data-index="${index}" data-field="indicator_data">📝 文本编辑</button>
+                            </td>
                             <td>
                                 <button class="btn-view" data-id="${item.id}" ${btnDisabled ? 'disabled' : ''}>
                                     ${btnDisabled ? '⏳ 生成中' : '📄 查看报告'}
@@ -2225,6 +2464,19 @@
                             openModal(`📋 ${label}（可编辑）`, content, true, record.id, field);
                         });
                     });
+
+                    // 新增的“文本指标”按钮绑定（openModal2）
+                    reportTableBody.querySelectorAll('.edit-field-text').forEach(btn => {
+                        btn.addEventListener('click', function() {
+                            const index = parseInt(this.dataset.index);
+                            const record = window._reportTableData[index];
+                            if (!record) { showToastPacs('数据不存在', 'error'); return; }
+                            const content = record.indicator_data || '暂无';
+                            // 调用 openModal2，假设它是一个纯文本编辑器（类似 patient_info 的编辑方式）
+                            openModal2('📋 指标数据（文本编辑）', content, true, record.id, 'indicator_data');
+                        });
+                    });
+
 
                     // 绑定查看报告按钮
                     reportTableBody.querySelectorAll('.btn-view:not([disabled])').forEach(btn => {
@@ -2324,7 +2576,7 @@
                 async function viewReport(reportId) {
                     showLoading(true);
                     try {
-                        const resp = await fetch(`${API_BASE}/api/pacs_ai_report/${reportId}`);
+                        const resp = await fetch(`${API_BASE}/asr/pacs_ai_report/${reportId}`);
                         if (!resp.ok) throw new Error('获取报告失败');
                         const data = await resp.json();
                         let content = '暂无报告内容';
