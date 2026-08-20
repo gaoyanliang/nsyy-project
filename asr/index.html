@@ -1474,6 +1474,10 @@
             const SAMPLE_RATE = 16000;
             const CHUNK_SIZE = 4096;
 
+            // 保存录音
+            let mediaRecorder = null;
+            let audioChunks = [];
+
             // ---- 本地暂存 ----
             const STORAGE_KEY = 'medical_asr_report_draft';
             function saveDraft() {
@@ -1742,6 +1746,48 @@
                     mediaStream = await navigator.mediaDevices.getUserMedia({
                         audio: { sampleRate: SAMPLE_RATE, channelCount: 1, echoCancellation: true, noiseSuppression: true }
                     });
+
+                    // ---- 新增 MediaRecorder 保存录音----
+                    mediaRecorder = new MediaRecorder(mediaStream);
+                    audioChunks = [];
+                    mediaRecorder.ondataavailable = (e) => {
+                        if (e.data.size > 0) audioChunks.push(e.data);
+                    };
+                    mediaRecorder.onstop = () => {
+                        const blob = new Blob(audioChunks, { type: 'audio/webm' });
+                        // 触发下载
+                        const url = URL.createObjectURL(blob);
+                        const a = document.createElement('a');
+                        a.href = url;
+
+                        // 1. 获取患者姓名（从界面元素或全局变量）
+                        let patientName = '';
+                        const pNameEl = document.getElementById('pName');
+                        if (pNameEl) {
+                            patientName = pNameEl.textContent.trim();
+                        }
+                        // 若未查询到或为 '-'，则使用默认值
+                        if (!patientName || patientName === '-') {
+                            patientName = '未知患者';
+                        }
+                        // 过滤 Windows 非法字符
+                        const cleanName = patientName.replace(/[\\/:*?"<>|]/g, '');
+
+                        // ---- 使用本地时间 ----
+                        const now = new Date();
+                        const pad = (n) => String(n).padStart(2, '0');
+                        const localTime = `${now.getFullYear()}${pad(now.getMonth()+1)}${pad(now.getDate())}_${pad(now.getHours())}${pad(now.getMinutes())}${pad(now.getSeconds())}`;
+                        a.download = `录音_${cleanName}_${localTime}.webm`;
+                        // a.download = `录音_${new Date().toISOString().replace(/[:.]/g, '-')}.webm`;
+                        document.body.appendChild(a);
+                        a.click();
+                        document.body.removeChild(a);
+                        URL.revokeObjectURL(url);
+                        audioChunks = [];
+                    };
+                    mediaRecorder.start();  // 不传 timeslice，生成完整文件
+                    // ---- 保存录音结束 ----
+
                     audioContext = new (window.AudioContext || window.webkitAudioContext)({ sampleRate: SAMPLE_RATE });
                     const audioSource = audioContext.createMediaStreamSource(mediaStream);
                     const audioProcessor = audioContext.createScriptProcessor(CHUNK_SIZE, 1, 1);
@@ -1802,6 +1848,12 @@
                 stopTimer();
                 recordingBadge.textContent = '录入完成';
                 recordingBadge.className = 'panel-badge badge-idle';
+
+                // 关闭媒体录制器(保存录音)
+                if (mediaRecorder && mediaRecorder.state !== 'inactive') {
+                    mediaRecorder.stop();
+                }
+
                 if (heartbeatInterval) { clearInterval(heartbeatInterval); heartbeatInterval = null; }
             }
 
