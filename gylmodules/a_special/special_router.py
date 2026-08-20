@@ -422,6 +422,10 @@ def ocr(json_data):
 
 
 
+
+# ======================================== 智能手表 ========================================
+
+
 DATA_FILE = "received_data.log"
 HEALTH_FILE = "health_data.log"
 POSITION_FILE = "position_data.log"
@@ -729,6 +733,33 @@ def api_alarm():
 
 
 
+# ======================================== 自动下载发票 ========================================
+
+
+@special_system.route("/run_tax/<vm_id>/<path:subpath>", methods=["GET", "POST"])
+def forward_request(vm_id, subpath):
+
+    target_url = f"http://192.168.3.121:5000/run_tax/{vm_id}/{subpath}"
+    # 把原请求的参数、方法、body 都转过去
+    if request.method == "GET":
+        resp = requests.get(target_url, params=request.args, timeout=30)
+    else:
+        resp = requests.request(
+            method=request.method,
+            url=target_url,
+            params=request.args,
+            data=request.data,
+            headers={k: v for k, v in request.headers if k.lower() != "host"},
+            timeout=30,
+        )
+    # 把目标响应原样返回
+    return (resp.content, resp.status_code, dict(resp.headers))
+
+
+
+# ======================================== DIP ========================================
+
+
 # 定义表头字段（按照图片中的顺序）
 FIELDS = [
     "医保结算流水号",
@@ -786,132 +817,8 @@ def upload_ai_dip():
 
     return jsonify({"data": "success", 'code': 20000})
 
-@special_system.route("/export_grouped_excel3", methods=["POST"])
-def export_grouped_excel1():
-    req_json = request.get_json()
-    if not req_json:
-        return jsonify({"error": "请求体必须是 JSON 格式", 'code': 40000})
-
-    # 1. 获取并校验入参
-    departments = req_json.get('dept_names')
-    start_date_str = req_json.get('start_date')
-    end_date_str = req_json.get('end_date')
-    comp_name = req_json.get('comp_name')
-
-    if not departments or not start_date_str or not end_date_str:
-        return jsonify({
-            "error": "缺少必要参数: department, start_date, end_date",
-            'code': 40000
-        })
-
-    # 2. 解析日期（格式：YYYY-MM-DD）
-    try:
-        start_date = datetime.strptime(start_date_str, '%Y-%m-%d').date()
-        end_date = datetime.strptime(end_date_str, '%Y-%m-%d').date()
-    except ValueError:
-        return jsonify({"error": "日期格式错误，请使用 YYYY-MM-DD", 'code': 40000})
-
-    if start_date > end_date:
-        return jsonify({"error": "开始日期不能晚于结束日期", 'code': 40000})
-
-    # 3. 从数据库查询数据（假设模型字段：departments, discharge_date）
-    data = special_server.query_dept_patients(departments, start_date.strftime('%Y-%m-%d'), end_date.strftime('%Y-%m-%d'), comp_name)
-    if not data:
-        return jsonify({"error": "未查询到符合条件的数据", 'code': 40000})
-
-    code_prefix = set()
-    for item in data:
-        code = item.pop('现DIP代码')
-        if code:
-            code_prefix.add(code.replace(' ', '')[0])
-    code_prefix = list(code_prefix)
-
-    extra_files = {}
-    # 读取2026年DIP病种目录库
-    EXTRA_FILE_1_PATH = '/Users/gaoyanliang/各个系统文档整理/ai-dip/各科室患者DIP数据/脑病重症病区/2026年DIP病种目录库.xlsx' if global_config.run_in_local else '/home/gyl/2026年DIP病种目录库.xlsx'
-    EXTRA_FILE_1_NAME = '2026年DIP病种目录库.xlsx'
-    if len(code_prefix) > 0:
-        if os.path.exists(EXTRA_FILE_1_PATH):
-            try:
-                # 一次性读取（保留原始数据类型）
-                df = pd.read_excel(EXTRA_FILE_1_PATH, dtype=str, engine='openpyxl')
-                # 去除诊断编码列的前后空格（避免匹配失败）
-                df['诊断编码'] = df['诊断编码'].astype(str).str.strip()
-
-                # 根据 code_prefix 的内容过滤
-                mask = df['诊断编码'].str[0].isin(code_prefix)
-                df_filtered = df[mask]
-
-                # 写入内存
-                filtered_buffer = BytesIO()
-                df_filtered.to_excel(filtered_buffer, index=False, engine='openpyxl')
-                filtered_buffer.seek(0)
-                extra_files[EXTRA_FILE_1_NAME] = filtered_buffer.getvalue()
-
-            except Exception as e:
-                if os.path.exists(EXTRA_FILE_1_PATH):
-                    with open(EXTRA_FILE_1_PATH, "rb") as f:
-                        extra_files[EXTRA_FILE_1_NAME] = f.read()
-        else:
-            if os.path.exists(EXTRA_FILE_1_PATH):
-                with open(EXTRA_FILE_1_PATH, "rb") as f:
-                    extra_files[EXTRA_FILE_1_NAME] = f.read()
-    else:
-        if os.path.exists(EXTRA_FILE_1_PATH):
-            with open(EXTRA_FILE_1_PATH, "rb") as f:
-                extra_files[EXTRA_FILE_1_NAME] = f.read()
-
-    # 读取文件2
-    EXTRA_FILE_2_PATH = '/Users/gaoyanliang/各个系统文档整理/ai-dip/各科室患者DIP数据/脑病重症病区/提供给AI的提示词.txt' if global_config.run_in_local else '/home/gyl/提供给AI的提示词.txt'
-    EXTRA_FILE_2_NAME = '提供给AI的提示词.txt'
-    if os.path.exists(EXTRA_FILE_2_PATH):
-        with open(EXTRA_FILE_2_PATH, "rb") as f:
-            extra_files[EXTRA_FILE_2_NAME] = f.read()
-
-    extra_files["跑AI时不需要再上传综合组排出操作文件.txt"] = b"No need to upload the comprehensive group elimination operation file when running AI"
-
-    # 4. 分组导出逻辑（与原代码一致）
-    group_size = 20
-    total = len(data)
-    groups = []
-    for i in range(0, total, group_size):
-        start = i + 1
-        end = min(i + group_size, total)
-        group_data = data[i:i+group_size]
-        groups.append((start, end, group_data))
-
-    zip_buffer = BytesIO()
-    with zipfile.ZipFile(zip_buffer, "w", zipfile.ZIP_DEFLATED) as zf:
-        # 写入分组患者数据
-        for idx, (start, end, group_data) in enumerate(groups, start=1):
-            rows = []
-            for record in group_data:
-                row = {field: safe_get(record, field) for field in FIELDS}
-                rows.append(row)
-
-            df = pd.DataFrame(rows, columns=FIELDS)
-            excel_buffer = BytesIO()
-            df.to_excel(excel_buffer, index=False, engine="openpyxl")
-            excel_buffer.seek(0)
-
-            filename = f"{departments[0]}_数据_{idx}_{start}_至_{end}.xlsx"
-            zf.writestr(filename, excel_buffer.getvalue())
-
-        # 写入过滤后的目录库文件（与分组文件同级）
-        for name, content in extra_files.items():
-            zf.writestr(name, content)
-
-    zip_buffer.seek(0)
-    return send_file(
-        zip_buffer,
-        mimetype="application/zip",
-        as_attachment=True,
-        download_name=f"{departments[0]}_分组数据.zip"
-    )
-
-
 @special_system.route("/export_grouped_excel1", methods=["POST"])
-def export_grouped_excel3():
+def export_grouped_excel1():
     req_json = request.get_json()
     if not req_json:
         return jsonify({"error": "请求体必须是 JSON 格式", 'code': 40000})
@@ -1069,26 +976,6 @@ def export_grouped_excel3():
         download_name=f"{departments[0]}_DIP分组汇总.zip"
     )
 
-
-
-@special_system.route("/run_tax/<vm_id>/<path:subpath>", methods=["GET", "POST"])
-def forward_request(vm_id, subpath):
-
-    target_url = f"http://192.168.3.121:5000/run_tax/{vm_id}/{subpath}"
-    # 把原请求的参数、方法、body 都转过去
-    if request.method == "GET":
-        resp = requests.get(target_url, params=request.args, timeout=30)
-    else:
-        resp = requests.request(
-            method=request.method,
-            url=target_url,
-            params=request.args,
-            data=request.data,
-            headers={k: v for k, v in request.headers if k.lower() != "host"},
-            timeout=30,
-        )
-    # 把目标响应原样返回
-    return (resp.content, resp.status_code, dict(resp.headers))
 
 
 
