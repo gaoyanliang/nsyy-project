@@ -26,6 +26,12 @@ class SkipRequest(BaseModel):
     reason: str = "过号"
 
 
+class WakeUpRequest(BaseModel):
+    patient_id: str
+    queue_number: str
+    business_type: str
+    window_id: int
+
 class AsrSubmitRequest(BaseModel):
     patient_info: str
     zhuyuanhao: str

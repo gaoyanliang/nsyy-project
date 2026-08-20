@@ -499,7 +499,7 @@ class DatabaseManager:
                   AND queue_date = %s
                   AND business_id IN ({placeholders})          -- 过滤：只取列表中的业务
                 ORDER BY FIELD(business_id, {placeholders}),   -- 排序：按给定顺序
-                         create_time ASC
+                         priority DESC, create_time ASC
                 LIMIT 1
             """
             params = [business_type, datetime.now().strftime("%Y%m%d")] + sort_list + sort_list
@@ -657,6 +657,55 @@ class DatabaseManager:
             return True
         except Exception as e:
             logger.error(f"跳过失败: {e}")
+            return False
+        finally:
+            cursor.close()
+            conn.close()
+
+    """
+    重新唤醒
+    保留原号码，默认排在队列第一
+    """
+    def wake_up(self, patient_id: str, queue_number: str, business_type: str):
+        conn = self.get_connection()
+        try:
+            cursor = conn.cursor(dictionary=True)
+            conn.start_transaction()
+            # 获取记录的创建时间和业务类型
+            cursor.execute("SELECT * FROM hqs_queue_records WHERE patient_id = %s AND queue_number = %s "
+                           "AND business_type = %s AND status = 'skipped' AND queue_date = %s",
+                           (patient_id, queue_number, business_type, datetime.now().strftime("%Y%m%d")))
+            record = cursor.fetchone()
+            if not record:
+                conn.rollback()
+                return False
+
+            cursor.execute("UPDATE hqs_queue_records SET status='reactivated', queue_number=%s WHERE id = %s",
+                           (f"{record['queue_number']}_{datetime.now().strftime('%Y%m%d%H%M%S')}", record['id']))
+            # 插入新记录，priority 设为 1
+            cursor.execute("""INSERT INTO hqs_queue_records (queue_number, queue_date, patient_id, patient_name, 
+                business_id, business_type, business_name, status, priority)
+                VALUES (%s, %s, %s, %s, %s, %s, %s, 'waiting', 1)""",
+                (record['queue_number'], datetime.now().strftime("%Y%m%d"), patient_id, record['patient_name'],
+                 record['business_id'], business_type, record['business_name']))
+
+            conn.commit()
+
+            if self.redis_client:
+                try:
+                    self.redis_client.publish('queue_update', json.dumps({
+                        'action': 'add',
+                        'data': {
+                            'queue_number': queue_number, 'patient_name': record['patient_name'],
+                            'business_id': record['business_id'], 'business_type': record['business_type'],
+                            'business_name': record['business_name']
+                        }
+                    }))
+                except Exception:
+                    pass
+            return True
+        except Exception as e:
+            logger.error(f"唤醒失败: {e}")
             return False
         finally:
             cursor.close()
@@ -857,7 +906,7 @@ class DatabaseManager:
             if business_ids:
                 placeholders = ','.join(f"'{item}'" for item in business_ids)
                 sql = f"""SELECT * FROM hqs_queue_records WHERE business_id IN ({placeholders}) AND status = '{status}' 
-                AND queue_date = '{datetime.now().strftime('%Y%m%d')}' ORDER BY FIELD(business_id, {placeholders}), create_time ASC """
+                AND queue_date = '{datetime.now().strftime('%Y%m%d')}' ORDER BY FIELD(business_id, {placeholders}), priority DESC, create_time ASC """
                 cursor.execute(sql)
             else:
                 cursor.execute("""SELECT * FROM hqs_queue_records WHERE status = %s AND queue_date = %s
@@ -874,7 +923,7 @@ class DatabaseManager:
         try:
             cursor = conn.cursor(dictionary=True, buffered=True)
             cursor.execute(f"""SELECT queue_number, status, patient_name, business_name, create_time, complete_time, skip_time 
-                                FROM hqs_queue_records WHERE window_id = {window_id} and status in ('completed', 'skipped') 
+                                FROM hqs_queue_records WHERE window_id = {window_id} and status = 'completed'
                                 AND queue_date = '{datetime.now().strftime('%Y%m%d')}' ORDER BY create_time DESC """)
             return cursor.fetchall()
         finally:
@@ -944,13 +993,18 @@ class DatabaseManager:
             cursor.close()
             conn.close()
 
-    def get_overdue_list(self):
+    def get_overdue_list(self, business_type, window_id):
         """查询过号列表"""
+        condition_sql = ""
+        if business_type:
+            condition_sql = condition_sql + f" AND business_type = '{business_type}' "
+        if window_id:
+            condition_sql = condition_sql + f" AND window_id = {window_id} "
         conn = self.get_connection()
         try:
             cursor = conn.cursor(dictionary=True, buffered=True)
-            cursor.execute("""SELECT * FROM hqs_queue_records WHERE status = 'skipped' AND queue_date = %s
-                       ORDER BY create_time ASC """, (datetime.now().strftime('%Y%m%d'), ))
+            sql = f"""SELECT * FROM hqs_queue_records WHERE status = 'skipped' AND queue_date = %s {condition_sql} ORDER BY create_time ASC """
+            cursor.execute(sql, (datetime.now().strftime('%Y%m%d'), ))
             return cursor.fetchall()
         finally:
             cursor.close()

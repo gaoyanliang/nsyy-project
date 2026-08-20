@@ -119,6 +119,40 @@ async function init() {
         showToast('语音已启用，现在叫号会有声音了');
     };
     document.body.appendChild(activateBtn);
+
+    // Tab 切换事件
+    document.querySelectorAll('.tab-btn').forEach(btn => {
+        btn.addEventListener('click', function() {
+            // 切换激活状态
+            document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+            this.classList.add('active');
+
+            // 切换面板
+            const tab = this.dataset.tab;
+            document.querySelectorAll('.tab-panel').forEach(p => p.classList.remove('active'));
+            document.getElementById(tab + 'TabContent').classList.add('active');
+
+            // 加载对应数据（如果尚未加载或需要刷新）
+            if (tab === 'skipped') {
+                loadSkippedList();
+            } else if (tab === 'history') {
+                loadHistory();
+            }
+        });
+    });
+
+    // 刷新按钮（刷新当前活动 Tab）
+    document.getElementById('refreshTabBtn').addEventListener('click', function() {
+        const activeTab = document.querySelector('.tab-btn.active');
+        if (activeTab) {
+            const tab = activeTab.dataset.tab;
+            if (tab === 'skipped') {
+                loadSkippedList();
+            } else if (tab === 'history') {
+                loadHistory();
+            }
+        }
+    });
 }
 
 // ==================== 业务类型加载 ====================
@@ -283,7 +317,8 @@ async function switchWindow(windowId) {
     updatePharmacyButtonVisibility(windowId);
 
     // 切换窗口后 加载历史记录
-    await loadHistory();
+    //await loadHistory();
+    await loadSkippedList();
 }
 
 function updatePharmacyButtonVisibility(windowId) {
@@ -399,15 +434,17 @@ function updateBusinessCards(statusData) {
         <div class="queue-list" id="queueList_${businessType}">
             <div class="empty-state"><span>加载中...</span></div>
         </div>
-        <button class="call-main-btn" onclick="window.callNext('${businessType}')">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                <polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/>
-                <path d="M19.07 4.93a10 10 0 0 1 0 14.14"/>
-                <path d="M15.54 8.46a5 5 0 0 1 0 7.07"/>
-            </svg>
-            叫下一个号
-        </button>
+
     `;
+        // 放在  `; 里面
+        // <button class="call-main-btn" onclick="window.callNext('${businessType}')">
+        //     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+        //         <polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/>
+        //         <path d="M19.07 4.93a10 10 0 0 1 0 14.14"/>
+        //         <path d="M15.54 8.46a5 5 0 0 1 0 7.07"/>
+        //     </svg>
+        //     叫下一个号
+        // </button>
     container.appendChild(card);
 
     // 加载该业务的排队列表
@@ -510,8 +547,10 @@ function updateQueueList(businessType, queues) {
                       isMedicalDone ? `<span class="queue-state medical-done" > 已完成药品收集 </span>` : ``
                     }
                 </div>
-                <button class="call-btn" onclick="window.callSpecific('${queue.queue_number}', '${safePatientName}', '${businessType}')">呼叫</button>
+
             `;
+            // 放在  `; 里面
+            //<button class="call-btn" onclick="window.callSpecific('${queue.queue_number}', '${safePatientName}', '${businessType}')">呼叫</button>
             // 确保 item 在容器中的顺序（按原始顺序）
             if (existingItem.parentNode !== container) {
                 container.appendChild(existingItem);
@@ -534,8 +573,10 @@ function updateQueueList(businessType, queues) {
                         : ``
                     }
                 </div>
-                <button class="call-btn" onclick="window.callSpecific('${queue.queue_number}', '${safePatientName}', '${businessType}')">呼叫</button>
+
             `;
+            // 放在  `; 里面
+            // <button class="call-btn" onclick="window.callSpecific('${queue.queue_number}', '${safePatientName}', '${businessType}')">呼叫</button>
             fragment.appendChild(item);
         }
     });
@@ -549,6 +590,92 @@ function updateQueueList(businessType, queues) {
         container.innerHTML = '<div class="empty-state"><span>暂无等待患者</span></div>';
     }
 }
+
+async function loadSkippedList() {
+    try {
+        const response = await fetch(`${API_BASE}/api/queue/overdue?business_type=${currentBusinessType}&window_id=${currentWindowId}`);
+        if (response.ok) {
+            const data = await response.json();
+            updateSkippedList(data.list || []);
+        }
+    } catch (error) {
+        console.error('加载过号列表失败:', error);
+    }
+}
+
+function updateSkippedList(skippedItems) {
+    const container = document.getElementById('skippedList');
+    const countSpan = document.getElementById('skippedCount');  // 注意 ID 已改为 tab 内的 span
+    if (!container) return;
+
+    // 更新计数（同时更新按钮上的计数）
+    if (countSpan) {
+        //countSpan.textContent = skippedItems.length;
+        countSpan.textContent = `共 ${skippedItems.length} 人`;
+    }
+
+    // countSpan.textContent = `共 ${skippedItems.length} 人`;
+    container.innerHTML = '';
+
+    if (skippedItems.length === 0) {
+        container.innerHTML = '<div class="empty-state"><span>暂无过号患者</span></div>';
+        return;
+    }
+
+    const fragment = document.createDocumentFragment();
+    skippedItems.forEach(item => {
+        const div = document.createElement('div');
+        div.className = 'history-item';
+        div.innerHTML = `
+            <div class="history-info">
+                <span class="history-number">${item.queue_number}</span>
+                <span class="history-name">${item.patient_name || '患者'}</span>
+                <span class="history-biz">${item.business_name}</span>
+                <span class="history-status status-skipped">已过号</span>
+            </div>
+            <button class="btn btn-reactivate" onclick="window.wakeUpPatient('${item.patient_id}', '${item.queue_number}', '${item.business_type}')">
+                重新激活
+            </button>
+        `;
+        fragment.appendChild(div);
+    });
+    container.appendChild(fragment);
+}
+
+async function wakeUpPatient(patientId, queueNumber, businessType) {
+    if (currentCall && currentCall.status === 'calling') {
+        console.log('已有正在服务的患者，请先完成服务或过号');
+        showToast('请先完成当前服务或过号');
+        return;
+    }
+    try {
+        const response = await fetch(`${API_BASE}/api/wakeup`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                business_type: businessType,
+                queue_number: queueNumber,
+                patient_id: patientId,
+                window_id: currentWindowId
+            })
+        });
+
+        const result = await response.json();
+        if (result.success) {
+            showToast(`唤醒成功，排队号：${result.queue_number}`);
+            // 刷新当前队列和过号列表
+            loadQueueStatus();
+            loadSkippedList();
+            // 可选：自动叫号？避免用户等待，可自动触发 callNext
+        } else {
+            showToast(`唤醒失败：${result.message}`);
+        }
+    } catch (error) {
+        showToast('唤醒请求失败，请检查网络');
+    }
+}
+
+
 
 // ==================== WebSocket ====================
 function initWebSocket() {
@@ -603,9 +730,9 @@ function handleWebSocketMessage(data) {
             if (currentCall && currentCall.queue_number === data.data.queue_number) {
                 currentCall = null;
                 updateCurrentCallDisplay('---', '等待叫号');
-                setTimeout(() => {
-                    if (currentBusinessType) callNext(currentBusinessType);
-                }, 500);
+//                setTimeout(() => {
+//                    if (currentBusinessType) callNext(currentBusinessType);
+//                }, 500);
             }
             // 使用防抖刷新
             scheduleRefresh();
@@ -616,9 +743,9 @@ function handleWebSocketMessage(data) {
             if (currentCall && currentCall.queue_number === data.data.queue_number) {
                 currentCall = null;
                 updateCurrentCallDisplay('---', '等待叫号');
-                setTimeout(() => {
-                    if (currentBusinessType) callNext(currentBusinessType);
-                }, 500);
+//                setTimeout(() => {
+//                    if (currentBusinessType) callNext(currentBusinessType);
+//                }, 500);
             }
             // 使用防抖刷新
             scheduleRefresh();
@@ -861,8 +988,9 @@ function showToast(message) {
 
 // ==================== 重复呼叫 ====================
 async function recallCurrent() {
-    if (!currentCall) {
+    if (!currentCall || currentCall.status !== 'calling') {
         console.log('没有正在服务的患者');
+        showToast('没有正在服务的患者');
         return;
     }
 
@@ -882,7 +1010,7 @@ function playVoice1(queueNumber, patientName) {
 
     const utterance = new SpeechSynthesisUtterance();
     utterance.text = patientName && patientName.trim()
-        ? `请${queueNumber}号，${patientName}，到${currentWindowInfo?.window_name || '窗口'}办理业务`
+        ? `请 ${patientName}，到${currentWindowInfo?.window_name || '窗口'}办理业务`
         : `请${queueNumber}号，到${currentWindowInfo?.window_name || '窗口'}办理业务`;
     utterance.lang = 'zh-CN';
     utterance.rate = 0.9;

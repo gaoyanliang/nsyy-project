@@ -213,8 +213,8 @@ async def is_repeat_queue(patient_id: str, business_id: str):
 
 """获取过号状态"""
 @mz_router.get("/api/queue/overdue")
-async def get_queue_overdue():
-    overdue_queues = db.get_overdue_list()
+async def get_queue_overdue(business_type: Optional[str] = None, window_id: Optional[str] = None):
+    overdue_queues = db.get_overdue_list(business_type, window_id)
 
     # 转换datetime为字符串
     for call in overdue_queues:
@@ -430,7 +430,6 @@ async def medicine_complete(request: CompleteRequest):
         raise HTTPException(status_code=500, detail="完成服务失败")
 
 
-
 """跳过/过号"""
 @mz_router.post("/api/skip")
 async def skip_queue(request: SkipRequest):
@@ -447,6 +446,20 @@ async def skip_queue(request: SkipRequest):
         return {'success': True}
     else:
         raise HTTPException(status_code=500, detail="跳过失败")
+
+
+"""唤醒"""
+@mz_router.post("/api/wakeup")
+async def wake_up(request: WakeUpRequest):
+    success = db.wake_up(request.patient_id, request.queue_number, request.business_type)
+
+    if success:
+        await manager.send_to_window(request.window_id, {
+            'type': 'queue_update'
+        })
+        return {'success': True}
+    else:
+        raise HTTPException(status_code=500, detail="唤醒失败")
 
 
 """患者重新激活过号的排队（通过重新刷卡/扫码）"""
@@ -934,10 +947,11 @@ async def patient_pacs_info(zhuyuanhao: str):
     sql = f"""select zb.bingrenzyid, zb.zhuyuanhao, zb.xingming patient_name, zb.nianling patient_age, 
     zb.xingbiemc patient_sex, yb.yizhuid, yb.kaizhuksmc dept_name, yb.kaizhuksid dept_id, yb.kaizhuysxm,
     to_char(yb.kaizhusj,'yyyy-mm-dd hh24:mi:ss') kaizhusj, to_char(yb.kaishisj,'yyyy-mm-dd hh24:mi:ss') kaishisj,
-    yb.yizhumc check_item ,yb.shenqingdanzt ,lj.jianchabzfl
-    from df_jj_zhuyuan.zy_bingrenxx zb
-    join df_lc_zhuyuan.yz_bingrenyz yb  on yb.bingrenzyid = zb.bingrenzyid and yb.yizhufl = '23' and yb.yizhuzt in (2,3,4) and yb.shenqingdanzt <560 
+    yb.yizhumc check_item ,yb.shenqingdanzt ,lj.jianchabzfl from df_jj_zhuyuan.zy_bingrenxx zb
+    join df_lc_zhuyuan.yz_bingrenyz yb on yb.bingrenzyid = zb.bingrenzyid and yb.yizhufl = '23' and yb.yizhuzt in (2,3,4) 
     and yb.yizhumc not like '%加收%' and yb.shenqingdanzt  not in (501,502)
+    --and yb.shenqingdanzt <560   --查询未出报告
+    and yb.kaishisj>=current_date - interval '10 day'  --查询最近10天所有的
     join df_shenqingdan.yj_jianchasqdxm yj   on yb.yizhuid=yj.yizhubh 
     join df_zhushuju.lcgy_jianchaxm lj on lj.jianchaxmid= yj.jianchaxmid 
     where zb.zaiyuanzt=0 and zb.xingming not like '%测试%' and zb.zhuyuanhao = '{zhuyuanhao}'
