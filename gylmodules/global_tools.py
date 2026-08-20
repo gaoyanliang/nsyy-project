@@ -1,6 +1,4 @@
-from typing import List, Dict, Optional, Tuple
 from datetime import datetime, date
-import json
 import threading
 import traceback
 import logging
@@ -11,15 +9,19 @@ from functools import wraps, lru_cache
 from typing import Callable, Any, List, Dict
 
 import cx_Oracle
+import redis
 import requests
 import psycopg2
 
 from psycopg2.extras import RealDictCursor
-from flask import Blueprint, jsonify, request
+from flask import jsonify, request
 
 from gylmodules import global_config
+from gylmodules.utils.db_utils_new import DbUtil
 
 DB_CONFIG = {"dbname": "df_his", "user": "ogg", "password": "nyogg@2024", "host": "192.168.8.57", "port": "6000"}
+pool = redis.ConnectionPool(host=global_config.REDIS_HOST, port=global_config.REDIS_PORT,
+                            db=global_config.REDIS_DB, decode_responses=True)
 
 
 def setup_logging(log_file='app.log', level=logging.INFO, backup_count=5, max_bytes=10 * 1024 * 1024,  # 10MB
@@ -71,6 +73,10 @@ def setup_logging(log_file='app.log', level=logging.INFO, backup_count=5, max_by
     logging.getLogger("selenium").setLevel(logging.WARNING)
     logging.getLogger("paramiko").setLevel(logging.WARNING)
     logging.getLogger("apns2.client").setLevel(logging.WARNING)
+    logging.getLogger("mysql").setLevel(logging.WARNING)
+    logging.getLogger("tzlocal").setLevel(logging.WARNING)  # 新增
+    logging.getLogger("httpcore").setLevel(logging.WARNING)  # 新增
+    logging.getLogger("websockets.client").setLevel(logging.WARNING)  # 新增
 
     return logger
 
@@ -233,8 +239,8 @@ def call_new_his_local(sql: str, sys: str = 'newzt', clobl: list = None):
         param['clobl'] = clobl
 
     # 动态 URL
-    # query_oracle_url = "http://192.168.124.5:5000/oracle_sql"
-    query_oracle_url = "http://192.168.3.12:6080/gyl/cv/query_oracle_data"
+    query_oracle_url = "http://192.168.124.13:5000/oracle_sql"
+    # query_oracle_url = "http://192.168.3.12:6080/gyl/cv/query_oracle_data"
 
     data = []
     max_retries, retry_count, retry_delay = 3, 0, 1
@@ -299,51 +305,34 @@ def call_query_sqlserver(sql: str) -> List[Dict]:
 
     # 创建连接字符串
     conn_str = (
-        f'DRIVER={{ODBC Driver 17 for SQL Server}};'
-        f'SERVER={SERVER};'
-        f'UID={USERNAME};'
-        f'PWD={PASSWORD};'
-        f'Connection Timeout=30;'
+        "DRIVER={ODBC Driver 17 for SQL Server};"
+        f"SERVER={SERVER};"
+        f"UID={USERNAME};"
+        f"PWD={PASSWORD};"
+        "TrustServerCertificate=yes;"
+        "Connection Timeout=30;"
     )
-
-    connection = None
-    cursor = None
 
     import pyodbc
     try:
-        # 1. 建立连接
-        connection = pyodbc.connect(conn_str)
-        cursor = connection.cursor()
+        with pyodbc.connect(conn_str, autocommit=True) as conn:
+            cursor = conn.cursor()
 
-        # 2. 拆分 SQL 语句并分别执行
-        # 移除临时表创建语句
-        sql_statements = sql.strip().split(';')
+            cursor.execute("""SET NOCOUNT ON; SET ARITHABORT ON;""")
+            cursor.execute(sql)
 
-        # 执行前两个语句（创建临时表的部分）
-        for i, stmt in enumerate(sql_statements[:-1]):
-            if stmt.strip():
-                cursor.execute(stmt)
+            # 跳过没有结果集的 batch
+            while cursor.description is None:
+                if not cursor.nextset():
+                    break
 
-        # 3. 执行最终的查询语句
-        final_query = sql_statements[-1].strip()
-        cursor.execute(final_query)
+            columns = [c[0] for c in cursor.description]
+            rows = cursor.fetchall()
 
-        # 4. 获取结果
-        columns = [column[0] for column in cursor.description] if cursor.description else []
-
-        results = []
-        for row in cursor.fetchall():
-            results.append(dict(zip(columns, row)))
-
-        return results
-
+            result = [dict(zip(columns, row)) for row in rows]
+            return result
     except pyodbc.Error as e:
         logger.error(f"SQL Server 查询错误: {e}")
-    finally:
-        if cursor:
-            cursor.close()
-        if connection:
-            connection.close()
     return []
 
 
@@ -400,7 +389,8 @@ def socket_push(info, data):
         try:
             # 发送POST请求
             response = requests.post(global_config.socket_push_url, data=json.dumps(data),
-                                     headers={'Content-Type': 'application/json'})
+                                     headers={'Content-Type': 'application/json'}, timeout=5)
+            logger.debug(f" {info} Socket 推送结果:  {response.text}   发送数据:  {data}")
             # 打印响应内容
             if response.status_code != 200:
                 raise Exception(f" {info} Socket 推送结果:  {response.status_code}  {response.text}  {data}")
@@ -617,3 +607,114 @@ def send_to_wx(log_str):
     except Exception as e:
         logger.error(f"发送微信通知失败: {e}")
 
+
+# ==========================================
+# ============== 其他工具      ==============
+# ==========================================
+
+
+"""
+交接班系统： 同步医生职称
+医师电子化排班： 同步医生基本信息
+"""
+def fetch_doctor():
+    sql = """select gz.zhigongid 职工id, gz.zhigonggh 职工工号, gz.zhigongxm 姓名, gz1.zhichengmc 职称, gz1.keshimc,
+		gz1.dianhua1 电话, gz2.zuzhimc 人事科室, gz3.zuzhimc 考勤科室, gz4.zuzhimc 核算科室,
+		coalesce(gz.renshiks,gz.kaoqinks,gz.hesuanks,gz1.keshiid) as 科室id,
+		coalesce(gz2.zuzhimc,gz3.zuzhimc,gz4.zuzhimc,gz1.keshimc) 科室
+	from df_zhushuju.gy_zhigongda gz join df_zhushuju.gy_zhigongxx gz1 on gz.zhigongid = gz1.zhigongid
+		and gz1.zuofeibz = 0 and gz1.dangqianzt ='1' and gz1.zaizhizt =1 
+	left join df_zhushuju.gy_zuzhidy gz2 on gz.renshiks=gz2.zuzhiid
+	left join df_zhushuju.gy_zuzhidy gz3 on gz.kaoqinks=gz3.zuzhiid
+	left join df_zhushuju.gy_zuzhidy gz4 on gz.hesuanks=gz4.zuzhiid
+	where gz.zhigonglb = '1'"""
+    data = call_new_his_pg(sql)
+    if not data:
+        return
+
+    with DbUtil('192.168.3.12', 'root', '123123', "oa_test") as db:
+        doctors = db.query_all("select his_no, pers_id from oa_test.hr_pers_main where is_active = 1")
+
+    doctor_pers_id_map = {str(item.get('his_no')): item.get('pers_id') for item in doctors}
+
+    redis_client = redis.Redis(connection_pool=pool)
+    for item in data:
+        if item.get('职工工号'):
+            # 交接班系统需要
+            zhicheng = '住院医师' if item.get('职称', '') == '医师' else item.get('职称')
+            if zhicheng:
+                redis_client.set(f"doctor_title:{item.get('职工工号')}", zhicheng)
+
+            item['pers_id'] = doctor_pers_id_map.get(str(item.get('职工工号')), '')
+            # 医生排班需要
+            redis_client.hset(f"doctor_schedule", str(item.get('职工工号')), json.dumps(item, ensure_ascii=False, default=str))
+
+# fetch_doctor()
+
+
+def excel_to_jsons(file_path, sheet_num: int = 0, header_line: int = 1, keys: list = None):
+    """
+    :param file_path: Excel 文件路径
+    :param sheet_num: 工作表索引，从0开始
+    :param header_line: 表头所在行号（从1开始）
+    :param keys: 需要提取的列名列表，若为 None 则提取所有列
+    :return: JSON 字符串列表
+    """
+    import openpyxl
+    wbook = openpyxl.load_workbook(file_path, data_only=True)
+    sheet = wbook[wbook.sheetnames[sheet_num]]
+
+    # 读取所有表头
+    headers = [cell.value for cell in sheet[header_line]]
+
+    # 如果指定了 keys，则只保留这些列；否则保留所有列
+    if keys is not None:
+        # 仅保留在 keys 中出现的列名（按 keys 的顺序保留，便于排序）
+        # 如果某个 key 不在 headers 中，此处会被忽略（也可主动抛出异常）
+        valid_keys = [k for k in keys if k in headers]
+        # 构建列索引映射：列名 -> 列索引（0-based）
+        col_indices = {name: idx for idx, name in enumerate(headers) if name in valid_keys}
+        # 为了后续 zip 顺序一致，按 valid_keys 顺序取出列值
+        # 由于 iter_rows 按列顺序返回，我们需要按索引提取，但更简单的是直接用行字典过滤
+    else:
+        valid_keys = headers
+
+    results = []
+    for row in sheet.iter_rows(min_row=header_line + 1, values_only=True):  # 从表头下一行开始
+        # 将整行与所有表头组合成字典
+        full_dict = dict(zip(headers, row))
+        # 如果指定了 keys，则过滤字典
+        if keys is not None:
+            row_dict = {k: full_dict[k] for k in valid_keys if k in full_dict}
+        else:
+            row_dict = full_dict
+
+        # 如果需要写入文件，需要将row_dict转为JSON字符串
+        # row_json = json.dumps(row_dict, ensure_ascii=False, default=str)
+        results.append(row_dict)
+
+    return results
+
+
+import pandas as pd
+import json
+
+
+def jsons_to_excel_pandas(json_list, file_path, sheet_name="Sheet1"):
+    """
+    将JSON列表写入Excel
+    :param json_list: 可以是 字典列表 或 JSON字符串列表
+    :param file_path: 输出路径，如 "output.xlsx"
+    :param sheet_name: 工作表名称
+    """
+    # 如果传入的是 JSON 字符串列表（比如你之前的函数返回的），先转为字典列表
+    if json_list and isinstance(json_list[0], str):
+        dict_list = [json.loads(item) for item in json_list]
+    else:
+        dict_list = json_list
+
+    # 核心操作：字典列表 -> DataFrame -> Excel
+    df = pd.DataFrame(dict_list)
+    df.to_excel(file_path, sheet_name=sheet_name, index=False)
+
+    print(f"成功写入 {len(df)} 行数据到 {file_path}")
