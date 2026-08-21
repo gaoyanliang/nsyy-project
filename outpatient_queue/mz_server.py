@@ -942,20 +942,36 @@ async def websocket_transcribe(websocket: WebSocket):
 
 
 """根据住院号查询患者信息"""
-@mz_router.get("/asr/patient_pacs_info/{zhuyuanhao}")
-async def patient_pacs_info(zhuyuanhao: str):
-    sql = f"""select zb.bingrenzyid, zb.zhuyuanhao, zb.xingming patient_name, zb.nianling patient_age, 
-    zb.xingbiemc patient_sex, yb.yizhuid, yb.kaizhuksmc dept_name, yb.kaizhuksid dept_id, yb.kaizhuysxm,
-    to_char(yb.kaizhusj,'yyyy-mm-dd hh24:mi:ss') kaizhusj, to_char(yb.kaishisj,'yyyy-mm-dd hh24:mi:ss') kaishisj,
-    yb.yizhumc check_item ,yb.shenqingdanzt ,lj.jianchabzfl from df_jj_zhuyuan.zy_bingrenxx zb
-    join df_lc_zhuyuan.yz_bingrenyz yb on yb.bingrenzyid = zb.bingrenzyid and yb.yizhufl = '23' and yb.yizhuzt in (2,3,4) 
-    and yb.yizhumc not like '%加收%' and yb.shenqingdanzt  not in (501,502)
-    --and yb.shenqingdanzt <560   --查询未出报告
-    and yb.kaishisj>=current_date - interval '10 day'  --查询最近10天所有的
-    join df_shenqingdan.yj_jianchasqdxm yj   on yb.yizhuid=yj.yizhubh 
-    join df_zhushuju.lcgy_jianchaxm lj on lj.jianchaxmid= yj.jianchaxmid 
-    where zb.zaiyuanzt=0 and zb.xingming not like '%测试%' and zb.zhuyuanhao = '{zhuyuanhao}'
-"""
+@mz_router.get("/asr/patient_pacs_info/{zhuyuanhao}/{patient_type}")
+async def patient_pacs_info(zhuyuanhao: str, patient_type: str):
+    if patient_type == "inpatient":
+
+        sql = f"""select zb.bingrenzyid, zb.zhuyuanhao, zb.xingming patient_name, zb.nianling patient_age, 
+        zb.xingbiemc patient_sex, yb.yizhuid, yb.kaizhuksmc dept_name, yb.kaizhuksid dept_id, yb.kaizhuysxm,
+        to_char(yb.kaizhusj,'yyyy-mm-dd hh24:mi:ss') kaizhusj, to_char(yb.kaishisj,'yyyy-mm-dd hh24:mi:ss') kaishisj,
+        yb.yizhumc check_item ,yb.shenqingdanzt ,lj.jianchabzfl from df_jj_zhuyuan.zy_bingrenxx zb
+        join df_lc_zhuyuan.yz_bingrenyz yb on yb.bingrenzyid = zb.bingrenzyid and yb.yizhufl = '23' and yb.yizhuzt in (2,3,4) 
+        and yb.yizhumc not like '%加收%' and yb.shenqingdanzt  not in (501,502)
+        and yb.shenqingdanzt <560   --查询未出报告
+        -- and yb.kaishisj>=current_date - interval '10 day'  --查询最近10天所有的
+        join df_shenqingdan.yj_jianchasqdxm yj   on yb.yizhuid=yj.yizhubh 
+        join df_zhushuju.lcgy_jianchaxm lj on lj.jianchaxmid= yj.jianchaxmid 
+        where zb.zaiyuanzt=0 and zb.xingming not like '%测试%' and zb.zhuyuanhao = '{zhuyuanhao}'"""
+    elif patient_type == "outpatient":
+        sql = f""" select zb.jiuzhenid, zb.jiuzhenkh, zb.xingming patient_name, zb.nianling patient_age, 
+            zb.xingbiemc patient_sex, yb.yizhuid, yb.kaidanksmc dept_name, yb.kaidanks dept_id, yb.kaidanysxm,
+            to_char(yb.kaidanrq,'yyyy-mm-dd hh24:mi:ss') kaizhusj, to_char(yb.kaishisj,'yyyy-mm-dd hh24:mi:ss') kaishisj,
+            yb.yizhumc check_item ,yb.shenqingdanzt ,lj.jianchabzfl 
+            from df_lc_menzhen.zj_jiuzhenxx zb
+            join df_lc_menzhen.mz_yizhu yb on yb.jiuzhenid = zb.jiuzhenid and yb.yizhulx = '23'
+            and yb.yizhumc not like '%加收%' and yb.shenqingdanzt  not in (501,502)
+            and yb.shenqingdanzt <560   --查询未出报告
+            -- and yb.kaishisj>=current_date - interval '10 day'  --查询最近10天所有的
+            join df_shenqingdan.yj_jianchasqdxm yj   on yb.yizhuid=yj.yizhubh 
+            join df_zhushuju.lcgy_jianchaxm lj on lj.jianchaxmid= yj.jianchaxmid 
+            where  zb.xingming not like '%测试%' and zb.jiuzhenrq>=current_date-1
+            and zb.jiuzhenkh = '{zhuyuanhao}'"""
+
     patients_info = db.pg_query(sql)
     if not patients_info:
         return {}
@@ -965,7 +981,8 @@ async def patient_pacs_info(zhuyuanhao: str):
             "patient_age": patients_info[0]["patient_age"],
             "patient_sex": patients_info[0]["patient_sex"],
             "dept_id": patients_info[0]["dept_id"],
-            "dept_name": patients_info[0]["dept_name"]
+            "dept_name": patients_info[0]["dept_name"],
+            "patient_type": "住院患者" if patient_type == 'inpatient' else '门诊患者',
         }
     check_items_list = [{
         "yizhuid": item["yizhuid"],
@@ -973,7 +990,7 @@ async def patient_pacs_info(zhuyuanhao: str):
         'kaizhusj': item["kaizhusj"],
         'kaishisj': item["kaishisj"],
         "jianchabzfl": patients_info[0]["jianchabzfl"]
-    } for item in patients_info]
+    } for item in patients_info if item["jianchabzfl"] == "US"]
     info['check_items_list'] = check_items_list
 
     return info
@@ -998,14 +1015,13 @@ async def pacs_submit(request: AsrSubmitRequest):
     with DbUtil(global_config.DB_HOST, global_config.DB_USERNAME,
                 global_config.DB_PASSWORD, global_config.DB_DATABASE_GYL) as db:
         args = []
+        patient_type = "住院患者" if request.patient_type == 'inpatient' else '门诊患者'
         for item in check_items:
             args.append((request.zhuyuanhao, request.patient_name, request.patient_age, request.patient_sex, request.dept_id,
-                    request.dept_name, request.yizhuid, item, submit_time, request.patient_info))
+                    request.dept_name, request.yizhuid, item, submit_time, request.patient_info, patient_type))
         insert_sql = """INSERT INTO nsyy_gyl.pacs_ai_report (zhuyuanhao, patient_name, patient_age, patient_sex, 
-                        dept_id, dept_name, yizhuid, check_items, submit_time, patient_info) 
-                        VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s)"""
-        # args = (request.zhuyuanhao, request.patient_name, request.patient_age, request.patient_sex, request.dept_id,
-        #         request.dept_name, request.yizhuid, request.check_items, datetime.now().strftime("%Y-%m-%d %H:%M:%S"), request.patient_info)
+                        dept_id, dept_name, yizhuid, check_items, submit_time, patient_info, patient_type) 
+                        VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)"""
         db.execute_many(insert_sql, args, need_commit=True)
 
     redis_client = redis.Redis(connection_pool=pool)
@@ -1027,7 +1043,7 @@ async def pacs_ai_reports(page: int = Query(1, ge=1),
 
         # 2️⃣ 查分页数据（列表页不查 LONGTEXT）
         list_sql = f"""
-            SELECT id, zhuyuanhao, patient_name, patient_age, patient_sex, dept_name, check_items, patient_info, indicator_data, indicator_status, 
+            SELECT id, zhuyuanhao, patient_name, patient_type, patient_age, patient_sex, dept_name, check_items, patient_info, indicator_data, indicator_status, 
             submit_time, IF(ai_report IS NULL, 0, 1) AS report_status FROM nsyy_gyl.pacs_ai_report ORDER BY id DESC LIMIT {page_size} OFFSET {offset}
         """
         rows = db.query_all(list_sql)

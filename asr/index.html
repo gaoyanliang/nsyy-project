@@ -1307,9 +1307,17 @@
 
                 <!-- 住院号查询 -->
                 <div class="form-row" style="gap: 8px;">
+                    <!-- 新增：患者类型切换 -->
+                    <div class="form-group" style="flex:0 0 110px; min-width:auto;">
+                        <label>🧑‍⚕️ 患者类型</label>
+                        <select id="patientTypeSelect" style="height:38px;">
+                            <option value="inpatient" selected>住院</option>
+                            <option value="outpatient">门诊</option>
+                        </select>
+                    </div>
                     <div class="form-group" style="flex:2; min-width:160px;">
-                        <label>🏥 住院号</label>
-                        <input type="text" id="zhuyuanhaoInput" placeholder="请输入住院号" autocomplete="off">
+                        <label>🏥 住院号/门诊号</label>
+                        <input type="text" id="zhuyuanhaoInput" placeholder="请输入住院号/门诊号" autocomplete="off">
                     </div>
                     <div class="form-group" style="flex:0 0 auto;">
                         <label>&nbsp;</label>
@@ -1363,7 +1371,8 @@
                     <table>
                         <thead>
                             <tr>
-                                <th>住院号</th>
+                                <th>住院号/门诊号</th>
+                                <th>患者类型</th>
                                 <th>姓名</th>
                                 <th>性别</th>
                                 <th>年龄</th>
@@ -2291,10 +2300,15 @@
                 // ---- 患者查询 ----
                 async function queryPatient() {
                     const zhuyuanhao = zhuyuanhaoInput.value.trim();
-                    if (!zhuyuanhao) { showToastPacs('请输入住院号', 'warning'); return; }
+                    if (!zhuyuanhao) { showToastPacs('请输入住院号/门诊号', 'warning'); return; }
+
+                    // 获取患者类型
+                    const patientTypeSelect = document.getElementById('patientTypeSelect');
+                    const patientType = patientTypeSelect ? patientTypeSelect.value : 'inpatient';
+
                     showLoading(true);
                     try {
-                        const resp = await fetch(`${API_BASE}/asr/patient_pacs_info/${zhuyuanhao}`);
+                        const resp = await fetch(`${API_BASE}/asr/patient_pacs_info/${zhuyuanhao}/${patientType}`);
                         if (!resp.ok) throw new Error('患者信息查询失败');
                         const data = await resp.json();
                         currentPatient = data;
@@ -2386,6 +2400,10 @@
                 async function submitReport() {
                     if (submitBtn.disabled) return;
                     const examFindings = document.getElementById('examFindings').value.trim();
+                    // 获取患者类型
+                    const patientTypeSelect = document.getElementById('patientTypeSelect');
+                    const patientType = patientTypeSelect ? patientTypeSelect.value : 'inpatient';
+
                     console.log(currentPatient)
                     const data = {
                         zhuyuanhao: currentPatient.zhuyuanhao,
@@ -2397,7 +2415,8 @@
                         yizhiid: currentPatient.yizhiid,
                         check_items: selectedCheckItem,
                         yizhuid: selectedYizhuid,          // 新增字段
-                        patient_info: examFindings
+                        patient_info: examFindings,
+                        patient_type: patientType
                     };
                     showLoading(true);
                     submitBtn.disabled = true;
@@ -2477,6 +2496,7 @@
                         // 注意：这里不再把内容放在属性中，而是使用 data-index
                         html += `<tr>
                             <td>${item.zhuyuanhao || '-'}</td>
+                            <td>${item.patient_type || '-'}</td>
                             <td>${item.patient_name || '-'}</td>
                             <td>${item.patient_sex || '-'}</td>
                             <td>${item.patient_age || '-'}</td>

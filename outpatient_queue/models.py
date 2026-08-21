@@ -42,6 +42,7 @@ class AsrSubmitRequest(BaseModel):
     dept_name: str
     yizhuid: str
     check_items: str
+    patient_type: str
 
 
 class UpdateReportRequest(BaseModel):
