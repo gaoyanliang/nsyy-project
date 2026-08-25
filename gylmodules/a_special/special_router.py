@@ -244,6 +244,11 @@ def invoice_to_cn(data: dict) -> dict:
 
 
 
+# ===================================================================================================
+# ========================================= 住院dip 患者查询 ==========================================
+# ===================================================================================================
+
+
 """查询入院三天未提交病案首页的患者列表"""
 
 
@@ -260,7 +265,7 @@ def unsubmitted():
 @special_system.route('/modified-today', methods=['POST', 'GET'])
 @api_response
 def modified_today():
-    return special_server.query_dip_patients()
+    return special_server.query_today_update_dip_patients()
 
 @special_system.route('/all-dip', methods=['POST', 'GET'])
 @api_response
@@ -422,8 +427,9 @@ def ocr(json_data):
 
 
 
-
+# =========================================================================================
 # ======================================== 智能手表 ========================================
+# =========================================================================================
 
 
 DATA_FILE = "received_data.log"
@@ -733,7 +739,10 @@ def api_alarm():
 
 
 
+# =========================================================================================
 # ======================================== 自动下载发票 ========================================
+# =========================================================================================
+
 
 
 @special_system.route("/run_tax/<vm_id>/<path:subpath>", methods=["GET", "POST"])
@@ -977,5 +986,37 @@ def export_grouped_excel1():
     )
 
 
+
+@special_system.route("/completed_patients", methods=["POST", "GET"])
+def completed_dip_patients():
+    req_json = request.get_json()
+    if not req_json:
+        return jsonify({"error": "请求体必须是 JSON 格式", 'code': 50000})
+
+    # 1. 查询
+    data = special_server.completed_dip_patients(req_json)
+    if 'page_no' in req_json and 'no_on_page' in req_json:
+        return jsonify(data)
+    else:
+        # 转 DataFrame（字段映射 + datetime 格式化）
+        df = pd.DataFrame(data.get('patient_l'), columns=list(FIELD_MAP.keys()))
+
+        def safe_file_name(name: str) -> str:
+            import re
+            # 将 逗号、空格、斜杠等替换为 _
+            return re.sub(r'[\\/*?:"<>|]', '_', name)
+
+        file_name = safe_file_name('_'.join(req_json.get('dept_name', [])))
+        start_d = req_json.get('start_d', '')
+        end_d = req_json.get('end_d', '')
+        download_name = f"{file_name}_{start_d}_{end_d}_已完成患者清单.xlsx"
+
+        # 内存写出 xlsx 并下载
+        buffer = BytesIO()
+        with pd.ExcelWriter(buffer, engine="openpyxl") as writer:
+            df.to_excel(writer, index=False, sheet_name="已完成患者数据")
+        buffer.seek(0)
+
+        return send_file(buffer, as_attachment=True, download_name=download_name)
 
 
