@@ -941,11 +941,10 @@ async def websocket_transcribe(websocket: WebSocket):
         logger.info("🔌 连接已关闭")
 
 
-"""根据住院号查询患者信息"""
-@mz_router.get("/asr/patient_pacs_info/{zhuyuanhao}/{patient_type}")
-async def patient_pacs_info(zhuyuanhao: str, patient_type: str):
+"""根据住院号 / 患者类型（住院/门诊）查询患者信息"""
+@mz_router.get("/asr/patient_pacs_info/{zhuyuanhao}/{patient_type}/{check_type}")
+async def patient_pacs_info(zhuyuanhao: str, patient_type: str, check_type: str):
     if patient_type == "inpatient":
-
         sql = f"""select zb.bingrenzyid, zb.zhuyuanhao, zb.xingming patient_name, zb.nianling patient_age, 
         zb.xingbiemc patient_sex, yb.yizhuid, yb.kaizhuksmc dept_name, yb.kaizhuksid dept_id, yb.kaizhuysxm,
         to_char(yb.kaizhusj,'yyyy-mm-dd hh24:mi:ss') kaizhusj, to_char(yb.kaishisj,'yyyy-mm-dd hh24:mi:ss') kaishisj,
@@ -976,7 +975,7 @@ async def patient_pacs_info(zhuyuanhao: str, patient_type: str):
     if not patients_info:
         return {}
     info = {
-            "zhuyuanhao": patients_info[0]["zhuyuanhao"],
+            "zhuyuanhao": patients_info[0].get("zhuyuanhao", ''),
             "patient_name": patients_info[0]["patient_name"],
             "patient_age": patients_info[0]["patient_age"],
             "patient_sex": patients_info[0]["patient_sex"],
@@ -990,7 +989,7 @@ async def patient_pacs_info(zhuyuanhao: str, patient_type: str):
         'kaizhusj': item["kaizhusj"],
         'kaishisj': item["kaishisj"],
         "jianchabzfl": patients_info[0]["jianchabzfl"]
-    } for item in patients_info if item["jianchabzfl"] == "US"]
+    } for item in patients_info if item["jianchabzfl"] == check_type]
     info['check_items_list'] = check_items_list
 
     return info
@@ -1000,9 +999,6 @@ async def patient_pacs_info(zhuyuanhao: str, patient_type: str):
 """ 提交 ai报告申请 """
 @mz_router.post("/asr/pacs-submit")
 async def pacs_submit(request: AsrSubmitRequest):
-    if not request.patient_info or len(request.patient_info) < 50:
-        return {"success": False, "message": "口述内容太少，请检查"}
-
     check_items = request.check_items
     if not check_items:
         return {"success": False, "message": "请选择检查项目"}
@@ -1016,9 +1012,10 @@ async def pacs_submit(request: AsrSubmitRequest):
                 global_config.DB_PASSWORD, global_config.DB_DATABASE_GYL) as db:
         args = []
         patient_type = "住院患者" if request.patient_type == 'inpatient' else '门诊患者'
+        patient_info = f"{request.patient_info}, 患者性别: {request.patient_sex}, 患者年龄: {request.patient_age}"
         for item in check_items:
             args.append((request.zhuyuanhao, request.patient_name, request.patient_age, request.patient_sex, request.dept_id,
-                    request.dept_name, request.yizhuid, item, submit_time, request.patient_info, patient_type))
+                    request.dept_name, request.yizhuid, item, submit_time, patient_info, patient_type))
         insert_sql = """INSERT INTO nsyy_gyl.pacs_ai_report (zhuyuanhao, patient_name, patient_age, patient_sex, 
                         dept_id, dept_name, yizhuid, check_items, submit_time, patient_info, patient_type) 
                         VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)"""
@@ -1072,13 +1069,13 @@ async def pacs_ai_report(report_id: int):
     }
 
 
+"""
+更新患者信息或指标数据
+- 支持单独更新 patient_info 或 indicator_data
+- 若两个字段都提供则同时更新
+"""
 @mz_router.put("/asr/pacs_ai_report/{report_id}")
 async def update_pacs_report(report_id: int, request: UpdateReportRequest):
-    """
-    更新患者信息或指标数据
-    - 支持单独更新 patient_info 或 indicator_data
-    - 若两个字段都提供则同时更新
-    """
     # 1. 查询记录是否存在
     with DbUtil(global_config.DB_HOST, global_config.DB_USERNAME,
                 global_config.DB_PASSWORD, global_config.DB_DATABASE_GYL) as db:
@@ -1100,10 +1097,13 @@ async def update_pacs_report(report_id: int, request: UpdateReportRequest):
 
         # TODO 检查指标是否完善 测试阶段 更新即默认完善
         if request.indicator_data is not None:
+            indicator_data = request.indicator_data
+            if isinstance(indicator_data, dict):
+                indicator_data = json.dumps(indicator_data)
             with DbUtil(global_config.DB_HOST, global_config.DB_USERNAME,
                         global_config.DB_PASSWORD, global_config.DB_DATABASE_GYL) as db:
-                db.execute(f"""update nsyy_gyl.pacs_ai_report set indicator_data = %s, indicator_status = 1 where id = %s""",
-                                    (request.indicator_data, report_id), need_commit=True)
+                db.execute(f"""update nsyy_gyl.pacs_ai_report set indicator_data = %s, indicator_status = 1 
+                                where id = %s""",(indicator_data, report_id), need_commit=True)
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"更新失败: {str(e)}")
 
@@ -1154,8 +1154,8 @@ def get_pacs_ai_prompt(check_items):
                 return []
 
 
+"""异步执行所有 指标任务"""
 def pacs_indicator_data_task():
-    """异步执行所有 指标任务"""
     redis_client = redis.Redis(connection_pool=pool)
     if not redis_client.exists(INDICATOR_TASK_KEY):
         logger.debug("没有需要执行的指标任务")
@@ -1194,11 +1194,25 @@ def pacs_indicator_data_task():
                 text = text.get(check_item, "") + patient_info
 
                 start_time = time.time()
-                ai_indicator = ai_tool.call_ai_for_patient(text)
+                is_json_bool = False
+                if '心脏彩色多普勒超声' in record.get('check_items', ''):
+                    is_json_bool = True
+                ai_indicator = ai_tool.call_ai_for_patient(text, is_json=is_json_bool)
+                indicator_status = ""
+                try:
+                    if isinstance(ai_indicator, dict):
+                        indicator_status = ", indicator_status = 1"
+                        for item in ai_indicator:
+                            if not item.get('value', ''):
+                                indicator_status = ""
+                                break
+                    ai_indicator = json.dumps(ai_indicator, ensure_ascii=False, default=str)
+                except Exception:
+                    pass
                 logging.info(f"pacs 指标任务 {record.get('id')} - 耗时: {time.time() - start_time}")
                 with DbUtil(global_config.DB_HOST, global_config.DB_USERNAME,
                             global_config.DB_PASSWORD, global_config.DB_DATABASE_GYL) as db:
-                    record = db.execute(""" update nsyy_gyl.pacs_ai_report set indicator_data = %s where id = %s """,
+                    db.execute(f""" update nsyy_gyl.pacs_ai_report set indicator_data = %s {indicator_status} where id = %s """,
                                         (ai_indicator, record.get('id')), need_commit=True)
 
             except Exception as e:
@@ -1250,13 +1264,13 @@ def pacs_auto_report_task():
                 # patient_info = record.get("patient_info")
                 # text = text.get(check_item, "") + patient_info
 
-                text = f"患者检查项目: {record.get('check_items')}, 以下是根据医生检查过程中口述的患者情况提取的关键指标，请根据这些指标为患者生成检查报告。\n " + record.get("indicator_data")
+                text = f"患者检查项目: {record.get('check_items')}, 以下是根据医生检查过程中口述的患者情况提取的关键指标，请根据这些指标为患者生成检查报告。 检查报告仅需要 超声所见和超声提示这两部分内容 \n " + record.get("indicator_data")
                 start_time = time.time()
                 ai_report = ai_tool.call_ai_for_patient(text)
                 logging.info(f"pacs auto report 任务 {record.get('id')} - 耗时: {time.time() - start_time}")
                 with DbUtil(global_config.DB_HOST, global_config.DB_USERNAME,
                             global_config.DB_PASSWORD, global_config.DB_DATABASE_GYL) as db:
-                    record = db.execute(""" update nsyy_gyl.pacs_ai_report set ai_report = %s where id = %s """,
+                    db.execute(""" update nsyy_gyl.pacs_ai_report set ai_report = %s where id = %s """,
                                         (ai_report, record.get('id')), need_commit=True)
 
             except Exception as e:

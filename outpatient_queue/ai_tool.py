@@ -90,7 +90,7 @@ def retry_on_rate_limit(max_retries=MAX_RETRIES, delay=RETRY_DELAY):
 
 # ---------- 核心API调用（改写为可重用，每个患者独立） ----------
 
-def call_ai_for_patient(info):
+def call_ai_for_patient(info, is_json: bool = False):
     """ 处理单个患者的全部问题，返回结果字典。  内部包含重试和对话历史管理。 """
     info = info.replace("严格仅输出以下CSV格式表格", "严格仅输出以下CSV格式表格（不要markdown格式）")
     # 每个线程独立的OpenAI客户端（线程安全）
@@ -105,7 +105,8 @@ def call_ai_for_patient(info):
     response = ask_one()
     # safe_append_to_json(OUTPUT_FILE[2], extract_json_from_response(response.choices[0].message.content))
     print_response_detail(response, time.time() - start)
-    return response.choices[0].message.content
+
+    return response.choices[0].message.content if not is_json else extract_json_from_response(response.choices[0].message.content)
 
 
 

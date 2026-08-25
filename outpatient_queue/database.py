@@ -253,6 +253,11 @@ class DatabaseManager:
                 pipe.set(f"completed_count:{bt}:{date_str}", completed)
                 pipe.set(f"total_wait_time:{bt}:{date_str}", total_sec)
 
+            total_waiting = sum(waiting_map.values())
+            total_today = sum(total_map.values())
+            pipe.set(f"waiting_count:all:{date_str}", total_waiting)
+            pipe.set(f"today_total:all:{date_str}", total_today)
+
             pipe.execute()
             logger.info(f"Redis 计数器初始化完成（全量，共 {len(all_business_ids)} 个业务类型）")
 
@@ -561,6 +566,12 @@ class DatabaseManager:
                 except Exception as redis_e:
                     logger.warning(f"Redis 发布失败: {redis_e}")
 
+                try:
+                    # 使用安全递减，不再直接 decr
+                    self._update_waiting_counts(business_id, -1)
+                except Exception as e:
+                    logger.warning(f"Redis 更新失败: {e}")
+
             return True
         except Exception as e:
             conn.rollback()
@@ -703,6 +714,11 @@ class DatabaseManager:
                     }))
                 except Exception:
                     pass
+                try:
+                    # 新插入了一条 waiting 记录，增加计数
+                    self._update_waiting_counts(record['business_id'], 1)
+                except Exception as e:
+                    logger.warning(f"Redis 更新 waiting_count 失败: {e}")
             return True
         except Exception as e:
             logger.error(f"唤醒失败: {e}")
@@ -752,6 +768,11 @@ class DatabaseManager:
                     }))
                 except Exception:
                     pass
+                try:
+                    # 新插入了一条 waiting 记录，增加计数
+                    self._update_waiting_counts(business_id, 1)
+                except Exception as e:
+                    logger.warning(f"Redis 更新 waiting_count 失败: {e}")
 
             return new_queue_number
         except Exception as e:
@@ -793,7 +814,14 @@ class DatabaseManager:
                     key = f"waiting_count:{business_id}:{date_str}"
                     val = self.redis_client.get(key)
                     if val is not None:
-                        return int(val)
+                        # return int(val)
+                        int_val = int(val)
+                        if int_val < 0:
+                            # 从数据库获取真实值并修正
+                            actual = self._get_waiting_count_from_db(business_id)  # 实现下面的辅助方法
+                            self.redis_client.set(key, actual)
+                            return actual
+                        return int_val
                 else:
                     # 全局：累加所有业务类型
                     total = 0
@@ -813,6 +841,24 @@ class DatabaseManager:
             else:
                 cursor.execute("SELECT COUNT(*) FROM hqs_queue_records WHERE status = 'waiting' "
                                "AND queue_date = %s ", (datetime.now().strftime("%Y%m%d"), ))
+            return cursor.fetchone()[0]
+        finally:
+            cursor.close()
+            conn.close()
+
+    def _get_waiting_count_from_db(self, business_id: str = None) -> int:
+        """直接从数据库查询等待人数（不依赖 Redis）"""
+        conn = self.get_connection()
+        try:
+            cursor = conn.cursor()
+            date_str = datetime.now().strftime("%Y%m%d")
+            if business_id:
+                cursor.execute("""SELECT COUNT(*) FROM hqs_queue_records 
+                                  WHERE business_id = %s AND status = 'waiting' AND queue_date = %s""",
+                               (business_id, date_str))
+            else:
+                cursor.execute("""SELECT COUNT(*) FROM hqs_queue_records 
+                                  WHERE status = 'waiting' AND queue_date = %s""", (date_str,))
             return cursor.fetchone()[0]
         finally:
             cursor.close()
@@ -1126,6 +1172,64 @@ class DatabaseManager:
                     logger.error(f"数据库操作失败，已达最大重试次数 {max_retries}。最后错误: {str(e)}\nSQL: {sql}")
                     return []
         return results
+
+
+
+    def _safe_decr(self, key: str) -> int:
+        """
+        原子递减，保证结果不为负数。
+        返回递减后的值；若当前值≤0，则返回0且不递减。
+        使用 Lua 脚本保证原子性。
+        """
+        if not self.redis_client:
+            return 0
+        lua = """
+            local key = KEYS[1]
+            local val = redis.call('GET', key)
+            if val and tonumber(val) > 0 then
+                return redis.call('DECR', key)
+            else
+                return 0
+            end
+        """
+        try:
+            return int(self.redis_client.eval(lua, 1, key))
+        except Exception as e:
+            logger.warning(f"安全递减 Redis 键 {key} 失败: {e}")
+            return 0
+
+    def _safe_incr(self, key: str, delta: int = 1) -> int:
+        """
+        原子递增，返回递增后的值。
+        若键不存在，则先设置为0再递增。
+        """
+        if not self.redis_client:
+            return 0
+        try:
+            return int(self.redis_client.incrby(key, delta))
+        except Exception as e:
+            logger.warning(f"递增 Redis 键 {key} 失败: {e}")
+            return 0
+
+    def _update_waiting_counts(self, business_id: str, delta: int):
+        """
+        统一更新 waiting_count 计数（包括业务维度和全局维度）。
+        delta 可为正（增）或负（减）。
+        """
+        date_str = datetime.now().strftime("%Y%m%d")
+        key_biz = f"waiting_count:{business_id}:{date_str}"
+        key_all = f"waiting_count:all:{date_str}"
+        if delta > 0:
+            self._safe_incr(key_biz, delta)
+            self._safe_incr(key_all, delta)
+        elif delta < 0:
+            # 递减时使用安全方法，避免负数
+            self._safe_decr(key_biz)
+            self._safe_decr(key_all)
+        else:
+            return
+
+        # 可选：同步更新 today_total 等，但此处只处理 waiting_count
 
 # # 单例实例（在 FastAPI 中直接导入使用）
 # db = DatabaseManager()

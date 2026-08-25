@@ -1204,18 +1204,6 @@
             width: 95%;
         }
 
-        /* Handsontable 容器高度 */
-        .hot-container {
-            height: 400px;
-            margin: 10px 0;
-        }
-
-        .modal-box.wide .hot-container {
-            height: 500px !important;
-            width: 100% !important;
-        }
-
-        /* Handsontable 表格行高亮 */
         .highlight-row {
             background-color: #fff3cd !important; /* 淡黄色 */
         }
@@ -1224,12 +1212,6 @@
             color: #856404;
         }
     </style>
-
-    <!-- Handsontable -->
-    <link rel="stylesheet" href="handsontable.full.min.css">
-    <script src="handsontable.full.min.js"></script>
-    <!-- Papa Parse（用于 CSV 解析和序列化） -->
-    <script src="papaparse.min.js"></script>
 </head>
 <body>
 
@@ -1313,6 +1295,13 @@
                         <select id="patientTypeSelect" style="height:38px;">
                             <option value="inpatient" selected>住院</option>
                             <option value="outpatient">门诊</option>
+                        </select>
+                    </div>
+                     <div class="form-group" style="flex:0 0 110px; min-width:auto;">
+                        <label>检查类型</label>
+                        <select id="checkTypeSelect" style="height:38px;">
+                            <option value="US" selected>US</option>
+                            <option value="CT">CT</option>
                         </select>
                     </div>
                     <div class="form-group" style="flex:2; min-width:160px;">
@@ -2005,126 +1994,185 @@
 
                     // ---------- 指标数据表格编辑 ----------
                     if (editable && field === 'indicator_data') {
-                        modalOverlay.querySelector('.modal-box').classList.add('wide');
-
-                        // 确保 content 有效，若无效则提供默认表格头
-                        let csvData = content;
-                        if (!csvData || csvData.trim() === '' || csvData === '暂无') {
-                            // 提供默认表头（7列与您的CSV结构匹配）
-                            csvData = `"指标类别","标准缩写","标准术语输出","报告原始描述","质控参考值（定性映射）","质控状态","强制质控备注"`;
-                        }
-
+                        // 1. 解析 JSON 数据
+                        let jsonData = [];
                         try {
-                            const parseResult = Papa.parse(csvData, {
-                                header: false,
-                                skipEmptyLines: true,
-                                trimHeaders: false,
-                            });
-                            if (parseResult.errors.length) {
-                                console.warn('CSV 解析警告:', parseResult.errors);
+                            if (content && content.trim() !== '' && content !== '暂无') {
+                                const parsed = JSON.parse(content);
+                                if (Array.isArray(parsed)) {
+                                    jsonData = parsed;
+                                } else {
+                                    jsonData = [parsed];
+                                }
                             }
-                            const tableData = parseResult.data;
-
-                            // 如果解析结果为空（例如空字符串），至少保留一行空数据
-                            if (!tableData || tableData.length === 0) {
-                                tableData.push(['']);
-                            }
-
-                            console.log('解析后的表格数据:', tableData); // 调试
-
-                            // 创建容器并强制高度
-                            const container = document.createElement('div');
-                            container.className = 'hot-container';
-                            container.style.cssText = 'height: 500px; width: 100%; margin: 10px 0;';
-                            modalDetailContent.appendChild(container);
-
-                            // 延迟初始化，确保容器可见
-                            setTimeout(() => {
-                                const hot = new Handsontable(container, {
-                                    data: tableData,
-                                    colHeaders: true,
-                                    rowHeaders: true,
-                                    fixedRowsTop: 1,
-                                    licenseKey: 'non-commercial-and-evaluation',
-                                    contextMenu: true,
-                                    filters: true,
-                                    dropdownMenu: true,
-                                    stretchH: 'all',
-                                    wordWrap: true,
-                                    autoRowSize: true,
-                                    manualColumnResize: true,
-                                    manualRowResize: true,
-                                    height: '100%',   // 占满容器高度
-
-                                    // ----- 新增 cells 函数 -----
-                                    cells: function(row, col, prop) {
-                                        const cellProperties = {};
-                                        const rowData = this.instance.getSourceDataAtRow(row);
-                                        // 检查第3列（索引从0开始）是否包含关键词
-                                        const cellValue = rowData[5] || '';
-                                        if (typeof cellValue === 'string' && (cellValue.includes('缺失') || cellValue.includes('缺'))) {
-                                            cellProperties.className = 'highlight-row';
-                                        }
-                                        return cellProperties;
-                                    }
-                                });
-                                window._hotInstance = hot;
-                                console.log('Handsontable 已初始化'); // 调试
-                            }, 50);
-
-                        } catch (err) {
-                            modalDetailContent.innerHTML = `<p style="color:red;">解析 CSV 失败：${err.message}</p>`;
-                            modalOverlay.classList.add('active');
-                            return;
+                        } catch (e) {
+                            console.warn('解析指标 JSON 失败，使用空数组', e);
+                            jsonData = [];
                         }
 
-                        // 按钮组
-                        const btnGroup = document.createElement('div');
-                        btnGroup.style.cssText = 'margin-top: 12px; display: flex; gap: 8px; flex-wrap: wrap;';
+                        if (jsonData.length === 0) {
+                            jsonData = [{}]; // 给一个空行方便用户开始录入
+                        }
 
-                        const addRowBtn = document.createElement('button');
-                        addRowBtn.className = 'btn btn-outline btn-sm';
-                        addRowBtn.textContent = '➕ 添加行';
-                        addRowBtn.onclick = () => {
-                            const hot = window._hotInstance;
-                            if (!hot) return;
-                            const colCount = hot.getSourceData()[0]?.length || 1;
-                            const newRow = new Array(colCount).fill('');
-                            hot.alter('insert_row_below', hot.countRows() - 1);
-                            // 填充空数据
-                            const rowIndex = hot.countRows() - 1;
-                            hot.setDataAtRowProp(rowIndex, 0, newRow);
+                        // 提取所有列名（keys），如果数据为空则使用默认列
+                        let allKeys = [...new Set(jsonData.flatMap(obj => Object.keys(obj)))];
+                        if (allKeys.length === 0) {
+                            allKeys = ['name', 'value', 'unit', 'reference']; // 预设常用字段
+                        }
+
+                        // 确保每一行都有所有 key，避免某行缺少字段导致表格错位
+                        jsonData = jsonData.map(row => {
+                            const newRow = {};
+                            allKeys.forEach(k => newRow[k] = row[k] !== undefined ? row[k] : '');
+                            return newRow;
+                        });
+
+                        // 存储当前编辑上下文，供内部函数使用
+                        const editorContext = {
+                            data: jsonData,
+                            keys: allKeys,
+                            recordId: editingRecordId,
+                            field: editingField,
+                            container: null
                         };
 
-                        const addColBtn = document.createElement('button');
-                        addColBtn.className = 'btn btn-outline btn-sm';
-                        addColBtn.textContent = '➕ 添加列';
-                        addColBtn.onclick = () => {
-                            const hot = window._hotInstance;
-                            if (hot) hot.alter('insert_col_end');
+                        // ---- 核心渲染函数 ----
+                        function renderTable() {
+                            const container = editorContext.container;
+                            if (!container) return;
+
+                            let html = `<style>
+                                    .json-editor-table { width: 100%; border-collapse: collapse; font-size: 0.85rem; }
+                                    .json-editor-table th, .json-editor-table td { border: 1px solid #ddd; padding: 4px 6px; vertical-align: middle; }
+                                    .json-editor-table .col-header { width: 100%; border: none; background: transparent; font-weight: 600; }
+                                    .json-editor-table .cell-input { width: 100%; border: none; background: transparent; padding: 4px; outline: none; }
+                                    .json-editor-table .cell-input:focus { background: #fff; box-shadow: inset 0 0 0 2px var(--primary); }
+                                    .json-editor-table .action-col { width: 60px; text-align: center; }
+                                    /* 高亮行样式（淡黄色背景） */
+                                    .highlight-row { background-color: #fff3cd !important; }
+                                    .highlight-row .cell-input { background-color: #fff3cd !important; }
+                                    .json-actions { margin-top: 12px; display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
+                                    .btn-danger { background: #fee2e2; color: #dc2626; border-color: #fecaca; }
+                                    .btn-danger:hover { background: #fecaca; }
+                                </style>`;
+
+                                // 表头
+                                html += `<table class="json-editor-table"><thead><tr>`;
+                                editorContext.keys.forEach((key) => {
+                                    html += `<th><input class="col-header" value="${escapeHtml(key)}" placeholder="列名" /></th>`;
+                                });
+                                html += `<th class="action-col">操作</th></tr></thead><tbody>`;
+
+                                // 表体
+                                editorContext.data.forEach((row, rowIndex) => {
+                                    // ---- 判断当前行的 value 是否为空 ----
+                                    const value = row['value'];  // 注意：字段名固定为 'value'，如果列名被修改，请相应调整
+                                    const isHighlight = (value === undefined || value === null || value === '');
+                                    const trClass = isHighlight ? 'class="highlight-row"' : '';
+
+                                    html += `<tr ${trClass}>`;
+                                    editorContext.keys.forEach((key) => {
+                                        const val = row[key] !== undefined ? row[key] : '';
+                                        html += `<td><input class="cell-input" data-row="${rowIndex}" data-key="${escapeHtml(key)}" value="${escapeHtml(String(val))}" /></td>`;
+                                    });
+                                    html += `<td><button class="btn btn-sm btn-danger" onclick="window._removeRow(${rowIndex})">🗑</button></td>`;
+                                    html += `</tr>`;
+                                });
+
+                                html += `</tbody></table>`;
+                                container.innerHTML = html;
+
+                                // 操作按钮（与之前相同）
+                                const btnDiv = document.createElement('div');
+                                btnDiv.className = 'json-actions';
+                                btnDiv.innerHTML = `
+                                    <button class="btn btn-outline btn-sm" onclick="window._addRow()">➕ 添加行</button>
+                                    <button class="btn btn-primary" onclick="window._saveJsonTable()">💾 保存表格</button>
+                                    <button class="btn btn-outline" onclick="window._closeModal()">取消</button>
+                                `;
+                                container.appendChild(btnDiv);
+
+                            // 将上下文挂到全局，供按钮点击调用
+                            window._jsonEditor = editorContext;
+                        }
+
+                        // ---- 操作函数 ----
+                        window._addRow = function() {
+                            const ctx = window._jsonEditor;
+                            if (!ctx) return;
+                            const newRow = {};
+                            ctx.keys.forEach(k => newRow[k] = '');
+                            ctx.data.push(newRow);
+                            renderTable();
                         };
 
-                        const saveBtn = document.createElement('button');
-                        saveBtn.className = 'btn btn-primary';
-                        saveBtn.textContent = '💾 保存表格';
-                        saveBtn.onclick = async () => {
-                            const hot = window._hotInstance;
-                            if (!hot) {
-                                showToastPacs('表格尚未初始化', 'warning');
+                        window._removeRow = function(index) {
+                            const ctx = window._jsonEditor;
+                            if (!ctx) return;
+                            if (ctx.data.length <= 1) {
+                                showToastPacs('至少保留一行', 'warning');
                                 return;
                             }
-                            const editedData = hot.getData();
-                            const newCsv = Papa.unparse(editedData, { quotes: true });
-                            await saveFieldData(editingRecordId, editingField, newCsv);
+                            ctx.data.splice(index, 1);
+                            renderTable();
                         };
 
-                        const cancelBtn = document.createElement('button');
-                        cancelBtn.className = 'btn btn-outline';
-                        cancelBtn.textContent = '取消';
-                        cancelBtn.onclick = closeModal;
+                        window._saveJsonTable = function() {
+                            const ctx = window._jsonEditor;
+                            if (!ctx) return;
 
-                        btnGroup.append(addRowBtn, addColBtn, saveBtn, cancelBtn);
-                        modalDetailContent.appendChild(btnGroup);
+                            // 1. 从输入框读取最新数据（用户可能手动修改了单元格）
+                            const inputs = ctx.container.querySelectorAll('.cell-input');
+                            inputs.forEach(inp => {
+                                const rowIdx = parseInt(inp.dataset.row);
+                                const key = inp.dataset.key;
+                                if (ctx.data[rowIdx]) {
+                                    ctx.data[rowIdx][key] = inp.value;
+                                }
+                            });
+
+                            // 2. 读取表头（用户可能修改了列名）
+                            const headers = ctx.container.querySelectorAll('.col-header');
+                            const newKeys = [];
+                            headers.forEach(inp => {
+                                const val = inp.value.trim();
+                                if (val) newKeys.push(val);
+                            });
+                            if (newKeys.length > 0) {
+                                // 如果列名有变化，需要重构数据对象（保持数据一致性）
+                                // 简单策略：直接使用新列名，旧数据对应列名值保留，无则置空
+                                const oldKeys = ctx.keys;
+                                const newData = ctx.data.map(row => {
+                                    const newRow = {};
+                                    newKeys.forEach(k => {
+                                        // 如果旧列名存在，则取值，否则空
+                                        newRow[k] = row[k] !== undefined ? row[k] : '';
+                                    });
+                                    return newRow;
+                                });
+                                ctx.data = newData;
+                                ctx.keys = newKeys;
+                            }
+
+                            // 3. 转为 JSON 字符串并保存
+                            const jsonString = JSON.stringify(ctx.data);
+                            // 调用之前定义的保存函数（需确保 saveFieldData 在作用域内）
+                            if (typeof saveFieldData === 'function') {
+                                saveFieldData(ctx.recordId, ctx.field, jsonString);
+                            } else {
+                                console.error('saveFieldData 未定义');
+                                showToastPacs('保存函数未找到', 'error');
+                            }
+                        };
+
+                        // 4. 挂载容器并渲染
+                        const container = document.createElement('div');
+                        container.id = 'jsonTableContainer';
+                        modalDetailContent.appendChild(container);
+
+                        editorContext.container = container;
+                        window._jsonEditor = editorContext;
+                        renderTable();
 
                         modalOverlay.classList.add('active');
                         return;
@@ -2306,9 +2354,12 @@
                     const patientTypeSelect = document.getElementById('patientTypeSelect');
                     const patientType = patientTypeSelect ? patientTypeSelect.value : 'inpatient';
 
+                    const checkTypeSelect = document.getElementById('checkTypeSelect');
+                    const checkType = checkTypeSelect ? checkTypeSelect.value : 'US';
+
                     showLoading(true);
                     try {
-                        const resp = await fetch(`${API_BASE}/asr/patient_pacs_info/${zhuyuanhao}/${patientType}`);
+                        const resp = await fetch(`${API_BASE}/asr/patient_pacs_info/${zhuyuanhao}/${patientType}/${checkType}`);
                         if (!resp.ok) throw new Error('患者信息查询失败');
                         const data = await resp.json();
                         currentPatient = data;
@@ -2486,7 +2537,14 @@
 
                     let html = '';
                     data.forEach((item, index) => {
-                        const statusText = item.report_status === 1 ? '报告已生成' : (item.indicator_status === 1 ? '指标完善,报告生成中' : '指标不完善,请补充');
+                        // const statusText = item.report_status === 1 ? '报告已生成' : (item.indicator_status === 1 ? '指标完善,报告生成中' : '指标不完善,请补充');
+                        const statusText = item.report_status === 1
+                              ? '报告已生成'
+                              : (item.indicator_status === 1
+                                  ? '指标完善，报告生成中'
+                                  : (item.indicator_status === 0 && item.indicator_data === null
+                                      ? '指标提取中'
+                                      : '指标不完善，请补充'));
                         const statusClass = item.report_status === 1 ? 'generated' : (item.indicator_status === 1 ? 'processing' : 'pending');
                         const btnDisabled = item.report_status !== 1;
 
