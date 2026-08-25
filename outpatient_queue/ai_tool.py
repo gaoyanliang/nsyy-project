@@ -27,8 +27,8 @@ write_lock = Lock()
 """ 打印AI 回答 """
 def print_response_detail(res, haoshi):
     logger.info(f"====== 本次AI回答情况 ======")
-    logger.info(f"本次请求ID： {res.id}")
-    logger.info(f"本次AI回答： {res.choices[0].message.content}")
+    logger.debug(f"本次请求ID： {res.id}")
+    logger.debug(f"本次AI回答： {res.choices[0].message.content}")
 
     # 安全获取 usage 相关信息
     usage = getattr(res, 'usage', None)
@@ -54,7 +54,7 @@ def print_response_detail(res, haoshi):
         logger.info("本次 token 消耗信息： N/A (usage missing)")
 
     logger.info(f"本次回答总耗时： {haoshi} 秒")
-    logger.info(f"本次AI返回： {res.choices[0].message}")
+    logger.debug(f"本次AI返回： {res.choices[0].message}")
     logger.info('--' * 10)
 
 # ---------- 辅助函数 ----------

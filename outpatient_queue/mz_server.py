@@ -1264,7 +1264,7 @@ def pacs_auto_report_task():
                 # patient_info = record.get("patient_info")
                 # text = text.get(check_item, "") + patient_info
 
-                text = f"患者检查项目: {record.get('check_items')}, 以下是根据医生检查过程中口述的患者情况提取的关键指标，请根据这些指标为患者生成检查报告。 检查报告仅需要 超声所见和超声提示这两部分内容 \n " + record.get("indicator_data")
+                text = f"患者检查项目: {record.get('check_items')}, 以下是根据医生检查过程中口述的患者情况，请根据这些患者情况，生成检查报告。 检查报告仅需要 超声所见和超声提示这两部分内容 \n " + record.get("patient_info")
                 start_time = time.time()
                 ai_report = ai_tool.call_ai_for_patient(text)
                 logging.info(f"pacs auto report 任务 {record.get('id')} - 耗时: {time.time() - start_time}")
