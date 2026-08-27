@@ -617,10 +617,9 @@ def completed_dip_patients(jdata):
         if 'page_no' in jdata and 'no_on_page' in jdata:
             # 查询总数
             total = db.query_one(count_sql)
-            total = total.get('COUNT(*)')
+            total = total.get('count(*)')
 
     for i in patient_list:
-        # 清洗出院记录
         if i.get('出院记录'):
             parts = i['出院记录'].split('入院情况', 1)
             if len(parts) == 2:
@@ -633,7 +632,7 @@ def completed_dip_patients(jdata):
         # 计算结余变化（防止 None）
         i['结余变化'] = (i.get('最终DIP盈亏') or 0) - (i.get('现DIP盈亏') or 0)
 
-    return {'code': 200, 'patient_l': patient_list, 'total': total}
+    return {'code': 20000, 'patient_l': patient_list, 'total': total}
 
 
 

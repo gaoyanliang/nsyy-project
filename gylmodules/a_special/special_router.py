@@ -999,7 +999,7 @@ def completed_dip_patients():
         return jsonify(data)
     else:
         # 转 DataFrame（字段映射 + datetime 格式化）
-        df = pd.DataFrame(data.get('patient_l'), columns=list(FIELD_MAP.keys()))
+        df = pd.DataFrame(data.get('patient_l'))
 
         def safe_file_name(name: str) -> str:
             import re
