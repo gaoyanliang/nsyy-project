@@ -498,7 +498,7 @@ def handle_recommendations(recommendations, total_fee, type_value, dept_source):
             "type": item.get('type'),
             "reason": item.get('reason')
         }
-        if item.get('dip_name').__contains__('床日病种'):
+        if item.get('dip_name').__contains__('床日病种') or item.get('dip_name').__contains__('康复病种'):
             res['yk'] = ai_score * type_value - total_fee
         else:
             ai_rate = total_fee / (ai_score * Decimal("5.72183"))
@@ -550,8 +550,6 @@ def query_dept_patients(dept_names, start_date, end_date, comp_name):
                 global_config.DB_PASSWORD, global_config.DB_DATABASE_GYL) as db:
         patient_list = db.query_all(sql)
     return patient_list
-
-
 
 
 def ld_to_searchcol(l1=None, table_short='', d1=None):
@@ -633,8 +631,6 @@ def completed_dip_patients(jdata):
         i['结余变化'] = (i.get('最终DIP盈亏') or 0) - (i.get('现DIP盈亏') or 0)
 
     return {'code': 20000, 'patient_l': patient_list, 'total': total}
-
-
 
 
 if __name__ == "__main__":
