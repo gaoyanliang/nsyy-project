@@ -217,7 +217,7 @@ case when exists  (
                 return None
 
         # 3. 并发执行所有任务
-        with ThreadPoolExecutor(max_workers=30) as executor:
+        with ThreadPoolExecutor(max_workers=20) as executor:
             # 提交所有任务
             future_to_item = {executor.submit(process_item, item): item for item in data_list if item.get('zaiyuanzt') == 0}
 

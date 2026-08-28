@@ -1239,7 +1239,7 @@ def pacs_auto_report_task():
     while True:
         with DbUtil(global_config.DB_HOST, global_config.DB_USERNAME,
                     global_config.DB_PASSWORD, global_config.DB_DATABASE_GYL) as db:
-            records = db.query_all(f"select id, indicator_data, check_items from nsyy_gyl.pacs_ai_report "
+            records = db.query_all(f"select id, indicator_data, check_items, patient_info from nsyy_gyl.pacs_ai_report "
                                   f"where (ai_report is null OR CHAR_LENGTH(ai_report) < 10) and indicator_status = 1 order by submit_time limit 5")
 
         if not records:
@@ -1264,7 +1264,7 @@ def pacs_auto_report_task():
                 # patient_info = record.get("patient_info")
                 # text = text.get(check_item, "") + patient_info
 
-                text = f"患者检查项目: {record.get('check_items')}, 以下是根据医生检查过程中口述的患者情况，请根据这些患者情况，生成检查报告。 检查报告仅需要 超声所见和超声提示这两部分内容 \n " + record.get("patient_info")
+                text = f"患者检查项目: {record.get('check_items', '')}, 以下是根据医生检查过程中口述的患者情况，请根据这些患者情况，生成检查报告。 检查报告仅需要 超声所见和超声提示这两部分内容 \n " + record.get("patient_info", '')
                 start_time = time.time()
                 ai_report = ai_tool.call_ai_for_patient(text)
                 logging.info(f"pacs auto report 任务 {record.get('id')} - 耗时: {time.time() - start_time}")
