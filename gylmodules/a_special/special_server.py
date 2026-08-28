@@ -71,7 +71,8 @@ def get_dip(bingrenzyid):
             if data and (data.get('code', 1) == 0 or data.get('message', '') == "success"):
                 return data.get('data')
         except Exception as e:
-            print(f"请求失败 {e.__str__()}，重试次数：{retry_times}")
+            logger.error(f"请求失败 {e.__str__()}，重试次数：{retry_times}")
+            time.sleep(0.5)
             pass
         retry_times -= 1
     return None
@@ -85,7 +86,7 @@ def refresh_patient_dip_info(bingrenzyid):
     if not redis_client.set(f"patient_dip_update_lock", 2, ex=90, nx=True):
         raise Exception("正在刷新，请稍后重试")
 
-    patient_info = redis_client.hget('dip_patients', bingrenzyid)
+    patient_info = redis_client.hget('dip_all_patients', bingrenzyid)
     if not patient_info:
         redis_client.delete('patient_dip_update_lock')
         raise Exception('未找到患者信息')
@@ -108,7 +109,7 @@ def refresh_patient_dip_info(bingrenzyid):
         # 校正分值
         patient_info['score2'] = dip_drg.get('dipJsJzfz') or ''
 
-    redis_client.hset('dip_patients', bingrenzyid, json.dumps(patient_info, ensure_ascii=False, default=str))
+    redis_client.hset('dip_all_patients', bingrenzyid, json.dumps(patient_info, ensure_ascii=False, default=str))
     # redis_client.hset('all_dip_patients', bingrenzyid, json.dumps(patient_info, ensure_ascii=False, default=str))
     redis_client.delete('patient_dip_update_lock')
     return patient_info
@@ -157,7 +158,7 @@ case when exists  (
         if not data_list:
             return
 
-        logger.debug(f'dip 一共查询到 {len(data_list)} 条总记录')
+        logger.info(f'dip 一共查询到 {len(data_list)} 条总在院记录')
 
         # 1. 更新 入院三天未修改病案首页 患者列表
         redis_client.delete('dip_unpage_patients')
@@ -183,13 +184,22 @@ case when exists  (
         # 清空 今日更新患者列表
         redis_client.delete('dip_today_update_patients')
 
-
         # 3. 定义单个患者的处理函数（纯数据处理，不含IO）
         def process_item(item):
             try:
                 patient_id = item.get('bingrenzyid')
                 if not patient_id:
                     return None
+
+                # 如果诊断没有变化 不更新
+                if item.get('today_update') == 0:
+                    if redis_client.exists('dip_all_patients', patient_id):
+                        old_data = redis_client.hget('dip_all_patients', patient_id)
+                        if old_data:
+                            old_data = json.loads(old_data)
+                            if item.get('zhenduan') == old_data.get('zhenduan'):
+                                logger.info(f"患者 {patient_id} 的诊断没有变化，不更新")
+                                return None
 
                 dip = get_dip(patient_id)  # 此处为耗时操作，将被并发执行
                 if dip:
