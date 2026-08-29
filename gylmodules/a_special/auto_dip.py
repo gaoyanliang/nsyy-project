@@ -654,7 +654,7 @@ def process_all_patients(dept_name, max_workers=MAX_WORKERS):
 
     for item in patient_list:
         try:
-            zhenduan = item.get('病案诊断', '')
+            zhenduan = item.get('病案诊断', '') if item.get('病案诊断', '') else item.get('诊断', '')
             if not zhenduan:
                 continue
             match = re.search(r'\(([^)]+)\)', zhenduan)
@@ -834,10 +834,11 @@ if __name__ == "__main__":
     with DbUtil(host=CONFIG['host'], user=CONFIG['user'], password=CONFIG['password'],
                 database=CONFIG['database']) as db:
         dept_list = db.query_all(
-            f"""SELECT 出院科室 FROM nsyy_gyl.dip_patient where 来源 = '{source_dict[CONFIG['source']]}' and 最终DIP代码 is null """)
+            f"""SELECT DISTINCT 出院科室 FROM nsyy_gyl.dip_patient where 来源 = '{source_dict[CONFIG['source']]}' and 最终DIP代码 is null """)
 
     if dept_list:
         dept_list = [item.get('出院科室') for item in dept_list]
+        dept_list = list(set(dept_list))
         for dept_name in dept_list:
             if not query_balance():
                 logger.info("deepseek 没有余额 该充值了")

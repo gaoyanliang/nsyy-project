@@ -27,7 +27,7 @@ def query_timeout_list(type, page_no, page_size):
         condition_sql = f" and vip_status = 3 "
     elif str(type) == 'warning_list':
         # 预警清单
-        condition_sql = f" and park_time > {parking_config.warning_day} and vip_status = 1 "
+        condition_sql = f" and park_time > {parking_config.warning_day} and deleted = 0 "
     elif str(type) == 'apply_list':
         # 已提交的员工列表 供审批
         condition_sql = f" and vip_status = -1 "
