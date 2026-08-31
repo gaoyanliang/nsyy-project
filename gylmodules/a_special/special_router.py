@@ -1035,7 +1035,30 @@ def uncompleted_patients():
         return jsonify({"error": "请求体必须是 JSON 格式", 'code': 50000})
     data = special_server.query_uncompleted_patients(req_json)
 
-    return jsonify(data)
+    if 'page_no' in req_json and 'no_on_page' in req_json:
+        return jsonify(data)
+    else:
+        # 转 DataFrame（字段映射 + datetime 格式化）
+        df = pd.DataFrame(data.get('patient_l'))
+
+        def safe_file_name(name: str) -> str:
+            import re
+            # 将 逗号、空格、斜杠等替换为 _
+            return re.sub(r'[\\/*?:"<>|]', '_', name)
+
+        file_name = safe_file_name('_'.join(req_json.get('dept_name', [])))
+        start_d = req_json.get('start_d', '')
+        end_d = req_json.get('end_d', '')
+        download_name = f"{file_name}_{start_d}_{end_d}_未标记完成患者清单.xlsx"
+
+        # 内存写出 xlsx 并下载
+        buffer = BytesIO()
+        with pd.ExcelWriter(buffer, engine="openpyxl") as writer:
+            df.to_excel(writer, index=False, sheet_name="未标记完成患者")
+        buffer.seek(0)
+
+        return send_file(buffer, as_attachment=True, download_name=download_name)
+
 
 
 """ 有医保工作人员检查结果 并和科室沟通 手动进行标记 完成/未完成 """
