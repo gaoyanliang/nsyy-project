@@ -1027,3 +1027,25 @@ def clinical_dept_list():
     return jsonify({"code": 20000, "data": data})
 
 
+"""每天查询出 当天出院患者 以及清单/入院记录/出院记录/手术记录有变化的患者 标记为未完成，由AI重新跑"""
+@special_system.route("/uncomplete_patients", methods=["GET", "POST"])
+def uncompleted_patients():
+    req_json = request.get_json()
+    if not req_json:
+        return jsonify({"error": "请求体必须是 JSON 格式", 'code': 50000})
+    data = special_server.query_uncompleted_patients(req_json)
+
+    return jsonify(data)
+
+
+""" 有医保工作人员检查结果 并和科室沟通 手动进行标记 完成/未完成 """
+@special_system.route("/mark_complete", methods=["POST"])
+def mark_complete():
+    req_json = request.get_json()
+    if not req_json:
+        return jsonify({"error": "请求体必须是 JSON 格式", 'code': 50000})
+    special_server.mark_completed(req_json)
+
+    return jsonify({"code": 20000, "data": 'successed'})
+
+

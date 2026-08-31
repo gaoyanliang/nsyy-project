@@ -643,6 +643,69 @@ def completed_dip_patients(jdata):
     return {'code': 20000, 'patient_l': patient_list, 'total': total}
 
 
+
+def query_uncompleted_patients(jdata):
+    needl = ['医保结算流水号', '年龄', '性别', '住院号', '住院次数', '总费用', '出院科室', '住院医师', '入院时间',
+             '出院时间']
+    needl = ['姓名', 'AI方案分析'] + needl
+    for s in ['现', '最终', 'AI方案1', 'AI方案2', 'AI方案3']: needl += [f"{s}DIP代码", f"{s}DIP名称", f"{s}DIP分值",
+                                                                        f"{s}DIP盈亏", f"{s}DIP倍率"]
+    for s in ['AI方案1', 'AI方案2', 'AI方案3']: needl += [f"{s}DIP入组类型", f"{s}DIP入组原因"]
+    needl += ['诊断', '病案诊断', '患者费别', '手术', '医嘱', '出院记录', '手术记录']  # , '入院记录'
+
+    count_sql = f"select count(*) from nsyy_gyl.dip_patient where is_completed = 0 and 来源='{jdata.get('comp_name', '南阳南石医院')}' "
+    sql = f"select {ld_to_searchcol(needl)} from nsyy_gyl.dip_patient where is_completed = 0 and 来源='{jdata.get('comp_name', '南阳南石医院')}' "
+    if jdata.get('start_d', '') and jdata.get('end_d', ''):
+        sql = sql + f" and 出院时间 between '{jdata['start_d']} 00:00:00' and '{jdata['end_d']} 23:59:59'"
+        count_sql = count_sql + f" and 出院时间 between '{jdata['start_d']} 00:00:00' and '{jdata['end_d']} 23:59:59'"
+    if jdata.get('dept_name', ''):
+        sql = sql + f" and 出院科室 {ls_to_search(jdata['dept_name'])}"
+        count_sql = count_sql + f" and 出院科室 {ls_to_search(jdata['dept_name'])}"
+    sql = sql + " order by 出院时间 desc"
+    count_sql = count_sql + " order by 出院时间 desc"
+
+    if 'page_no' in jdata and 'no_on_page' in jdata:
+        sql = sql + f" limit {jdata['no_on_page']} offset {(jdata['page_no'] - 1) * jdata['no_on_page']}"
+
+    total = 0
+    # with DbUtil("192.168.3.12", "gyl", "123456", "nsyy_gyl") as db:
+    with DbUtil(global_config.DB_HOST, global_config.DB_USERNAME,
+                    global_config.DB_PASSWORD, global_config.DB_DATABASE_GYL) as db:
+
+        # 分页查询数据
+        patient_list = db.query_all(sql)
+
+        if 'page_no' in jdata and 'no_on_page' in jdata:
+            # 查询总数
+            total = db.query_one(count_sql)
+            total = total.get('count(*)')
+
+    for i in patient_list:
+        if i.get('出院记录'):
+            parts = i['出院记录'].split('入院情况', 1)
+            if len(parts) == 2:
+                i['出院记录'] = '入院情况' + parts[1]
+        if i['入院时间']:
+            i['入院时间'] = i['入院时间'].strftime('%Y-%m-%d %H:%M:%S')
+        if i['出院时间']:
+            i['出院时间'] = i['出院时间'].strftime('%Y-%m-%d %H:%M:%S')
+
+        # 计算结余变化（防止 None）
+        i['结余变化'] = (i.get('最终DIP盈亏') or 0) - (i.get('现DIP盈亏') or 0)
+
+    return {'code': 20000, 'patient_l': patient_list, 'total': total}
+
+
+def mark_completed(jdata):
+
+    if not jdata.get('yibaoid', 0):
+        raise Exception("医保结算流水号 不能为空")
+    # with DbUtil("192.168.3.12", "gyl", "123456", "nsyy_gyl") as db:
+    with DbUtil(global_config.DB_HOST, global_config.DB_USERNAME,
+                        global_config.DB_PASSWORD, global_config.DB_DATABASE_GYL) as db:
+        db.execute(f"update nsyy_gyl.dip_patient set is_completed = {jdata.get('is_completed', 1)} where 医保结算流水号='{jdata['yibaoid']}'", need_commit=True)
+
+
 if __name__ == "__main__":
     start_time = time.time()
 
