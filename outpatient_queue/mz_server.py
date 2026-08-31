@@ -1012,7 +1012,9 @@ async def pacs_submit(request: AsrSubmitRequest):
                 global_config.DB_PASSWORD, global_config.DB_DATABASE_GYL) as db:
         args = []
         patient_type = "住院患者" if request.patient_type == 'inpatient' else '门诊患者'
-        patient_info = f"{request.patient_info}, 患者性别: {request.patient_sex}, 患者年龄: {request.patient_age}"
+        patient_info = request.patient_info
+        if not (patient_info.__contains__('患者性别') and patient_info.__contains__('患者年龄')):
+            patient_info = f"{request.patient_info}, 患者性别: {request.patient_sex}, 患者年龄: {request.patient_age}"
         for item in check_items:
             args.append((request.zhuyuanhao, request.patient_name, request.patient_age, request.patient_sex, request.dept_id,
                     request.dept_name, request.yizhuid, item, submit_time, patient_info, patient_type))
@@ -1104,6 +1106,12 @@ async def update_pacs_report(report_id: int, request: UpdateReportRequest):
                         global_config.DB_PASSWORD, global_config.DB_DATABASE_GYL) as db:
                 db.execute(f"""update nsyy_gyl.pacs_ai_report set indicator_data = %s, indicator_status = 1 
                                 where id = %s""",(indicator_data, report_id), need_commit=True)
+        # 如果是重新编辑，清空指标和报告重新生成
+        if request.re_edit:
+            with DbUtil(global_config.DB_HOST, global_config.DB_USERNAME,
+                        global_config.DB_PASSWORD, global_config.DB_DATABASE_GYL) as db:
+                db.execute(f"""update nsyy_gyl.pacs_ai_report set ai_report = NULL, indicator_data = NULL, 
+                                indicator_status = 0 where id = %s""", (report_id, ), need_commit=True)
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"更新失败: {str(e)}")
 

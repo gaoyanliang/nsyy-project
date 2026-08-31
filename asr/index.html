@@ -1,11 +1,11 @@
 <!DOCTYPE html>
 <html lang="zh-CN">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>医疗语音转写与报告生成系统</title>
     <style>
-        /* ===== 全局样式（仅保留与之前一致的样式，新增部分已标注） ===== */
+        /* ===== 全局样式 ===== */
         :root {
             --primary: #1a6fb5;
             --primary-dark: #155a8f;
@@ -32,21 +32,18 @@
             --radius-lg: 14px;
             --transition: 0.2s cubic-bezier(0.4, 0, 0.2, 1);
             --font-mono: 'SF Mono', 'Cascadia Code', 'Consolas', 'Monaco', 'PingFang SC', monospace;
-            --processing: #0d9488;       /* teal-600（深青色） */
-            --processing-light: #f0fdfa; /* teal-50（浅青色背景） */
+            --processing: #0d9488;
+            --processing-light: #f0fdfa;
         }
-
         * {
             margin: 0;
             padding: 0;
             box-sizing: border-box;
         }
-
         html {
             font-size: 15px;
             scroll-behavior: smooth;
         }
-
         body {
             font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'PingFang SC', 'Microsoft YaHei', 'Helvetica Neue', sans-serif;
             background: var(--bg);
@@ -54,7 +51,6 @@
             line-height: 1.6;
             min-height: 100vh;
             -webkit-font-smoothing: antialiased;
-            -moz-osx-font-smoothing: grayscale;
         }
 
         /* ===== 头部 ===== */
@@ -71,13 +67,11 @@
             z-index: 100;
             box-shadow: var(--shadow-sm);
         }
-
         .logo-area {
             display: flex;
             align-items: center;
             gap: 12px;
         }
-
         .logo-icon {
             width: 36px;
             height: 36px;
@@ -90,7 +84,6 @@
             font-size: 18px;
             flex-shrink: 0;
         }
-
         .logo-text {
             font-size: 1rem;
             font-weight: 700;
@@ -101,19 +94,16 @@
             align-items: center;
             gap: 12px;
         }
-
         .logo-subtitle {
             font-size: 0.75rem;
             color: var(--text-muted);
             font-weight: 400;
         }
-
         .header-actions {
             display: flex;
             align-items: center;
             gap: 10px;
         }
-
         .header-badge {
             display: inline-flex;
             align-items: center;
@@ -124,50 +114,51 @@
             font-weight: 500;
             white-space: nowrap;
         }
-
         .header-badge.online {
             background: var(--success-light);
             color: var(--success);
         }
-
         .header-badge.offline {
             background: var(--danger-light);
             color: var(--danger);
         }
-
         .header-badge.recording {
             background: var(--danger-light);
             color: var(--danger);
             animation: blink-badge 1s ease-in-out infinite;
         }
-
         @keyframes blink-badge {
-            0%, 100% { opacity: 1; }
-            50% { opacity: 0.45; }
+            0%,
+            100% {
+                opacity: 1;
+            }
+            50% {
+                opacity: 0.45;
+            }
         }
-
         .header-badge .dot {
             width: 7px;
             height: 7px;
             border-radius: 50%;
             display: inline-block;
         }
-
         .header-badge.online .dot,
         .header-badge.recording .dot {
             background: var(--success);
             animation: pulse-dot 2s infinite;
         }
-
         .header-badge.recording .dot {
             background: var(--danger);
         }
-
         @keyframes pulse-dot {
-            0%, 100% { box-shadow: 0 0 0 0 rgba(45, 138, 86, 0.5); }
-            50% { box-shadow: 0 0 0 8px rgba(45, 138, 86, 0); }
+            0%,
+            100% {
+                box-shadow: 0 0 0 0 rgba(45, 138, 86, 0.5);
+            }
+            50% {
+                box-shadow: 0 0 0 8px rgba(45, 138, 86, 0);
+            }
         }
-
         .cache-clear-btn {
             font-size: 0.72rem;
             padding: 3px 10px;
@@ -183,7 +174,6 @@
             align-items: center;
             gap: 4px;
         }
-
         .cache-clear-btn:hover {
             background: #fee2e2;
             border-color: #fecaca;
@@ -199,17 +189,14 @@
             flex-direction: column;
             gap: 20px;
         }
-
         .top-row {
             display: grid;
             grid-template-columns: 1fr 1fr;
             gap: 20px;
         }
-
         .bottom-row {
             width: 100%;
         }
-
         .panel {
             background: var(--surface);
             border-radius: var(--radius-lg);
@@ -220,12 +207,11 @@
             gap: 18px;
             transition: box-shadow var(--transition);
             height: fit-content;
+            position: relative;
         }
-
         .panel:hover {
             box-shadow: var(--shadow-lg);
         }
-
         .panel-header {
             display: flex;
             align-items: center;
@@ -233,7 +219,6 @@
             gap: 12px;
             flex-shrink: 0;
         }
-
         .panel-title {
             font-size: 0.95rem;
             font-weight: 700;
@@ -243,7 +228,6 @@
             gap: 8px;
             letter-spacing: -0.01em;
         }
-
         .panel-title .icon {
             width: 28px;
             height: 28px;
@@ -254,17 +238,14 @@
             font-size: 15px;
             flex-shrink: 0;
         }
-
         .icon-blue {
             background: var(--primary-light);
             color: var(--primary);
         }
-
         .icon-green {
             background: var(--success-light);
             color: var(--success);
         }
-
         .panel-badge {
             font-size: 0.7rem;
             padding: 4px 10px;
@@ -272,31 +253,62 @@
             font-weight: 600;
             letter-spacing: 0.02em;
         }
-
         .badge-recording {
             background: var(--danger-light);
             color: var(--danger);
             animation: blink-badge 1s ease-in-out infinite;
         }
-
         .badge-idle {
             background: #f0f1f3;
             color: var(--text-muted);
         }
-
         .badge-generating {
             background: #fff8e1;
             color: #c79100;
             animation: blink-badge 1.2s ease-in-out infinite;
         }
+        /* ---- 编辑模式标识 ---- */
+        .edit-mode-badge {
+            background: #fef3c7;
+            color: #b45309;
+            padding: 4px 12px;
+            border-radius: 12px;
+            font-size: 0.7rem;
+            font-weight: 600;
+            display: none;
+            align-items: center;
+            gap: 6px;
+        }
+        .edit-mode-badge.show {
+            display: inline-flex;
+        }
+        .edit-mode-badge .dot {
+            width: 7px;
+            height: 7px;
+            border-radius: 50%;
+            background: #b45309;
+            animation: pulse-dot 1.5s infinite;
+        }
 
-        /* ===== 语音转写部分（保持不变） ===== */
+        .edit-mode-badge .btn-danger-outline {
+            border-color: #b45309;
+            color: #b45309;
+            background: transparent;
+            font-size: 0.65rem;
+            padding: 1px 10px;
+            border-radius: 10px;
+        }
+        .edit-mode-badge .btn-danger-outline:hover {
+            background: #b45309;
+            color: #fff;
+        }
+
+        /* ===== 语音转写部分 ===== */
         .form-row {
             display: flex;
             gap: 12px;
             flex-wrap: wrap;
         }
-
         .form-group {
             display: flex;
             flex-direction: column;
@@ -304,7 +316,6 @@
             flex: 1;
             min-width: 100px;
         }
-
         .form-group label {
             font-size: 0.75rem;
             font-weight: 600;
@@ -313,7 +324,6 @@
             text-transform: uppercase;
             white-space: nowrap;
         }
-
         .form-group input,
         .form-group select {
             height: 38px;
@@ -328,18 +338,15 @@
             width: 100%;
             outline: none;
         }
-
         .form-group input:focus,
         .form-group select:focus {
             border-color: var(--primary);
             box-shadow: 0 0 0 3px rgba(26, 111, 181, 0.08);
             background: #fff;
         }
-
         .form-group input::placeholder {
             color: #c0c5cc;
         }
-
         .voice-section {
             background: var(--surface-alt);
             border-radius: var(--radius);
@@ -353,17 +360,14 @@
             position: relative;
             flex-shrink: 0;
         }
-
         .voice-section.recording {
             border-color: var(--danger);
             background: #fffbfb;
             box-shadow: 0 0 0 6px rgba(209, 67, 67, 0.04);
         }
-
         .voice-section.recording .voice-hint {
             color: var(--danger);
         }
-
         .voice-btn-wrap {
             position: relative;
             display: flex;
@@ -371,7 +375,6 @@
             justify-content: center;
             gap: 16px;
         }
-
         .voice-btn {
             width: 72px;
             height: 72px;
@@ -391,41 +394,39 @@
             outline: none;
             -webkit-tap-highlight-color: transparent;
         }
-
         .voice-btn:hover {
             background: var(--primary-dark);
             box-shadow: 0 6px 22px rgba(26, 111, 181, 0.4);
             transform: translateY(-1px);
         }
-
         .voice-btn:active {
             transform: scale(0.94);
             transition: transform 0.1s;
         }
-
         .voice-btn.recording {
             background: var(--danger);
             box-shadow: 0 4px 20px rgba(209, 67, 67, 0.4);
             animation: pulse-rec 1.5s ease-in-out infinite;
         }
-
         .voice-btn.recording:hover {
             background: #b83838;
             box-shadow: 0 6px 26px rgba(209, 67, 67, 0.5);
         }
-
         @keyframes pulse-rec {
-            0%, 100% { box-shadow: 0 4px 20px rgba(209, 67, 67, 0.4), 0 0 0 0 rgba(209, 67, 67, 0.25); }
-            50% { box-shadow: 0 4px 20px rgba(209, 67, 67, 0.4), 0 0 0 18px rgba(209, 67, 67, 0); }
+            0%,
+            100% {
+                box-shadow: 0 4px 20px rgba(209, 67, 67, 0.4), 0 0 0 0 rgba(209, 67, 67, 0.25);
+            }
+            50% {
+                box-shadow: 0 4px 20px rgba(209, 67, 67, 0.4), 0 0 0 18px rgba(209, 67, 67, 0);
+            }
         }
-
         .voice-btn:disabled {
             background: #c8cdd4;
             cursor: not-allowed;
             box-shadow: none;
             transform: none;
         }
-
         .stop-btn {
             width: 56px;
             height: 56px;
@@ -443,25 +444,21 @@
             outline: none;
             -webkit-tap-highlight-color: transparent;
         }
-
         .stop-btn:hover {
             background: #b83838;
             box-shadow: 0 6px 18px rgba(209, 67, 67, 0.4);
             transform: translateY(-1px);
         }
-
         .stop-btn:active {
             transform: scale(0.94);
             transition: transform 0.1s;
         }
-
         .stop-btn:disabled {
             background: #c8cdd4;
             cursor: not-allowed;
             box-shadow: none;
             transform: none;
         }
-
         .voice-ring {
             position: absolute;
             width: 72px;
@@ -472,17 +469,22 @@
             pointer-events: none;
             transition: all 0.3s;
         }
-
         .voice-ring.recording {
             border-color: rgba(209, 67, 67, 0.3);
             animation: ring-expand 1.5s ease-out infinite;
         }
-
         @keyframes ring-expand {
-            0% { width: 72px; height: 72px; opacity: 0.7; }
-            100% { width: 120px; height: 120px; opacity: 0; }
+            0% {
+                width: 72px;
+                height: 72px;
+                opacity: 0.7;
+            }
+            100% {
+                width: 120px;
+                height: 120px;
+                opacity: 0;
+            }
         }
-
         .voice-hint {
             font-size: 0.8rem;
             color: var(--text-muted);
@@ -491,7 +493,6 @@
             min-height: 20px;
             transition: color var(--transition);
         }
-
         .voice-timer {
             font-size: 1.1rem;
             font-weight: 700;
@@ -500,7 +501,6 @@
             font-family: var(--font-mono);
             min-height: 24px;
         }
-
         .voice-live-text {
             font-size: 0.85rem;
             color: var(--text-secondary);
@@ -517,13 +517,11 @@
             overflow-y: auto;
             position: relative;
         }
-
         .voice-live-text.active {
             color: var(--text);
             border-color: var(--primary);
             box-shadow: 0 0 0 3px rgba(26, 111, 181, 0.05);
         }
-
         .voice-live-text .typing-cursor {
             display: inline-block;
             width: 2px;
@@ -533,12 +531,15 @@
             animation: cursor-blink 0.8s ease-in-out infinite;
             vertical-align: middle;
         }
-
         @keyframes cursor-blink {
-            0%, 100% { opacity: 1; }
-            50% { opacity: 0; }
+            0%,
+            100% {
+                opacity: 1;
+            }
+            50% {
+                opacity: 0;
+            }
         }
-
         .transcript-area {
             background: var(--surface-alt);
             border-radius: var(--radius);
@@ -553,7 +554,6 @@
             word-wrap: break-word;
             flex: 1;
         }
-
         .transcript-area .stash {
             color: var(--primary);
             font-weight: 500;
@@ -561,11 +561,9 @@
             padding-left: 8px;
             margin-left: 4px;
         }
-
         .transcript-area .final {
             color: var(--text);
         }
-
         .transcript-area .placeholder {
             color: var(--text-muted);
             text-align: center;
@@ -575,7 +573,6 @@
             align-items: center;
             gap: 8px;
         }
-
         .text-editor-area {
             flex: 1;
             display: flex;
@@ -583,7 +580,6 @@
             gap: 8px;
             min-height: 120px;
         }
-
         .text-editor-area label {
             font-size: 0.75rem;
             font-weight: 600;
@@ -591,7 +587,6 @@
             letter-spacing: 0.02em;
             text-transform: uppercase;
         }
-
         .text-editor-area textarea {
             flex: 1;
             min-height: 100px;
@@ -608,24 +603,20 @@
             transition: all var(--transition);
             width: 100%;
         }
-
         .text-editor-area textarea:focus {
             border-color: var(--primary);
             box-shadow: 0 0 0 3px rgba(26, 111, 181, 0.08);
             background: #fff;
         }
-
         .text-editor-area textarea::placeholder {
             color: #c0c5cc;
         }
-
         .textarea-actions {
             display: flex;
             gap: 8px;
             flex-wrap: wrap;
             justify-content: flex-end;
         }
-
         .btn {
             display: inline-flex;
             align-items: center;
@@ -643,67 +634,65 @@
             outline: none;
             -webkit-tap-highlight-color: transparent;
         }
-
         .btn:active {
             transform: scale(0.96);
             transition: transform 0.08s;
         }
-
         .btn-primary {
             background: var(--primary);
             color: #fff;
             border-color: var(--primary);
             box-shadow: 0 2px 6px rgba(26, 111, 181, 0.2);
         }
-
         .btn-primary:hover {
             background: var(--primary-dark);
             border-color: var(--primary-dark);
             box-shadow: 0 4px 12px rgba(26, 111, 181, 0.3);
         }
-
         .btn-primary:disabled {
             background: #a3c8e6;
             border-color: #a3c8e6;
             cursor: not-allowed;
             box-shadow: none;
         }
-
         .btn-outline {
             background: #fff;
             color: var(--text);
             border-color: var(--border);
         }
-
         .btn-outline:hover {
             background: var(--surface-alt);
             border-color: #c5c9d0;
         }
-
         .btn-ghost {
             background: transparent;
             color: var(--text-secondary);
             border-color: transparent;
             padding: 6px 10px;
         }
-
         .btn-ghost:hover {
             background: #f0f1f3;
             color: var(--text);
         }
-
         .btn-lg {
             padding: 12px 24px;
             font-size: 0.95rem;
             border-radius: var(--radius);
         }
-
         .btn-sm {
             padding: 5px 12px;
             font-size: 0.78rem;
             border-radius: 4px;
         }
-
+        .btn-danger-outline {
+            background: #fff;
+            color: var(--danger);
+            border-color: var(--danger);
+        }
+        .btn-danger-outline:hover {
+            background: var(--danger-light);
+            border-color: var(--danger);
+        }
         .stats {
             display: flex;
             gap: 24px;
@@ -712,12 +701,10 @@
             font-size: 0.8rem;
             color: var(--text-muted);
         }
-
         .stats span {
             font-weight: 600;
             color: var(--text-secondary);
         }
-
         .error-msg {
             background: var(--danger-light);
             color: var(--danger);
@@ -727,12 +714,11 @@
             display: none;
             font-size: 0.85rem;
         }
-
         .error-msg.show {
             display: block;
         }
 
-        /* ===== 报告生成部分（新增样式） ===== */
+        /* ===== 报告生成部分 ===== */
         .patient-card {
             background: var(--surface-alt);
             border-radius: var(--radius);
@@ -793,7 +779,7 @@
             gap: 8px;
         }
 
-        /* ===== 历史报告模块（全宽） ===== */
+        /* ===== 历史报告模块 ===== */
         .report-list {
             width: 100%;
             background: var(--surface);
@@ -813,7 +799,6 @@
             font-weight: 700;
             color: var(--text);
         }
-
         .report-list table {
             width: 100%;
             border-collapse: collapse;
@@ -834,18 +819,55 @@
             vertical-align: middle;
             word-break: break-word;
         }
-        /* 列宽分配（共10列） */
-        .report-list th:nth-child(1), .report-list td:nth-child(1) { width: 8%; }  /* 住院号 */
-        .report-list th:nth-child(2), .report-list td:nth-child(2) { width: 6%; }  /* 姓名 */
-        .report-list th:nth-child(3), .report-list td:nth-child(3) { width: 5%; }  /* 性别 */
-        .report-list th:nth-child(4), .report-list td:nth-child(4) { width: 5%; }  /* 年龄 */
-        .report-list th:nth-child(5), .report-list td:nth-child(5) { width: 12%; } /* 检查项目 */
-        .report-list th:nth-child(6), .report-list td:nth-child(6) { width: 10%; } /* 提交时间 */
-        .report-list th:nth-child(7), .report-list td:nth-child(7) { width: 10%; }  /* 状态 */
-        .report-list th:nth-child(8), .report-list td:nth-child(8) { width: 8%; }  /* 患者信息 */
-        .report-list th:nth-child(9), .report-list td:nth-child(9) { width: 8%; }  /* 指标数据 */
-        .report-list th:nth-child(10), .report-list td:nth-child(10) { width: 8%; }  /* 指标文本 */
-        .report-list th:nth-child(11), .report-list td:nth-child(11) { width: 10%; } /* 操作 */
+        /* 列宽分配（共12列） */
+        .report-list th:nth-child(1),
+        .report-list td:nth-child(1) {
+            width: 7%;
+        }
+        .report-list th:nth-child(2),
+        .report-list td:nth-child(2) {
+            width: 7%;
+        }
+        .report-list th:nth-child(3),
+        .report-list td:nth-child(3) {
+            width: 5%;
+        }
+        .report-list th:nth-child(4),
+        .report-list td:nth-child(4) {
+            width: 5%;
+        }
+        .report-list th:nth-child(5),
+        .report-list td:nth-child(5) {
+            width: 5%;
+        }
+        .report-list th:nth-child(6),
+        .report-list td:nth-child(6) {
+            width: 10%;
+        }
+        .report-list th:nth-child(7),
+        .report-list td:nth-child(7) {
+            width: 9%;
+        }
+        .report-list th:nth-child(8),
+        .report-list td:nth-child(8) {
+            width: 8%;
+        }
+        .report-list th:nth-child(9),
+        .report-list td:nth-child(9) {
+            width: 8%;
+        }
+        .report-list th:nth-child(10),
+        .report-list td:nth-child(10) {
+            width: 8%;
+        }
+        .report-list th:nth-child(11),
+        .report-list td:nth-child(11) {
+            width: 8%;
+        }
+        .report-list th:nth-child(12),
+        .report-list td:nth-child(12) {
+            width: 12%;
+        }
 
         .report-list .status-badge {
             display: inline-block;
@@ -905,6 +927,34 @@
             border-color: var(--primary);
             color: var(--primary);
         }
+        /* ---- 新增：重新编辑按钮 ---- */
+        .report-list .btn-reedit {
+            padding: 2px 10px;
+            font-size: 0.65rem;
+            border-radius: 10px;
+            border: 1px solid #b45309;
+            background: #fffbeb;
+            color: #b45309;
+            cursor: pointer;
+            transition: all 0.2s;
+            white-space: nowrap;
+            margin-left: 4px;
+        }
+        .report-list .btn-reedit:hover {
+            background: #b45309;
+            color: #fff;
+        }
+        /* ---- 行点击高亮 ---- */
+        .report-list tbody tr {
+            cursor: default;
+            transition: background 0.15s;
+        }
+        .report-list tbody tr:hover {
+            background: #fafafa;
+        }
+        .report-list tbody tr.reedit-hover {
+            background: #fef3c7 !important;
+        }
 
         .pagination {
             display: flex;
@@ -931,11 +981,11 @@
             cursor: not-allowed;
         }
 
-        /* ===== 模态框（共用） ===== */
+        /* ===== 模态框 ===== */
         .modal-overlay {
             position: fixed;
             inset: 0;
-            background: rgba(0,0,0,0.5);
+            background: rgba(0, 0, 0, 0.5);
             display: none;
             align-items: center;
             justify-content: center;
@@ -971,45 +1021,39 @@
             line-height: 1.8;
             margin-top: 8px;
         }
-
-        /* ===== 通用组件 ===== */
-        .loading-overlay {
-            position: absolute;
-            inset: 0;
-            background: rgba(255, 255, 255, 0.85);
-            display: none;
-            align-items: center;
-            justify-content: center;
-            border-radius: var(--radius-lg);
-            z-index: 10;
-            flex-direction: column;
-            gap: 12px;
-            font-weight: 600;
-            color: var(--text-secondary);
+        .modal-box .edit-area {
+            width: 100%;
+            min-height: 200px;
+            padding: 12px;
+            border: 1.5px solid var(--border);
+            border-radius: var(--radius-sm);
             font-size: 0.9rem;
+            font-family: inherit;
+            line-height: 1.8;
+            resize: vertical;
+            outline: none;
+            transition: border-color 0.2s;
         }
-        .loading-overlay.show {
+        .modal-box .edit-area:focus {
+            border-color: var(--primary);
+            box-shadow: 0 0 0 3px rgba(26, 111, 181, 0.08);
+        }
+        .modal-box .modal-actions {
             display: flex;
+            gap: 8px;
+            margin-top: 12px;
+            justify-content: flex-end;
+        }
+        .modal-box .modal-actions .btn {
+            padding: 6px 16px;
+            font-size: 0.8rem;
+        }
+        .modal-box.wide {
+            max-width: 1200px;
+            width: 95%;
         }
 
-        .spinner {
-            width: 18px;
-            height: 18px;
-            border: 2.5px solid rgba(255, 255, 255, 0.3);
-            border-top-color: #fff;
-            border-radius: 50%;
-            animation: spin 0.7s linear infinite;
-            display: inline-block;
-            flex-shrink: 0;
-        }
-        .spinner-dark {
-            border-color: rgba(0, 0, 0, 0.1);
-            border-top-color: var(--primary);
-        }
-        @keyframes spin {
-            to { transform: rotate(360deg); }
-        }
-
+        /* ===== Toast ===== */
         .toast-container {
             position: fixed;
             top: 20px;
@@ -1035,20 +1079,40 @@
             align-items: center;
             gap: 8px;
         }
-        .toast.success { background: #2d8a56; }
-        .toast.error { background: #d14343; }
-        .toast.info { background: #1a6fb5; }
-        .toast.warning { background: #c0792b; }
+        .toast.success {
+            background: #2d8a56;
+        }
+        .toast.error {
+            background: #d14343;
+        }
+        .toast.info {
+            background: #1a6fb5;
+        }
+        .toast.warning {
+            background: #c0792b;
+        }
         .toast.removing {
             animation: toast-out 0.3s ease-in forwards;
         }
         @keyframes toast-in {
-            from { opacity: 0; transform: translateX(60px); }
-            to { opacity: 1; transform: translateX(0); }
+            from {
+                opacity: 0;
+                transform: translateX(60px);
+            }
+            to {
+                opacity: 1;
+                transform: translateX(0);
+            }
         }
         @keyframes toast-out {
-            from { opacity: 1; transform: translateX(0); }
-            to { opacity: 0; transform: translateX(60px); }
+            from {
+                opacity: 1;
+                transform: translateX(0);
+            }
+            to {
+                opacity: 0;
+                transform: translateX(60px);
+            }
         }
 
         /* ===== 响应式 ===== */
@@ -1060,7 +1124,8 @@
             .main-wrapper {
                 padding: 12px 14px;
             }
-            .panel, .report-list {
+            .panel,
+            .report-list {
                 padding: 16px;
             }
             .voice-btn {
@@ -1100,8 +1165,8 @@
                 flex-direction: column;
                 gap: 4px;
             }
-            /* 表格列宽自适应 */
-            .report-list th, .report-list td {
+            .report-list th,
+            .report-list td {
                 white-space: nowrap;
                 overflow: hidden;
                 text-overflow: ellipsis;
@@ -1112,13 +1177,6 @@
                 flex-direction: column;
             }
             .btn-lg {
-                width: 100%;
-                justify-content: center;
-            }
-            .report-actions {
-                flex-direction: column;
-            }
-            .report-actions .btn {
                 width: 100%;
                 justify-content: center;
             }
@@ -1150,7 +1208,8 @@
                 padding: 0;
                 max-width: 100%;
             }
-            .panel, .report-list {
+            .panel,
+            .report-list {
                 box-shadow: none;
                 border: none;
                 padding: 0;
@@ -1170,46 +1229,50 @@
             }
         }
 
-        /* 弹框内编辑样式 */
-        .modal-box .edit-area {
-            width: 100%;
-            min-height: 200px;
-            padding: 12px;
-            border: 1.5px solid var(--border);
-            border-radius: var(--radius-sm);
-            font-size: 0.9rem;
-            font-family: inherit;
-            line-height: 1.8;
-            resize: vertical;
-            outline: none;
-            transition: border-color 0.2s;
-        }
-        .modal-box .edit-area:focus {
-            border-color: var(--primary);
-            box-shadow: 0 0 0 3px rgba(26, 111, 181, 0.08);
-        }
-        .modal-box .modal-actions {
-            display: flex;
-            gap: 8px;
-            margin-top: 12px;
-            justify-content: flex-end;
-        }
-        .modal-box .modal-actions .btn {
-            padding: 6px 16px;
-            font-size: 0.8rem;
-        }
-        /* 模态框针对表格编辑放宽宽度 */
-        .modal-box.wide {
-            max-width: 1200px;
-            width: 95%;
-        }
-
         .highlight-row {
-            background-color: #fff3cd !important; /* 淡黄色 */
+            background-color: #fff3cd !important;
         }
-        /* 也可进一步调整文字颜色 */
         .highlight-row .htCell {
             color: #856404;
+        }
+
+        /* 加载遮罩 */
+        .loading-overlay {
+            position: absolute;
+            inset: 0;
+            background: rgba(255, 255, 255, 0.85);
+            display: none;
+            align-items: center;
+            justify-content: center;
+            border-radius: var(--radius-lg);
+            z-index: 10;
+            flex-direction: column;
+            gap: 12px;
+            font-weight: 600;
+            color: var(--text-secondary);
+            font-size: 0.9rem;
+        }
+        .loading-overlay.show {
+            display: flex;
+        }
+        .spinner {
+            width: 18px;
+            height: 18px;
+            border: 2.5px solid rgba(255, 255, 255, 0.3);
+            border-top-color: #fff;
+            border-radius: 50%;
+            animation: spin 0.7s linear infinite;
+            display: inline-block;
+            flex-shrink: 0;
+        }
+        .spinner-dark {
+            border-color: rgba(0, 0, 0, 0.1);
+            border-top-color: var(--primary);
+        }
+        @keyframes spin {
+            to {
+                transform: rotate(360deg);
+            }
         }
     </style>
 </head>
@@ -1218,10 +1281,13 @@
     <!-- ===== 头部 ===== -->
     <header class="app-header">
         <div class="logo-area">
-            <div class="logo-icon">🏥</div>
+<!--            <div class="logo-icon">🏥</div>-->
+            <div class="logo-icon">
+                <img src="ns_logo.png" alt="Logo" style="width:28px; height:28px; object-fit:contain;">
+            </div>
             <div>
                 <div class="logo-text">
-                    医疗语音转写与报告生成
+                    南石 PACS 医疗语音转写&报告生成
                     <button class="cache-clear-btn" id="clearCacheBtn" title="清除所有本地暂存数据">🗑 清除暂存</button>
                 </div>
                 <div class="logo-subtitle">基于 Qwen-Audio-3.0-ASR-Flash-Streaming</div>
@@ -1240,7 +1306,7 @@
     <!-- ===== 主布局 ===== -->
     <div class="main-wrapper">
 
-        <!-- 上半部分：语音转写 + 报告生成（并排） -->
+        <!-- 上半部分 -->
         <div class="top-row">
             <!-- 左：语音转写 -->
             <div class="panel" id="leftPanel">
@@ -1248,7 +1314,6 @@
                     <div class="panel-title"><span class="icon icon-blue">🎤</span> 语音转写</div>
                     <span id="recordingBadge" class="panel-badge badge-idle">待录入</span>
                 </div>
-
                 <div class="voice-section" id="voiceSection">
                     <div class="voice-btn-wrap">
                         <div class="voice-ring" id="voiceRing"></div>
@@ -1259,37 +1324,38 @@
                     <div class="voice-hint" id="voiceHint">点击麦克风开始语音录入</div>
                     <div class="voice-live-text" id="voiceLiveText"></div>
                 </div>
-
                 <div id="errorMsg" class="error-msg"></div>
-
                 <div class="transcript-area" id="transcriptArea">
                     <div class="placeholder" id="placeholder">
                         🎤 点击上方麦克风开始录音<br/>
                         转写结果将实时显示在这里
                     </div>
                 </div>
-
                 <div class="textarea-actions">
                     <button class="btn btn-ghost btn-sm" id="btnClear">✕ 清空</button>
                     <button class="btn btn-outline btn-sm" id="btnCopy">📋 复制</button>
                 </div>
-
                 <div class="stats">
                     <div>字数: <span id="wordCount">0</span></div>
                     <div>句子数: <span id="sentenceCount">0</span></div>
                 </div>
             </div>
 
-            <!-- 右：报告生成（提交按钮以上部分） -->
+            <!-- 右：报告生成 -->
             <div class="panel" id="rightPanel">
                 <div class="panel-header">
-                    <div class="panel-title"><span class="icon icon-green">📝</span> 报告生成</div>
+                    <div class="panel-title">
+                        <span class="icon icon-green">📝</span> 报告生成
+                        <span class="edit-mode-badge" id="editModeBadge">
+                            <span class="dot"></span> 编辑模式
+                            <button class="btn btn-sm btn-danger-outline" id="cancelEditBtn" style="margin-left:6px; padding:2px 10px; font-size:0.7rem;">✕ 取消编辑</button>
+                        </span>
+                    </div>
                     <span id="reportStatusBadge" class="panel-badge badge-idle">待提交</span>
                 </div>
 
                 <!-- 住院号查询 -->
-                <div class="form-row" style="gap: 8px;">
-                    <!-- 新增：患者类型切换 -->
+                <div class="form-row" style="gap:8px;">
                     <div class="form-group" style="flex:0 0 110px; min-width:auto;">
                         <label>🧑‍⚕️ 患者类型</label>
                         <select id="patientTypeSelect" style="height:38px;">
@@ -1297,7 +1363,7 @@
                             <option value="outpatient">门诊</option>
                         </select>
                     </div>
-                     <div class="form-group" style="flex:0 0 110px; min-width:auto;">
+                    <div class="form-group" style="flex:0 0 110px; min-width:auto;">
                         <label>检查类型</label>
                         <select id="checkTypeSelect" style="height:38px;">
                             <option value="US" selected>US</option>
@@ -1336,12 +1402,13 @@
                     <textarea id="examFindings" placeholder="请输入或通过左侧语音转写检查所见内容..."></textarea>
                 </div>
 
-                <!-- 提交按钮（保留在右侧面板内） -->
-                <button class="btn btn-primary btn-lg" id="submitBtn" style="width:100%;justify-content:center;" disabled>
-                    ⚡ 提交
-                </button>
+                <!-- 提交按钮 + 取消编辑（内联） -->
+                <div style="display:flex; gap:10px;">
+                    <button class="btn btn-primary btn-lg" id="submitBtn" style="flex:1;justify-content:center;" disabled>
+                        ⚡ 提交
+                    </button>
+                </div>
 
-                <!-- 右侧面板的加载遮罩 -->
                 <div class="loading-overlay" id="loadingOverlay" style="display:none;">
                     <div class="spinner spinner-dark" style="width:32px;height:32px;border-width:3px;"></div>
                     <span>处理中，请稍候...</span>
@@ -1349,19 +1416,22 @@
             </div>
         </div>
 
-        <!-- 下半部分：历史报告（全宽） -->
+        <!-- 下半部分：历史报告 -->
         <div class="bottom-row">
             <div class="report-list">
                 <div class="header">
                     <h3>📋 历史报告</h3>
+                    <span style="font-size:0.7rem; color:var(--text-muted); font-weight:400; background:var(--surface-alt); padding:2px 10px; border-radius:12px; border:1px solid var(--border-light);">
+                        💡 双击患者行可重新编辑
+                    </span>
                     <button class="btn btn-ghost btn-sm" id="refreshListBtn">🔄 刷新</button>
                 </div>
                 <div id="reportTableWrapper">
                     <table>
                         <thead>
                             <tr>
-                                <th>住院号/门诊号</th>
-                                <th>患者类型</th>
+                                <th>住院号</th>
+                                <th>类型</th>
                                 <th>姓名</th>
                                 <th>性别</th>
                                 <th>年龄</th>
@@ -1375,22 +1445,34 @@
                             </tr>
                         </thead>
                         <tbody id="reportTableBody">
-                            <tr><td colspan="10" style="text-align:center; color:var(--text-muted);">暂无记录</td></tr>
+                            <tr><td colspan="12" style="text-align:center;color:var(--text-muted);">暂无记录</td></tr>
                         </tbody>
                     </table>
                 </div>
                 <div class="pagination" id="paginationControls"></div>
             </div>
         </div>
-
     </div>
 
-    <!-- ===== 模态框（用于查看报告、患者信息、指标数据） ===== -->
+    <!-- ===== 模态框 ===== -->
     <div class="modal-overlay" id="reportModal">
         <div class="modal-box">
             <button class="close-btn" id="modalCloseBtn">&times;</button>
             <h3 id="modalTitle" style="margin-bottom:12px;">📄 详情</h3>
             <div class="detail-content" id="modalDetailContent">加载中...</div>
+        </div>
+    </div>
+
+    <!-- ===== 自定义确认弹框 ===== -->
+    <div class="modal-overlay" id="confirmModal">
+        <div class="modal-box" style="max-width:450px; text-align:center;">
+            <div style="font-size:2.5rem; margin-bottom:12px;">⚠️</div>
+            <h3 id="confirmTitle" style="font-size:1.1rem; margin-bottom:8px; color:var(--text);">确认操作</h3>
+            <p id="confirmMessage" style="font-size:0.95rem; color:var(--text-secondary); margin-bottom:20px; white-space:pre-wrap;">确定要执行此操作吗？</p>
+            <div style="display:flex; justify-content:center; gap:12px;">
+                <button class="btn btn-outline" id="confirmCancelBtn" style="min-width:80px;">取消</button>
+                <button class="btn btn-primary" id="confirmOkBtn" style="min-width:80px;">确定</button>
+            </div>
         </div>
     </div>
 
@@ -1415,21 +1497,12 @@
                 };
                 let port = portMap[host] || 8081;
                 if (host === 'oa.nsyy.com.cn') {
-                    return {
-                        apiBase: `https://${host}:6081/mz`,
-                        wsUrl: `wss://${host}:6081/mz`
-                    };
+                    return { apiBase: `https://${host}:6081/mz`, wsUrl: `wss://${host}:6081/mz` };
                 }
                 if (host === '192.168.3.12') {
-                    return {
-                        apiBase: `https://${host}:6083/mz`,
-                        wsUrl: `wss://${host}:6083/mz`
-                    };
+                    return { apiBase: `https://${host}:6083/mz`, wsUrl: `wss://${host}:6083/mz` };
                 }
-                return {
-                    apiBase: `http://${host}:${port}/mz`,
-                    wsUrl: `ws://${host}:${port}/mz`
-                };
+                return { apiBase: `http://${host}:${port}/mz`, wsUrl: `ws://${host}:${port}/mz` };
             }
             const config = getApiConfig();
             const API_BASE = config.apiBase;
@@ -1480,8 +1553,9 @@
             const STORAGE_KEY = 'medical_asr_report_draft';
             function saveDraft() {
                 const draft = { examFindings: examFindingsTextarea.value, updatedAt: Date.now() };
-                try { localStorage.setItem(STORAGE_KEY, JSON.stringify(draft)); } catch(e) {}
+                try { localStorage.setItem(STORAGE_KEY, JSON.stringify(draft)); } catch (e) {}
             }
+
             function loadDraft() {
                 try {
                     const raw = localStorage.getItem(STORAGE_KEY);
@@ -1494,17 +1568,21 @@
                         updateWordCount();
                     }
                     return true;
-                } catch(e) { return false; }
+                } catch (e) { return false; }
             }
+
             function clearDraft() { localStorage.removeItem(STORAGE_KEY); }
             let saveTimeout;
+
             function debouncedSave() {
                 clearTimeout(saveTimeout);
                 saveTimeout = setTimeout(saveDraft, 300);
             }
             examFindingsTextarea.addEventListener('input', debouncedSave);
-            $('#clearCacheBtn').addEventListener('click', function() {
-                if (confirm('确定清除所有本地暂存数据吗？')) {
+
+            $('#clearCacheBtn').addEventListener('click', async function() {
+                const confirmed = await showConfirmDialog('清除暂存', '确定清除所有本地暂存数据吗？');
+                if (confirmed) {
                     clearDraft();
                     examFindingsTextarea.value = '';
                     fullText = '';
@@ -1654,7 +1732,8 @@
                                 }
                             }
                             break;
-                        case 'pong': break;
+                        case 'pong':
+                            break;
                     }
                 } catch (err) {
                     console.error('解析消息失败:', err);
@@ -1687,7 +1766,8 @@
                 let html = '';
                 if (fullText) html += `<span class="final">${escapeHtml(fullText)}</span>`;
                 if (currentStash) html += `<span class="stash">${escapeHtml(currentStash)}</span>`;
-                transcriptArea.innerHTML = html || '<div class="placeholder">🎤 点击上方麦克风开始录音<br/>转写结果将实时显示在这里</div>';
+                transcriptArea.innerHTML = html ||
+                    '<div class="placeholder">🎤 点击上方麦克风开始录音<br/>转写结果将实时显示在这里</div>';
             }
 
             function updateWordCount() {
@@ -1726,7 +1806,7 @@
                 if (isRecording) return;
                 const isWsAlive = isConnected && ws && ws.readyState === WebSocket.OPEN;
                 if (!isWsAlive) {
-                    if (ws) { try { ws.close(); } catch(e) {} ws = null; }
+                    if (ws) { try { ws.close(); } catch (e) {} ws = null; }
                     isConnected = false;
                     setConnectionStatus('disconnected');
                     await connect();
@@ -1742,7 +1822,8 @@
                 }
                 try {
                     mediaStream = await navigator.mediaDevices.getUserMedia({
-                        audio: { sampleRate: SAMPLE_RATE, channelCount: 1, echoCancellation: true, noiseSuppression: true }
+                        audio: { sampleRate: SAMPLE_RATE, channelCount: 1, echoCancellation: true,
+                            noiseSuppression: true }
                     });
 
                     // ---- 新增 MediaRecorder 保存录音----
@@ -1761,32 +1842,23 @@
                         // 1. 获取患者姓名（从界面元素或全局变量）
                         let patientName = '';
                         const pNameEl = document.getElementById('pName');
-                        if (pNameEl) {
-                            patientName = pNameEl.textContent.trim();
-                        }
-                        // 若未查询到或为 '-'，则使用默认值
-                        if (!patientName || patientName === '-') {
-                            patientName = '未知患者';
-                        }
-                        // 过滤 Windows 非法字符
+                        if (pNameEl) { patientName = pNameEl.textContent.trim(); }
+                        if (!patientName || patientName === '-') { patientName = '未知患者'; }
                         const cleanName = patientName.replace(/[\\/:*?"<>|]/g, '');
-
-                        // ---- 使用本地时间 ----
                         const now = new Date();
                         const pad = (n) => String(n).padStart(2, '0');
-                        const localTime = `${now.getFullYear()}${pad(now.getMonth()+1)}${pad(now.getDate())}_${pad(now.getHours())}${pad(now.getMinutes())}${pad(now.getSeconds())}`;
+                        const localTime =
+                            `${now.getFullYear()}${pad(now.getMonth()+1)}${pad(now.getDate())}_${pad(now.getHours())}${pad(now.getMinutes())}${pad(now.getSeconds())}`;
                         a.download = `录音_${cleanName}_${localTime}.webm`;
-                        // a.download = `录音_${new Date().toISOString().replace(/[:.]/g, '-')}.webm`;
                         document.body.appendChild(a);
                         a.click();
                         document.body.removeChild(a);
                         URL.revokeObjectURL(url);
                         audioChunks = [];
                     };
-                    mediaRecorder.start();  // 不传 timeslice，生成完整文件
-                    // ---- 保存录音结束 ----
+                    mediaRecorder.start();
 
-                    audioContext = new (window.AudioContext || window.webkitAudioContext)({ sampleRate: SAMPLE_RATE });
+                    audioContext = new(window.AudioContext || window.webkitAudioContext)({ sampleRate: SAMPLE_RATE });
                     const audioSource = audioContext.createMediaStreamSource(mediaStream);
                     const audioProcessor = audioContext.createScriptProcessor(CHUNK_SIZE, 1, 1);
                     audioSource.connect(audioProcessor);
@@ -1838,39 +1910,47 @@
                 if (ws && ws.readyState === WebSocket.OPEN) {
                     ws.send(JSON.stringify({ type: 'commit' }));
                 }
-                if (processor) { processor.disconnect(); processor = null; }
-                if (source) { source.disconnect(); source = null; }
-                if (audioContext) { await audioContext.close(); audioContext = null; }
-                if (mediaStream) { mediaStream.getTracks().forEach(track => track.stop()); mediaStream = null; }
+                if (processor) { processor.disconnect();
+                    processor = null; }
+                if (source) { source.disconnect();
+                    source = null; }
+                if (audioContext) { await audioContext.close();
+                    audioContext = null; }
+                if (mediaStream) { mediaStream.getTracks().forEach(track => track.stop());
+                    mediaStream = null; }
                 console.log('⏹️ 停止录音');
                 stopTimer();
                 recordingBadge.textContent = '录入完成';
                 recordingBadge.className = 'panel-badge badge-idle';
-
-                // 关闭媒体录制器(保存录音)
                 if (mediaRecorder && mediaRecorder.state !== 'inactive') {
                     mediaRecorder.stop();
                 }
-
-                if (heartbeatInterval) { clearInterval(heartbeatInterval); heartbeatInterval = null; }
+                if (heartbeatInterval) { clearInterval(heartbeatInterval);
+                    heartbeatInterval = null; }
             }
 
             // ---- 计时器 ----
-            let recordingStartTime = null, timerInterval = null;
+            let recordingStartTime = null,
+                timerInterval = null;
+
             function startTimer() {
                 stopTimer();
                 recordingStartTime = Date.now();
                 updateTimerDisplay();
                 timerInterval = setInterval(updateTimerDisplay, 200);
             }
+
             function stopTimer() {
-                if (timerInterval) { clearInterval(timerInterval); timerInterval = null; }
+                if (timerInterval) { clearInterval(timerInterval);
+                    timerInterval = null; }
                 voiceTimer.textContent = '00:00';
             }
+
             function updateTimerDisplay() {
                 if (!recordingStartTime) return;
                 const elapsed = Math.floor((Date.now() - recordingStartTime) / 1000);
-                voiceTimer.textContent = String(Math.floor(elapsed / 60)).padStart(2, '0') + ':' + String(elapsed % 60).padStart(2, '0');
+                voiceTimer.textContent = String(Math.floor(elapsed / 60)).padStart(2, '0') + ':' + String(elapsed % 60)
+                    .padStart(2, '0');
             }
 
             // ---- 音频工具 ----
@@ -1882,6 +1962,7 @@
                 }
                 return int16Array;
             }
+
             function arrayBufferToBase64(buffer) {
                 const bytes = new Uint8Array(buffer.buffer);
                 let binary = '';
@@ -1893,9 +1974,12 @@
             startBtn.addEventListener('click', () => { if (!isRecording) startRecording(); });
             stopBtn.addEventListener('click', () => { if (isRecording) stopRecording(); });
             btnClear.addEventListener('click', function() {
-                fullText = ''; currentStash = ''; sentenceCountVal = 0;
+                fullText = '';
+                currentStash = '';
+                sentenceCountVal = 0;
                 sentenceCountEl.textContent = '0';
-                updateWordCount(); updateTranscript();
+                updateWordCount();
+                updateTranscript();
                 examFindingsTextarea.value = '';
                 saveDraft();
                 showToast('转写内容已清空', 'info');
@@ -1908,7 +1992,8 @@
                 }
             });
             document.addEventListener('keydown', function(e) {
-                if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA' || e.target.tagName === 'SELECT') return;
+                if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA' || e.target.tagName ===
+                    'SELECT') return;
                 if (e.code === 'Space' && !e.ctrlKey && !e.metaKey && !e.altKey) {
                     e.preventDefault();
                     if (isRecording) stopRecording();
@@ -1928,7 +2013,7 @@
             initVoice();
 
             // =========================================================
-            // 第二部分：右侧报告生成 + 历史报告模块
+            // 第二部分：右侧报告生成 + 历史报告模块 + 重新编辑功能
             // =========================================================
             (function() {
                 // ---- DOM 引用 ----
@@ -1945,8 +2030,10 @@
                 const paginationControls = document.getElementById('paginationControls');
                 const refreshListBtn = document.getElementById('refreshListBtn');
                 const loadingOverlay = document.getElementById('loadingOverlay');
+                const cancelEditBtn = document.getElementById('cancelEditBtn');
+                const cancelEditGroup = document.getElementById('cancelEditGroup');
+                const editModeBadge = document.getElementById('editModeBadge');
 
-                // 模态框元素（共用）
                 const modalOverlay = document.getElementById('reportModal');
                 const modalCloseBtn = document.getElementById('modalCloseBtn');
                 const modalTitle = document.getElementById('modalTitle');
@@ -1958,6 +2045,14 @@
                 let selectedYizhuid = null;
                 let currentPage = 1;
                 const PAGE_SIZE = 5;
+
+                // ===== 新增：重新编辑相关状态 =====
+                let isEditMode = false;
+                let editingRecordId = null;
+                let editingRecordData = null;
+                // 保存编辑前的内容，用于取消时恢复（暂不实现复杂撤销，只做简单恢复）
+                let beforeEditFullText = '';
+                let beforeEditExamFindings = '';
 
                 // ---- 工具函数 ----
                 function showToastPacs(msg, type = 'info') {
@@ -1979,22 +2074,86 @@
                     loadingOverlay.style.display = show ? 'flex' : 'none';
                 }
 
-                // 编辑状态
-                let editingRecordId = null;
-                let editingField = null;  // 'patient_info' 或 'indicator_data'
 
-                function openModal(title, content, editable = false, recordId = null, field = null) {
+                // ---- 自定义确认弹框（Promise 风格） ----
+                function showConfirmDialog(title, message) {
+                    return new Promise((resolve) => {
+                        const modal = document.getElementById('confirmModal');
+                        const titleEl = document.getElementById('confirmTitle');
+                        const msgEl = document.getElementById('confirmMessage');
+                        const okBtn = document.getElementById('confirmOkBtn');
+                        const cancelBtn = document.getElementById('confirmCancelBtn');
+
+                        titleEl.textContent = title || '确认操作';
+                        msgEl.textContent = message || '确定要执行此操作吗？';
+
+                        // 清除之前绑定的监听，避免重复
+                        const newOk = okBtn.cloneNode(true);
+                        const newCancel = cancelBtn.cloneNode(true);
+                        okBtn.parentNode.replaceChild(newOk, okBtn);
+                        cancelBtn.parentNode.replaceChild(newCancel, cancelBtn);
+
+                        // 绑定事件
+                        function cleanup() {
+                            modal.classList.remove('active');
+                            // 移除监听防止内存泄漏（但新节点已替换，无需额外移除）
+                        }
+                        newOk.addEventListener('click', function() {
+                            cleanup();
+                            resolve(true);
+                        });
+                        newCancel.addEventListener('click', function() {
+                            cleanup();
+                            resolve(false);
+                        });
+                        // 点击遮罩关闭（视为取消）
+                        modal.addEventListener('click', function(e) {
+                            if (e.target === modal) {
+                                cleanup();
+                                resolve(false);
+                            }
+                        }, { once: true });
+
+                        modal.classList.add('active');
+                        // 让确定按钮默认获得焦点（可选）
+                        setTimeout(() => newOk.focus(), 100);
+                    });
+                }
+
+
+                // ---- 模态框相关 ----
+                let editingRecordIdModal = null;
+                let editingField = null;
+                let isEditModeModal = false;
+
+
+
+                function openModal(title, content, editable = false, recordId = null, field = null, forceText = false) {
+                    // ---- 1. 关键修复：检查模态框元素是否存在 ----
+                    if (!modalOverlay) {
+                        console.error('Modal overlay (#reportModal) not found!');
+                        showToastPacs('系统错误：未找到模态框组件', 'error');
+                        return;
+                    }
+                    if (!modalDetailContent) {
+                        console.error('Modal detail content (#modalDetailContent) not found!');
+                        showToastPacs('系统错误：未找到模态框内容容器', 'error');
+                        return;
+                    }
+
+                    // ---- 2. 设置标题和状态 ----
                     modalTitle.textContent = title;
-                    editingRecordId = recordId;
+                    editingRecordIdModal = recordId;
                     editingField = field;
-                    isEditMode = editable;
-
-                    modalDetailContent.innerHTML = '';
+                    isEditModeModal = editable;
                     modalOverlay.querySelector('.modal-box').classList.remove('wide');
 
-                    // ---------- 指标数据表格编辑 ----------
-                    if (editable && field === 'indicator_data') {
-                        // 1. 解析 JSON 数据
+                    // ---- 3. 清除之前的内容（重点：这行会移除"加载中..."） ----
+                    modalDetailContent.innerHTML = '';
+                    console.log('Modal content cleared'); // 调试日志，可在控制台查看
+
+                    // ---- 4. 指标数据表格编辑（JSON 编辑器） ----
+                    if (editable && field === 'indicator_data' && !forceText) {
                         let jsonData = [];
                         try {
                             if (content && content.trim() !== '' && content !== '暂无') {
@@ -2006,97 +2165,76 @@
                                 }
                             }
                         } catch (e) {
-                            console.warn('解析指标 JSON 失败，使用空数组', e);
                             jsonData = [];
                         }
-
                         if (jsonData.length === 0) {
-                            jsonData = [{}]; // 给一个空行方便用户开始录入
+                            jsonData = [{}];
                         }
-
-                        // 提取所有列名（keys），如果数据为空则使用默认列
                         let allKeys = [...new Set(jsonData.flatMap(obj => Object.keys(obj)))];
                         if (allKeys.length === 0) {
-                            allKeys = ['name', 'value', 'unit', 'reference']; // 预设常用字段
+                            allKeys = ['name', 'value', 'unit', 'reference'];
                         }
-
-                        // 确保每一行都有所有 key，避免某行缺少字段导致表格错位
                         jsonData = jsonData.map(row => {
                             const newRow = {};
                             allKeys.forEach(k => newRow[k] = row[k] !== undefined ? row[k] : '');
                             return newRow;
                         });
 
-                        // 存储当前编辑上下文，供内部函数使用
                         const editorContext = {
                             data: jsonData,
                             keys: allKeys,
-                            recordId: editingRecordId,
+                            recordId: editingRecordIdModal,
                             field: editingField,
                             container: null
                         };
 
-                        // ---- 核心渲染函数 ----
                         function renderTable() {
                             const container = editorContext.container;
                             if (!container) return;
-
                             let html = `<style>
-                                    .json-editor-table { width: 100%; border-collapse: collapse; font-size: 0.85rem; }
-                                    .json-editor-table th, .json-editor-table td { border: 1px solid #ddd; padding: 4px 6px; vertical-align: middle; }
-                                    .json-editor-table .col-header { width: 100%; border: none; background: transparent; font-weight: 600; }
-                                    .json-editor-table .cell-input { width: 100%; border: none; background: transparent; padding: 4px; outline: none; }
-                                    .json-editor-table .cell-input:focus { background: #fff; box-shadow: inset 0 0 0 2px var(--primary); }
-                                    .json-editor-table .action-col { width: 60px; text-align: center; }
-                                    /* 高亮行样式（淡黄色背景） */
-                                    .highlight-row { background-color: #fff3cd !important; }
-                                    .highlight-row .cell-input { background-color: #fff3cd !important; }
-                                    .json-actions { margin-top: 12px; display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
-                                    .btn-danger { background: #fee2e2; color: #dc2626; border-color: #fecaca; }
-                                    .btn-danger:hover { background: #fecaca; }
+                                    .json-editor-table { width:100%; border-collapse:collapse; font-size:0.85rem; }
+                                    .json-editor-table th,.json-editor-table td { border:1px solid #ddd; padding:4px 6px; vertical-align:middle; }
+                                    .json-editor-table .col-header { width:100%; border:none; background:transparent; font-weight:600; }
+                                    .json-editor-table .cell-input { width:100%; border:none; background:transparent; padding:4px; outline:none; }
+                                    .json-editor-table .cell-input:focus { background:#fff; box-shadow:inset 0 0 0 2px var(--primary); }
+                                    .json-editor-table .action-col { width:60px; text-align:center; }
+                                    .highlight-row { background-color:#fff3cd !important; }
+                                    .highlight-row .cell-input { background-color:#fff3cd !important; }
+                                    .json-actions { margin-top:12px; display:flex; gap:8px; flex-wrap:wrap; align-items:center; }
+                                    .btn-danger { background:#fee2e2; color:#dc2626; border-color:#fecaca; }
+                                    .btn-danger:hover { background:#fecaca; }
                                 </style>`;
-
-                                // 表头
-                                html += `<table class="json-editor-table"><thead><tr>`;
+                            html += `<table class="json-editor-table"><thead><tr>`;
+                            editorContext.keys.forEach((key) => {
+                                html += `<th><input class="col-header" value="${escapeHtml(key)}" placeholder="列名" /></th>`;
+                            });
+                            html += `<th class="action-col">操作</th></tr></thead><tbody>`;
+                            editorContext.data.forEach((row, rowIndex) => {
+                                const value = row['value'];
+                                const isHighlight = (value === undefined || value === null || value === '');
+                                const trClass = isHighlight ? 'class="highlight-row"' : '';
+                                html += `<tr ${trClass}>`;
                                 editorContext.keys.forEach((key) => {
-                                    html += `<th><input class="col-header" value="${escapeHtml(key)}" placeholder="列名" /></th>`;
+                                    const val = row[key] !== undefined ? row[key] : '';
+                                    html += `<td><input class="cell-input" data-row="${rowIndex}" data-key="${escapeHtml(key)}" value="${escapeHtml(String(val))}" /></td>`;
                                 });
-                                html += `<th class="action-col">操作</th></tr></thead><tbody>`;
+                                html += `<td><button class="btn btn-sm btn-danger" onclick="window._removeRow(${rowIndex})">🗑</button></td>`;
+                                html += `</tr>`;
+                            });
+                            html += `</tbody></table>`;
+                            container.innerHTML = html;
 
-                                // 表体
-                                editorContext.data.forEach((row, rowIndex) => {
-                                    // ---- 判断当前行的 value 是否为空 ----
-                                    const value = row['value'];  // 注意：字段名固定为 'value'，如果列名被修改，请相应调整
-                                    const isHighlight = (value === undefined || value === null || value === '');
-                                    const trClass = isHighlight ? 'class="highlight-row"' : '';
-
-                                    html += `<tr ${trClass}>`;
-                                    editorContext.keys.forEach((key) => {
-                                        const val = row[key] !== undefined ? row[key] : '';
-                                        html += `<td><input class="cell-input" data-row="${rowIndex}" data-key="${escapeHtml(key)}" value="${escapeHtml(String(val))}" /></td>`;
-                                    });
-                                    html += `<td><button class="btn btn-sm btn-danger" onclick="window._removeRow(${rowIndex})">🗑</button></td>`;
-                                    html += `</tr>`;
-                                });
-
-                                html += `</tbody></table>`;
-                                container.innerHTML = html;
-
-                                // 操作按钮（与之前相同）
-                                const btnDiv = document.createElement('div');
-                                btnDiv.className = 'json-actions';
-                                btnDiv.innerHTML = `
-                                    <button class="btn btn-outline btn-sm" onclick="window._addRow()">➕ 添加行</button>
-                                    <button class="btn btn-primary" onclick="window._saveJsonTable()">💾 保存表格</button>
-                                    <button class="btn btn-outline" onclick="window._closeModal()">取消</button>
-                                `;
-                                container.appendChild(btnDiv);
-
-                            // 将上下文挂到全局，供按钮点击调用
+                            const btnDiv = document.createElement('div');
+                            btnDiv.className = 'json-actions';
+                            btnDiv.innerHTML = `
+                                <button class="btn btn-outline btn-sm" onclick="window._addRow()">➕ 添加行</button>
+                                <button class="btn btn-primary" onclick="window._saveJsonTable()">💾 保存表格</button>
+                                <button class="btn btn-outline" onclick="window._closeModal()">取消</button>
+                            `;
+                            container.appendChild(btnDiv);
                             window._jsonEditor = editorContext;
                         }
 
-                        // ---- 操作函数 ----
                         window._addRow = function() {
                             const ctx = window._jsonEditor;
                             if (!ctx) return;
@@ -2105,7 +2243,6 @@
                             ctx.data.push(newRow);
                             renderTable();
                         };
-
                         window._removeRow = function(index) {
                             const ctx = window._jsonEditor;
                             if (!ctx) return;
@@ -2116,12 +2253,9 @@
                             ctx.data.splice(index, 1);
                             renderTable();
                         };
-
                         window._saveJsonTable = function() {
                             const ctx = window._jsonEditor;
                             if (!ctx) return;
-
-                            // 1. 从输入框读取最新数据（用户可能手动修改了单元格）
                             const inputs = ctx.container.querySelectorAll('.cell-input');
                             inputs.forEach(inp => {
                                 const rowIdx = parseInt(inp.dataset.row);
@@ -2130,8 +2264,6 @@
                                     ctx.data[rowIdx][key] = inp.value;
                                 }
                             });
-
-                            // 2. 读取表头（用户可能修改了列名）
                             const headers = ctx.container.querySelectorAll('.col-header');
                             const newKeys = [];
                             headers.forEach(inp => {
@@ -2139,13 +2271,9 @@
                                 if (val) newKeys.push(val);
                             });
                             if (newKeys.length > 0) {
-                                // 如果列名有变化，需要重构数据对象（保持数据一致性）
-                                // 简单策略：直接使用新列名，旧数据对应列名值保留，无则置空
-                                const oldKeys = ctx.keys;
                                 const newData = ctx.data.map(row => {
                                     const newRow = {};
                                     newKeys.forEach(k => {
-                                        // 如果旧列名存在，则取值，否则空
                                         newRow[k] = row[k] !== undefined ? row[k] : '';
                                     });
                                     return newRow;
@@ -2153,10 +2281,7 @@
                                 ctx.data = newData;
                                 ctx.keys = newKeys;
                             }
-
-                            // 3. 转为 JSON 字符串并保存
                             const jsonString = JSON.stringify(ctx.data);
-                            // 调用之前定义的保存函数（需确保 saveFieldData 在作用域内）
                             if (typeof saveFieldData === 'function') {
                                 saveFieldData(ctx.recordId, ctx.field, jsonString);
                             } else {
@@ -2165,49 +2290,41 @@
                             }
                         };
 
-                        // 4. 挂载容器并渲染
                         const container = document.createElement('div');
                         container.id = 'jsonTableContainer';
                         modalDetailContent.appendChild(container);
-
                         editorContext.container = container;
                         window._jsonEditor = editorContext;
                         renderTable();
-
                         modalOverlay.classList.add('active');
                         return;
                     }
 
-                    // ---------- 其他可编辑字段（文本） ----------
+                    // ---- 5. 其他可编辑字段（纯文本编辑器） ----
                     if (editable) {
                         modalDetailContent.innerHTML = `
                             <textarea class="edit-area" id="editTextarea">${escapeHtml(content)}</textarea>
                             <div class="modal-actions">
-                                <button class="btn btn-outline" id="cancelEditBtn">取消</button>
-                                <button class="btn btn-primary" id="saveEditBtn">💾 保存</button>
+                                <button class="btn btn-outline" id="cancelEditBtnModal">取消</button>
+                                <button class="btn btn-primary" id="saveEditBtnModal">💾 保存</button>
                             </div>
                         `;
-                        document.getElementById('cancelEditBtn').addEventListener('click', closeModal);
-                        document.getElementById('saveEditBtn').addEventListener('click', async function() {
+                        document.getElementById('cancelEditBtnModal').addEventListener('click', closeModal);
+                        document.getElementById('saveEditBtnModal').addEventListener('click', async function() {
                             const newData = document.getElementById('editTextarea').value;
-                            await saveFieldData(editingRecordId, editingField, newData);
+                            await saveFieldData(editingRecordIdModal, editingField, newData);
                         });
                         modalOverlay.classList.add('active');
                         return;
                     }
 
-                    // ---------- 只读模式 ----------
-                    // modalDetailContent.innerHTML = escapeHtml(content).replace(/\n/g, '<br>');
-                    // modalOverlay.classList.add('active');
-
-                    // ---------- 只读模式（报告详情等） ----------
+                    // ---- 6. 只读模式（查看报告详情等） ----
                     modalDetailContent.innerHTML = `
-                        <div style="display: flex; justify-content: flex-end; margin-bottom: 12px;">
+                        <div style="display:flex; justify-content:flex-end; margin-bottom:12px;">
                             <button class="btn btn-outline btn-sm" id="copyReportBtn">📋 复制内容</button>
                         </div>
-                        <div style="white-space: pre-wrap;">${escapeHtml(content).replace(/\n/g, '<br>')}</div>
+                        <div style="white-space:pre-wrap;">${escapeHtml(content).replace(/\n/g,'<br>')}</div>
                     `;
-
                     document.getElementById('copyReportBtn')?.addEventListener('click', function() {
                         const textToCopy = content;
                         if (navigator.clipboard && navigator.clipboard.writeText) {
@@ -2218,7 +2335,6 @@
                             fallbackCopy(textToCopy);
                         }
                     });
-
                     function fallbackCopy(text) {
                         const textarea = document.createElement('textarea');
                         textarea.value = text;
@@ -2234,95 +2350,28 @@
                         }
                         document.body.removeChild(textarea);
                     }
-
-                    modalOverlay.classList.add('active');
-
-                }
-
-                // 模态框元素引用
-                function openModal2(title, content, editable = false, recordId = null, field = null) {
-                    console.log('openModal', title, content, editable, recordId, field);
-                    modalTitle.textContent = title;
-                    editingRecordId = recordId;
-                    editingField = field;
-                    isEditMode = editable;
-
-                    if (editable) {
-                        modalDetailContent.innerHTML = `
-                            <textarea class="edit-area" id="editTextarea">${escapeHtml(content)}</textarea>
-                            <div class="modal-actions">
-                                <button class="btn btn-outline" id="cancelEditBtn">取消</button>
-                                <button class="btn btn-primary" id="saveEditBtn">💾 保存</button>
-                            </div>
-                        `;
-                        document.getElementById('cancelEditBtn').addEventListener('click', closeModal);
-                        document.getElementById('saveEditBtn').addEventListener('click', async function() {
-                            const newData = document.getElementById('editTextarea').value;
-                            await saveFieldData(editingRecordId, editingField, newData);
-                        });
-                    } else {
-                        // 使用 innerHTML 并保留换行
-                        modalDetailContent.innerHTML = escapeHtml(content).replace(/\n/g, '<br>');
-                    }
-                    modalOverlay.classList.add('active');
-                }
-
-
-
-
-                function openModal1(title, content, editable = false, recordId = null, field = null) {
-                    modalTitle.textContent = title;
-                    editingRecordId = recordId;
-                    editingField = field;
-                    isEditMode = editable;
-
-                    if (editable) {
-                        modalDetailContent.innerHTML = `
-                            <textarea class="edit-area" id="editTextarea">${escapeHtml(content)}</textarea>
-                            <div class="modal-actions">
-                                <button class="btn btn-outline" id="cancelEditBtn">取消</button>
-                                <button class="btn btn-primary" id="saveEditBtn">💾 保存</button>
-                            </div>
-                        `;
-                        document.getElementById('cancelEditBtn').addEventListener('click', closeModal);
-                        document.getElementById('saveEditBtn').addEventListener('click', async function() {
-                            const newData = document.getElementById('editTextarea').value;
-                            await saveFieldData(editingRecordId, editingField, newData);
-                        });
-                    } else {
-                        modalDetailContent.textContent = content;
-                    }
                     modalOverlay.classList.add('active');
                 }
 
                 function closeModal() {
                     modalOverlay.classList.remove('active');
-                    editingRecordId = null;
+                    editingRecordIdModal = null;
                     editingField = null;
-                    isEditMode = false;
+                    isEditModeModal = false;
                 }
 
-                // 模态框关闭事件
                 modalCloseBtn.addEventListener('click', closeModal);
                 modalOverlay.addEventListener('click', (e) => {
                     if (e.target === modalOverlay) closeModal();
                 });
 
                 async function saveFieldData(recordId, field, newData) {
-                    if (!recordId) {
-                        showToastPacs('记录ID无效', 'error');
-                        return;
-                    }
-                    if (!newData || newData.trim().length === 0) {
-                        showToastPacs('内容不能为空', 'warning');
-                        return;
-                    }
+                    if (!recordId) { showToastPacs('记录ID无效', 'error'); return; }
+                    if (!newData || newData.trim().length === 0) { showToastPacs('内容不能为空', 'warning'); return; }
                     showLoading(true);
                     try {
-                        // 构建更新数据，支持同时更新多个字段
                         const updateData = {};
                         updateData[field] = newData;
-
                         const resp = await fetch(`${API_BASE}/asr/pacs_ai_report/${recordId}`, {
                             method: 'PUT',
                             headers: { 'Content-Type': 'application/json' },
@@ -2330,36 +2379,33 @@
                         });
                         if (!resp.ok) throw new Error(`HTTP ${resp.status}: ${resp.statusText}`);
                         const result = await resp.json();
-                        if (result.success === false) {
-                            throw new Error(result.message || '保存失败');
-                        }
+                        if (result.success === false) { throw new Error(result.message || '保存失败'); }
                         const fieldLabel = field === 'patient_info' ? '患者信息' : '指标数据';
                         showToastPacs(`${fieldLabel}已更新 ✅`, 'success');
                         closeModal();
                         loadReports(currentPage);
                     } catch (err) {
                         showToastPacs('保存失败：' + err.message, 'error');
-                    } finally {
-                        showLoading(false);
-                    }
+                    } finally { showLoading(false); }
                 }
-
 
                 // ---- 患者查询 ----
                 async function queryPatient() {
+                    // 如果处于编辑模式，提示并阻止
+                    if (isEditMode) {
+                        showToastPacs('当前处于编辑模式，请先取消编辑或完成重新提交', 'warning');
+                        return;
+                    }
                     const zhuyuanhao = zhuyuanhaoInput.value.trim();
                     if (!zhuyuanhao) { showToastPacs('请输入住院号/门诊号', 'warning'); return; }
-
-                    // 获取患者类型
                     const patientTypeSelect = document.getElementById('patientTypeSelect');
                     const patientType = patientTypeSelect ? patientTypeSelect.value : 'inpatient';
-
                     const checkTypeSelect = document.getElementById('checkTypeSelect');
                     const checkType = checkTypeSelect ? checkTypeSelect.value : 'US';
-
                     showLoading(true);
                     try {
-                        const resp = await fetch(`${API_BASE}/asr/patient_pacs_info/${zhuyuanhao}/${patientType}/${checkType}`);
+                        const resp = await fetch(
+                            `${API_BASE}/asr/patient_pacs_info/${zhuyuanhao}/${patientType}/${checkType}`);
                         if (!resp.ok) throw new Error('患者信息查询失败');
                         const data = await resp.json();
                         currentPatient = data;
@@ -2379,9 +2425,7 @@
                         patientInfoArea.style.display = 'none';
                         currentPatient = null;
                         updateSubmitButton();
-                    } finally {
-                        showLoading(false);
-                    }
+                    } finally { showLoading(false); }
                 }
 
                 function displayPatientInfo(data) {
@@ -2390,7 +2434,6 @@
                     pAge.textContent = data.patient_age || '-';
                     pDept.textContent = data.dept_name || '-';
                     patientInfoArea.style.display = 'block';
-
                     const items = data.check_items_list || [];
                     checkItemsContainer.innerHTML = '';
                     if (items.length === 0) {
@@ -2401,38 +2444,36 @@
                         const div = document.createElement('div');
                         div.className = 'check-item-wrapper';
                         div.innerHTML = `
-                            <div class="item-name">${escapeHtml(item.check_item)}  -  ${escapeHtml(item.kaishisj)}</div>
-                            <div class="item-meta">
-                                <span>医嘱ID: ${escapeHtml(item.yizhuid)}</span>
-                                <span>开嘱: ${escapeHtml(item.kaizhusj)}</span>
-                                <span>开始: ${escapeHtml(item.kaishisj)}</span>
-                                <span>类型: ${escapeHtml(item.jianchabzfl)}</span>
-                            </div>
-                        `;
+                                <div class="item-name">${escapeHtml(item.check_item)}  -  ${escapeHtml(item.kaishisj)}</div>
+                                <div class="item-meta">
+                                    <span>医嘱ID: ${escapeHtml(item.yizhuid)}</span>
+                                    <span>开嘱: ${escapeHtml(item.kaizhusj)}</span>
+                                    <span>开始: ${escapeHtml(item.kaishisj)}</span>
+                                    <span>类型: ${escapeHtml(item.jianchabzfl)}</span>
+                                </div>
+                            `;
                         div.dataset.value = item.check_item;
                         div.dataset.yizhuid = item.yizhuid;
                         div.addEventListener('click', function() {
                             if (this.classList.contains('disabled')) return;
-                            document.querySelectorAll('.check-item-wrapper').forEach(el => el.classList.remove('selected'));
+                            document.querySelectorAll('.check-item-wrapper').forEach(el => el.classList.remove(
+                            'selected'));
                             this.classList.add('selected');
                             selectedCheckItem = this.dataset.value;
-                            console.log(this.dataset)
-                            selectedYizhuid = this.dataset.yizhuid;   // 新增
+                            selectedYizhuid = this.dataset.yizhuid;
                             updateSubmitButton();
                         });
                         checkItemsContainer.appendChild(div);
                     });
-                    // 如果只有一个项目，自动选中
                     if (items.length === 1) {
                         const first = checkItemsContainer.querySelector('.check-item-wrapper');
                         if (first) {
                             first.classList.add('selected');
                             selectedCheckItem = first.dataset.value;
-                            selectedYizhuid = first.dataset.yizhuid;   // 新增
+                            selectedYizhuid = first.dataset.yizhuid;
                         }
                     }
                 }
-
 
                 function highlightCheckItem(item) {
                     document.querySelectorAll('.check-item-wrapper').forEach(el => {
@@ -2447,15 +2488,196 @@
                     submitBtn.disabled = !(hasPatient && hasItem && hasFindings);
                 }
 
-                // ---- 提交报告 ----
+                // ===== 新增：清空编辑区内容（供重新编辑使用） =====
+                function clearEditArea() {
+                    fullText = '';
+                    currentStash = '';
+                    sentenceCountVal = 0;
+                    sentenceCountEl.textContent = '0';
+                    updateTranscript();
+                    updateWordCount();
+                    examFindingsTextarea.value = '';
+                    clearDraft();
+                }
+
+                // ===== 新增：检查是否有未提交内容 =====
+                function hasPendingContent() {
+                    const findings = examFindingsTextarea.value.trim();
+                    const voice = (fullText + currentStash).trim();
+                    return findings.length > 0 || voice.length > 0;
+                }
+
+                // ===== 新增：重新编辑核心函数 =====
+                async function startEdit(record) {
+                    // 1. 检查是否有未提交内容
+                    const patientName = record.patient_name || '未知患者';
+                    if (hasPendingContent()) {
+                        const confirmed = await showConfirmDialog(
+                            '清空当前内容',
+                            '当前有未提交的内容（检查所见或语音转写），确认清空并加载患者【${patientName}】的记录继续重新编辑吗？'
+                        );
+                        if (!confirmed) return;
+                        clearEditArea();
+                    }
+
+                    // 2. 保存编辑前的状态（用于取消）
+                    beforeEditFullText = fullText;
+                    beforeEditExamFindings = examFindingsTextarea.value;
+
+                    // 3. 进入编辑模式
+                    isEditMode = true;
+                    editingRecordId = record.id;
+                    editingRecordData = record;
+
+                    // 4. 从记录中提取患者信息，填充到界面
+                    const patientData = {
+                        patient_name: record.patient_name || '-',
+                        patient_sex: record.patient_sex || '-',
+                        patient_age: record.patient_age || '-',
+                        dept_name: record.dept_name || '-',
+                        zhuyuanhao: record.zhuyuanhao || '',
+                        check_items_list: [{
+                            check_item: record.check_items || '-',
+                            yizhuid: record.yizhuid || '',
+                            kaishisj: record.submit_time || '',
+                            kaizhusj: '',
+                            jianchabzfl: ''
+                        }]
+                    };
+                    // 填充患者基础信息
+                    currentPatient = patientData;
+                    displayPatientInfo(patientData);
+                    // 自动选中检查项目
+                    if (patientData.check_items_list.length === 1) {
+                        selectedCheckItem = patientData.check_items_list[0].check_item;
+                        selectedYizhuid = patientData.check_items_list[0].yizhuid;
+                        highlightCheckItem(selectedCheckItem);
+                    }
+
+                    // 5. 填充 patient_info 到检查所见和语音转写框
+                    const patientInfo = record.patient_info || '';
+                    examFindingsTextarea.value = patientInfo;
+                    fullText = patientInfo;
+                    currentStash = '';
+                    sentenceCountVal = patientInfo.split(/[。！？\n]/).filter(s => s.trim().length > 0).length;
+                    sentenceCountEl.textContent = sentenceCountVal;
+                    updateTranscript();
+                    updateWordCount();
+                    saveDraft();
+
+                    // 6. 填充住院号到输入框（方便查看）
+                    zhuyuanhaoInput.value = record.zhuyuanhao || '';
+
+                    // 7. 切换 UI 状态
+                    submitBtn.textContent = '🔄 重新提交';
+                    submitBtn.disabled = false;
+                    editModeBadge.classList.add('show');
+                    cancelEditGroup.style.display = 'block';
+                    queryBtn.textContent = '🔍 查询';
+                    queryBtn.disabled = false; // 保持可点，但会提示
+
+                    // 8. 显示提示
+                    showToastPacs(`已加载记录 #${record.id} 进入编辑模式`, 'info');
+                }
+
+                // ===== 新增：取消编辑 =====
+                async function cancelEdit() {
+                    if (!isEditMode) return;
+                    // 询问是否放弃修改
+                    if (hasPendingContent() && (fullText !== beforeEditFullText || examFindingsTextarea.value !==
+                            beforeEditExamFindings)) {
+                        const confirmed = await showConfirmDialog('取消编辑', '确定要取消编辑吗？当前修改将丢失。');
+                        if (!confirmed) return;
+                    }
+                    // 恢复编辑前状态（简单处理：清空或恢复）
+                    // 更好的做法是恢复到编辑前的数据，但为了简化，我们清空并刷新列表
+                    // 但如果用户想保留编辑前的数据，可以在这里恢复
+                    // 由于我们没有完整保存编辑前的所有状态，这里直接清空并退出编辑模式
+                    clearEditArea();
+                    // 重置患者信息区域
+                    patientInfoArea.style.display = 'none';
+                    currentPatient = null;
+                    selectedCheckItem = null;
+                    selectedYizhuid = null;
+                    zhuyuanhaoInput.value = '';
+
+                    // 恢复 UI
+                    exitEditMode();
+                    showToastPacs('已取消编辑', 'info');
+                }
+
+                // ===== 新增：退出编辑模式（UI恢复） =====
+                function exitEditMode() {
+                    isEditMode = false;
+                    editingRecordId = null;
+                    editingRecordData = null;
+                    submitBtn.textContent = '⚡ 提交';
+                    submitBtn.disabled = true;
+                    editModeBadge.classList.remove('show');
+                    cancelEditGroup.style.display = 'none';
+                    queryBtn.textContent = '🔍 查询';
+                    // 刷新列表以显示最新状态
+                    loadReports(currentPage);
+                }
+
+                // ===== 修改：提交报告（支持重新提交） =====
                 async function submitReport() {
                     if (submitBtn.disabled) return;
                     const examFindings = document.getElementById('examFindings').value.trim();
-                    // 获取患者类型
+                    if (!examFindings) {
+                        showToastPacs('检查所见不能为空', 'warning');
+                        return;
+                    }
+
                     const patientTypeSelect = document.getElementById('patientTypeSelect');
                     const patientType = patientTypeSelect ? patientTypeSelect.value : 'inpatient';
 
-                    console.log(currentPatient)
+                    // 如果是编辑模式，使用 PUT 更新
+                    if (isEditMode && editingRecordId) {
+                        showLoading(true);
+                        submitBtn.disabled = true;
+                        try {
+                            const updateData = {
+                                patient_info: examFindings,
+                                re_edit: true
+                            };
+                            const resp = await fetch(`${API_BASE}/asr/pacs_ai_report/${editingRecordId}`, {
+                                method: 'PUT',
+                                headers: { 'Content-Type': 'application/json' },
+                                body: JSON.stringify(updateData)
+                            });
+                            if (!resp.ok) throw new Error(`HTTP ${resp.status}: ${resp.statusText}`);
+                            const result = await resp.json();
+                            if (result.success === false) {
+                                throw new Error(result.message || '更新失败');
+                            }
+                            showToastPacs('报告已更新，正在重新生成...', 'success');
+                            // 清空编辑区
+                            clearEditArea();
+                            // 退出编辑模式
+                            exitEditMode();
+                            // 刷新列表
+                            loadReports(currentPage);
+                        } catch (err) {
+                            showToastPacs('重新提交失败：' + err.message, 'error');
+                        } finally {
+                            showLoading(false);
+                            submitBtn.disabled = false;
+                            updateSubmitButton();
+                        }
+                        return;
+                    }
+
+                    // ---- 普通提交模式 ----
+                    if (!currentPatient) {
+                        showToastPacs('请先查询患者信息', 'warning');
+                        return;
+                    }
+                    if (!selectedCheckItem) {
+                        showToastPacs('请选择一个检查项目', 'warning');
+                        return;
+                    }
+
                     const data = {
                         zhuyuanhao: currentPatient.zhuyuanhao,
                         patient_name: currentPatient.patient_name,
@@ -2465,7 +2687,7 @@
                         dept_name: currentPatient.dept_name,
                         yizhiid: currentPatient.yizhiid,
                         check_items: selectedCheckItem,
-                        yizhuid: selectedYizhuid,          // 新增字段
+                        yizhuid: selectedYizhuid,
                         patient_info: examFindings,
                         patient_type: patientType
                     };
@@ -2484,8 +2706,6 @@
                         }
                         showToastPacs('提交成功，报告生成中...', 'success');
                         document.getElementById('examFindings').value = '';
-
-                        // ===== 清空暂存区（新增） =====
                         fullText = '';
                         currentStash = '';
                         sentenceCountVal = 0;
@@ -2493,8 +2713,6 @@
                         updateTranscript();
                         updateWordCount();
                         clearDraft();
-                        // =============================
-
                         loadReports(currentPage);
                         updateSubmitButton();
                     } catch (err) {
@@ -2506,7 +2724,7 @@
                     }
                 }
 
-                // ---- 历史报告列表 ----
+                // ===== 修改：历史报告列表渲染（添加重新编辑按钮 + 行点击） =====
                 async function loadReports(page = 1) {
                     showLoading(true);
                     try {
@@ -2518,165 +2736,135 @@
                         const total = result.total || 0;
                         renderTable(data);
                         renderPagination(page, total);
-                        showToastPacs('列表已刷新', 'info');
                     } catch (err) {
                         showToastPacs('加载列表失败：' + err.message, 'error');
-                    } finally {
-                        showLoading(false);
-                    }
+                    } finally { showLoading(false); }
                 }
 
                 function renderTable(data) {
                     if (!data || data.length === 0) {
-                        reportTableBody.innerHTML = `<tr><td colspan="11" style="text-align:center; color:var(--text-muted);">暂无记录</td></tr>`;
+                        reportTableBody.innerHTML =
+                            `<tr><td colspan="12" style="text-align:center;color:var(--text-muted);">暂无记录</td></tr>`;
                         return;
                     }
-
-                    // 新增：存储当前表格数据源，供按钮点击时使用
                     window._reportTableData = data;
-
                     let html = '';
                     data.forEach((item, index) => {
-                        // const statusText = item.report_status === 1 ? '报告已生成' : (item.indicator_status === 1 ? '指标完善,报告生成中' : '指标不完善,请补充');
-                        const statusText = item.report_status === 1
-                              ? '报告已生成'
-                              : (item.indicator_status === 1
-                                  ? '指标完善，报告生成中'
-                                  : (item.indicator_status === 0 && item.indicator_data === null
-                                      ? '指标提取中'
-                                      : '指标不完善，请补充'));
-                        const statusClass = item.report_status === 1 ? 'generated' : (item.indicator_status === 1 ? 'processing' : 'pending');
+                        const statusText = item.report_status === 1 ?
+                            '报告已生成' :
+                            (item.indicator_status === 1 ?
+                                '报告生成中' :
+                                (item.indicator_status === 0 && item.indicator_data === null ?
+                                    '指标提取中' :
+                                    '指标不完善，请补充'));
+                        const statusClass = item.report_status === 1 ? 'generated' : (item.indicator_status === 1 ?
+                            'processing' : 'pending');
                         const btnDisabled = item.report_status !== 1;
 
-                        const patientInfo = item.patient_info || '暂无';
-                        const indicatorData = item.indicator_data || '暂无';
-
-                        // 注意：这里不再把内容放在属性中，而是使用 data-index
-                        html += `<tr>
-                            <td>${item.zhuyuanhao || '-'}</td>
-                            <td>${item.patient_type || '-'}</td>
-                            <td>${item.patient_name || '-'}</td>
-                            <td>${item.patient_sex || '-'}</td>
-                            <td>${item.patient_age || '-'}</td>
-                            <td>${item.check_items || '-'}</td>
-                            <td>${item.submit_time || '-'}</td>
-                            <td><span class="status-badge ${statusClass}">${statusText}</span></td>
-                            <td>
-                                <button class="btn-detail edit-field" data-index="${index}" data-field="patient_info">✏️ 查看/编辑</button>
-                            </td>
-                            <td>
-                                <button class="btn-detail edit-field" data-index="${index}" data-field="indicator_data">✏️ 查看/编辑</button>
-                            </td>
-                            <td>   <!-- 新增列 -->
-                                <button class="btn-detail edit-field-text" data-index="${index}" data-field="indicator_data">📝 文本编辑</button>
-                            </td>
-                            <td>
-                                <button class="btn-view" data-id="${item.id}" ${btnDisabled ? 'disabled' : ''}>
-                                    ${btnDisabled ? '⏳ 生成中' : '📄 查看报告'}
-                                </button>
-                            </td>
-                        </tr>`;
+                        html += `<tr data-record-id="${item.id}" data-index="${index}">
+                                <td>${item.zhuyuanhao || '-'}</td>
+                                <td>${item.patient_type || '-'}</td>
+                                <td>${item.patient_name || '-'}</td>
+                                <td>${item.patient_sex || '-'}</td>
+                                <td>${item.patient_age || '-'}</td>
+                                <td>${item.check_items || '-'}</td>
+                                <td>${item.submit_time || '-'}</td>
+                                <td><span class="status-badge ${statusClass}">${statusText}</span></td>
+                                <td>
+                                    <button class="btn-detail edit-field" data-index="${index}" data-field="patient_info">✏️ 查看/编辑</button>
+                                </td>
+                                <td>
+                                    <button class="btn-detail edit-field" data-index="${index}" data-field="indicator_data">✏️ 查看/编辑</button>
+                                </td>
+                                <td>
+                                    <button class="btn-detail edit-field-text" data-index="${index}" data-field="indicator_data">📝 文本编辑</button>
+                                </td>
+                                <td>
+                                    <button class="btn-view" data-id="${item.id}" ${btnDisabled ? 'disabled' : ''}>
+                                        ${btnDisabled ? '⏳ 生成中' : '📄 查看报告'}
+                                    </button>
+                                    <!-- ===== 新增：重新编辑按钮 ===== -->
+                                    <button class="btn-reedit" data-id="${item.id}" data-index="${index}" title="重新编辑此报告">✏️ 重新编辑</button>
+                                </td>
+                            </tr>`;
                     });
                     reportTableBody.innerHTML = html;
 
-                    // 绑定“查看/编辑”按钮：从 window._reportTableData 获取内容
+                    // ---- 绑定：查看/编辑字段按钮 ----
                     reportTableBody.querySelectorAll('.edit-field').forEach(btn => {
-                        btn.addEventListener('click', function() {
+                        btn.addEventListener('click', function(e) {
+                            e.stopPropagation();
                             const index = parseInt(this.dataset.index);
                             const field = this.dataset.field;
                             const record = window._reportTableData[index];
-                            if (!record) {
-                                showToastPacs('数据不存在', 'error');
-                                return;
-                            }
+                            if (!record) { showToastPacs('数据不存在', 'error'); return; }
                             const content = record[field] || '暂无';
                             const label = field === 'patient_info' ? '患者信息' : '指标数据';
                             openModal(`📋 ${label}（可编辑）`, content, true, record.id, field);
                         });
                     });
 
-                    // 新增的“文本指标”按钮绑定（openModal2）
+                    // ---- 绑定：文本指标编辑按钮 ----
                     reportTableBody.querySelectorAll('.edit-field-text').forEach(btn => {
-                        btn.addEventListener('click', function() {
+                        btn.addEventListener('click', function(e) {
+                            e.stopPropagation();
                             const index = parseInt(this.dataset.index);
                             const record = window._reportTableData[index];
                             if (!record) { showToastPacs('数据不存在', 'error'); return; }
                             const content = record.indicator_data || '暂无';
-                            // 调用 openModal2，假设它是一个纯文本编辑器（类似 patient_info 的编辑方式）
-                            openModal2('📋 指标数据（文本编辑）', content, true, record.id, 'indicator_data');
+                            // 使用普通文本编辑模式
+                            openModal('📋 指标数据（文本编辑）', content, true, record.id, 'indicator_data', true);
                         });
                     });
 
-
-                    // 绑定查看报告按钮
+                    // ---- 绑定：查看报告 ----
                     reportTableBody.querySelectorAll('.btn-view:not([disabled])').forEach(btn => {
-                        btn.addEventListener('click', function() {
+                        btn.addEventListener('click', function(e) {
+                            e.stopPropagation();
                             const id = this.dataset.id;
                             viewReport(id);
                         });
                     });
-                }
 
-
-                function renderTable1(data) {
-                    if (!data || data.length === 0) {
-                        reportTableBody.innerHTML = `<tr><td colspan="10" style="text-align:center; color:var(--text-muted);">暂无记录</td></tr>`;
-                        return;
-                    }
-                    let html = '';
-                    data.forEach(item => {
-                        // const statusText = item.report_status === 1 ? '已生成' : '生成中';
-                        const statusText = item.report_status === 1 ? '报告已生成' : (item.indicator_status === 1 ? '指标完善,报告生成中' : '指标不完善,请补充');
-                        const statusClass = item.report_status === 1 ? 'generated' : (item.indicator_status === 1 ? 'processing' : 'pending');
-                        const btnDisabled = item.report_status !== 1;
-
-                        const patientInfo = item.patient_info || '暂无';
-                        const indicatorData = item.indicator_data || '暂无';
-
-                        html += `<tr>
-                            <td>${item.zhuyuanhao || '-'}</td>
-                            <td>${item.patient_name || '-'}</td>
-                            <td>${item.patient_sex || '-'}</td>
-                            <td>${item.patient_age || '-'}</td>
-                            <td>${item.check_items || '-'}</td>
-                            <td>${item.submit_time || '-'}</td>
-                            <td><span class="status-badge ${statusClass}">${statusText}</span></td>
-                            <td>
-                                <button class="btn-detail edit-field" data-id="${item.id}" data-field="patient_info" data-content="${escapeHtml(patientInfo)}">✏️ 查看/编辑</button>
-                                // 患者信息按钮
-                                //<button class="btn-detail edit-field" data-id="${item.id}" data-field="patient_info" data-content-json='${JSON.stringify(patientInfo)}'>✏️ 查看/编辑</button>
-                            </td>
-                            <td>
-                                <button class="btn-detail edit-field" data-id="${item.id}" data-field="indicator_data" data-content="${escapeHtml(indicatorData)}">✏️ 查看/编辑</button>
-                                // 指标数据按钮
-                                // <button class="btn-detail edit-field" data-id="${item.id}" data-field="indicator_data" data-content-json='${JSON.stringify(indicatorData)}'>✏️ 查看/编辑</button>
-                            </td>
-                            <td>
-                                <button class="btn-view" data-id="${item.id}" ${btnDisabled ? 'disabled' : ''}>
-                                    ${btnDisabled ? '⏳ 生成中' : '📄 查看报告'}
-                                </button>
-                            </td>
-                        </tr>`;
-                    });
-                    reportTableBody.innerHTML = html;
-
-                    // 绑定“查看/编辑”按钮（患者信息和指标数据均支持编辑）
-                    reportTableBody.querySelectorAll('.edit-field').forEach(btn => {
-                        btn.addEventListener('click', function() {
-                            const content = this.dataset.content;
-                            // const content = JSON.parse(this.dataset.contentJson || '""');
-                            const id = this.dataset.id;
-                            const field = this.dataset.field;
-                            const label = field === 'patient_info' ? '患者信息' : '指标数据';
-                            openModal(`📋 ${label}（可编辑）`, content, true, id, field);
+                    // ===== 新增：绑定重新编辑按钮 =====
+                    reportTableBody.querySelectorAll('.btn-reedit').forEach(btn => {
+                        btn.addEventListener('click', function(e) {
+                            e.stopPropagation();
+                            const index = parseInt(this.dataset.index);
+                            const record = window._reportTableData[index];
+                            if (!record) { showToastPacs('数据不存在', 'error'); return; }
+                            // 检查报告状态，如果 report_status === 1 且 indicator_status === 1 可以编辑
+                            // 但不管什么状态都允许编辑，只是提示
+                            startEdit(record);
                         });
                     });
 
-                    // 绑定查看报告按钮
-                    reportTableBody.querySelectorAll('.btn-view:not([disabled])').forEach(btn => {
-                        btn.addEventListener('click', function() {
-                            const id = this.dataset.id;
-                            viewReport(id);
+                    // ===== 新增：行点击触发重新编辑（带弹框确认） =====
+                    reportTableBody.querySelectorAll('tr[data-record-id]').forEach(row => {
+                        row.addEventListener('dblclick', async function(e) {
+                            // 如果双击的是按钮或者按钮内部，不触发
+                            if (e.target.closest('button')) return;
+                            const recordId = this.dataset.recordId;
+                            const index = parseInt(this.dataset.index);
+                            const record = window._reportTableData[index];
+                            if (!record) return;
+                            // 弹框确认
+                            const patientName = record.patient_name || '未知患者';
+                            const confirmed = await showConfirmDialog(
+                                '重新编辑记录',
+                                `确认重新编辑 #${recordId} 患者【${patientName}】的记录吗？\n当前页面未提交的内容将被清空。`
+                            );
+                            if (confirmed) {
+                                startEdit(record);
+                            }
+
+                        });
+                        // 悬停效果
+                        row.addEventListener('mouseenter', function() {
+                            this.classList.add('reedit-hover');
+                        });
+                        row.addEventListener('mouseleave', function() {
+                            this.classList.remove('reedit-hover');
                         });
                     });
                 }
@@ -2726,16 +2914,8 @@
                         openModal('📄 报告详情', content, false);
                     } catch (err) {
                         showToastPacs('查看报告失败：' + err.message, 'error');
-                    } finally {
-                        showLoading(false);
-                    }
+                    } finally { showLoading(false); }
                 }
-
-                // ---- 模态框关闭 ----
-                modalCloseBtn.addEventListener('click', () => modalOverlay.classList.remove('active'));
-                modalOverlay.addEventListener('click', (e) => {
-                    if (e.target === modalOverlay) modalOverlay.classList.remove('active');
-                });
 
                 // ---- 事件绑定 ----
                 queryBtn.addEventListener('click', queryPatient);
@@ -2743,6 +2923,9 @@
                 submitBtn.addEventListener('click', submitReport);
                 refreshListBtn.addEventListener('click', () => loadReports(currentPage));
                 document.getElementById('examFindings').addEventListener('input', updateSubmitButton);
+
+                // ===== 新增：取消编辑按钮事件 =====
+                cancelEditBtn.addEventListener('click', cancelEdit);
 
                 // ---- 初始化 ----
                 loadReports(1);

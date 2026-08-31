@@ -48,3 +48,4 @@ class AsrSubmitRequest(BaseModel):
 class UpdateReportRequest(BaseModel):
     patient_info: Optional[str] = None
     indicator_data: Optional[str] = None
+    re_edit: Optional[bool] = False
