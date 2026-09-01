@@ -581,12 +581,10 @@ def handle_change_patients(change_patients, client):
         return
 
     def handle_nianling(age):
-        if str(age).__contains__('月') and not str(age).__contains__('岁'):
-            age = '1'
-        if str(age).__contains__('月'):
-            age = age.split('月')[0]
         if str(age).__contains__('岁'):
             age = age.split('岁')[0]
+        else:
+            age = '1'
         return age
 
     ids = [item.get('bingrenzyid') for item in change_patients]
