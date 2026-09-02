@@ -1457,8 +1457,14 @@
     <!-- ===== 模态框 ===== -->
     <div class="modal-overlay" id="reportModal">
         <div class="modal-box">
-            <button class="close-btn" id="modalCloseBtn">&times;</button>
-            <h3 id="modalTitle" style="margin-bottom:12px;">📄 详情</h3>
+            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">
+                <h3 id="modalTitle" style="margin:0; font-size:1.1rem;">📄 详情</h3>
+                <div style="display:flex; align-items:center; gap:6px;">
+                    <!-- 复制按钮（默认隐藏，只在只读模式下显示） -->
+                    <button class="btn btn-outline btn-sm" id="copyReportBtnHeader" style="font-size:0.85rem; padding:2px 8px; display:none;">📋 复制</button>
+                    <button class="close-btn" id="modalCloseBtn" style="position:static; font-size:22px; line-height:1; padding:0 4px;">&times;</button>
+                </div>
+            </div>
             <div class="detail-content" id="modalDetailContent">加载中...</div>
         </div>
     </div>
@@ -2129,6 +2135,9 @@
 
 
                 function openModal(title, content, editable = false, recordId = null, field = null, forceText = false) {
+                    // 可编辑模式（editable=true）不需要复制按钮
+                    const copyBtn = document.getElementById('copyReportBtnHeader');
+                    if (copyBtn) copyBtn.style.display = 'none';
                     // ---- 1. 关键修复：检查模态框元素是否存在 ----
                     if (!modalOverlay) {
                         console.error('Modal overlay (#reportModal) not found!');
@@ -2188,36 +2197,63 @@
                             container: null
                         };
 
+                        function getSourceLabel(source) {
+                            const map = { 1: '提取', 2: '计算', 3: 'AI' };
+                            return map[source] !== undefined ? map[source] : ''; // 若未映射则返回空
+                        }
+
                         function renderTable() {
                             const container = editorContext.container;
                             if (!container) return;
                             let html = `<style>
-                                    .json-editor-table { width:100%; border-collapse:collapse; font-size:0.85rem; }
-                                    .json-editor-table th,.json-editor-table td { border:1px solid #ddd; padding:4px 6px; vertical-align:middle; }
-                                    .json-editor-table .col-header { width:100%; border:none; background:transparent; font-weight:600; }
-                                    .json-editor-table .cell-input { width:100%; border:none; background:transparent; padding:4px; outline:none; }
-                                    .json-editor-table .cell-input:focus { background:#fff; box-shadow:inset 0 0 0 2px var(--primary); }
-                                    .json-editor-table .action-col { width:60px; text-align:center; }
-                                    .highlight-row { background-color:#fff3cd !important; }
-                                    .highlight-row .cell-input { background-color:#fff3cd !important; }
-                                    .json-actions { margin-top:12px; display:flex; gap:8px; flex-wrap:wrap; align-items:center; }
-                                    .btn-danger { background:#fee2e2; color:#dc2626; border-color:#fecaca; }
-                                    .btn-danger:hover { background:#fecaca; }
-                                </style>`;
-                            html += `<table class="json-editor-table"><thead><tr>`;
+                                .json-editor-table { width:100%; border-collapse:collapse; font-size:0.85rem; }
+                                .json-editor-table th,.json-editor-table td { border:1px solid #ddd; padding:4px 6px; vertical-align:middle; }
+                                .json-editor-table .col-header { width:100%; border:none; background:transparent; font-weight:600; }
+                                .json-editor-table .cell-input { width:100%; border:none; background:transparent; padding:4px; outline:none; }
+                                .json-editor-table .cell-input:focus { background:#fff; box-shadow:inset 0 0 0 2px var(--primary); }
+                                .json-editor-table .action-col { width:60px; text-align:center; }
+                                .json-editor-table .highlight-row-yellow { background-color:#fff3cd !important; }
+                                .json-editor-table .highlight-row-yellow .cell-input { background-color:#fff3cd !important; }
+                                .json-editor-table .highlight-row-blue { background-color:#cfe2ff !important; }
+                                .json-editor-table .highlight-row-blue .cell-input { background-color:#cfe2ff !important; }
+                                .json-actions { margin-top:12px; display:flex; gap:8px; flex-wrap:wrap; align-items:center; }
+                                .btn-danger { background:#fee2e2; color:#dc2626; border-color:#fecaca; }
+                                .btn-danger:hover { background:#fecaca; }
+                            </style>`;
+
+                            html += `<table class="json-editor-table">
+                                <caption style="caption-side:top; text-align:left; font-size:0.9rem; color:#6c757d; background:#f1f3f5; padding:2px 10px; border-radius:12px; border:1px solid #dee2e6; margin:0 0 2px 0; line-height:1.4;">
+                                    💡 黄色：为缺失数据； 蓝色：为AI提供的默认值
+                                </caption>
+                                <thead><tr>`;
                             editorContext.keys.forEach((key) => {
                                 html += `<th><input class="col-header" value="${escapeHtml(key)}" placeholder="列名" /></th>`;
                             });
                             html += `<th class="action-col">操作</th></tr></thead><tbody>`;
+
                             editorContext.data.forEach((row, rowIndex) => {
                                 const value = row['value'];
-                                const isHighlight = (value === undefined || value === null || value === '');
-                                const trClass = isHighlight ? 'class="highlight-row"' : '';
-                                html += `<tr ${trClass}>`;
+                                const source = row.source;
+                                let trClass = '';
+                                if (source === 3) {
+                                    trClass = 'highlight-row-blue';
+                                } else if (value === undefined || value === null || value === '') {
+                                    trClass = 'highlight-row-yellow';
+                                }
+                                const trClassAttr = trClass ? `class="${trClass}"` : '';
+                                html += `<tr ${trClassAttr}>`;
+
                                 editorContext.keys.forEach((key) => {
                                     const val = row[key] !== undefined ? row[key] : '';
-                                    html += `<td><input class="cell-input" data-row="${rowIndex}" data-key="${escapeHtml(key)}" value="${escapeHtml(String(val))}" /></td>`;
+                                    if (key === 'source') {
+                                        const label = getSourceLabel(val);
+                                        const displayText = label || '-'; // 若映射结果为空，显示占位符 '-'
+                                        html += `<td><span style="display:inline-block; padding:4px 6px;">${escapeHtml(displayText)}</span></td>`;
+                                    } else {
+                                        html += `<td><input class="cell-input" data-row="${rowIndex}" data-key="${escapeHtml(key)}" value="${escapeHtml(String(val))}" /></td>`;
+                                    }
                                 });
+
                                 html += `<td><button class="btn btn-sm btn-danger" onclick="window._removeRow(${rowIndex})">🗑</button></td>`;
                                 html += `</tr>`;
                             });
@@ -2319,22 +2355,28 @@
                     }
 
                     // ---- 6. 只读模式（查看报告详情等） ----
-                    modalDetailContent.innerHTML = `
-                        <div style="display:flex; justify-content:flex-end; margin-bottom:12px;">
-                            <button class="btn btn-outline btn-sm" id="copyReportBtn">📋 复制内容</button>
-                        </div>
-                        <div style="white-space:pre-wrap;">${escapeHtml(content).replace(/\n/g,'<br>')}</div>
-                    `;
-                    document.getElementById('copyReportBtn')?.addEventListener('click', function() {
-                        const textToCopy = content;
-                        if (navigator.clipboard && navigator.clipboard.writeText) {
-                            navigator.clipboard.writeText(textToCopy)
-                                .then(() => showToast('✅ 报告内容已复制到剪贴板', 'success'))
-                                .catch(() => fallbackCopy(textToCopy));
-                        } else {
-                            fallbackCopy(textToCopy);
-                        }
-                    });
+                    modalDetailContent.innerHTML = `<div style="white-space:pre-wrap;">${escapeHtml(content).replace(/\n/g,'<br>')}</div>`;
+
+                    // 显示头部复制按钮并绑定事件
+                    const copyBtn1 = document.getElementById('copyReportBtnHeader');
+                    if (copyBtn1) {
+                        copyBtn1.style.display = 'inline-flex';
+                        // 移除之前绑定的事件（避免重复）
+                        const newCopyBtn = copyBtn1.cloneNode(true);
+                        copyBtn1.parentNode.replaceChild(newCopyBtn, copyBtn1);
+                        newCopyBtn.addEventListener('click', function() {
+                            const textToCopy = content;
+                            if (navigator.clipboard && navigator.clipboard.writeText) {
+                                navigator.clipboard.writeText(textToCopy)
+                                    .then(() => showToastPacs('✅ 报告内容已复制到剪贴板', 'success'))
+                                    .catch(() => fallbackCopy(textToCopy));
+                            } else {
+                                fallbackCopy(textToCopy);
+                            }
+                        });
+                    }
+
+
                     function fallbackCopy(text) {
                         const textarea = document.createElement('textarea');
                         textarea.value = text;
@@ -2355,6 +2397,10 @@
 
                 function closeModal() {
                     modalOverlay.classList.remove('active');
+                    // 隐藏复制按钮
+                    const copyBtn = document.getElementById('copyReportBtnHeader');
+                    if (copyBtn) copyBtn.style.display = 'none';
+
                     editingRecordIdModal = null;
                     editingField = null;
                     isEditModeModal = false;

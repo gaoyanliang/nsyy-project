@@ -1166,8 +1166,13 @@ def get_pacs_ai_prompt(check_items):
 def pacs_indicator_data_task():
     redis_client = redis.Redis(connection_pool=pool)
     if not redis_client.exists(INDICATOR_TASK_KEY):
-        logger.debug("没有需要执行的指标任务")
-        return
+        with DbUtil(global_config.DB_HOST, global_config.DB_USERNAME,
+                    global_config.DB_PASSWORD, global_config.DB_DATABASE_GYL) as db:
+            records = db.query_one(f"select count(*) from nsyy_gyl.pacs_ai_report "
+                                  f"where indicator_data is null OR CHAR_LENGTH(indicator_data) < 10")
+            if not records or records['count(*)'] == 0:
+                logger.debug("没有需要执行的指标任务")
+                return
     if redis_client.exists(INDICATOR_TASK_RUNNING_KEY):
         logger.info("有正在执行的指标任务")
         return
@@ -1194,7 +1199,7 @@ def pacs_indicator_data_task():
                 if not text:
                     with DbUtil(global_config.DB_HOST, global_config.DB_USERNAME,
                                 global_config.DB_PASSWORD, global_config.DB_DATABASE_GYL) as db:
-                        record = db.execute(f""" update nsyy_gyl.pacs_ai_report set indicator_data = '该检查项目没有ai提示词', 
+                        db.execute(f"""update nsyy_gyl.pacs_ai_report set indicator_data = '该检查项目没有ai提示词', 
                         indicator_status = 1 where id = {record.get('id')} """, need_commit=True)
                     continue
 
@@ -1203,13 +1208,28 @@ def pacs_indicator_data_task():
 
                 start_time = time.time()
                 is_json_bool = False
-                if '心脏彩色多普勒超声' in record.get('check_items', ''):
-                    is_json_bool = True
+
+                # 模版二 心脏
+                for item in ['室壁运动分析', '左心功能测定', '心包', '心脏彩色多普勒超声', '心脏彩色多普勒超声（经胸）']:
+                    if item in record.get('check_items', ''):
+                        is_json_bool = True
+                # 模版一 脑-颈部血管
+                for item in ['双侧锁骨下静脉', '双侧颈内静脉', '双侧颈动脉、椎动脉、锁骨下动脉', '多普勒检查', '心脏彩色多普勒超声（经胸）']:
+                    if item in record.get('check_items', ''):
+                        is_json_bool = True
+                # 模版三 甲状腺及颈部淋巴结
+                for item in ['颈部淋巴结', '甲状腺及颈部淋巴结']:
+                    if item in record.get('check_items', ''):
+                        is_json_bool = True
+                # 模版四 常规腹部脏器
+                for item in ['腹部脏器（肝、胆、胰、脾）', '腹膜后（腹膜后淋巴结、肾上腺）', '腹腔淋巴结', '腹水', '胸水', '疝']:
+                    if item in record.get('check_items', ''):
+                        is_json_bool = True
+
                 ai_indicator = ai_tool.call_ai_for_patient(text, is_json=is_json_bool)
-                indicator_status = ""
+                indicator_status = ", indicator_status = 1"
                 try:
                     if isinstance(ai_indicator, dict):
-                        indicator_status = ", indicator_status = 1"
                         for item in ai_indicator:
                             if not item.get('value', ''):
                                 indicator_status = ""
@@ -1232,6 +1252,72 @@ def pacs_indicator_data_task():
 
 
 # pacs_indicator_data_task()
+
+
+def combination_report(record, report):
+    def pad_by_visual(text, target_width):
+        # 使用 GBK 编码计算视觉宽度（终端通常如此）
+        visual_len = len(text.encode('gbk', errors='ignore'))
+        if visual_len >= target_width:
+            return text
+        return text + ' ' * (target_width - visual_len)
+
+    try:
+        ai_indicator = record.get('indicator_data', '')
+        ai_indicator = json.loads(ai_indicator)
+        str_d = {}
+        for item in ai_indicator:
+            if item.get('value'):
+                str_d[item.get('name')] = f"{item.get('value')} {item.get('unit')} {item.get('abnormal')}" if item.get('abnormal') and item.get('abnormal', '') not in ['null', "None"] else f"{item.get('value')} {item.get('unit')}"
+
+        str_f = ''
+        # 设定第一列视觉宽度为 22，第二列视觉宽度为 12，第三列视觉宽度为 22（可根据数据调整）
+        str_f = str_f + "心脏结构与尺寸".ljust(55) + "\n"
+        str_f = str_f + "-" * 75 + "\n"
+        str_f += pad_by_visual("左房前后径[25-40]", 23) + pad_by_visual(f"{str_d.get('左房前后径')}", 15) + pad_by_visual(
+            "左房容积", 23) + f"{str_d.get('左房容积')} \n"
+        str_f += pad_by_visual("右室前后径[16-30]", 23) + pad_by_visual(f"{str_d.get('右室前后径')}", 15) + pad_by_visual(
+            "主动脉瓣环", 23) + f"{str_d.get('主动脉瓣环')} \n"
+        str_f += pad_by_visual("主肺动脉径[16-30]", 23) + pad_by_visual(f"{str_d.get('主肺动脉径')}", 15) + pad_by_visual(
+            "左室后壁厚度", 23) + f"{str_d.get('左室后壁厚度')} \n"
+        str_f += pad_by_visual("室间隔厚度[8-12]", 23) + pad_by_visual(f"{str_d.get('室间隔厚度')}", 15) + pad_by_visual(
+            "升主动脉内径", 23) + f"{str_d.get('升主动脉内径')} \n"
+        str_f += pad_by_visual("运动幅度-左室后壁", 23) + pad_by_visual(f"{str_d.get('运动幅度-左室后壁')}", 15) + pad_by_visual(
+            "左室舒张期内径", 23) + f"{str_d.get('左室舒张期内径')} \n"
+        str_f += pad_by_visual("运动幅度-室间隔", 23) + pad_by_visual(f"{str_d.get('运动幅度-室间隔')}", 15) + pad_by_visual(
+            "左室收缩期内径", 23) + f"{str_d.get('左室收缩期内径')} \n"
+
+        str_f = str_f + "\n"
+        str_f = str_f + "心脏泵血功能".ljust(55) + "\n"
+        str_f = str_f + "-" * 75 + "\n"
+        str_f += pad_by_visual("左室舒张期容积", 23) + pad_by_visual(f"{str_d.get('左室舒张期容积')}", 15) + pad_by_visual(
+            "即时心率", 23) + f"{str_d.get('即时心率')} \n"
+        str_f += pad_by_visual("左室收缩期容积", 23) + pad_by_visual(f"{str_d.get('左室收缩期容积')}", 15) + pad_by_visual(
+            "每搏输出量", 23) + f"{str_d.get('每搏输出量')} \n"
+        str_f += pad_by_visual("左室射血分数[50-80]", 23) + pad_by_visual(f"{str_d.get('左室射血分数')}", 15) + pad_by_visual(
+            "每分钟输出量", 23) + f"{str_d.get('每分钟输出量')} \n"
+        str_f += pad_by_visual("左室短轴缩短率", 23) + pad_by_visual(f"{str_d.get('左室短轴缩短率')} \n", 15)
+
+        # 血液流动与瓣膜
+        str_f = str_f + "\n"
+        str_f = str_f + "血液流动与瓣膜".ljust(55) + "\n"
+        str_f = str_f + "-" * 75 + "\n"
+        str_f += pad_by_visual("二尖瓣环间隔测", 23) + pad_by_visual(f"{str_d.get('二尖瓣环间隔测')}", 15) + pad_by_visual(
+            "二尖瓣A峰", 23) + f"{str_d.get('二尖瓣A峰')} \n"
+        str_f += pad_by_visual("二尖瓣环侧隔测", 23) + pad_by_visual(f"{str_d.get('二尖瓣环侧隔测')}", 15) + pad_by_visual(
+            "二尖瓣E峰", 23) + f"{str_d.get('二尖瓣E峰')} \n"
+        str_f += pad_by_visual("三尖瓣反流流速", 23) + pad_by_visual(f"{str_d.get('三尖瓣反流流速')}", 15) + pad_by_visual(
+            "E/e", 23) + f"{str_d.get('E/e')} \n"
+        str_f += pad_by_visual("肺动脉流速", 23) + pad_by_visual(f"{str_d.get('肺动脉流速')}", 15) + pad_by_visual(
+            "主动脉流速", 23) + f"{str_d.get('主动脉流速')} \n"
+        str_f += pad_by_visual("估测肺动脉压约", 23) + pad_by_visual(f"{str_d.get('估测肺动脉压约')}", 15) + pad_by_visual(
+            "压力阶差", 23) + f"{str_d.get('压力阶差')} \n\n"
+
+        report = str_f + report
+    except Exception:
+        logger.error("指标数据解析异常")
+        pass
+    return report
 
 
 def pacs_auto_report_task():
@@ -1260,22 +1346,35 @@ def pacs_auto_report_task():
             # 添加运行标识
             redis_client.set(AUTO_REPORT_TASK_RUNNING_KEY, record.get('id'))
             try:
-                # TODO 生成报告ai提示词如何获取？？？？？？ 获取ai提示词
-                # check_item = record.get("check_items")
-                # text = get_pacs_ai_prompt([check_item])
-                # if not text:
-                #     with DbUtil(global_config.DB_HOST, global_config.DB_USERNAME,
-                #                 global_config.DB_PASSWORD, global_config.DB_DATABASE_GYL) as db:
-                #         record = db.execute(f""" update nsyy_gyl.pacs_ai_report set indicator_data = '该检查项目没有ai提示词',
-                #         indicator_status = 1 where id = {record.get('id')} """, need_commit=True)
-                #     continue
-                # patient_info = record.get("patient_info")
-                # text = text.get(check_item, "") + patient_info
+                text = f"""
+                        患者检查项目: {record.get('check_items', '')}
+                        请根据医生检查过程中口述的患者情况，生成一份规范的超声检查报告。
+                        要求：
+                            1. 报告仅包含“超声所见”和“超声提示”两部分，纯文本格式，不要Markdown。
+                            2. “超声所见”应遵循以下原则：
+                               - **只描述有临床意义的异常发现**（包括超出正常范围的数值、形态结构异常、血流异常等），对于正常范围的心腔大小、血管内径、瓣膜活动、心包等，一律用一句概括性语句表述（例如：“各房室大小及大血管内径未见明显异常”或“心腔大小及大血管内径均属正常范围”）。
+                               - **若某项指标异常，则写入其具体测量值**（如“左房前后径36mm”），但不要罗列所有正常指标的数据。
+                               - 对于心功能评估，仅写结论性描述（如“左室收缩功能正常”、“左室舒张功能减低（I级）”），不需要列出E峰、A峰、e'、E/A等具体参数，除非这些参数是异常结论的唯一证据且需要保留，否则统一归入结论。
+                               - 对于瓣膜病变，定性描述程度（轻度/中度/重度）和性质（关闭不全/狭窄），不需要写具体流速、压差等数值，除非程度分级依赖这些数值。
+                            3. “超声提示”部分：总结异常诊断，按重要性排序，与“所见”相呼应，不重复具体数值。
+                        
+                        请基于以下医生口述内容生成报告（口述中可能含有非专业口语，请自动转换为专业术语，但保留所有异常数据）：
 
-                text = f"患者检查项目: {record.get('check_items', '')}, 以下是根据医生检查过程中口述的患者情况，请根据这些患者情况，生成检查报告。 检查报告仅需要 超声所见和超声提示这两部分内容 \n " + record.get("patient_info", '')
+                    医生口述的患者情况：
+
+                    """
+
+                text = text + record.get("patient_info", '')
                 start_time = time.time()
                 ai_report = ai_tool.call_ai_for_patient(text)
                 logging.info(f"pacs auto report 任务 {record.get('id')} - 耗时: {time.time() - start_time}")
+
+                # 如果是心脏类的检查，将指标以表格的样式放到报告最上方
+                for item in ['室壁运动分析', '左心功能测定', '心包', '心脏彩色多普勒超声', '心脏彩色多普勒超声（经胸）']:
+                    if item in record.get('check_items', ''):
+                        ai_report = combination_report(record, ai_report)
+                        break
+
                 with DbUtil(global_config.DB_HOST, global_config.DB_USERNAME,
                             global_config.DB_PASSWORD, global_config.DB_DATABASE_GYL) as db:
                     db.execute(""" update nsyy_gyl.pacs_ai_report set ai_report = %s where id = %s """,
