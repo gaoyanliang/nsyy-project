@@ -19,7 +19,8 @@ from outpatient_queue.websocket_manager import manager
 from outpatient_queue.config import BUSINESS_TYPES
 
 logger = logging.getLogger(__name__)
-# ====================== 统一添加 /gyl 前缀（使用 APIRouter） ======================
+
+# ====================== 统一添加 /mz 前缀（使用 APIRouter） ======================
 mz_router = APIRouter(prefix="/mz")
 
 db = DatabaseManager()
@@ -198,7 +199,6 @@ async def get_queue_status():
     }
 
 
-
 """ 根据患者id 和业务id 判断患者当天是否重复取号"""
 @mz_router.get("/api/is-repeat/{patient_id}/{business_id}")
 async def is_repeat_queue(patient_id: str, business_id: str):
@@ -208,7 +208,6 @@ async def is_repeat_queue(patient_id: str, business_id: str):
                 'queue_time': record.get('create_time'), 'business_name': record.get('business_name')}
     else:
         return {'is_repeat': False, 'message': '当日未取号'}
-
 
 
 """获取过号状态"""
@@ -270,7 +269,6 @@ async def get_queue_list(business_id: Optional[str] = None, window_id: Optional[
     return {'queues': queues}
 
 
-
 """获取排队列表"""
 @mz_router.get("/api/queue/history/{window_id}")
 async def get_history_list(window_id: int):
@@ -322,6 +320,7 @@ async def call_patient(request: CallRequest):
         'success': True,
         'window': window
     }
+
 
 """叫号"""
 @mz_router.post("/api/call")
@@ -525,6 +524,7 @@ async def reactivate_patient_queue(patient_id: str, business_id: str):
     except Exception as e:
         logger.error(f"重新激活失败: {e}")
         raise HTTPException(status_code=500, detail=str(e))
+
 
 """检查患者是否有过号的排队记录"""
 @mz_router.get("/api/patient/{patient_id}/{business_id}/check-skipped")
@@ -951,11 +951,11 @@ async def patient_pacs_info(zhuyuanhao: str, patient_type: str, check_type: str)
         yb.yizhumc check_item ,yb.shenqingdanzt ,lj.jianchabzfl from df_jj_zhuyuan.zy_bingrenxx zb
         join df_lc_zhuyuan.yz_bingrenyz yb on yb.bingrenzyid = zb.bingrenzyid and yb.yizhufl = '23' and yb.yizhuzt in (2,3,4) 
         and yb.yizhumc not like '%加收%' and yb.shenqingdanzt  not in (501,502)
-        and yb.shenqingdanzt <560   --查询未出报告
-        -- and yb.kaishisj>=current_date - interval '10 day'  --查询最近10天所有的
+        -- and yb.shenqingdanzt <560   --查询未出报告
+        and yb.kaishisj>=current_date - interval '10 day'  --查询最近10天所有的
         join df_shenqingdan.yj_jianchasqdxm yj   on yb.yizhuid=yj.yizhubh 
         join df_zhushuju.lcgy_jianchaxm lj on lj.jianchaxmid= yj.jianchaxmid 
-        where zb.zaiyuanzt=0 and zb.xingming not like '%测试%' and zb.zhuyuanhao = '{zhuyuanhao}'"""
+        where zb.zaiyuanzt=0 and zb.xingming not like '%测试%' and zb.zhuyuanhao = '{zhuyuanhao}' order by yb.kaishisj desc """
     elif patient_type == "outpatient":
         sql = f""" select zb.jiuzhenid, zb.jiuzhenkh, zb.xingming patient_name, zb.nianling patient_age, 
             zb.xingbiemc patient_sex, yb.yizhuid, yb.kaidanksmc dept_name, yb.kaidanks dept_id, yb.kaidanysxm,
@@ -969,7 +969,7 @@ async def patient_pacs_info(zhuyuanhao: str, patient_type: str, check_type: str)
             join df_shenqingdan.yj_jianchasqdxm yj   on yb.yizhuid=yj.yizhubh 
             join df_zhushuju.lcgy_jianchaxm lj on lj.jianchaxmid= yj.jianchaxmid 
             where  zb.xingming not like '%测试%' and zb.jiuzhenrq>=current_date-1
-            and zb.jiuzhenkh = '{zhuyuanhao}'"""
+            and zb.jiuzhenkh = '{zhuyuanhao}' order by yb.kaishisj desc """
 
     patients_info = db.pg_query(sql)
     if not patients_info:
@@ -1063,11 +1063,38 @@ async def pacs_ai_reports(page: int = Query(1, ge=1),
 async def pacs_ai_report(report_id: int):
     with DbUtil(global_config.DB_HOST, global_config.DB_USERNAME,
                 global_config.DB_PASSWORD, global_config.DB_DATABASE_GYL) as db:
-        ai_report = db.query_one(f"""SELECT ai_report FROM nsyy_gyl.pacs_ai_report where id = {report_id}""")
+        record = db.query_one(f"""SELECT * FROM nsyy_gyl.pacs_ai_report where id = {report_id}""")
+
+    if not record:
+        raise HTTPException(status_code=404, detail="报告记录不存在")
+
+    indicator_data = record.get('indicator_data')
+    if indicator_data:
+        try:
+            indicator_data = json.loads(indicator_data)
+            # 如果是心脏类的检查，将指标以表格的样式放到报告最上方
+            for item in ['室壁运动分析', '左心功能测定', '心包', '心脏彩色多普勒超声', '心脏彩色多普勒超声（经胸）', '经颅多普勒超声发泡试验']:
+                if item in record.get('check_items', ''):
+                    indicator_data = xinzang_zhibiao(indicator_data)
+                    break
+        except Exception:
+            pass
+    ai_report = record.get('ai_report')
+    if ai_report:
+        try:
+            ai_report = json.loads(ai_report)
+        except Exception:
+            ai_report = {}
+    else:
+        ai_report = {}
 
     return {
         "success": True,
-        "report": ai_report
+        "report": {
+            "seen": ai_report.get('seen', ''),
+            "prompt": ai_report.get('prompt', ''),
+            "indicator_data": indicator_data
+        }
     }
 
 
@@ -1214,7 +1241,7 @@ def pacs_indicator_data_task():
                     if item in record.get('check_items', ''):
                         is_json_bool = True
                 # 模版一 脑-颈部血管
-                for item in ['双侧锁骨下静脉', '双侧颈内静脉', '双侧颈动脉、椎动脉、锁骨下动脉', '多普勒检查', '心脏彩色多普勒超声（经胸）']:
+                for item in ['双侧锁骨下静脉', '双侧颈内静脉', '双侧颈动脉、椎动脉、锁骨下动脉', '多普勒检查', '心脏彩色多普勒超声（经胸）', '经颅多普勒超声发泡试验']:
                     if item in record.get('check_items', ''):
                         is_json_bool = True
                 # 模版三 甲状腺及颈部淋巴结
@@ -1254,7 +1281,7 @@ def pacs_indicator_data_task():
 # pacs_indicator_data_task()
 
 
-def combination_report(record, report):
+def xinzang_zhibiao(ai_indicator):
     def pad_by_visual(text, target_width):
         # 使用 GBK 编码计算视觉宽度（终端通常如此）
         visual_len = len(text.encode('gbk', errors='ignore'))
@@ -1263,17 +1290,13 @@ def combination_report(record, report):
         return text + ' ' * (target_width - visual_len)
 
     try:
-        ai_indicator = record.get('indicator_data', '')
-        ai_indicator = json.loads(ai_indicator)
         str_d = {}
         for item in ai_indicator:
             if item.get('value'):
                 str_d[item.get('name')] = f"{item.get('value')} {item.get('unit')} {item.get('abnormal')}" if item.get('abnormal') and item.get('abnormal', '') not in ['null', "None"] else f"{item.get('value')} {item.get('unit')}"
 
         str_f = ''
-        # 设定第一列视觉宽度为 22，第二列视觉宽度为 12，第三列视觉宽度为 22（可根据数据调整）
-        str_f = str_f + "心脏结构与尺寸".ljust(55) + "\n"
-        str_f = str_f + "-" * 75 + "\n"
+        # 设定第一列视觉宽度为 22，第二列视觉宽度为 12，第三列视觉宽度为 22（可根据数据调整）、
         str_f += pad_by_visual("左房前后径[25-40]", 23) + pad_by_visual(f"{str_d.get('左房前后径')}", 15) + pad_by_visual(
             "左房容积", 23) + f"{str_d.get('左房容积')} \n"
         str_f += pad_by_visual("右室前后径[16-30]", 23) + pad_by_visual(f"{str_d.get('右室前后径')}", 15) + pad_by_visual(
@@ -1287,21 +1310,15 @@ def combination_report(record, report):
         str_f += pad_by_visual("运动幅度-室间隔", 23) + pad_by_visual(f"{str_d.get('运动幅度-室间隔')}", 15) + pad_by_visual(
             "左室收缩期内径", 23) + f"{str_d.get('左室收缩期内径')} \n"
 
-        str_f = str_f + "\n"
-        str_f = str_f + "心脏泵血功能".ljust(55) + "\n"
-        str_f = str_f + "-" * 75 + "\n"
         str_f += pad_by_visual("左室舒张期容积", 23) + pad_by_visual(f"{str_d.get('左室舒张期容积')}", 15) + pad_by_visual(
             "即时心率", 23) + f"{str_d.get('即时心率')} \n"
         str_f += pad_by_visual("左室收缩期容积", 23) + pad_by_visual(f"{str_d.get('左室收缩期容积')}", 15) + pad_by_visual(
             "每搏输出量", 23) + f"{str_d.get('每搏输出量')} \n"
         str_f += pad_by_visual("左室射血分数[50-80]", 23) + pad_by_visual(f"{str_d.get('左室射血分数')}", 15) + pad_by_visual(
             "每分钟输出量", 23) + f"{str_d.get('每分钟输出量')} \n"
-        str_f += pad_by_visual("左室短轴缩短率", 23) + pad_by_visual(f"{str_d.get('左室短轴缩短率')} \n", 15)
+        str_f += pad_by_visual("左室短轴缩短率", 23) + pad_by_visual(f"{str_d.get('左室短轴缩短率')}", 15) + '\n'
 
         # 血液流动与瓣膜
-        str_f = str_f + "\n"
-        str_f = str_f + "血液流动与瓣膜".ljust(55) + "\n"
-        str_f = str_f + "-" * 75 + "\n"
         str_f += pad_by_visual("二尖瓣环间隔测", 23) + pad_by_visual(f"{str_d.get('二尖瓣环间隔测')}", 15) + pad_by_visual(
             "二尖瓣A峰", 23) + f"{str_d.get('二尖瓣A峰')} \n"
         str_f += pad_by_visual("二尖瓣环侧隔测", 23) + pad_by_visual(f"{str_d.get('二尖瓣环侧隔测')}", 15) + pad_by_visual(
@@ -1313,11 +1330,10 @@ def combination_report(record, report):
         str_f += pad_by_visual("估测肺动脉压约", 23) + pad_by_visual(f"{str_d.get('估测肺动脉压约')}", 15) + pad_by_visual(
             "压力阶差", 23) + f"{str_d.get('压力阶差')} \n\n"
 
-        report = str_f + report
     except Exception:
         logger.error("指标数据解析异常")
         pass
-    return report
+    return str_f.replace('None', ' ')
 
 
 def pacs_auto_report_task():
@@ -1349,7 +1365,7 @@ def pacs_auto_report_task():
                 text = f"""
                         患者检查项目: {record.get('check_items', '')}
                         请根据医生检查过程中口述的患者情况，生成一份规范的超声检查报告。
-                        要求：
+                        规则：
                             1. 报告仅包含“超声所见”和“超声提示”两部分，纯文本格式，不要Markdown。
                             2. “超声所见”应遵循以下原则：
                                - **只描述有临床意义的异常发现**（包括超出正常范围的数值、形态结构异常、血流异常等），对于正常范围的心腔大小、血管内径、瓣膜活动、心包等，一律用一句概括性语句表述（例如：“各房室大小及大血管内径未见明显异常”或“心腔大小及大血管内径均属正常范围”）。
@@ -1357,6 +1373,11 @@ def pacs_auto_report_task():
                                - 对于心功能评估，仅写结论性描述（如“左室收缩功能正常”、“左室舒张功能减低（I级）”），不需要列出E峰、A峰、e'、E/A等具体参数，除非这些参数是异常结论的唯一证据且需要保留，否则统一归入结论。
                                - 对于瓣膜病变，定性描述程度（轻度/中度/重度）和性质（关闭不全/狭窄），不需要写具体流速、压差等数值，除非程度分级依赖这些数值。
                             3. “超声提示”部分：总结异常诊断，按重要性排序，与“所见”相呼应，不重复具体数值。
+                            4. 检查所见部分不能出现诊断性描述，只描述客观事实。诊断性描述应在“超声提示”部分描述。
+                        
+                        数据返回格式要求：
+                        请只输出一个 JSON 数组，不要添加任何其他说明文字。
+                        {{ "seen": "超声所见内容", "prompt": "超声提示内容" }}
                         
                         请基于以下医生口述内容生成报告（口述中可能含有非专业口语，请自动转换为专业术语，但保留所有异常数据）：
 
@@ -1366,14 +1387,13 @@ def pacs_auto_report_task():
 
                 text = text + record.get("patient_info", '')
                 start_time = time.time()
-                ai_report = ai_tool.call_ai_for_patient(text)
+                ai_report = ai_tool.call_ai_for_patient(text, is_json=True)
+                try:
+                    if isinstance(ai_report, dict):
+                        ai_report = json.dumps(ai_report, ensure_ascii=False, default=str)
+                except Exception:
+                    pass
                 logging.info(f"pacs auto report 任务 {record.get('id')} - 耗时: {time.time() - start_time}")
-
-                # 如果是心脏类的检查，将指标以表格的样式放到报告最上方
-                for item in ['室壁运动分析', '左心功能测定', '心包', '心脏彩色多普勒超声', '心脏彩色多普勒超声（经胸）']:
-                    if item in record.get('check_items', ''):
-                        ai_report = combination_report(record, ai_report)
-                        break
 
                 with DbUtil(global_config.DB_HOST, global_config.DB_USERNAME,
                             global_config.DB_PASSWORD, global_config.DB_DATABASE_GYL) as db:

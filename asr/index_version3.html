@@ -1,0 +1,2494 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>医疗语音转写与报告生成系统</title>
+    <style>
+        /* ===== 全局样式 ===== */
+        :root {
+            --primary: #1a6fb5;
+            --primary-dark: #155a8f;
+            --primary-light: #e8f3fb;
+            --danger: #d14343;
+            --danger-light: #fde8e8;
+            --success: #2d8a56;
+            --success-light: #e6f4ec;
+            --warning: #c0792b;
+            --warning-light: #fdf3e7;
+            --bg: #f5f6f8;
+            --surface: #ffffff;
+            --surface-alt: #f9fafb;
+            --border: #e2e5ea;
+            --border-light: #eef0f3;
+            --text: #1a1d23;
+            --text-secondary: #5f6570;
+            --text-muted: #949aa5;
+            --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.04);
+            --shadow: 0 2px 8px rgba(0, 0, 0, 0.07), 0 1px 3px rgba(0, 0, 0, 0.05);
+            --shadow-lg: 0 8px 30px rgba(0, 0, 0, 0.10), 0 3px 8px rgba(0, 0, 0, 0.06);
+            --radius-sm: 6px;
+            --radius: 10px;
+            --radius-lg: 14px;
+            --transition: 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+            --font-mono: 'SF Mono', 'Cascadia Code', 'Consolas', 'Monaco', 'PingFang SC', monospace;
+            --processing: #0d9488;
+            --processing-light: #f0fdfa;
+        }
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        html {
+            font-size: 15px;
+            scroll-behavior: smooth;
+        }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'PingFang SC', 'Microsoft YaHei', 'Helvetica Neue', sans-serif;
+            background: var(--bg);
+            color: var(--text);
+            line-height: 1.6;
+            min-height: 100vh;
+            -webkit-font-smoothing: antialiased;
+        }
+
+        /* ===== 头部 ===== */
+        .app-header {
+            background: var(--surface);
+            border-bottom: 1px solid var(--border);
+            padding: 0 24px;
+            height: 56px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            position: sticky;
+            top: 0;
+            z-index: 100;
+            box-shadow: var(--shadow-sm);
+        }
+        .logo-area {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+        .logo-icon {
+            width: 36px;
+            height: 36px;
+            background: linear-gradient(135deg, var(--primary), #2196F3);
+            border-radius: var(--radius-sm);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: #fff;
+            font-size: 18px;
+            flex-shrink: 0;
+        }
+        .logo-icon img {
+            width: 28px;
+            height: 28px;
+            object-fit: contain;
+        }
+        .logo-text {
+            font-size: 1rem;
+            font-weight: 700;
+            color: var(--text);
+            letter-spacing: -0.01em;
+            white-space: nowrap;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+        .logo-subtitle {
+            font-size: 0.75rem;
+            color: var(--text-muted);
+            font-weight: 400;
+        }
+        .header-actions {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        .header-badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            font-size: 0.75rem;
+            padding: 5px 12px;
+            border-radius: 20px;
+            font-weight: 500;
+            white-space: nowrap;
+        }
+        .header-badge.online {
+            background: var(--success-light);
+            color: var(--success);
+        }
+        .header-badge.offline {
+            background: var(--danger-light);
+            color: var(--danger);
+        }
+        .header-badge.recording {
+            background: var(--danger-light);
+            color: var(--danger);
+            animation: blink-badge 1s ease-in-out infinite;
+        }
+        @keyframes blink-badge {
+            0%,
+            100% { opacity: 1; }
+            50% { opacity: 0.45; }
+        }
+        .header-badge .dot {
+            width: 7px;
+            height: 7px;
+            border-radius: 50%;
+            display: inline-block;
+        }
+        .header-badge.online .dot,
+        .header-badge.recording .dot {
+            background: var(--success);
+            animation: pulse-dot 2s infinite;
+        }
+        .header-badge.recording .dot {
+            background: var(--danger);
+        }
+        @keyframes pulse-dot {
+            0%, 100% { box-shadow: 0 0 0 0 rgba(45,138,86,0.5); }
+            50% { box-shadow: 0 0 0 8px rgba(45,138,86,0); }
+        }
+        .cache-clear-btn {
+            font-size: 0.72rem;
+            padding: 3px 10px;
+            border-radius: 12px;
+            border: 1px solid #d0d5db;
+            background: #fff;
+            color: var(--text-muted);
+            cursor: pointer;
+            margin-left: 8px;
+            transition: all 0.2s;
+            font-family: inherit;
+            display: inline-flex;
+            align-items: center;
+            gap: 4px;
+        }
+        .cache-clear-btn:hover {
+            background: #fee2e2;
+            border-color: #fecaca;
+            color: #dc2626;
+        }
+
+        /* ===== 主布局：上下结构 ===== */
+        .main-wrapper {
+            max-width: 1440px;
+            margin: 0 auto;
+            padding: 12px 20px 20px;
+            display: flex;
+            flex-direction: column;
+            gap: 14px;
+            min-height: calc(100vh - 56px);
+        }
+
+        /* ----- 顶部紧凑语音栏 ----- */
+        .voice-compact-bar {
+            background: var(--surface);
+            border-radius: var(--radius);
+            box-shadow: var(--shadow);
+            padding: 8px 18px;
+            display: flex;
+            align-items: center;
+            gap: 16px;
+            flex-wrap: wrap;
+            transition: box-shadow var(--transition);
+        }
+        .voice-compact-bar:hover {
+            box-shadow: var(--shadow-lg);
+        }
+        .voice-control-group {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        .voice-btn {
+            width: 44px;
+            height: 44px;
+            border-radius: 50%;
+            border: none;
+            cursor: pointer;
+            font-size: 20px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: all var(--transition);
+            background: var(--primary);
+            color: #fff;
+            box-shadow: 0 2px 8px rgba(26,111,181,0.3);
+            outline: none;
+            flex-shrink: 0;
+        }
+        .voice-btn:hover {
+            background: var(--primary-dark);
+            transform: translateY(-1px);
+        }
+        .voice-btn:active {
+            transform: scale(0.94);
+        }
+        .voice-btn.recording {
+            background: var(--danger);
+            box-shadow: 0 2px 12px rgba(209,67,67,0.4);
+            animation: pulse-rec 1.5s ease-in-out infinite;
+        }
+        @keyframes pulse-rec {
+            0%, 100% { box-shadow: 0 2px 12px rgba(209,67,67,0.4), 0 0 0 0 rgba(209,67,67,0.25); }
+            50% { box-shadow: 0 2px 12px rgba(209,67,67,0.4), 0 0 0 12px rgba(209,67,67,0); }
+        }
+        .voice-btn:disabled {
+            background: #c8cdd4;
+            cursor: not-allowed;
+            box-shadow: none;
+            transform: none;
+        }
+        .stop-btn {
+            width: 38px;
+            height: 38px;
+            border-radius: 50%;
+            border: none;
+            cursor: pointer;
+            font-size: 16px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background: var(--danger);
+            color: #fff;
+            box-shadow: 0 2px 6px rgba(209,67,67,0.3);
+            transition: all var(--transition);
+            outline: none;
+            flex-shrink: 0;
+        }
+        .stop-btn:hover:not(:disabled) {
+            background: #b83838;
+            transform: translateY(-1px);
+        }
+        .stop-btn:disabled {
+            background: #c8cdd4;
+            cursor: not-allowed;
+            box-shadow: none;
+        }
+        .voice-timer {
+            font-size: 1rem;
+            font-weight: 700;
+            color: var(--text);
+            font-variant-numeric: tabular-nums;
+            font-family: var(--font-mono);
+            min-width: 56px;
+            text-align: center;
+        }
+        .voice-hint {
+            font-size: 0.8rem;
+            color: var(--text-muted);
+            font-weight: 500;
+            white-space: nowrap;
+            min-width: 100px;
+        }
+        .voice-live-text {
+            flex: 1;
+            min-width: 150px;
+            background: var(--surface-alt);
+            border-radius: 20px;
+            padding: 4px 16px;
+            border: 1px solid var(--border);
+            font-size: 0.9rem;
+            color: var(--text-secondary);
+            transition: border-color var(--transition);
+            overflow: hidden;
+            white-space: nowrap;
+            text-overflow: ellipsis;
+            line-height: 2;
+        }
+        .voice-live-text.active {
+            border-color: var(--primary);
+            color: var(--text);
+        }
+        .voice-live-text .typing-cursor {
+            display: inline-block;
+            width: 2px;
+            height: 1em;
+            background: var(--primary);
+            margin-left: 2px;
+            animation: cursor-blink 0.8s ease-in-out infinite;
+            vertical-align: middle;
+        }
+        @keyframes cursor-blink {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0; }
+        }
+        .recording-badge-compact {
+            font-size: 0.7rem;
+            padding: 4px 12px;
+            border-radius: 12px;
+            font-weight: 600;
+            background: #f0f1f3;
+            color: var(--text-muted);
+            margin-left: auto;
+            white-space: nowrap;
+        }
+        .recording-badge-compact.recording {
+            background: var(--danger-light);
+            color: var(--danger);
+            animation: blink-badge 1s ease-in-out infinite;
+        }
+
+        /* ----- 中间：报告编辑区（原右侧面板） ----- */
+        .panel {
+            background: var(--surface);
+            border-radius: var(--radius-lg);
+            box-shadow: var(--shadow);
+            padding: 20px 24px 24px;
+            display: flex;
+            flex-direction: column;
+            gap: 16px;
+            transition: box-shadow var(--transition);
+            flex: 1;
+        }
+        .panel:hover {
+            box-shadow: var(--shadow-lg);
+        }
+        .panel-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 12px;
+            flex-shrink: 0;
+        }
+        .panel-title {
+            font-size: 0.95rem;
+            font-weight: 700;
+            color: var(--text);
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            letter-spacing: -0.01em;
+        }
+        .panel-title .icon {
+            width: 28px;
+            height: 28px;
+            border-radius: var(--radius-sm);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 15px;
+            flex-shrink: 0;
+        }
+        .icon-blue { background: var(--primary-light); color: var(--primary); }
+        .icon-green { background: var(--success-light); color: var(--success); }
+        .edit-mode-badge {
+            background: #fef3c7;
+            color: #b45309;
+            padding: 4px 12px;
+            border-radius: 12px;
+            font-size: 0.7rem;
+            font-weight: 600;
+            display: none;
+            align-items: center;
+            gap: 6px;
+        }
+        .edit-mode-badge.show { display: inline-flex; }
+        .edit-mode-badge .dot {
+            width: 7px;
+            height: 7px;
+            border-radius: 50%;
+            background: #b45309;
+            animation: pulse-dot 1.5s infinite;
+        }
+        .edit-mode-badge .btn-danger-outline {
+            border-color: #b45309;
+            color: #b45309;
+            background: transparent;
+            font-size: 0.65rem;
+            padding: 1px 10px;
+            border-radius: 10px;
+        }
+        .edit-mode-badge .btn-danger-outline:hover {
+            background: #b45309;
+            color: #fff;
+        }
+        .form-row {
+            display: flex;
+            gap: 10px;
+            flex-wrap: wrap;
+            align-items: flex-end;
+        }
+        .form-group {
+            display: flex;
+            flex-direction: column;
+            gap: 4px;
+            flex: 1;
+            min-width: 100px;
+        }
+        .form-group label {
+            font-size: 0.75rem;
+            font-weight: 600;
+            color: var(--text-secondary);
+            letter-spacing: 0.02em;
+            text-transform: uppercase;
+            white-space: nowrap;
+        }
+        .form-group input,
+        .form-group select {
+            height: 38px;
+            padding: 0 11px;
+            border: 1.5px solid var(--border);
+            border-radius: var(--radius-sm);
+            font-size: 0.875rem;
+            font-family: inherit;
+            color: var(--text);
+            background: var(--surface-alt);
+            transition: all var(--transition);
+            width: 100%;
+            outline: none;
+        }
+        .form-group input:focus,
+        .form-group select:focus {
+            border-color: var(--primary);
+            box-shadow: 0 0 0 3px rgba(26,111,181,0.08);
+            background: #fff;
+        }
+        .btn {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            padding: 9px 18px;
+            border-radius: var(--radius-sm);
+            font-size: 0.85rem;
+            font-weight: 600;
+            border: 1.5px solid transparent;
+            cursor: pointer;
+            transition: all var(--transition);
+            font-family: inherit;
+            white-space: nowrap;
+            letter-spacing: 0.01em;
+            outline: none;
+        }
+        .btn:active { transform: scale(0.96); }
+        .btn-primary {
+            background: var(--primary);
+            color: #fff;
+            border-color: var(--primary);
+            box-shadow: 0 2px 6px rgba(26,111,181,0.2);
+        }
+        .btn-primary:hover {
+            background: var(--primary-dark);
+            border-color: var(--primary-dark);
+            box-shadow: 0 4px 12px rgba(26,111,181,0.3);
+        }
+        .btn-primary:disabled {
+            background: #a3c8e6;
+            border-color: #a3c8e6;
+            cursor: not-allowed;
+            box-shadow: none;
+        }
+        .btn-outline {
+            background: #fff;
+            color: var(--text);
+            border-color: var(--border);
+        }
+        .btn-outline:hover {
+            background: var(--surface-alt);
+            border-color: #c5c9d0;
+        }
+        .btn-ghost {
+            background: transparent;
+            color: var(--text-secondary);
+            border-color: transparent;
+            padding: 6px 10px;
+        }
+        .btn-ghost:hover {
+            background: #f0f1f3;
+            color: var(--text);
+        }
+        .btn-lg {
+            padding: 12px 24px;
+            font-size: 0.95rem;
+            border-radius: var(--radius);
+        }
+        .btn-sm {
+            padding: 5px 12px;
+            font-size: 0.78rem;
+            border-radius: 4px;
+        }
+        .btn-danger-outline {
+            background: #fff;
+            color: var(--danger);
+            border-color: var(--danger);
+        }
+        .btn-danger-outline:hover {
+            background: var(--danger-light);
+            border-color: var(--danger);
+        }
+        .patient-card {
+            background: var(--surface-alt);
+            border-radius: var(--radius);
+            padding: 14px 16px;
+            border: 1px solid var(--border-light);
+            margin: 4px 0 8px;
+        }
+        .patient-card .row {
+            display: flex;
+            gap: 20px;
+            flex-wrap: wrap;
+            margin-bottom: 6px;
+        }
+        .patient-card .label {
+            color: var(--text-muted);
+            font-size: 0.75rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            margin-right: 4px;
+        }
+        .patient-card .value { font-weight: 500; }
+        .check-items {
+            display: flex;
+            flex-direction: column;
+            gap: 4px;
+            margin-top: 6px;
+        }
+        .check-item-wrapper {
+            background: #fff;
+            border: 2px solid var(--border);
+            border-radius: var(--radius-sm);
+            padding: 6px 12px;
+            cursor: pointer;
+            transition: all 0.2s;
+            user-select: none;
+            font-size: 0.8rem;
+            line-height: 1.5;
+            width: 100%;
+        }
+        .check-item-wrapper:hover { border-color: var(--primary); }
+        .check-item-wrapper.selected {
+            border-color: var(--primary);
+            background: var(--primary-light);
+        }
+        .check-item-wrapper .item-name { font-weight: 600; }
+        .check-item-wrapper .item-meta {
+            color: var(--text-muted);
+            font-size: 0.7rem;
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+        }
+        .text-editor-area {
+            display: flex;
+            flex-direction: column;
+            gap: 6px;
+            flex: 1;
+        }
+        .text-editor-area label {
+            font-size: 0.75rem;
+            font-weight: 600;
+            color: var(--text-secondary);
+            letter-spacing: 0.02em;
+            text-transform: uppercase;
+        }
+        .text-editor-area textarea {
+            flex: 1;
+            min-height: 160px;
+            padding: 14px;
+            border: 1.5px solid var(--border);
+            border-radius: var(--radius);
+            font-size: 0.9rem;
+            font-family: inherit;
+            color: var(--text);
+            background: var(--surface-alt);
+            resize: vertical;
+            line-height: 1.7;
+            outline: none;
+            transition: all var(--transition);
+            width: 100%;
+        }
+        .text-editor-area textarea:focus {
+            border-color: var(--primary);
+            box-shadow: 0 0 0 3px rgba(26,111,181,0.08);
+            background: #fff;
+        }
+        .text-editor-area textarea::placeholder {
+            color: #c0c5cc;
+        }
+        .textarea-actions {
+            display: flex;
+            gap: 8px;
+            flex-wrap: wrap;
+            justify-content: flex-end;
+        }
+        .error-msg {
+            background: var(--danger-light);
+            color: var(--danger);
+            padding: 10px 16px;
+            border-radius: var(--radius-sm);
+            display: none;
+            font-size: 0.85rem;
+        }
+        .error-msg.show { display: block; }
+        .loading-overlay {
+            position: absolute;
+            inset: 0;
+            background: rgba(255,255,255,0.85);
+            display: none;
+            align-items: center;
+            justify-content: center;
+            border-radius: var(--radius-lg);
+            z-index: 10;
+            flex-direction: column;
+            gap: 12px;
+            font-weight: 600;
+            color: var(--text-secondary);
+            font-size: 0.9rem;
+        }
+        .loading-overlay.show { display: flex; }
+        .spinner-dark {
+            width: 18px;
+            height: 18px;
+            border: 2.5px solid rgba(0,0,0,0.1);
+            border-top-color: var(--primary);
+            border-radius: 50%;
+            animation: spin 0.7s linear infinite;
+            display: inline-block;
+            flex-shrink: 0;
+        }
+        @keyframes spin { to { transform: rotate(360deg); } }
+
+        /* ===== 底部：历史报告（折叠） ===== */
+        .history-section {
+            background: var(--surface);
+            border-radius: var(--radius-lg);
+            box-shadow: var(--shadow);
+            overflow: hidden;
+            transition: box-shadow var(--transition);
+        }
+        .history-section:hover {
+            box-shadow: var(--shadow-lg);
+        }
+        .history-toggle {
+            padding: 12px 20px;
+            cursor: pointer;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            user-select: none;
+            border-bottom: 1px solid var(--border-light);
+            transition: background 0.15s;
+        }
+        .history-toggle:hover {
+            background: var(--surface-alt);
+        }
+        .history-toggle span:first-child {
+            font-weight: 600;
+            font-size: 0.95rem;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        .history-toggle .toggle-icon {
+            font-size: 1.2rem;
+            transition: transform 0.2s;
+        }
+        .history-content {
+            padding: 16px 20px 20px;
+            display: none;
+        }
+        .report-list {
+            width: 100%;
+        }
+        .report-list .header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 12px;
+        }
+        .report-list .header h3 {
+            font-size: 1rem;
+            font-weight: 700;
+            color: var(--text);
+        }
+        .report-list table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 0.75rem;
+            table-layout: fixed;
+        }
+        .report-list th {
+            text-align: left;
+            padding: 6px 4px;
+            border-bottom: 2px solid var(--border);
+            color: var(--text-secondary);
+            font-weight: 600;
+            white-space: nowrap;
+        }
+        .report-list td {
+            padding: 6px 4px;
+            border-bottom: 1px solid var(--border-light);
+            vertical-align: middle;
+            word-break: break-word;
+        }
+        /* 列宽分配（与原来一致） */
+        .report-list th:nth-child(1), .report-list td:nth-child(1) { width: 7%; }
+        .report-list th:nth-child(2), .report-list td:nth-child(2) { width: 7%; }
+        .report-list th:nth-child(3), .report-list td:nth-child(3) { width: 5%; }
+        .report-list th:nth-child(4), .report-list td:nth-child(4) { width: 5%; }
+        .report-list th:nth-child(5), .report-list td:nth-child(5) { width: 5%; }
+        .report-list th:nth-child(6), .report-list td:nth-child(6) { width: 10%; }
+        .report-list th:nth-child(7), .report-list td:nth-child(7) { width: 9%; }
+        .report-list th:nth-child(8), .report-list td:nth-child(8) { width: 8%; }
+        .report-list th:nth-child(9), .report-list td:nth-child(9) { width: 8%; }
+        .report-list th:nth-child(10), .report-list td:nth-child(10) { width: 8%; }
+        .report-list th:nth-child(11), .report-list td:nth-child(11) { width: 8%; }
+        .report-list th:nth-child(12), .report-list td:nth-child(12) { width: 12%; }
+
+        .status-badge {
+            display: inline-block;
+            padding: 2px 8px;
+            border-radius: 10px;
+            font-size: 0.65rem;
+            font-weight: 600;
+            white-space: nowrap;
+        }
+        .status-badge.generated { background: var(--success-light); color: var(--success); }
+        .status-badge.pending { background: var(--warning-light); color: var(--warning); }
+        .status-badge.processing { background: var(--processing-light); color: var(--processing); }
+
+        .btn-view {
+            padding: 2px 10px;
+            font-size: 0.65rem;
+            border-radius: 10px;
+            border: 1px solid var(--primary);
+            background: #fff;
+            color: var(--primary);
+            cursor: pointer;
+            transition: all 0.2s;
+            white-space: nowrap;
+        }
+        .btn-view:hover:not(:disabled) {
+            background: var(--primary);
+            color: #fff;
+        }
+        .btn-view:disabled {
+            opacity: 0.4;
+            cursor: not-allowed;
+            background: #f0f1f3;
+            border-color: #ccc;
+            color: #999;
+        }
+        .btn-detail {
+            padding: 2px 8px;
+            font-size: 0.65rem;
+            border-radius: 10px;
+            border: 1px solid var(--border);
+            background: #fff;
+            color: var(--text-secondary);
+            cursor: pointer;
+            transition: all 0.2s;
+            white-space: nowrap;
+        }
+        .btn-detail:hover {
+            background: var(--surface-alt);
+            border-color: var(--primary);
+            color: var(--primary);
+        }
+        .btn-reedit {
+            padding: 2px 10px;
+            font-size: 0.65rem;
+            border-radius: 10px;
+            border: 1px solid #b45309;
+            background: #fffbeb;
+            color: #b45309;
+            cursor: pointer;
+            transition: all 0.2s;
+            white-space: nowrap;
+            margin-left: 4px;
+        }
+        .btn-reedit:hover {
+            background: #b45309;
+            color: #fff;
+        }
+        .report-list tbody tr { cursor: default; transition: background 0.15s; }
+        .report-list tbody tr:hover { background: #fafafa; }
+        .report-list tbody tr.reedit-hover { background: #fef3c7 !important; }
+
+        .pagination {
+            display: flex;
+            justify-content: center;
+            gap: 8px;
+            margin-top: 16px;
+            flex-wrap: wrap;
+        }
+        .pagination button {
+            padding: 4px 12px;
+            border: 1px solid var(--border);
+            border-radius: 4px;
+            background: #fff;
+            cursor: pointer;
+            font-size: 0.8rem;
+        }
+        .pagination button.active {
+            background: var(--primary);
+            color: #fff;
+            border-color: var(--primary);
+        }
+        .pagination button:disabled {
+            opacity: 0.4;
+            cursor: not-allowed;
+        }
+
+        /* ===== 模态框 ===== */
+        .modal-overlay {
+            position: fixed;
+            inset: 0;
+            background: rgba(0,0,0,0.5);
+            display: none;
+            align-items: center;
+            justify-content: center;
+            z-index: 999;
+        }
+        .modal-overlay.active { display: flex; }
+        .modal-box {
+            background: #fff;
+            max-width: 700px;
+            width: 90%;
+            max-height: 80vh;
+            border-radius: var(--radius-lg);
+            padding: 24px;
+            overflow-y: auto;
+            box-shadow: var(--shadow-lg);
+            position: relative;
+        }
+        .modal-box .close-btn {
+            position: absolute;
+            top: 12px;
+            right: 16px;
+            font-size: 24px;
+            cursor: pointer;
+            color: var(--text-muted);
+            background: none;
+            border: none;
+        }
+        .modal-box .detail-content {
+            white-space: pre-wrap;
+            font-size: 0.9rem;
+            line-height: 1.8;
+            margin-top: 8px;
+        }
+        .modal-box .edit-area {
+            width: 100%;
+            min-height: 200px;
+            padding: 12px;
+            border: 1.5px solid var(--border);
+            border-radius: var(--radius-sm);
+            font-size: 0.9rem;
+            font-family: inherit;
+            line-height: 1.8;
+            resize: vertical;
+            outline: none;
+        }
+        .modal-box .edit-area:focus {
+            border-color: var(--primary);
+            box-shadow: 0 0 0 3px rgba(26,111,181,0.08);
+        }
+        .modal-box .modal-actions {
+            display: flex;
+            gap: 8px;
+            margin-top: 12px;
+            justify-content: flex-end;
+        }
+        .modal-box.wide { max-width: 1200px; width: 95%; }
+
+        /* ===== Toast ===== */
+        .toast-container {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            z-index: 9999;
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+            pointer-events: none;
+        }
+        .toast {
+            pointer-events: auto;
+            padding: 12px 18px;
+            border-radius: var(--radius-sm);
+            font-size: 0.85rem;
+            font-weight: 500;
+            color: #fff;
+            box-shadow: var(--shadow-lg);
+            animation: toast-in 0.35s cubic-bezier(0.21,1.02,0.58,1);
+            max-width: 420px;
+            line-height: 1.4;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        .toast.success { background: #2d8a56; }
+        .toast.error { background: #d14343; }
+        .toast.info { background: #1a6fb5; }
+        .toast.warning { background: #c0792b; }
+        .toast.removing { animation: toast-out 0.3s ease-in forwards; }
+        @keyframes toast-in {
+            from { opacity:0; transform: translateX(60px); }
+            to { opacity:1; transform: translateX(0); }
+        }
+        @keyframes toast-out {
+            from { opacity:1; transform: translateX(0); }
+            to { opacity:0; transform: translateX(60px); }
+        }
+
+        /* ===== 确认弹框 ===== */
+        #confirmModal .modal-box { max-width:450px; text-align:center; }
+        #confirmModal .modal-box .confirm-icon { font-size:2.5rem; margin-bottom:12px; }
+
+        /* ===== 响应式 ===== */
+        @media (max-width: 900px) {
+            .voice-compact-bar { flex-direction: column; align-items: stretch; gap: 10px; }
+            .voice-control-group { flex-wrap: wrap; }
+            .voice-live-text { white-space: normal; min-height: 36px; line-height: 1.5; }
+            .recording-badge-compact { margin-left: 0; align-self: flex-start; }
+            .main-wrapper { padding: 10px 12px; }
+            .panel { padding: 16px; }
+            .form-row { flex-direction: column; }
+            .patient-card .row { flex-direction: column; gap: 4px; }
+            .report-list th, .report-list td { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+            .app-header { padding: 0 12px; height: 48px; }
+            .logo-subtitle { display: none; }
+            .toast-container { top:10px; right:10px; left:10px; }
+            .toast { max-width:100%; }
+        }
+        @media (max-width: 480px) {
+            .btn-lg { width:100%; justify-content:center; }
+        }
+    </style>
+</head>
+<body>
+
+    <!-- ===== 头部 ===== -->
+    <header class="app-header">
+        <div class="logo-area">
+            <div class="logo-icon">
+                <img src="ns_logo.png" alt="Logo" style="width:28px; height:28px; object-fit:contain;">
+            </div>
+            <div>
+                <div class="logo-text">
+                    南石 PACS 医疗语音转写&报告生成
+                    <button class="cache-clear-btn" id="clearCacheBtn" title="清除所有本地暂存数据">🗑 清除暂存</button>
+                </div>
+                <div class="logo-subtitle">基于 Qwen-Audio-3.0-ASR-Flash-Streaming</div>
+            </div>
+        </div>
+        <div class="header-actions">
+            <span id="voiceStatusBadge" class="header-badge online">
+                <span class="dot"></span> 语音就绪
+            </span>
+            <span id="wsStatusBadge" class="header-badge online">
+                <span class="dot"></span> 服务已连接
+            </span>
+        </div>
+    </header>
+
+    <!-- ===== 主布局 ===== -->
+    <div class="main-wrapper">
+
+        <!-- ===== 1. 顶部：紧凑语音转写栏 ===== -->
+        <div class="voice-compact-bar" id="voiceCompactBar">
+            <div class="voice-control-group">
+                <button class="voice-btn" id="startBtn" title="点击开始/停止录音（空格键）">🎤</button>
+                <button class="stop-btn" id="stopBtn" title="停止录音" disabled>⏹</button>
+                <span class="voice-timer" id="voiceTimer">00:00</span>
+                <span class="voice-hint" id="voiceHint">点击麦克风录音</span>
+            </div>
+            <div class="voice-live-text" id="voiceLiveText">实时听写预览...</div>
+            <span class="recording-badge-compact" id="recordingBadgeCompact">待录入</span>
+        </div>
+
+        <!-- ===== 2. 中间：报告编辑区 ===== -->
+        <div class="panel" id="mainPanel" style="position:relative;">
+            <div class="panel-header">
+                <div class="panel-title">
+                    <span class="icon icon-green">📝</span> 报告生成
+                    <span class="edit-mode-badge" id="editModeBadge">
+                        <span class="dot"></span> 编辑模式
+                        <button class="btn btn-sm btn-danger-outline" id="cancelEditBtn" style="margin-left:6px; padding:2px 10px; font-size:0.7rem;">✕ 取消编辑</button>
+                    </span>
+                </div>
+                <span id="reportStatusBadge" class="panel-badge badge-idle" style="font-size:0.7rem; padding:4px 12px; border-radius:12px; background:#f0f1f3; color:var(--text-muted);">待提交</span>
+            </div>
+
+            <!-- 患者查询 -->
+            <div class="form-row" style="gap:8px;">
+                <div class="form-group" style="flex:0 0 110px; min-width:auto;">
+                    <label>🧑‍⚕️ 患者类型</label>
+                    <select id="patientTypeSelect" style="height:38px;">
+                        <option value="inpatient" selected>住院</option>
+                        <option value="outpatient">门诊</option>
+                    </select>
+                </div>
+                <div class="form-group" style="flex:0 0 110px; min-width:auto;">
+                    <label>检查类型</label>
+                    <select id="checkTypeSelect" style="height:38px;">
+                        <option value="US" selected>US</option>
+                        <option value="CT">CT</option>
+                    </select>
+                </div>
+                <div class="form-group" style="flex:2; min-width:160px;">
+                    <label>🏥 住院号/门诊号</label>
+                    <input type="text" id="zhuyuanhaoInput" placeholder="请输入住院号/门诊号" autocomplete="off">
+                </div>
+                <div class="form-group" style="flex:0 0 auto;">
+                    <label>&nbsp;</label>
+                    <button class="btn btn-primary" id="queryPatientBtn" style="height:38px;">🔍 查询</button>
+                </div>
+            </div>
+
+            <!-- 患者信息 -->
+            <div id="patientInfoArea" style="display:none;">
+                <div class="patient-card">
+                    <div class="row">
+                        <span><span class="label">姓名</span> <span class="value" id="pName">-</span></span>
+                        <span><span class="label">性别</span> <span class="value" id="pSex">-</span></span>
+                        <span><span class="label">年龄</span> <span class="value" id="pAge">-</span></span>
+                        <span><span class="label">科室</span> <span class="value" id="pDept">-</span></span>
+                    </div>
+                    <div>
+                        <span class="label">检查项目</span>
+                        <div class="check-items" id="checkItemsContainer"></div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 检查所见文本框 -->
+            <div class="text-editor-area">
+                <label>📄 检查所见 / 描述（语音转写结果将自动填入）</label>
+                <textarea id="examFindings" placeholder="口述内容将实时转写至此，也可手动编辑..."></textarea>
+                <div class="textarea-actions">
+                    <span style="font-size:0.75rem; color:var(--text-muted);">字数: <span id="wordCount">0</span> &nbsp;|&nbsp; 句子: <span id="sentenceCount">0</span></span>
+                    <button class="btn btn-ghost btn-sm" id="btnClear">✕ 清空</button>
+                    <button class="btn btn-outline btn-sm" id="btnCopy">📋 复制</button>
+                </div>
+            </div>
+
+            <!-- 提交按钮 -->
+            <div style="display:flex; gap:10px;">
+                <button class="btn btn-primary btn-lg" id="submitBtn" style="flex:1;justify-content:center;" disabled>
+                    ⚡ 提交
+                </button>
+            </div>
+
+            <div id="errorMsg" class="error-msg"></div>
+            <div class="loading-overlay" id="loadingOverlay">
+                <div class="spinner-dark" style="width:32px;height:32px;border-width:3px;"></div>
+                <span>处理中，请稍候...</span>
+            </div>
+        </div>
+
+        <!-- ===== 3. 底部：历史报告（折叠） ===== -->
+        <div class="history-section">
+            <div class="history-toggle" id="historyToggle">
+                <span>📋 历史报告</span>
+                <span class="toggle-icon" id="toggleIcon">▶</span>
+            </div>
+            <div class="history-content" id="historyContent">
+                <div class="report-list">
+                    <div class="header">
+                        <h3>📋 历史报告</h3>
+                        <span style="font-size:0.7rem; color:var(--text-muted); font-weight:400; background:var(--surface-alt); padding:2px 10px; border-radius:12px; border:1px solid var(--border-light);">
+                            💡 双击患者行可重新编辑
+                        </span>
+                        <button class="btn btn-ghost btn-sm" id="refreshListBtn">🔄 刷新</button>
+                    </div>
+                    <div id="reportTableWrapper">
+                        <table>
+                            <thead>
+                                <tr>
+                                    <th>住院号</th>
+                                    <th>类型</th>
+                                    <th>姓名</th>
+                                    <th>性别</th>
+                                    <th>年龄</th>
+                                    <th>检查项目</th>
+                                    <th>提交时间</th>
+                                    <th>状态</th>
+                                    <th>患者信息</th>
+                                    <th>指标数据</th>
+                                    <th>指标文本</th>
+                                    <th>操作</th>
+                                </tr>
+                            </thead>
+                            <tbody id="reportTableBody">
+                                <tr><td colspan="12" style="text-align:center;color:var(--text-muted);">暂无记录</td></tr>
+                            </tbody>
+                        </table>
+                    </div>
+                    <div class="pagination" id="paginationControls"></div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- ===== 模态框 ===== -->
+    <div class="modal-overlay" id="reportModal">
+        <div class="modal-box">
+            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">
+                <h3 id="modalTitle" style="margin:0; font-size:1.1rem;">📄 详情</h3>
+                <div style="display:flex; align-items:center; gap:6px;">
+                    <button class="btn btn-outline btn-sm" id="copyReportBtnHeader" style="font-size:0.85rem; padding:2px 8px; display:none;">📋 复制</button>
+                    <button class="close-btn" id="modalCloseBtn" style="position:static; font-size:22px; line-height:1; padding:0 4px;">&times;</button>
+                </div>
+            </div>
+            <div class="detail-content" id="modalDetailContent">加载中...</div>
+        </div>
+    </div>
+
+    <!-- ===== 确认弹框 ===== -->
+    <div class="modal-overlay" id="confirmModal">
+        <div class="modal-box">
+            <div class="confirm-icon">⚠️</div>
+            <h3 id="confirmTitle" style="font-size:1.1rem; margin-bottom:8px; color:var(--text);">确认操作</h3>
+            <p id="confirmMessage" style="font-size:0.95rem; color:var(--text-secondary); margin-bottom:20px; white-space:pre-wrap;">确定要执行此操作吗？</p>
+            <div style="display:flex; justify-content:center; gap:12px;">
+                <button class="btn btn-outline" id="confirmCancelBtn" style="min-width:80px;">取消</button>
+                <button class="btn btn-primary" id="confirmOkBtn" style="min-width:80px;">确定</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- ===== Toast容器 ===== -->
+    <div class="toast-container" id="toastContainer"></div>
+
+    <!-- ============================================================ -->
+    <!-- ===== JavaScript ===== -->
+    <script>
+        (function() {
+            // =========================================================
+            // 第一部分：语音转写功能（核心逻辑保留，布局适配）
+            // =========================================================
+            function getApiConfig() {
+                const host = window.location.hostname;
+                const portMap = {
+                    'oa.nsyy.com.cn': 6080,
+                    '192.168.3.12':   6083,
+                    '192.168.124.9':  8081,
+                    '127.0.0.1':      8081,
+                    'localhost':      8081,
+                };
+                let port = portMap[host] || 8081;
+                if (host === 'oa.nsyy.com.cn') {
+                    return { apiBase: `https://${host}:6081/mz`, wsUrl: `wss://${host}:6081/mz` };
+                }
+                if (host === '192.168.3.12') {
+                    return { apiBase: `https://${host}:6083/mz`, wsUrl: `wss://${host}:6083/mz` };
+                }
+                return { apiBase: `http://${host}:${port}/mz`, wsUrl: `ws://${host}:${port}/mz` };
+            }
+            const config = getApiConfig();
+            const API_BASE = config.apiBase;
+            const WS_URL = config.wsUrl;
+
+            // ---- DOM 元素 ----
+            const $ = (sel) => document.querySelector(sel);
+            const startBtn = $('#startBtn');
+            const stopBtn = $('#stopBtn');
+            const voiceTimer = $('#voiceTimer');
+            const voiceHint = $('#voiceHint');
+            const voiceLiveText = $('#voiceLiveText');
+            const recordingBadge = $('#recordingBadgeCompact');
+            const wsStatusBadge = $('#wsStatusBadge');
+            const voiceStatusBadge = $('#voiceStatusBadge');
+            const errorMsg = $('#errorMsg');
+            const btnClear = $('#btnClear');
+            const btnCopy = $('#btnCopy');
+            const wordCountEl = $('#wordCount');
+            const sentenceCountEl = $('#sentenceCount');
+            const examFindingsTextarea = $('#examFindings');
+
+            // ---- 状态 ----
+            let ws = null;
+            let mediaStream = null;
+            let audioContext = null;
+            let source = null;
+            let processor = null;
+            let isRecording = false;
+            let isConnected = false;
+            let fullText = '';          // 保留用于统计
+            let currentStash = '';
+            let sentenceCountVal = 0;
+            let heartbeatInterval = null;
+            let connectionStatus = 'disconnected';
+            const SAMPLE_RATE = 16000;
+            const CHUNK_SIZE = 4096;
+
+            // 保存录音
+            let mediaRecorder = null;
+            let audioChunks = [];
+
+            // ---- 本地暂存 ----
+            const STORAGE_KEY = 'medical_asr_report_draft';
+            function saveDraft() {
+                const draft = { examFindings: examFindingsTextarea.value, updatedAt: Date.now() };
+                try { localStorage.setItem(STORAGE_KEY, JSON.stringify(draft)); } catch (e) {}
+            }
+            function loadDraft() {
+                try {
+                    const raw = localStorage.getItem(STORAGE_KEY);
+                    if (!raw) return false;
+                    const draft = JSON.parse(raw);
+                    if (draft.examFindings) {
+                        examFindingsTextarea.value = draft.examFindings;
+                        fullText = draft.examFindings;
+                        updateWordCount();
+                        updateSentenceCount();
+                    }
+                    return true;
+                } catch (e) { return false; }
+            }
+            function clearDraft() { localStorage.removeItem(STORAGE_KEY); }
+
+            let saveTimeout;
+            function debouncedSave() {
+                clearTimeout(saveTimeout);
+                saveTimeout = setTimeout(saveDraft, 300);
+            }
+            examFindingsTextarea.addEventListener('input', function() {
+                updateWordCount();
+                updateSentenceCount();
+                debouncedSave();
+                // 同步 fullText 以便统计（但不影响转写追加逻辑）
+                fullText = this.value;
+            });
+
+            $('#clearCacheBtn').addEventListener('click', async function() {
+                const confirmed = await showConfirmDialog('清除暂存', '确定清除所有本地暂存数据吗？');
+                if (confirmed) {
+                    clearDraft();
+                    examFindingsTextarea.value = '';
+                    fullText = '';
+                    currentStash = '';
+                    sentenceCountVal = 0;
+                    sentenceCountEl.textContent = '0';
+                    updateWordCount();
+                    showToast('暂存数据已清除', 'info');
+                }
+            });
+
+            // ---- Toast ----
+            function showToast(message, type = 'info') {
+                const container = document.getElementById('toastContainer');
+                const toast = document.createElement('div');
+                toast.className = 'toast ' + type;
+                const icons = { success: '✅', error: '❌', info: 'ℹ️', warning: '⚠️' };
+                toast.textContent = (icons[type] || '') + ' ' + message;
+                container.appendChild(toast);
+                setTimeout(() => {
+                    if (toast.parentNode) {
+                        toast.classList.add('removing');
+                        toast.addEventListener('animationend', () => toast.remove());
+                    }
+                }, 3000);
+            }
+
+            // ---- 连接管理 ----
+            function setConnectionStatus(status) {
+                connectionStatus = status;
+                const badge = wsStatusBadge;
+                badge.className = 'header-badge';
+                if (status === 'connected') {
+                    badge.classList.add('online');
+                    badge.innerHTML = '<span class="dot"></span> 服务已连接';
+                    voiceHint.textContent = '点击麦克风开始语音录入';
+                } else if (status === 'connecting') {
+                    badge.classList.add('online');
+                    badge.innerHTML = '<span class="dot"></span> 连接中...';
+                    voiceHint.textContent = '正在连接语音服务，请稍候...';
+                } else {
+                    badge.classList.add('offline');
+                    badge.innerHTML = '<span class="dot"></span> 未连接';
+                    voiceHint.textContent = '未连接，点击麦克风建立连接';
+                }
+            }
+
+            async function connect() {
+                if (isConnected || connectionStatus === 'connecting') return;
+                setConnectionStatus('connecting');
+                const wsUrl = `${WS_URL}/asr/ws/transcribe`;
+                try {
+                    ws = new WebSocket(wsUrl);
+                    ws.onopen = () => {
+                        isConnected = true;
+                        setConnectionStatus('connected');
+                        startBtn.disabled = false;
+                        stopBtn.disabled = true;
+                        showError('');
+                        console.log('WebSocket 连接成功');
+                    };
+                    ws.onmessage = (event) => { handleMessage(event.data); };
+                    ws.onclose = () => {
+                        isConnected = false;
+                        setConnectionStatus('disconnected');
+                        startBtn.disabled = false;
+                        stopBtn.disabled = true;
+                        if (isRecording) stopRecording();
+                        showToast('语音服务连接已断开，请点击麦克风重新连接', 'warning');
+                    };
+                    ws.onerror = (error) => {
+                        console.error('WebSocket 错误:', error);
+                        setConnectionStatus('disconnected');
+                        showError('WebSocket 连接错误，请检查网络');
+                        showToast('连接失败，请刷新页面或稍后重试', 'error');
+                    };
+                } catch (err) {
+                    console.error('连接失败:', err);
+                    setConnectionStatus('disconnected');
+                    showToast('连接失败：' + err.message, 'error');
+                }
+            }
+
+            // ---- 消息处理 ----
+            function handleMessage(rawData) {
+                try {
+                    const data = JSON.parse(rawData);
+                    const type = data.type;
+                    switch (type) {
+                        case 'stash': {
+                            const delta = data.text || '';
+                            if (delta) {
+                                currentStash += delta;
+                                updateLiveTextWithTyping(currentStash);
+                                // 不更新文本框，仅预览
+                            }
+                            break;
+                        }
+                        case 'final': {
+                            const text = data.text || '';
+                            if (text.trim()) {
+                                currentStash = '';
+                                // 追加到 fullText（用于统计）
+                                fullText += text;
+                                if (!text.endsWith('。') && !text.endsWith('！') && !text.endsWith('？')) {
+                                    fullText += '。';
+                                }
+                                sentenceCountVal++;
+                                sentenceCountEl.textContent = sentenceCountVal;
+
+                                // ★★★ 追加到 检查所见 文本框 ★★★
+                                let currentVal = examFindingsTextarea.value;
+                                if (currentVal.length > 0 && !'。！？'.includes(currentVal.slice(-1))) {
+                                    examFindingsTextarea.value = currentVal + '。' + text;
+                                } else {
+                                    examFindingsTextarea.value = currentVal + text;
+                                }
+                                // 触发 input 事件，更新字数统计及自动保存
+                                examFindingsTextarea.dispatchEvent(new Event('input'));
+                                updateWordCount();
+                                // 滚动到底部
+                                examFindingsTextarea.scrollTop = examFindingsTextarea.scrollHeight;
+                                // 清空实时预览
+                                voiceLiveText.innerHTML = '';
+                                voiceLiveText.classList.remove('active');
+                            }
+                            break;
+                        }
+                        case 'speech_start': {
+                            setRecordingUI(true);
+                            recordingBadge.textContent = '录音中...';
+                            recordingBadge.className = 'recording-badge-compact recording';
+                            voiceStatusBadge.className = 'header-badge recording';
+                            voiceStatusBadge.innerHTML = '<span class="dot"></span> 录音中';
+                            break;
+                        }
+                        case 'speech_stop': {
+                            recordingBadge.textContent = '录入完成';
+                            recordingBadge.className = 'recording-badge-compact';
+                            voiceStatusBadge.className = 'header-badge online';
+                            voiceStatusBadge.innerHTML = '<span class="dot"></span> 语音就绪';
+                            break;
+                        }
+                        case 'error': {
+                            const errText = data.text || 'ASR 服务错误';
+                            if (errText.includes('180')) {
+                                showError('超180秒没有语音输入，连接已断开，请重新点击麦克风使用');
+                            } else {
+                                showError(errText);
+                            }
+                            if (errText.includes('response_idle_timeout')) {
+                                showToast('语音服务因长时间无操作已断开，请重新点击麦克风', 'warning');
+                                if (ws && ws.readyState === WebSocket.OPEN) {
+                                    ws.close(1000, '空闲超时');
+                                }
+                            }
+                            break;
+                        }
+                        case 'pong': break;
+                    }
+                } catch (err) {
+                    console.error('解析消息失败:', err);
+                }
+            }
+
+            // ---- UI 辅助 ----
+            function updateLiveTextWithTyping(text) {
+                if (!text) {
+                    voiceLiveText.innerHTML = '实时听写预览...';
+                    voiceLiveText.classList.remove('active');
+                    return;
+                }
+                voiceLiveText.classList.add('active');
+                voiceLiveText.innerHTML = escapeHtml(text) + '<span class="typing-cursor"></span>';
+            }
+
+            function showError(msg) {
+                if (!msg) { errorMsg.classList.remove('show'); return; }
+                errorMsg.textContent = msg;
+                errorMsg.className = 'error-msg show';
+            }
+
+            function updateWordCount() {
+                const text = examFindingsTextarea.value;
+                wordCountEl.textContent = text.replace(/\s/g, '').length;
+            }
+            function updateSentenceCount() {
+                const text = examFindingsTextarea.value;
+                const sentences = text.split(/[。！？\n]/).filter(s => s.trim().length > 0);
+                sentenceCountEl.textContent = sentences.length;
+                sentenceCountVal = sentences.length;
+            }
+
+            function escapeHtml(text) {
+                const div = document.createElement('div');
+                div.textContent = text;
+                return div.innerHTML;
+            }
+
+            function setRecordingUI(recording) {
+                if (recording) {
+                    startBtn.classList.add('recording');
+                    stopBtn.disabled = false;
+                    voiceHint.textContent = '正在录音，点击停止按钮结束';
+                } else {
+                    startBtn.classList.remove('recording');
+                    stopBtn.disabled = true;
+                    voiceHint.textContent = '点击麦克风开始语音录入';
+                    voiceLiveText.innerHTML = '实时听写预览...';
+                    voiceLiveText.classList.remove('active');
+                }
+            }
+
+            // ---- 录音核心 ----
+            async function startRecording() {
+                if (isRecording) return;
+                const isWsAlive = isConnected && ws && ws.readyState === WebSocket.OPEN;
+                if (!isWsAlive) {
+                    if (ws) { try { ws.close(); } catch (e) {} ws = null; }
+                    isConnected = false;
+                    setConnectionStatus('disconnected');
+                    await connect();
+                    let waitCount = 0;
+                    while (!isConnected && waitCount < 30) {
+                        await new Promise(resolve => setTimeout(resolve, 100));
+                        waitCount++;
+                    }
+                    if (!isConnected) {
+                        showToast('❌ 无法连接语音服务，请稍后重试', 'error');
+                        return;
+                    }
+                }
+                try {
+                    mediaStream = await navigator.mediaDevices.getUserMedia({
+                        audio: { sampleRate: SAMPLE_RATE, channelCount: 1, echoCancellation: true, noiseSuppression: true }
+                    });
+                    // 录音保存
+                    mediaRecorder = new MediaRecorder(mediaStream);
+                    audioChunks = [];
+                    mediaRecorder.ondataavailable = (e) => { if (e.data.size > 0) audioChunks.push(e.data); };
+                    mediaRecorder.onstop = () => {
+                        const blob = new Blob(audioChunks, { type: 'audio/webm' });
+                        const url = URL.createObjectURL(blob);
+                        const a = document.createElement('a');
+                        a.href = url;
+                        let patientName = document.getElementById('pName')?.textContent.trim() || '未知患者';
+                        const cleanName = patientName.replace(/[\\/:*?"<>|]/g, '');
+                        const now = new Date();
+                        const pad = (n) => String(n).padStart(2, '0');
+                        const localTime = `${now.getFullYear()}${pad(now.getMonth()+1)}${pad(now.getDate())}_${pad(now.getHours())}${pad(now.getMinutes())}${pad(now.getSeconds())}`;
+                        a.download = `录音_${cleanName}_${localTime}.webm`;
+                        document.body.appendChild(a);
+                        a.click();
+                        document.body.removeChild(a);
+                        URL.revokeObjectURL(url);
+                        audioChunks = [];
+                    };
+                    mediaRecorder.start();
+
+                    audioContext = new (window.AudioContext || window.webkitAudioContext)({ sampleRate: SAMPLE_RATE });
+                    const audioSource = audioContext.createMediaStreamSource(mediaStream);
+                    const audioProcessor = audioContext.createScriptProcessor(CHUNK_SIZE, 1, 1);
+                    audioSource.connect(audioProcessor);
+                    audioProcessor.connect(audioContext.destination);
+
+                    isRecording = true;
+                    startBtn.disabled = true;
+                    stopBtn.disabled = false;
+                    setRecordingUI(true);
+                    voiceStatusBadge.className = 'header-badge recording';
+                    voiceStatusBadge.innerHTML = '<span class="dot"></span> 录音中';
+
+                    audioProcessor.onaudioprocess = (e) => {
+                        if (!isRecording || !isConnected) return;
+                        const inputData = e.inputBuffer.getChannelData(0);
+                        const pcmData = float32ToInt16(inputData);
+                        const base64Data = arrayBufferToBase64(pcmData);
+                        if (ws && ws.readyState === WebSocket.OPEN) {
+                            ws.send(JSON.stringify({ type: 'audio', data: base64Data }));
+                        }
+                    };
+                    processor = audioProcessor;
+                    source = audioSource;
+                    console.log('🎤 开始录音');
+                    startTimer();
+                    heartbeatInterval = setInterval(() => {
+                        if (ws && ws.readyState === WebSocket.OPEN) {
+                            ws.send(JSON.stringify({ type: 'ping' }));
+                        }
+                    }, 15000);
+                } catch (err) {
+                    console.error('启动录音失败:', err);
+                    showError('麦克风启动失败: ' + err.message);
+                    startBtn.disabled = false;
+                    stopBtn.disabled = true;
+                    setRecordingUI(false);
+                    isRecording = false;
+                }
+            }
+
+            async function stopRecording() {
+                if (!isRecording) return;
+                isRecording = false;
+                startBtn.disabled = false;
+                stopBtn.disabled = true;
+                setRecordingUI(false);
+                voiceStatusBadge.className = 'header-badge online';
+                voiceStatusBadge.innerHTML = '<span class="dot"></span> 语音就绪';
+                if (ws && ws.readyState === WebSocket.OPEN) {
+                    ws.send(JSON.stringify({ type: 'commit' }));
+                }
+                if (processor) { processor.disconnect(); processor = null; }
+                if (source) { source.disconnect(); source = null; }
+                if (audioContext) { await audioContext.close(); audioContext = null; }
+                if (mediaStream) { mediaStream.getTracks().forEach(track => track.stop()); mediaStream = null; }
+                console.log('⏹️ 停止录音');
+                stopTimer();
+                recordingBadge.textContent = '录入完成';
+                recordingBadge.className = 'recording-badge-compact';
+                if (mediaRecorder && mediaRecorder.state !== 'inactive') {
+                    mediaRecorder.stop();
+                }
+                if (heartbeatInterval) { clearInterval(heartbeatInterval); heartbeatInterval = null; }
+            }
+
+            // ---- 计时器 ----
+            let recordingStartTime = null, timerInterval = null;
+            function startTimer() {
+                stopTimer();
+                recordingStartTime = Date.now();
+                updateTimerDisplay();
+                timerInterval = setInterval(updateTimerDisplay, 200);
+            }
+            function stopTimer() {
+                if (timerInterval) { clearInterval(timerInterval); timerInterval = null; }
+                voiceTimer.textContent = '00:00';
+            }
+            function updateTimerDisplay() {
+                if (!recordingStartTime) return;
+                const elapsed = Math.floor((Date.now() - recordingStartTime) / 1000);
+                voiceTimer.textContent = String(Math.floor(elapsed / 60)).padStart(2, '0') + ':' + String(elapsed % 60).padStart(2, '0');
+            }
+
+            // ---- 音频工具 ----
+            function float32ToInt16(float32Array) {
+                const int16Array = new Int16Array(float32Array.length);
+                for (let i = 0; i < float32Array.length; i++) {
+                    const s = Math.max(-1, Math.min(1, float32Array[i]));
+                    int16Array[i] = s < 0 ? s * 0x8000 : s * 0x7FFF;
+                }
+                return int16Array;
+            }
+            function arrayBufferToBase64(buffer) {
+                const bytes = new Uint8Array(buffer.buffer);
+                let binary = '';
+                for (let i = 0; i < bytes.byteLength; i++) binary += String.fromCharCode(bytes[i]);
+                return btoa(binary);
+            }
+
+            // ---- 事件绑定 ----
+            startBtn.addEventListener('click', () => { if (!isRecording) startRecording(); });
+            stopBtn.addEventListener('click', () => { if (isRecording) stopRecording(); });
+            btnClear.addEventListener('click', function() {
+                examFindingsTextarea.value = '';
+                fullText = '';
+                currentStash = '';
+                sentenceCountVal = 0;
+                sentenceCountEl.textContent = '0';
+                updateWordCount();
+                clearDraft();
+                showToast('转写内容已清空', 'info');
+            });
+            btnCopy.addEventListener('click', function() {
+                const text = examFindingsTextarea.value;
+                if (text.trim()) {
+                    navigator.clipboard.writeText(text).then(() => showToast('✅ 已复制到剪贴板', 'success'))
+                        .catch(() => showToast('复制失败，请手动复制', 'error'));
+                }
+            });
+            document.addEventListener('keydown', function(e) {
+                if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA' || e.target.tagName === 'SELECT') return;
+                if (e.code === 'Space' && !e.ctrlKey && !e.metaKey && !e.altKey) {
+                    e.preventDefault();
+                    if (isRecording) stopRecording();
+                    else startRecording();
+                }
+            });
+
+            // ---- 初始化语音 ----
+            function initVoice() {
+                const hasDraft = loadDraft();
+                if (hasDraft) showToast('已恢复上次暂存的数据', 'info');
+                startBtn.disabled = false;
+                stopBtn.disabled = true;
+                setConnectionStatus('disconnected');
+                // 初始统计
+                updateWordCount();
+                updateSentenceCount();
+                console.log('语音转写初始化完成');
+            }
+            initVoice();
+
+            // =========================================================
+            // 第二部分：报告模块（患者查询、提交、历史列表、重新编辑）
+            // =========================================================
+            (function() {
+                // ---- DOM 引用 ----
+                const zhuyuanhaoInput = document.getElementById('zhuyuanhaoInput');
+                const queryBtn = document.getElementById('queryPatientBtn');
+                const patientInfoArea = document.getElementById('patientInfoArea');
+                const pName = document.getElementById('pName');
+                const pSex = document.getElementById('pSex');
+                const pAge = document.getElementById('pAge');
+                const pDept = document.getElementById('pDept');
+                const checkItemsContainer = document.getElementById('checkItemsContainer');
+                const submitBtn = document.getElementById('submitBtn');
+                const reportTableBody = document.getElementById('reportTableBody');
+                const paginationControls = document.getElementById('paginationControls');
+                const refreshListBtn = document.getElementById('refreshListBtn');
+                const loadingOverlay = document.getElementById('loadingOverlay');
+                const cancelEditBtn = document.getElementById('cancelEditBtn');
+                const editModeBadge = document.getElementById('editModeBadge');
+
+                const modalOverlay = document.getElementById('reportModal');
+                const modalCloseBtn = document.getElementById('modalCloseBtn');
+                const modalTitle = document.getElementById('modalTitle');
+                const modalDetailContent = document.getElementById('modalDetailContent');
+                const copyReportBtnHeader = document.getElementById('copyReportBtnHeader');
+
+                // ---- 状态 ----
+                let currentPatient = null;
+                let selectedCheckItem = null;
+                let selectedYizhuid = null;
+                let currentPage = 1;
+                const PAGE_SIZE = 5;
+
+                let isEditMode = false;
+                let editingRecordId = null;
+                let editingRecordData = null;
+                let beforeEditFullText = '';
+                let beforeEditExamFindings = '';
+
+                // ---- 工具函数 ----
+                function showToastPacs(msg, type = 'info') {
+                    const container = document.getElementById('toastContainer');
+                    const toast = document.createElement('div');
+                    toast.className = 'toast ' + type;
+                    const icons = { success: '✅', error: '❌', info: 'ℹ️', warning: '⚠️' };
+                    toast.textContent = (icons[type] || '') + ' ' + msg;
+                    container.appendChild(toast);
+                    setTimeout(() => {
+                        if (toast.parentNode) {
+                            toast.classList.add('removing');
+                            toast.addEventListener('animationend', () => toast.remove());
+                        }
+                    }, 3000);
+                }
+
+                function showLoading(show) {
+                    loadingOverlay.style.display = show ? 'flex' : 'none';
+                }
+
+                function showConfirmDialog(title, message) {
+                    return new Promise((resolve) => {
+                        const modal = document.getElementById('confirmModal');
+                        const titleEl = document.getElementById('confirmTitle');
+                        const msgEl = document.getElementById('confirmMessage');
+                        const okBtn = document.getElementById('confirmOkBtn');
+                        const cancelBtn = document.getElementById('confirmCancelBtn');
+                        titleEl.textContent = title || '确认操作';
+                        msgEl.textContent = message || '确定要执行此操作吗？';
+                        const newOk = okBtn.cloneNode(true);
+                        const newCancel = cancelBtn.cloneNode(true);
+                        okBtn.parentNode.replaceChild(newOk, okBtn);
+                        cancelBtn.parentNode.replaceChild(newCancel, cancelBtn);
+                        function cleanup() {
+                            modal.classList.remove('active');
+                        }
+                        newOk.addEventListener('click', function() { cleanup(); resolve(true); });
+                        newCancel.addEventListener('click', function() { cleanup(); resolve(false); });
+                        modal.addEventListener('click', function(e) {
+                            if (e.target === modal) { cleanup(); resolve(false); }
+                        }, { once: true });
+                        modal.classList.add('active');
+                        setTimeout(() => newOk.focus(), 100);
+                    });
+                }
+
+                // ---- 模态框 ----
+                let editingRecordIdModal = null;
+                let editingField = null;
+                let isEditModeModal = false;
+
+                function openModal(title, content, editable = false, recordId = null, field = null, forceText = false) {
+                    copyReportBtnHeader.style.display = 'none';
+                    modalTitle.textContent = title;
+                    editingRecordIdModal = recordId;
+                    editingField = field;
+                    isEditModeModal = editable;
+                    modalOverlay.querySelector('.modal-box').classList.remove('wide');
+                    modalDetailContent.innerHTML = '';
+
+                    // 指标数据表格编辑
+                    if (editable && field === 'indicator_data' && !forceText) {
+                        let jsonData = [];
+                        try {
+                            if (content && content.trim() !== '' && content !== '暂无') {
+                                const parsed = JSON.parse(content);
+                                if (Array.isArray(parsed)) jsonData = parsed;
+                                else jsonData = [parsed];
+                            }
+                        } catch (e) { jsonData = []; }
+                        if (jsonData.length === 0) jsonData = [{}];
+                        let allKeys = [...new Set(jsonData.flatMap(obj => Object.keys(obj)))];
+                        if (allKeys.length === 0) allKeys = ['name', 'value', 'unit', 'reference'];
+                        jsonData = jsonData.map(row => {
+                            const newRow = {};
+                            allKeys.forEach(k => newRow[k] = row[k] !== undefined ? row[k] : '');
+                            return newRow;
+                        });
+                        const editorContext = {
+                            data: jsonData,
+                            keys: allKeys,
+                            recordId: editingRecordIdModal,
+                            field: editingField,
+                            container: null
+                        };
+                        function getSourceLabel(source) {
+                            const map = { 1: '提取', 2: '计算', 3: 'AI' };
+                            return map[source] !== undefined ? map[source] : '';
+                        }
+                        function renderTable() {
+                            const container = editorContext.container;
+                            if (!container) return;
+                            let html = `<style>
+                                .json-editor-table { width:100%; border-collapse:collapse; font-size:0.85rem; }
+                                .json-editor-table th,.json-editor-table td { border:1px solid #ddd; padding:4px 6px; vertical-align:middle; }
+                                .json-editor-table .col-header { width:100%; border:none; background:transparent; font-weight:600; }
+                                .json-editor-table .cell-input { width:100%; border:none; background:transparent; padding:4px; outline:none; }
+                                .json-editor-table .cell-input:focus { background:#fff; box-shadow:inset 0 0 0 2px var(--primary); }
+                                .json-editor-table .action-col { width:60px; text-align:center; }
+                                .json-editor-table .highlight-row-yellow { background-color:#fff3cd !important; }
+                                .json-editor-table .highlight-row-yellow .cell-input { background-color:#fff3cd !important; }
+                                .json-editor-table .highlight-row-blue { background-color:#cfe2ff !important; }
+                                .json-editor-table .highlight-row-blue .cell-input { background-color:#cfe2ff !important; }
+                                .json-actions { margin-top:12px; display:flex; gap:8px; flex-wrap:wrap; align-items:center; }
+                                .btn-danger { background:#fee2e2; color:#dc2626; border-color:#fecaca; }
+                                .btn-danger:hover { background:#fecaca; }
+                            </style>`;
+                            html += `<table class="json-editor-table">
+                                <caption style="caption-side:top; text-align:left; font-size:0.9rem; color:#6c757d; background:#f1f3f5; padding:2px 10px; border-radius:12px; border:1px solid #dee2e6; margin:0 0 2px 0; line-height:1.4;">
+                                    💡 黄色：为缺失数据； 蓝色：为AI提供的默认值
+                                </caption>
+                                <thead><tr>`;
+                            editorContext.keys.forEach((key) => {
+                                html += `<th><input class="col-header" value="${escapeHtml(key)}" placeholder="列名" /></th>`;
+                            });
+                            html += `<th class="action-col">操作</th></tr></thead><tbody>`;
+                            editorContext.data.forEach((row, rowIndex) => {
+                                const value = row['value'];
+                                const source = row.source;
+                                let trClass = '';
+                                if (source === 3) trClass = 'highlight-row-blue';
+                                else if (value === undefined || value === null || value === '') trClass = 'highlight-row-yellow';
+                                const trClassAttr = trClass ? `class="${trClass}"` : '';
+                                html += `<tr ${trClassAttr}>`;
+                                editorContext.keys.forEach((key) => {
+                                    const val = row[key] !== undefined ? row[key] : '';
+                                    if (key === 'source') {
+                                        const label = getSourceLabel(val);
+                                        const displayText = label || '-';
+                                        html += `<td><span style="display:inline-block; padding:4px 6px;">${escapeHtml(displayText)}</span></td>`;
+                                    } else {
+                                        html += `<td><input class="cell-input" data-row="${rowIndex}" data-key="${escapeHtml(key)}" value="${escapeHtml(String(val))}" /></td>`;
+                                    }
+                                });
+                                html += `<td><button class="btn btn-sm btn-danger" onclick="window._removeRow(${rowIndex})">🗑</button></td>`;
+                                html += `</tr>`;
+                            });
+                            html += `</tbody></table>`;
+                            container.innerHTML = html;
+                            const btnDiv = document.createElement('div');
+                            btnDiv.className = 'json-actions';
+                            btnDiv.innerHTML = `
+                                <button class="btn btn-outline btn-sm" onclick="window._addRow()">➕ 添加行</button>
+                                <button class="btn btn-primary" onclick="window._saveJsonTable()">💾 保存表格</button>
+                                <button class="btn btn-outline" onclick="window._closeModal()">取消</button>
+                            `;
+                            container.appendChild(btnDiv);
+                            window._jsonEditor = editorContext;
+                        }
+                        window._addRow = function() {
+                            const ctx = window._jsonEditor;
+                            if (!ctx) return;
+                            const newRow = {};
+                            ctx.keys.forEach(k => newRow[k] = '');
+                            ctx.data.push(newRow);
+                            renderTable();
+                        };
+                        window._removeRow = function(index) {
+                            const ctx = window._jsonEditor;
+                            if (!ctx) return;
+                            if (ctx.data.length <= 1) { showToastPacs('至少保留一行', 'warning'); return; }
+                            ctx.data.splice(index, 1);
+                            renderTable();
+                        };
+                        window._saveJsonTable = function() {
+                            const ctx = window._jsonEditor;
+                            if (!ctx) return;
+                            const inputs = ctx.container.querySelectorAll('.cell-input');
+                            inputs.forEach(inp => {
+                                const rowIdx = parseInt(inp.dataset.row);
+                                const key = inp.dataset.key;
+                                if (ctx.data[rowIdx]) {
+                                    ctx.data[rowIdx][key] = inp.value;
+                                }
+                            });
+                            const headers = ctx.container.querySelectorAll('.col-header');
+                            const newKeys = [];
+                            headers.forEach(inp => {
+                                const val = inp.value.trim();
+                                if (val) newKeys.push(val);
+                            });
+                            if (newKeys.length > 0) {
+                                const newData = ctx.data.map(row => {
+                                    const newRow = {};
+                                    newKeys.forEach(k => { newRow[k] = row[k] !== undefined ? row[k] : ''; });
+                                    return newRow;
+                                });
+                                ctx.data = newData;
+                                ctx.keys = newKeys;
+                            }
+                            const jsonString = JSON.stringify(ctx.data);
+                            if (typeof saveFieldData === 'function') {
+                                saveFieldData(ctx.recordId, ctx.field, jsonString);
+                            } else {
+                                console.error('saveFieldData 未定义');
+                                showToastPacs('保存函数未找到', 'error');
+                            }
+                        };
+                        const container = document.createElement('div');
+                        container.id = 'jsonTableContainer';
+                        modalDetailContent.appendChild(container);
+                        editorContext.container = container;
+                        window._jsonEditor = editorContext;
+                        renderTable();
+                        modalOverlay.classList.add('active');
+                        return;
+                    }
+
+                    // 文本编辑模式
+                    if (editable) {
+                        modalDetailContent.innerHTML = `
+                            <textarea class="edit-area" id="editTextarea">${escapeHtml(content)}</textarea>
+                            <div class="modal-actions">
+                                <button class="btn btn-outline" id="cancelEditBtnModal">取消</button>
+                                <button class="btn btn-primary" id="saveEditBtnModal">💾 保存</button>
+                            </div>
+                        `;
+                        document.getElementById('cancelEditBtnModal').addEventListener('click', closeModal);
+                        document.getElementById('saveEditBtnModal').addEventListener('click', async function() {
+                            const newData = document.getElementById('editTextarea').value;
+                            await saveFieldData(editingRecordIdModal, editingField, newData);
+                        });
+                        modalOverlay.classList.add('active');
+                        return;
+                    }
+
+                    // 只读模式
+                    modalDetailContent.innerHTML = `<div style="white-space:pre-wrap;">${escapeHtml(content).replace(/\n/g,'<br>')}</div>`;
+                    copyReportBtnHeader.style.display = 'inline-flex';
+                    const newCopyBtn = copyReportBtnHeader.cloneNode(true);
+                    copyReportBtnHeader.parentNode.replaceChild(newCopyBtn, copyReportBtnHeader);
+                    newCopyBtn.addEventListener('click', function() {
+                        const textToCopy = content;
+                        if (navigator.clipboard && navigator.clipboard.writeText) {
+                            navigator.clipboard.writeText(textToCopy)
+                                .then(() => showToastPacs('✅ 报告内容已复制到剪贴板', 'success'))
+                                .catch(() => fallbackCopy(textToCopy));
+                        } else {
+                            fallbackCopy(textToCopy);
+                        }
+                    });
+                    function fallbackCopy(text) {
+                        const textarea = document.createElement('textarea');
+                        textarea.value = text;
+                        textarea.style.position = 'fixed';
+                        textarea.style.opacity = '0';
+                        document.body.appendChild(textarea);
+                        textarea.select();
+                        try {
+                            document.execCommand('copy');
+                            showToastPacs('✅ 报告内容已复制到剪贴板', 'success');
+                        } catch (e) {
+                            showToastPacs('❌ 复制失败，请手动选择复制', 'error');
+                        }
+                        document.body.removeChild(textarea);
+                    }
+                    modalOverlay.classList.add('active');
+                }
+
+                function closeModal() {
+                    modalOverlay.classList.remove('active');
+                    copyReportBtnHeader.style.display = 'none';
+                    editingRecordIdModal = null;
+                    editingField = null;
+                    isEditModeModal = false;
+                }
+                modalCloseBtn.addEventListener('click', closeModal);
+                modalOverlay.addEventListener('click', (e) => { if (e.target === modalOverlay) closeModal(); });
+
+                async function saveFieldData(recordId, field, newData) {
+                    if (!recordId) { showToastPacs('记录ID无效', 'error'); return; }
+                    if (!newData || newData.trim().length === 0) { showToastPacs('内容不能为空', 'warning'); return; }
+                    showLoading(true);
+                    try {
+                        const updateData = {};
+                        updateData[field] = newData;
+                        const resp = await fetch(`${API_BASE}/asr/pacs_ai_report/${recordId}`, {
+                            method: 'PUT',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify(updateData)
+                        });
+                        if (!resp.ok) throw new Error(`HTTP ${resp.status}: ${resp.statusText}`);
+                        const result = await resp.json();
+                        if (result.success === false) { throw new Error(result.message || '保存失败'); }
+                        const fieldLabel = field === 'patient_info' ? '患者信息' : '指标数据';
+                        showToastPacs(`${fieldLabel}已更新 ✅`, 'success');
+                        closeModal();
+                        loadReports(currentPage);
+                    } catch (err) {
+                        showToastPacs('保存失败：' + err.message, 'error');
+                    } finally { showLoading(false); }
+                }
+
+                // ---- 患者查询 ----
+                async function queryPatient() {
+                    if (isEditMode) {
+                        showToastPacs('当前处于编辑模式，请先取消编辑或完成重新提交', 'warning');
+                        return;
+                    }
+                    const zhuyuanhao = zhuyuanhaoInput.value.trim();
+                    if (!zhuyuanhao) { showToastPacs('请输入住院号/门诊号', 'warning'); return; }
+                    const patientTypeSelect = document.getElementById('patientTypeSelect');
+                    const patientType = patientTypeSelect ? patientTypeSelect.value : 'inpatient';
+                    const checkTypeSelect = document.getElementById('checkTypeSelect');
+                    const checkType = checkTypeSelect ? checkTypeSelect.value : 'US';
+                    showLoading(true);
+                    try {
+                        const resp = await fetch(`${API_BASE}/asr/patient_pacs_info/${zhuyuanhao}/${patientType}/${checkType}`);
+                        if (!resp.ok) throw new Error('患者信息查询失败');
+                        const data = await resp.json();
+                        currentPatient = data;
+                        displayPatientInfo(data);
+                        const items = data.check_items_list || [];
+                        if (items.length === 1) {
+                            selectedCheckItem = items[0].check_item;
+                            selectedYizhuid = items[0].yizhuid;
+                            highlightCheckItem(selectedCheckItem);
+                        } else {
+                            selectedCheckItem = null;
+                            selectedYizhuid = null;
+                        }
+                        updateSubmitButton();
+                    } catch (err) {
+                        showToastPacs('查询失败：' + err.message, 'error');
+                        patientInfoArea.style.display = 'none';
+                        currentPatient = null;
+                        updateSubmitButton();
+                    } finally { showLoading(false); }
+                }
+
+                function displayPatientInfo(data) {
+                    pName.textContent = data.patient_name || '-';
+                    pSex.textContent = data.patient_sex || '-';
+                    pAge.textContent = data.patient_age || '-';
+                    pDept.textContent = data.dept_name || '-';
+                    patientInfoArea.style.display = 'block';
+                    const items = data.check_items_list || [];
+                    checkItemsContainer.innerHTML = '';
+                    if (items.length === 0) {
+                        checkItemsContainer.innerHTML = '<span style="color:var(--text-muted);">无检查项目</span>';
+                        return;
+                    }
+                    items.forEach(item => {
+                        const div = document.createElement('div');
+                        div.className = 'check-item-wrapper';
+                        div.innerHTML = `
+                            <div class="item-name">${escapeHtml(item.check_item)}  -  ${escapeHtml(item.kaishisj)}</div>
+                            <div class="item-meta">
+                                <span>医嘱ID: ${escapeHtml(item.yizhuid)}</span>
+                                <span>开嘱: ${escapeHtml(item.kaizhusj)}</span>
+                                <span>开始: ${escapeHtml(item.kaishisj)}</span>
+                                <span>类型: ${escapeHtml(item.jianchabzfl)}</span>
+                            </div>
+                        `;
+                        div.dataset.value = item.check_item;
+                        div.dataset.yizhuid = item.yizhuid;
+                        div.addEventListener('click', function() {
+                            if (this.classList.contains('disabled')) return;
+                            document.querySelectorAll('.check-item-wrapper').forEach(el => el.classList.remove('selected'));
+                            this.classList.add('selected');
+                            selectedCheckItem = this.dataset.value;
+                            selectedYizhuid = this.dataset.yizhuid;
+                            updateSubmitButton();
+                        });
+                        checkItemsContainer.appendChild(div);
+                    });
+                    if (items.length === 1) {
+                        const first = checkItemsContainer.querySelector('.check-item-wrapper');
+                        if (first) { first.classList.add('selected');
+                            selectedCheckItem = first.dataset.value;
+                            selectedYizhuid = first.dataset.yizhuid; }
+                    }
+                }
+
+                function highlightCheckItem(item) {
+                    document.querySelectorAll('.check-item-wrapper').forEach(el => {
+                        el.classList.toggle('selected', el.dataset.value === item);
+                    });
+                }
+
+                function updateSubmitButton() {
+                    const hasPatient = currentPatient !== null;
+                    const hasItem = selectedCheckItem !== null;
+                    const hasFindings = document.getElementById('examFindings').value.trim().length > 0;
+                    submitBtn.disabled = !(hasPatient && hasItem && hasFindings);
+                }
+
+                function clearEditArea() {
+                    examFindingsTextarea.value = '';
+                    fullText = '';
+                    currentStash = '';
+                    sentenceCountVal = 0;
+                    sentenceCountEl.textContent = '0';
+                    updateWordCount();
+                    clearDraft();
+                }
+
+                function hasPendingContent() {
+                    return examFindingsTextarea.value.trim().length > 0;
+                }
+
+                // ---- 重新编辑 ----
+                async function startEdit(record) {
+                    if (hasPendingContent()) {
+                        const confirmed = await showConfirmDialog(
+                            '清空当前内容',
+                            `当前有未提交的内容（检查所见），确认清空并加载患者【${record.patient_name || '未知患者'}】的记录继续重新编辑吗？`
+                        );
+                        if (!confirmed) return;
+                        clearEditArea();
+                    }
+                    beforeEditFullText = fullText;
+                    beforeEditExamFindings = examFindingsTextarea.value;
+
+                    isEditMode = true;
+                    editingRecordId = record.id;
+                    editingRecordData = record;
+
+                    const patientData = {
+                        patient_name: record.patient_name || '-',
+                        patient_sex: record.patient_sex || '-',
+                        patient_age: record.patient_age || '-',
+                        dept_name: record.dept_name || '-',
+                        zhuyuanhao: record.zhuyuanhao || '',
+                        check_items_list: [{
+                            check_item: record.check_items || '-',
+                            yizhuid: record.yizhuid || '',
+                            kaishisj: record.submit_time || '',
+                            kaizhusj: '',
+                            jianchabzfl: ''
+                        }]
+                    };
+                    currentPatient = patientData;
+                    displayPatientInfo(patientData);
+                    if (patientData.check_items_list.length === 1) {
+                        selectedCheckItem = patientData.check_items_list[0].check_item;
+                        selectedYizhuid = patientData.check_items_list[0].yizhuid;
+                        highlightCheckItem(selectedCheckItem);
+                    }
+                    const patientInfo = record.patient_info || '';
+                    examFindingsTextarea.value = patientInfo;
+                    fullText = patientInfo;
+                    currentStash = '';
+                    sentenceCountVal = patientInfo.split(/[。！？\n]/).filter(s => s.trim().length > 0).length;
+                    sentenceCountEl.textContent = sentenceCountVal;
+                    updateWordCount();
+                    saveDraft();
+                    zhuyuanhaoInput.value = record.zhuyuanhao || '';
+                    submitBtn.textContent = '🔄 重新提交';
+                    submitBtn.disabled = false;
+                    editModeBadge.classList.add('show');
+                    queryBtn.textContent = '🔍 查询';
+                    showToastPacs(`已加载记录 #${record.id} 进入编辑模式`, 'info');
+                }
+
+                async function cancelEdit() {
+                    if (!isEditMode) return;
+                    if (hasPendingContent()) {
+                        const confirmed = await showConfirmDialog('取消编辑', '确定要取消编辑吗？当前修改将丢失。');
+                        if (!confirmed) return;
+                    }
+                    clearEditArea();
+                    patientInfoArea.style.display = 'none';
+                    currentPatient = null;
+                    selectedCheckItem = null;
+                    selectedYizhuid = null;
+                    zhuyuanhaoInput.value = '';
+                    exitEditMode();
+                    showToastPacs('已取消编辑', 'info');
+                }
+
+                function exitEditMode() {
+                    isEditMode = false;
+                    editingRecordId = null;
+                    editingRecordData = null;
+                    submitBtn.textContent = '⚡ 提交';
+                    submitBtn.disabled = true;
+                    editModeBadge.classList.remove('show');
+                    queryBtn.textContent = '🔍 查询';
+                    loadReports(currentPage);
+                }
+
+                // ---- 提交报告 ----
+                async function submitReport() {
+                    if (submitBtn.disabled) return;
+                    // 如果正在录音，先停止
+                    if (isRecording) {
+                        await stopRecording();
+                    }
+                    const examFindings = document.getElementById('examFindings').value.trim();
+                    if (!examFindings) {
+                        showToastPacs('检查所见不能为空', 'warning');
+                        return;
+                    }
+                    const patientTypeSelect = document.getElementById('patientTypeSelect');
+                    const patientType = patientTypeSelect ? patientTypeSelect.value : 'inpatient';
+
+                    if (isEditMode && editingRecordId) {
+                        showLoading(true);
+                        submitBtn.disabled = true;
+                        try {
+                            const updateData = {
+                                patient_info: examFindings,
+                                re_edit: true
+                            };
+                            const resp = await fetch(`${API_BASE}/asr/pacs_ai_report/${editingRecordId}`, {
+                                method: 'PUT',
+                                headers: { 'Content-Type': 'application/json' },
+                                body: JSON.stringify(updateData)
+                            });
+                            if (!resp.ok) throw new Error(`HTTP ${resp.status}: ${resp.statusText}`);
+                            const result = await resp.json();
+                            if (result.success === false) {
+                                throw new Error(result.message || '更新失败');
+                            }
+                            showToastPacs('报告已更新，正在重新生成...', 'success');
+                            clearEditArea();
+                            exitEditMode();
+                            loadReports(currentPage);
+                        } catch (err) {
+                            showToastPacs('重新提交失败：' + err.message, 'error');
+                        } finally {
+                            showLoading(false);
+                            submitBtn.disabled = false;
+                            updateSubmitButton();
+                        }
+                        return;
+                    }
+
+                    // 普通提交
+                    if (!currentPatient) {
+                        showToastPacs('请先查询患者信息', 'warning');
+                        return;
+                    }
+                    if (!selectedCheckItem) {
+                        showToastPacs('请选择一个检查项目', 'warning');
+                        return;
+                    }
+                    const data = {
+                        zhuyuanhao: currentPatient.zhuyuanhao,
+                        patient_name: currentPatient.patient_name,
+                        patient_age: currentPatient.patient_age,
+                        patient_sex: currentPatient.patient_sex,
+                        dept_id: currentPatient.dept_id,
+                        dept_name: currentPatient.dept_name,
+                        yizhiid: currentPatient.yizhiid,
+                        check_items: selectedCheckItem,
+                        yizhuid: selectedYizhuid,
+                        patient_info: examFindings,
+                        patient_type: patientType
+                    };
+                    showLoading(true);
+                    submitBtn.disabled = true;
+                    try {
+                        const resp = await fetch(`${API_BASE}/asr/pacs-submit`, {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify(data)
+                        });
+                        if (!resp.ok) throw new Error(`提交失败 ${resp.status}: ${resp.statusText}`);
+                        const result = await resp.json();
+                        if (result.success === false) {
+                            throw new Error(result.message || '提交失败，请检查数据');
+                        }
+                        showToastPacs('提交成功，报告生成中...', 'success');
+                        document.getElementById('examFindings').value = '';
+                        fullText = '';
+                        currentStash = '';
+                        sentenceCountVal = 0;
+                        sentenceCountEl.textContent = '0';
+                        updateWordCount();
+                        clearDraft();
+                        loadReports(currentPage);
+                        updateSubmitButton();
+                    } catch (err) {
+                        showToastPacs('提交失败：' + err.message, 'error');
+                    } finally {
+                        showLoading(false);
+                        submitBtn.disabled = false;
+                        updateSubmitButton();
+                    }
+                }
+
+                // ---- 历史报告加载 ----
+                async function loadReports(page = 1) {
+                    showLoading(true);
+                    try {
+                        const url = `${API_BASE}/asr/pacs_ai_reports?page=${page}&page_size=${PAGE_SIZE}`;
+                        const resp = await fetch(url);
+                        if (!resp.ok) throw new Error('获取列表失败');
+                        const result = await resp.json();
+                        const data = result.data || [];
+                        const total = result.total || 0;
+                        renderTable(data);
+                        renderPagination(page, total);
+                    } catch (err) {
+                        showToastPacs('加载列表失败：' + err.message, 'error');
+                    } finally { showLoading(false); }
+                }
+
+                function renderTable(data) {
+                    if (!data || data.length === 0) {
+                        reportTableBody.innerHTML = `<tr><td colspan="12" style="text-align:center;color:var(--text-muted);">暂无记录</td></tr>`;
+                        return;
+                    }
+                    window._reportTableData = data;
+                    let html = '';
+                    data.forEach((item, index) => {
+                        const statusText = item.report_status === 1 ?
+                            '报告已生成' :
+                            (item.indicator_status === 1 ?
+                                '报告生成中' :
+                                (item.indicator_status === 0 && item.indicator_data === null ?
+                                    '指标提取中' :
+                                    '指标不完善，请补充'));
+                        const statusClass = item.report_status === 1 ? 'generated' : (item.indicator_status === 1 ? 'processing' : 'pending');
+                        const btnDisabled = item.report_status !== 1;
+                        html += `<tr data-record-id="${item.id}" data-index="${index}">
+                                <td>${item.zhuyuanhao || '-'}</td>
+                                <td>${item.patient_type || '-'}</td>
+                                <td>${item.patient_name || '-'}</td>
+                                <td>${item.patient_sex || '-'}</td>
+                                <td>${item.patient_age || '-'}</td>
+                                <td>${item.check_items || '-'}</td>
+                                <td>${item.submit_time || '-'}</td>
+                                <td><span class="status-badge ${statusClass}">${statusText}</span></td>
+                                <td><button class="btn-detail edit-field" data-index="${index}" data-field="patient_info">✏️ 查看/编辑</button></td>
+                                <td><button class="btn-detail edit-field" data-index="${index}" data-field="indicator_data">✏️ 查看/编辑</button></td>
+                                <td><button class="btn-detail edit-field-text" data-index="${index}" data-field="indicator_data">📝 文本编辑</button></td>
+                                <td>
+                                    <button class="btn-view" data-id="${item.id}" ${btnDisabled ? 'disabled' : ''}>
+                                        ${btnDisabled ? '⏳ 生成中' : '📄 查看报告'}
+                                    </button>
+                                    <button class="btn-reedit" data-id="${item.id}" data-index="${index}" title="重新编辑此报告">✏️ 重新编辑</button>
+                                </td>
+                            </tr>`;
+                    });
+                    reportTableBody.innerHTML = html;
+
+                    reportTableBody.querySelectorAll('.edit-field').forEach(btn => {
+                        btn.addEventListener('click', function(e) {
+                            e.stopPropagation();
+                            const index = parseInt(this.dataset.index);
+                            const field = this.dataset.field;
+                            const record = window._reportTableData[index];
+                            if (!record) { showToastPacs('数据不存在', 'error'); return; }
+                            const content = record[field] || '暂无';
+                            const label = field === 'patient_info' ? '患者信息' : '指标数据';
+                            openModal(`📋 ${label}（可编辑）`, content, true, record.id, field);
+                        });
+                    });
+                    reportTableBody.querySelectorAll('.edit-field-text').forEach(btn => {
+                        btn.addEventListener('click', function(e) {
+                            e.stopPropagation();
+                            const index = parseInt(this.dataset.index);
+                            const record = window._reportTableData[index];
+                            if (!record) { showToastPacs('数据不存在', 'error'); return; }
+                            const content = record.indicator_data || '暂无';
+                            openModal('📋 指标数据（文本编辑）', content, true, record.id, 'indicator_data', true);
+                        });
+                    });
+                    reportTableBody.querySelectorAll('.btn-view:not([disabled])').forEach(btn => {
+                        btn.addEventListener('click', function(e) {
+                            e.stopPropagation();
+                            const id = this.dataset.id;
+                            viewReport(id);
+                        });
+                    });
+                    reportTableBody.querySelectorAll('.btn-reedit').forEach(btn => {
+                        btn.addEventListener('click', function(e) {
+                            e.stopPropagation();
+                            const index = parseInt(this.dataset.index);
+                            const record = window._reportTableData[index];
+                            if (!record) { showToastPacs('数据不存在', 'error'); return; }
+                            startEdit(record);
+                        });
+                    });
+                    reportTableBody.querySelectorAll('tr[data-record-id]').forEach(row => {
+                        row.addEventListener('dblclick', async function(e) {
+                            if (e.target.closest('button')) return;
+                            const recordId = this.dataset.recordId;
+                            const index = parseInt(this.dataset.index);
+                            const record = window._reportTableData[index];
+                            if (!record) return;
+                            const confirmed = await showConfirmDialog(
+                                '重新编辑记录',
+                                `确认重新编辑 #${recordId} 患者【${record.patient_name || '未知患者'}】的记录吗？\n当前页面未提交的内容将被清空。`
+                            );
+                            if (confirmed) {
+                                startEdit(record);
+                            }
+                        });
+                        row.addEventListener('mouseenter', function() { this.classList.add('reedit-hover'); });
+                        row.addEventListener('mouseleave', function() { this.classList.remove('reedit-hover'); });
+                    });
+                }
+
+                function renderPagination(current, total) {
+                    const totalPages = Math.ceil(total / PAGE_SIZE);
+                    if (totalPages <= 1) { paginationControls.innerHTML = ''; return; }
+                    let html = '';
+                    html += `<button ${current <= 1 ? 'disabled' : ''} data-page="${current-1}">◀</button>`;
+                    for (let i = 1; i <= totalPages; i++) {
+                        html += `<button class="${i === current ? 'active' : ''}" data-page="${i}">${i}</button>`;
+                    }
+                    html += `<button ${current >= totalPages ? 'disabled' : ''} data-page="${current+1}">▶</button>`;
+                    paginationControls.innerHTML = html;
+                    paginationControls.querySelectorAll('button[data-page]').forEach(btn => {
+                        btn.addEventListener('click', function() {
+                            const page = parseInt(this.dataset.page);
+                            if (!isNaN(page) && page >= 1 && page <= totalPages) {
+                                currentPage = page;
+                                loadReports(page);
+                            }
+                        });
+                    });
+                }
+
+                async function viewReport(reportId) {
+                    showLoading(true);
+                    try {
+                        const resp = await fetch(`${API_BASE}/asr/pacs_ai_report/${reportId}`);
+                        if (!resp.ok) throw new Error('获取报告失败');
+                        const data = await resp.json();
+                        let content = '暂无报告内容';
+                        if (data.report) {
+                            if (typeof data.report === 'string') content = data.report;
+                            else if (data.report.ai_report) content = data.report.ai_report;
+                            else if (data.report.report) content = data.report.report;
+                            else if (data.report.content) content = data.report.content;
+                            else content = JSON.stringify(data.report, null, 2);
+                        } else if (data.ai_report) {
+                            content = data.ai_report;
+                        } else if (data.content) {
+                            content = data.content;
+                        } else {
+                            content = JSON.stringify(data, null, 2);
+                        }
+                        openModal('📄 报告详情', content, false);
+                    } catch (err) {
+                        showToastPacs('查看报告失败：' + err.message, 'error');
+                    } finally { showLoading(false); }
+                }
+
+                // ---- 历史折叠 ----
+                const historyToggle = document.getElementById('historyToggle');
+                const historyContent = document.getElementById('historyContent');
+                const toggleIcon = document.getElementById('toggleIcon');
+                // 默认折叠
+                let historyOpen = localStorage.getItem('historyOpen') === 'true';
+                if (historyOpen) {
+                    historyContent.style.display = 'block';
+                    toggleIcon.textContent = '▼';
+                } else {
+                    historyContent.style.display = 'none';
+                    toggleIcon.textContent = '▶';
+                }
+                historyToggle.addEventListener('click', function() {
+                    const isOpen = historyContent.style.display !== 'none';
+                    if (isOpen) {
+                        historyContent.style.display = 'none';
+                        toggleIcon.textContent = '▶';
+                        localStorage.setItem('historyOpen', 'false');
+                    } else {
+                        historyContent.style.display = 'block';
+                        toggleIcon.textContent = '▼';
+                        localStorage.setItem('historyOpen', 'true');
+                    }
+                });
+
+                // ---- 事件绑定 ----
+                queryBtn.addEventListener('click', queryPatient);
+                zhuyuanhaoInput.addEventListener('keydown', (e) => { if (e.key === 'Enter') queryPatient(); });
+                submitBtn.addEventListener('click', submitReport);
+                refreshListBtn.addEventListener('click', () => loadReports(currentPage));
+                document.getElementById('examFindings').addEventListener('input', updateSubmitButton);
+                cancelEditBtn.addEventListener('click', cancelEdit);
+
+                // ---- 初始化 ----
+                loadReports(1);
+                submitBtn.disabled = true;
+                console.log('报告模块初始化完成');
+            })();
+        })();
+    </script>
+</body>
+</html>
