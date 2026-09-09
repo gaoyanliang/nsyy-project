@@ -336,6 +336,71 @@ def call_query_sqlserver(sql: str) -> List[Dict]:
     return []
 
 
+def call_tijian_query(sql: str):
+    if global_config.run_in_local:
+        import pymssql
+        try:
+            # 使用 freetds.conf 中定义的 server38
+            conn = pymssql.connect(server='server38', user='sa', password='nstj@2014',
+                                   database='tj_xlms', autocommit=True, charset='UTF-8')
+            cursor = conn.cursor()
+            cursor.execute(sql)
+
+            columns = [col[0] for col in cursor.description] if cursor.description else []
+            rows = cursor.fetchall()
+            result = [dict(zip(columns, row)) for row in rows]
+            conn.close()
+            return result
+        except pymssql.Error as e:
+            logger.error(f"SQL Server 查询错误: {e}")
+            return []
+        finally:
+            if conn:
+                conn.close()
+            if cursor:
+                cursor.close()
+    else:
+        # 连接信息
+        SERVER = '192.168.3.38,1433'
+        USERNAME = 'sa'
+        PASSWORD = 'nstj@2014'
+        DATABASE = 'tj_xlms'
+
+        # 创建连接字符串
+        conn_str = (
+            "DRIVER={ODBC Driver 17 for SQL Server};"
+            f"SERVER={SERVER};"
+            f"UID={USERNAME};"
+            f"PWD={PASSWORD};"
+            f'DATABASE={DATABASE};'
+            "TrustServerCertificate=yes;"
+            "Connection Timeout=30;"
+        )
+
+        import pyodbc
+        try:
+            with pyodbc.connect(conn_str, autocommit=True) as conn:
+                cursor = conn.cursor()
+
+                cursor.execute("""SET NOCOUNT ON; SET ARITHABORT ON;""")
+                cursor.execute(sql)
+
+                # 跳过没有结果集的 batch
+                while cursor.description is None:
+                    if not cursor.nextset():
+                        break
+
+                columns = [c[0] for c in cursor.description]
+                rows = cursor.fetchall()
+
+                result = [dict(zip(columns, row)) for row in rows]
+                return result
+        except pyodbc.Error as e:
+            logger.error(f"SQL Server 查询错误: {e}")
+        return []
+
+
+
 def start_thread(funct, args=None, tl=None):
     """
     start a thread
