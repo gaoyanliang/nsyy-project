@@ -338,78 +338,6 @@
             audioChunks = [];
             mediaRecorder.ondataavailable = (e) => { if (e.data.size > 0) audioChunks.push(e.data); };
             mediaRecorder.onstop = () => {
-                // ... 保存逻辑不变 ...
-            };
-            mediaRecorder.start();
-
-            audioContext = new (window.AudioContext || window.webkitAudioContext)({ sampleRate: SAMPLE_RATE });
-            const audioSource = audioContext.createMediaStreamSource(mediaStream);
-            const audioProcessor = audioContext.createScriptProcessor(CHUNK_SIZE, 1, 1);
-            audioSource.connect(audioProcessor);
-            audioProcessor.connect(audioContext.destination);
-
-            audioProcessor.onaudioprocess = (e) => {
-                if (!isRecording || !isConnected) return;
-                const inputData = e.inputBuffer.getChannelData(0);
-                const pcmData = float32ToInt16(inputData);
-                const base64Data = arrayBufferToBase64(pcmData);
-                if (ws && ws.readyState === WebSocket.OPEN) {
-                    ws.send(JSON.stringify({ type: 'audio', data: base64Data }));
-                }
-            };
-            processor = audioProcessor;
-            source = audioSource;
-            console.log('🎤 开始录音');
-            startTimer();
-            heartbeatInterval = setInterval(() => {
-                if (ws && ws.readyState === WebSocket.OPEN) {
-                    ws.send(JSON.stringify({ type: 'ping' }));
-                }
-            }, 15000);
-        } catch (err) {
-            console.error('启动录音失败:', err);
-            showError('麦克风启动失败: ' + err.message);
-            startBtn.disabled = false;
-            stopBtn.disabled = true;
-            setRecordingUI(false);
-            isRecording = false;
-        }
-    }
-
-    async function startRecording1() {
-        console.log('[DEBUG] startRecording called');
-        if (isRecording) {
-            console.log('[DEBUG] Already recording, return');
-            return;
-        }
-        const isWsAlive = isConnected && ws && ws.readyState === WebSocket.OPEN;
-        if (!isWsAlive) {
-            console.log('[DEBUG] WebSocket not alive, reconnecting...');
-            if (ws) { try { ws.close(); } catch (e) {} ws = null; }
-            isConnected = false;
-            setConnectionStatus('disconnected');
-            await connect();
-            let waitCount = 0;
-            while (!isConnected && waitCount < 30) {
-                await new Promise(resolve => setTimeout(resolve, 100));
-                waitCount++;
-            }
-            if (!isConnected) {
-                showToast('❌ 无法连接语音服务，请稍后重试', 'error');
-                console.log('[DEBUG] WebSocket connection failed');
-                return;
-            }
-        }
-        try {
-            console.log('[DEBUG] Requesting getUserMedia...');
-            mediaStream = await navigator.mediaDevices.getUserMedia({
-                audio: { sampleRate: SAMPLE_RATE, channelCount: 1, echoCancellation: true, noiseSuppression: true }
-            });
-            console.log('[DEBUG] getUserMedia success, stream:', mediaStream);
-            mediaRecorder = new MediaRecorder(mediaStream);
-            audioChunks = [];
-            mediaRecorder.ondataavailable = (e) => { if (e.data.size > 0) audioChunks.push(e.data); };
-            mediaRecorder.onstop = () => {
                 const blob = new Blob(audioChunks, { type: 'audio/webm' });
                 const url = URL.createObjectURL(blob);
                 const a = document.createElement('a');
@@ -433,13 +361,6 @@
             const audioProcessor = audioContext.createScriptProcessor(CHUNK_SIZE, 1, 1);
             audioSource.connect(audioProcessor);
             audioProcessor.connect(audioContext.destination);
-
-            isRecording = true;
-            startBtn.disabled = true;
-            stopBtn.disabled = false;
-            setRecordingUI(true);
-            voiceStatusBadge.className = 'header-badge recording';
-            voiceStatusBadge.innerHTML = '<span class="dot"></span> 录音中';
 
             audioProcessor.onaudioprocess = (e) => {
                 if (!isRecording || !isConnected) return;
@@ -1402,42 +1323,175 @@
             pAge.textContent = data.patient_age || '-';
             pDept.textContent = data.dept_name || '-';
             patientInfoArea.style.display = 'block';
+
             const items = data.check_items_list || [];
             checkItemsContainer.innerHTML = '';
             if (items.length === 0) {
                 checkItemsContainer.innerHTML = '<span style="color:var(--text-muted);">无检查项目</span>';
                 return;
             }
+
             items.forEach(item => {
-                const div = document.createElement('div');
-                div.className = 'check-item-wrapper';
-                div.innerHTML = `
-                    <div class="item-name">${escapeHtml(item.check_item)}  -  ${escapeHtml(item.kaishisj)}</div>
+                const wrapper = document.createElement('div');
+                wrapper.className = 'check-item-wrapper';
+                const isDone = item.status === 1;
+                const reportId = item.report_id; // 可能为 null/undefined/0
+                const isManual = isDone && (reportId === 0 || reportId === null || reportId === undefined);
+                const isAI = isDone && !isManual;
+
+                if (isDone) wrapper.classList.add('done');
+
+                // 状态徽章
+                let statusBadge;
+                if (isDone) {
+                    if (isManual) {
+                        // 人工报告：橙色
+                        statusBadge = `<span style="background:#fef3c7;color:#c0792b;padding:2px 8px;border-radius:12px;font-size:0.65rem;">已做 (人工报告)</span>`;
+                    } else {
+                        // AI 报告：绿色
+                        statusBadge = `<span style="background:#e6f4ec;color:#2d8a56;padding:2px 8px;border-radius:12px;font-size:0.65rem;">✅ 已做 (AI报告)</span>`;
+                    }
+                } else {
+                    // 未做：橙色
+                    statusBadge = '<span style="background:#fef3c7;color:#c0792b;padding:2px 8px;border-radius:12px;font-size:0.65rem;">⏳ 未做</span>';
+                }
+
+                // 重新编辑按钮（仅已做时显示）
+                let reeditHtml = '';
+                if (isAI) {
+                    const btnLabel = '✏️ 重新编辑';
+                    reeditHtml = `<div style="margin-top:4px;"><button class="btn btn-sm btn-reedit" style="font-size:0.65rem; padding:2px 8px;">${btnLabel}</button></div>`;
+                }
+
+                wrapper.innerHTML = `
+                    <div class="item-name" style="display:flex; justify-content:space-between; align-items:center;">
+                        <span>${escapeHtml(item.check_item)}  -  ${escapeHtml(item.kaishisj)}</span>
+                        ${statusBadge}
+                    </div>
                     <div class="item-meta">
                         <span>医嘱ID: ${escapeHtml(item.yizhuid)}</span>
                         <span>开嘱: ${escapeHtml(item.kaizhusj)}</span>
                         <span>开始: ${escapeHtml(item.kaishisj)}</span>
                         <span>类型: ${escapeHtml(item.jianchabzfl)}</span>
                     </div>
+                    ${reeditHtml}
                 `;
-                div.dataset.value = item.check_item;
-                div.dataset.yizhuid = item.yizhuid;
-                div.addEventListener('click', function() {
-                    if (this.classList.contains('disabled')) return;
+
+                // 存储数据到 dataset
+                wrapper.dataset.value = item.check_item;
+                wrapper.dataset.yizhuid = item.yizhuid;
+                wrapper.dataset.status = item.status;
+                wrapper.dataset.reportId = reportId;
+                wrapper.dataset.isManual = isManual;
+                wrapper.dataset.patientInfo = item.patient_info || null;
+
+                // ----- 点击事件（修改此处） -----
+                wrapper.addEventListener('click', function(e) {
+                    if (e.target.closest('button')) return; // 按钮事件单独处理
+
+                    if (this.dataset.status == 1) {
+                        // 已做：判断是否为 AI 报告（reportId > 0）
+                        const reportIdVal = parseInt(this.dataset.reportId);
+                        if (reportIdVal > 0) {
+                            // AI 报告：加载报告进入编辑
+                            loadReportForEdit(
+                                this.dataset.reportId,
+                                this.dataset.patientInfo,
+                                this.dataset.yizhuid,
+                                this.dataset.value,
+                                this.dataset.isManual === 'true'
+                            );
+                            return;
+                        } else {
+                            // 人工报告（reportId == 0 或 null）：行为同未做，只选中，启用提交
+                            // 不进入编辑，只选中
+                        }
+                    }
+
+                    // 未做 或 人工报告：选中，启用提交
                     document.querySelectorAll('.check-item-wrapper').forEach(el => el.classList.remove('selected'));
                     this.classList.add('selected');
                     selectedCheckItem = this.dataset.value;
                     selectedYizhuid = this.dataset.yizhuid;
                     updateSubmitButton();
                 });
-                checkItemsContainer.appendChild(div);
+
+                // 重新编辑按钮事件（保持不变，点击后进入编辑模式）
+                const reeditBtn = wrapper.querySelector('.btn-reedit');
+                if (reeditBtn) {
+                    reeditBtn.addEventListener('click', function(e) {
+                        e.stopPropagation();
+                        const parent = this.closest('.check-item-wrapper');
+                        loadReportForEdit(
+                            parent.dataset.reportId,
+                            parent.dataset.patientInfo,
+                            parent.dataset.yizhuid,
+                            parent.dataset.value,
+                            parent.dataset.isManual === 'true'
+                        );
+                    });
+                }
+
+                checkItemsContainer.appendChild(wrapper);
             });
-            if (items.length === 1) {
+
+            // 若只有一个未做项，默认选中（保留原逻辑）
+            if (items.length === 1 && items[0].status === 0) {
                 const first = checkItemsContainer.querySelector('.check-item-wrapper');
-                if (first) { first.classList.add('selected');
+                if (first) {
+                    first.classList.add('selected');
                     selectedCheckItem = first.dataset.value;
-                    selectedYizhuid = first.dataset.yizhuid; }
+                    selectedYizhuid = first.dataset.yizhuid;
+                    updateSubmitButton();
+                }
             }
+        }
+
+        async function loadReportForEdit(reportId, patientInfo, yizhuid, checkItem) {
+            // 从 currentPatient 获取患者基本信息
+            if (!currentPatient) {
+                showToastPacs('患者信息缺失', 'error');
+                return;
+            }
+
+            // 构造 record 对象
+            let record = {
+                id: reportId,
+                patient_name: currentPatient.patient_name || '-',
+                patient_sex: currentPatient.patient_sex || '-',
+                patient_age: currentPatient.patient_age || '-',
+                dept_name: currentPatient.dept_name || '-',
+                zhuyuanhao: currentPatient.zhuyuanhao || '',
+                check_items: checkItem,
+                yizhuid: yizhuid,
+                submit_time: new Date().toLocaleString(), // 或从后端获取
+                patient_info: patientInfo || ''  // 如果已有内容则直接使用
+            };
+
+            // 如果 patientInfo 为空，则通过 reportId 获取
+            if (!record.patient_info && reportId) {
+                showLoading(true);
+                try {
+                    const resp = await fetch(`${API_BASE}/asr/pacs_ai_report/${reportId}`);
+                    if (!resp.ok) throw new Error('获取报告失败');
+                    const data = await resp.json();
+                    // 提取报告内容，与 viewReport 中类似
+                    let content = data.patient_info || data.report?.patient_info || '';
+                    if (!content) {
+                        content = data.report?.ai_report || data.report?.report || data.report?.content || '';
+                    }
+                    record.patient_info = content;
+                } catch (err) {
+                    showToastPacs('加载报告失败：' + err.message, 'error');
+                    showLoading(false);
+                    return;
+                } finally {
+                    showLoading(false);
+                }
+            }
+
+            // 调用 startEdit（它会处理确认对话框和编辑模式设置）
+            startEdit(record);
         }
 
         function highlightCheckItem(item) {
@@ -1555,13 +1609,24 @@
             loadReports(currentPage);
         }
 
+        function resetPatientInfo() {
+            // 隐藏患者信息区域
+            patientInfoArea.style.display = 'none';
+            // 清空状态变量
+            currentPatient = null;
+            selectedCheckItem = null;
+            selectedYizhuid = null;
+            // 清除所有检查项的选中状态
+            document.querySelectorAll('.check-item-wrapper').forEach(el => el.classList.remove('selected'));
+            // 更新提交按钮状态（禁用）
+            updateSubmitButton();
+            // 清空住院号输入框（可选，如果希望一并清空）
+            // zhuyuanhaoInput.value = '';
+        }
 
         // ---- 提交报告 ----
         async function submitReport() {
             if (submitBtn.disabled) return;
-            //if (isRecording) {
-            //    await stopRecording();
-            //}
             if (window.isRecording && window.isRecording()) {
                 await window.stopRecording();
             }
@@ -1600,7 +1665,7 @@
                 } finally {
                     showLoading(false);
                     submitBtn.disabled = false;
-                    updateSubmitButton();
+                    resetPatientInfo();
                 }
                 return;
             }
@@ -1616,9 +1681,9 @@
             const data = {
                 zhuyuanhao: currentPatient.zhuyuanhao,
                 patient_name: currentPatient.patient_name,
-                patient_age: currentPatient.patient_age,
+                patient_age: String(currentPatient.patient_age),
                 patient_sex: currentPatient.patient_sex,
-                dept_id: currentPatient.dept_id,
+                dept_id: String(currentPatient.dept_id),
                 dept_name: currentPatient.dept_name,
                 yizhiid: currentPatient.yizhiid,
                 check_items: selectedCheckItem,
@@ -1654,7 +1719,8 @@
             } finally {
                 showLoading(false);
                 submitBtn.disabled = false;
-                updateSubmitButton();
+
+                resetPatientInfo();
             }
         }
 

@@ -10,7 +10,7 @@ import json
 import logging
 import websockets
 
-from gylmodules import global_config
+from gylmodules import global_config, global_tools
 from gylmodules.utils.db_utils_new import DbUtil
 from outpatient_queue import ai_tool
 from outpatient_queue.database import DatabaseManager
@@ -23,7 +23,7 @@ logger = logging.getLogger(__name__)
 # ====================== 统一添加 /mz 前缀（使用 APIRouter） ======================
 mz_router = APIRouter(prefix="/mz")
 
-db = DatabaseManager()
+db_manager = DatabaseManager()
 
 # 自定义JSON编码器处理datetime
 class DateTimeEncoder(json.JSONEncoder):
@@ -48,7 +48,7 @@ async def get_business_types():
 """获取窗口列表"""
 @mz_router.get("/windows")
 async def get_windows():
-    data = db.get_windows_list()
+    data = db_manager.get_windows_list()
     data = {item.get('id'): item for item in data}
     return data
 
@@ -56,7 +56,7 @@ async def get_windows():
 """获取窗口信息"""
 @mz_router.get("/windows/{window_id}")
 async def get_window_info(window_id: int):
-    windows = db.get_windows_list()
+    windows = db_manager.get_windows_list()
     for window in windows:
         if window['id'] == window_id:
             return window
@@ -68,16 +68,16 @@ async def get_window_info(window_id: int):
 async def take_number(request: TakeNumberRequest):
     try:
         # 添加患者信息
-        db.add_patient( request.patient_id, request.patient_name,
-            request.id_card, request.phone)
+        db_manager.add_patient(request.patient_id, request.patient_name,
+                               request.id_card, request.phone)
 
         # 生成排队号
-        queue_number = db.generate_queue_number(request.business_id)
+        queue_number = db_manager.generate_queue_number(request.business_id)
         business_name = BUSINESS_TYPES[request.business_id]['name']
         business_type = BUSINESS_TYPES[request.business_id]['type']
 
         # 添加到排队记录
-        success = db.add_queue_record(
+        success = db_manager.add_queue_record(
             queue_number, f"{datetime.today().strftime('%Y%m%d')}",
             request.patient_id, request.patient_name, request.business_id, business_type, business_name
         )
@@ -93,7 +93,7 @@ async def take_number(request: TakeNumberRequest):
                     'business_id': request.business_id,
                     'business_type': business_type,
                     'business_name': business_name,
-                    'waiting_count': db.get_waiting_count(request.business_id)
+                    'waiting_count': db_manager.get_waiting_count(request.business_id)
                 }
             })
 
@@ -103,7 +103,7 @@ async def take_number(request: TakeNumberRequest):
                 'business_id': request.business_id,
                 'business_type': business_type,
                 'business_name': business_name,
-                'waiting_count': db.get_waiting_count(request.business_id),
+                'waiting_count': db_manager.get_waiting_count(request.business_id),
             }
         else:
             raise HTTPException(status_code=500, detail="取号失败")
@@ -130,7 +130,7 @@ round( coalesce(mf.jiesuanje*coalesce(mf.chufangts,1),gy.danjia*coalesce(mc.chuf
         where zj.jiuzhenrq::date=current_date and gb.shenfenzh = '{patient_id}'
             """
 
-    medicines = db.pg_query(sql)
+    medicines = db_manager.pg_query(sql)
     return {'medicines': medicines}
 
 
@@ -150,14 +150,14 @@ async def get_patient_info(patient_id: str):
                 extract(month from age(current_date, gb.chushengrq))::int as months,
                 extract(day from age(current_date, gb.chushengrq))::int as days
         ) a where gb.shenfenzh = '{patient_id}' or gb.jiuzhenkh = '{patient_id}'"""
-    patients_info = db.pg_query(sql)
+    patients_info = db_manager.pg_query(sql)
     return patients_info[0] if patients_info else {}
 
 
 """药品缴费"""
 @mz_router.post("/api/pay-medicine/{medicine_id}")
 async def pay_medicine(medicine_id: int):
-    success = db.update_medicine_payment(medicine_id)
+    success = db_manager.update_medicine_payment(medicine_id)
     if success:
         return {'success': True, 'message': '缴费成功'}
     else:
@@ -167,8 +167,8 @@ async def pay_medicine(medicine_id: int):
 """获取所有业务排队状态"""
 @mz_router.get("/api/queue/status")
 async def get_queue_status():
-    status = db.get_all_business_status()
-    current_calls = db.get_current_calls()
+    status = db_manager.get_all_business_status()
+    current_calls = db_manager.get_current_calls()
 
     # 转换datetime为字符串
     for call in current_calls:
@@ -193,16 +193,16 @@ async def get_queue_status():
     return {
         'business_status': status,
         'current_calls': current_calls,
-        'total_waiting': db.get_waiting_count(),
-        'avg_wait_time': db.get_avg_wait_time(),
-        'today_total': db.get_today_total()
+        'total_waiting': db_manager.get_waiting_count(),
+        'avg_wait_time': db_manager.get_avg_wait_time(),
+        'today_total': db_manager.get_today_total()
     }
 
 
 """ 根据患者id 和业务id 判断患者当天是否重复取号"""
 @mz_router.get("/api/is-repeat/{patient_id}/{business_id}")
 async def is_repeat_queue(patient_id: str, business_id: str):
-    record = db.is_repeat_queue(patient_id, business_id)
+    record = db_manager.is_repeat_queue(patient_id, business_id)
     if record:
         return {'is_repeat': True, 'message': '当日已取号', 'queue_number': record.get('queue_number'),
                 'queue_time': record.get('create_time'), 'business_name': record.get('business_name')}
@@ -213,7 +213,7 @@ async def is_repeat_queue(patient_id: str, business_id: str):
 """获取过号状态"""
 @mz_router.get("/api/queue/overdue")
 async def get_queue_overdue(business_type: Optional[str] = None, window_id: Optional[str] = None):
-    overdue_queues = db.get_overdue_list(business_type, window_id)
+    overdue_queues = db_manager.get_overdue_list(business_type, window_id)
 
     # 转换datetime为字符串
     for call in overdue_queues:
@@ -248,10 +248,10 @@ async def get_queue_list(business_id: Optional[str] = None, window_id: Optional[
     if business_id:
         business_ids = [str(business_id)]
     if window_id:
-        window_info = db.get_window_info(int(window_id))
+        window_info = db_manager.get_window_info(int(window_id))
         business_ids = window_info['business_sort'].split(',')
 
-    queues = db.get_queue_list(business_ids, status)
+    queues = db_manager.get_queue_list(business_ids, status)
 
     # 转换datetime为字符串
     for queue in queues:
@@ -272,10 +272,10 @@ async def get_queue_list(business_id: Optional[str] = None, window_id: Optional[
 """获取排队列表"""
 @mz_router.get("/api/queue/history/{window_id}")
 async def get_history_list(window_id: int):
-    window = db.get_window_info(window_id)
+    window = db_manager.get_window_info(window_id)
     if not window:
         raise HTTPException(status_code=404, detail="窗口不存在")
-    queues = db.get_history_list(window_id)
+    queues = db_manager.get_history_list(window_id)
 
     # 转换datetime为字符串
     for queue in queues:
@@ -304,7 +304,7 @@ async def get_history_list(window_id: int):
 @mz_router.post("/api/tts_call")
 async def call_patient(request: CallRequest):
     # 可以校验窗口是否存在，或直接推送
-    window = db.get_window_info(request.window_id)
+    window = db_manager.get_window_info(request.window_id)
     if not window:
         raise HTTPException(status_code=404, detail="窗口不存在")
     message = {
@@ -326,7 +326,7 @@ async def call_patient(request: CallRequest):
 @mz_router.post("/api/call")
 async def call_queue(request: CallRequest):
     # 获取窗口信息
-    window = db.get_window_info(request.window_id)
+    window = db_manager.get_window_info(request.window_id)
     if not window:
         raise HTTPException(status_code=404, detail="窗口不存在")
 
@@ -351,12 +351,12 @@ async def call_queue(request: CallRequest):
         }
 
     # 获取下一个排队
-    next_queue = db.get_next_queue(request.business_type, window['business_sort'])
+    next_queue = db_manager.get_next_queue(request.business_type, window['business_sort'])
     if not next_queue:
         return {'success': False, 'message': '没有等待的患者'}
 
     # 叫号
-    success = db.call_queue(next_queue['queue_number'], request.window_id, window['window_name'])
+    success = db_manager.call_queue(next_queue['queue_number'], request.window_id, window['window_name'])
 
     if success:
         # 转换datetime
@@ -395,7 +395,7 @@ async def call_queue(request: CallRequest):
 """完成服务"""
 @mz_router.post("/api/complete")
 async def complete_service(request: CompleteRequest):
-    success = db.complete_queue(request.queue_number)
+    success = db_manager.complete_queue(request.queue_number)
 
     if success:
         await manager.broadcast_all({
@@ -413,7 +413,7 @@ async def complete_service(request: CompleteRequest):
 """取药完成"""
 @mz_router.post("/api/medicine/complete")
 async def medicine_complete(request: CompleteRequest):
-    success = db.medicine_complete(request.queue_number, request.status)
+    success = db_manager.medicine_complete(request.queue_number, request.status)
 
     if success:
         await manager.broadcast_all({
@@ -432,7 +432,7 @@ async def medicine_complete(request: CompleteRequest):
 """跳过/过号"""
 @mz_router.post("/api/skip")
 async def skip_queue(request: SkipRequest):
-    success = db.skip_queue(request.queue_number, request.reason)
+    success = db_manager.skip_queue(request.queue_number, request.reason)
 
     if success:
         await manager.broadcast_all({
@@ -450,7 +450,7 @@ async def skip_queue(request: SkipRequest):
 """唤醒"""
 @mz_router.post("/api/wakeup")
 async def wake_up(request: WakeUpRequest):
-    success = db.wake_up(request.patient_id, request.queue_number, request.business_type)
+    success = db_manager.wake_up(request.patient_id, request.queue_number, request.business_type)
 
     if success:
         await manager.send_to_window(request.window_id, {
@@ -466,7 +466,7 @@ async def wake_up(request: WakeUpRequest):
 async def reactivate_patient_queue(patient_id: str, business_id: str):
     try:
         # 查找该患者是否有过号的排队记录（状态为skipped）
-        skipped_queue = db.get_patient_skipped_record(patient_id, business_id)
+        skipped_queue = db_manager.get_patient_skipped_record(patient_id, business_id)
         if not skipped_queue:
             return {
                 'success': False,
@@ -477,7 +477,7 @@ async def reactivate_patient_queue(patient_id: str, business_id: str):
         # 重新激活，顺延到当前队列末尾
         # success = db.reactivate_queue(skipped_queue['queue_number'])
 
-        new_queue_number = db.reactivate_queue_defer(
+        new_queue_number = db_manager.reactivate_queue_defer(
             old_queue_number=skipped_queue['queue_number'],
             patient_id=patient_id,
             patient_name=skipped_queue['patient_name'],
@@ -486,9 +486,9 @@ async def reactivate_patient_queue(patient_id: str, business_id: str):
 
         if new_queue_number:
             # 获取更新后的等待人数
-            waiting_count = db.get_waiting_count(skipped_queue['business_id'])
-            avg_wait_time = db.get_avg_wait_time(skipped_queue['business_id'])
-            today_total = db.get_today_total(skipped_queue['business_id'])
+            waiting_count = db_manager.get_waiting_count(skipped_queue['business_id'])
+            avg_wait_time = db_manager.get_avg_wait_time(skipped_queue['business_id'])
+            today_total = db_manager.get_today_total(skipped_queue['business_id'])
 
             # 广播队列更新
             await manager.broadcast_all({
@@ -530,7 +530,7 @@ async def reactivate_patient_queue(patient_id: str, business_id: str):
 @mz_router.get("/api/patient/{patient_id}/{business_id}/check-skipped")
 async def check_patient_skipped(patient_id: str, business_id: str):
     try:
-        skipped_queue = db.get_patient_skipped_record(patient_id, business_id)
+        skipped_queue = db_manager.get_patient_skipped_record(patient_id, business_id)
         if skipped_queue:
             # 转换datetime
             if 'create_time' in skipped_queue and skipped_queue['create_time']:
@@ -561,8 +561,8 @@ async def websocket_display(websocket: WebSocket):
     await manager.connect_display(websocket)
     try:
         # 发送初始数据
-        status = db.get_all_business_status()
-        current_calls = db.get_current_calls()
+        status = db_manager.get_all_business_status()
+        current_calls = db_manager.get_current_calls()
 
         # 转换datetime为字符串
         for call in current_calls:
@@ -575,7 +575,7 @@ async def websocket_display(websocket: WebSocket):
                     call['create_time'], datetime) else call['create_time']
 
         # 获取所有等待队列
-        waiting_queues = db.get_queue_list(status='waiting')
+        waiting_queues = db_manager.get_queue_list(status='waiting')
         for queue in waiting_queues:
             if 'create_time' in queue and queue['create_time']:
                 queue['create_time'] = queue['create_time'].strftime("%Y-%m-%d %H:%M:%S") if isinstance(
@@ -587,9 +587,9 @@ async def websocket_display(websocket: WebSocket):
                 'business_status': status,
                 'current_calls': current_calls,
                 'waiting_queues': waiting_queues,
-                'total_waiting': db.get_waiting_count(),
-                'avg_wait_time': db.get_avg_wait_time(),
-                'today_total': db.get_today_total()
+                'total_waiting': db_manager.get_waiting_count(),
+                'avg_wait_time': db_manager.get_avg_wait_time(),
+                'today_total': db_manager.get_today_total()
             }
         }
 
@@ -602,8 +602,8 @@ async def websocket_display(websocket: WebSocket):
                 await websocket.send_text('pong')
             elif data == 'get_status':
                 # 客户端请求最新状态
-                status = db.get_all_business_status()
-                current_calls = db.get_current_calls()
+                status = db_manager.get_all_business_status()
+                current_calls = db_manager.get_current_calls()
                 for call in current_calls:
                     if 'call_time' in call and call['call_time']:
                         call['call_time'] = call['call_time'].strftime("%Y-%m-%d %H:%M:%S") if isinstance(
@@ -614,9 +614,9 @@ async def websocket_display(websocket: WebSocket):
                     'data': {
                         'business_status': status,
                         'current_calls': current_calls,
-                        'total_waiting': db.get_waiting_count(),
-                        'avg_wait_time': db.get_avg_wait_time(),
-                        'today_total': db.get_today_total()
+                        'total_waiting': db_manager.get_waiting_count(),
+                        'avg_wait_time': db_manager.get_avg_wait_time(),
+                        'today_total': db_manager.get_today_total()
                     }
                 }, cls=DateTimeEncoder))
 
@@ -637,10 +637,10 @@ async def websocket_window(websocket: WebSocket, window_id: int):
 
         # 连接成功后发送当前窗口的叫号状态
         # 获取该窗口正在叫号的患者
-        current_call = db.get_current_window_calls(window_id)
+        current_call = db_manager.get_current_window_calls(window_id)
 
         # 获取窗口信息
-        window_info = db.get_window_info(window_id)
+        window_info = db_manager.get_window_info(window_id)
 
         # 转换datetime
         if current_call:
@@ -676,7 +676,7 @@ async def websocket_window(websocket: WebSocket, window_id: int):
                 await websocket.send_text('pong')
             elif data == 'get_status':
                 # 客户端请求当前窗口状态
-                current_call = db.get_current_window_calls(window_id)
+                current_call = db_manager.get_current_window_calls(window_id)
                 if current_call:
                     if current_call.get('call_time'):
                         current_call['call_time'] = current_call['call_time'].strftime(
@@ -699,7 +699,7 @@ async def websocket_window(websocket: WebSocket, window_id: int):
                     if msg.get('type') == 'get_queue_list':
                         business_id = msg.get('business_id')
                         if business_id:
-                            queues = db.get_queue_list([str(business_id)], 'waiting')
+                            queues = db_manager.get_queue_list([str(business_id)], 'waiting')
                             for queue in queues:
                                 if 'create_time' in queue and queue['create_time']:
                                     queue['create_time'] = queue['create_time'].strftime(
@@ -944,11 +944,12 @@ async def websocket_transcribe(websocket: WebSocket):
 """根据住院号 / 患者类型（住院/门诊）查询患者信息"""
 @mz_router.get("/asr/patient_pacs_info/{zhuyuanhao}/{patient_type}/{check_type}")
 async def patient_pacs_info(zhuyuanhao: str, patient_type: str, check_type: str):
+    patient_type_str = "住院患者"
     if patient_type == "inpatient":
         sql = f"""select zb.bingrenzyid, zb.zhuyuanhao, zb.xingming patient_name, zb.nianling patient_age, 
         zb.xingbiemc patient_sex, yb.yizhuid, yb.kaizhuksmc dept_name, yb.kaizhuksid dept_id, yb.kaizhuysxm,
         to_char(yb.kaizhusj,'yyyy-mm-dd hh24:mi:ss') kaizhusj, to_char(yb.kaishisj,'yyyy-mm-dd hh24:mi:ss') kaishisj,
-        yb.yizhumc check_item ,yb.shenqingdanzt ,lj.jianchabzfl from df_jj_zhuyuan.zy_bingrenxx zb
+        yb.yizhumc check_item ,yb.shenqingdanzt ,lj.jianchabzfl, case when yb.shenqingdanzt>=580 then 1 else 0 end as status from df_jj_zhuyuan.zy_bingrenxx zb
         join df_lc_zhuyuan.yz_bingrenyz yb on yb.bingrenzyid = zb.bingrenzyid and yb.yizhufl = '23' and yb.yizhuzt in (2,3,4) 
         and yb.yizhumc not like '%加收%' and yb.shenqingdanzt  not in (501,502)
         -- and yb.shenqingdanzt <560   --查询未出报告
@@ -956,22 +957,44 @@ async def patient_pacs_info(zhuyuanhao: str, patient_type: str, check_type: str)
         join df_shenqingdan.yj_jianchasqdxm yj   on yb.yizhuid=yj.yizhubh 
         join df_zhushuju.lcgy_jianchaxm lj on lj.jianchaxmid= yj.jianchaxmid 
         where zb.zaiyuanzt=0 and zb.xingming not like '%测试%' and zb.zhuyuanhao = '{zhuyuanhao}' order by yb.kaishisj desc """
+        patient_type_str = "住院患者"
     elif patient_type == "outpatient":
-        sql = f""" select zb.jiuzhenid, zb.jiuzhenkh, zb.xingming patient_name, zb.nianling patient_age, 
+        sql = f""" select zb.jiuzhenid, zb.jiuzhenkh zhuyuanhao, zb.xingming patient_name, zb.nianling patient_age, 
             zb.xingbiemc patient_sex, yb.yizhuid, yb.kaidanksmc dept_name, yb.kaidanks dept_id, yb.kaidanysxm,
             to_char(yb.kaidanrq,'yyyy-mm-dd hh24:mi:ss') kaizhusj, to_char(yb.kaishisj,'yyyy-mm-dd hh24:mi:ss') kaishisj,
-            yb.yizhumc check_item ,yb.shenqingdanzt ,lj.jianchabzfl 
+            yb.yizhumc check_item ,yb.shenqingdanzt ,lj.jianchabzfl, case when yb.shenqingdanzt>=580 then 1 else 0 end as status 
             from df_lc_menzhen.zj_jiuzhenxx zb
             join df_lc_menzhen.mz_yizhu yb on yb.jiuzhenid = zb.jiuzhenid and yb.yizhulx = '23'
             and yb.yizhumc not like '%加收%' and yb.shenqingdanzt  not in (501,502)
-            and yb.shenqingdanzt <560   --查询未出报告
-            -- and yb.kaishisj>=current_date - interval '10 day'  --查询最近10天所有的
+            -- and yb.shenqingdanzt <560   --查询未出报告
+            and yb.kaishisj>=current_date - interval '10 day'  --查询最近10天所有的
             join df_shenqingdan.yj_jianchasqdxm yj   on yb.yizhuid=yj.yizhubh 
             join df_zhushuju.lcgy_jianchaxm lj on lj.jianchaxmid= yj.jianchaxmid 
             where  zb.xingming not like '%测试%' and zb.jiuzhenrq>=current_date-1
             and zb.jiuzhenkh = '{zhuyuanhao}' order by yb.kaishisj desc """
+        patient_type_str = "门诊患者"
+    elif patient_type == "tijian":
+        sql = f"""
+            select t7.DJLSH zhuyuanhao, t7.XM patient_name, case when t7.xb = 1 then '男' else '女' end  patient_sex,
+           t7.nl  patient_age, '体检科' dept_name, '207' dept_id,  ZHXM.MC check_item,
+           convert( varchar(19),t7.tjrq,120 ) kaizhusj,
+           convert( varchar(19),t7.tjrq,120 ) kaishisj,
+           'tj_' + cast( JLB.xh as varchar(10) )  yizhuid,
+           rtrim( ZHXM.GNLX )  jianchabzfl,
+           rtrim( JLB.TJXMBH )  TJXMBH,
+           case when JLB.xj is not null or JLB.JCSJ is not null then 1 else 0 end status
+            from futian_user.TJ_TJJLB   JLB
+            join futian_user.TJ_TJDJB   t7 on JLB.TJBH = t7.TJBH and JLB.TJCS = t7.TJCS
+         JOIN futian_user.TJ_ZHXM_HD AS ZHXM ON JLB.TJXMBH = ZHXM.BH
+         left join futian_user.TJ_TJJLMXB AS MXB ON JLB.XH = MXB.XH
+        where (t7.DJLSH = '{zhuyuanhao}' or t7.TJBH = '{zhuyuanhao}')  and JLB.LXBH in (select tmp.LXBH from futian_user.TJ_TJLXB tmp where tmp.JCJYLX = 2)
+        """
+        patient_type_str = "体检患者"
 
-    patients_info = db.pg_query(sql)
+    if patient_type == "tijian":
+        patients_info = global_tools.call_tijian_query(sql)
+    else:
+        patients_info = db_manager.pg_query(sql)
     if not patients_info:
         return {}
     info = {
@@ -981,15 +1004,32 @@ async def patient_pacs_info(zhuyuanhao: str, patient_type: str, check_type: str)
             "patient_sex": patients_info[0]["patient_sex"],
             "dept_id": patients_info[0]["dept_id"],
             "dept_name": patients_info[0]["dept_name"],
-            "patient_type": "住院患者" if patient_type == 'inpatient' else '门诊患者',
+            "patient_type": patient_type_str,
         }
-    check_items_list = [{
-        "yizhuid": item["yizhuid"],
-        'check_item': item["check_item"],
-        'kaizhusj': item["kaizhusj"],
-        'kaishisj': item["kaishisj"],
-        "jianchabzfl": patients_info[0]["jianchabzfl"]
-    } for item in patients_info if item["jianchabzfl"] == check_type]
+
+    with DbUtil(global_config.DB_HOST, global_config.DB_USERNAME,
+                global_config.DB_PASSWORD, global_config.DB_DATABASE_GYL) as db:
+        sql = f"""select id, check_items, patient_info from nsyy_gyl.pacs_ai_report where zhuyuanhao = '{zhuyuanhao}'"""
+        records = db.query_all(sql)
+
+    record_dict = {}
+    if records:
+        record_dict = {record["check_items"]: record for record in records}
+
+    check_items_list = []
+    for item in patients_info:
+        if item.get('jianchabzfl') and item["jianchabzfl"] != check_type:
+            continue
+        check_items_list.append({
+            "yizhuid": item["yizhuid"],
+            'check_item': item["check_item"],
+            'kaizhusj': item["kaizhusj"],
+            'kaishisj': item["kaishisj"],
+            "jianchabzfl": item["jianchabzfl"],
+            'status': item["status"],  # 0: 未做, 1: 已做
+            "report_id": record_dict.get(item["check_item"], {}).get('id', 0),
+            "patient_info": record_dict.get(item["check_item"], {}).get('patient_info', '')
+        })
     info['check_items_list'] = check_items_list
 
     return info
