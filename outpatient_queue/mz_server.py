@@ -350,17 +350,19 @@ async def call_queue(request: CallRequest):
             'window': window
         }
 
-    # 获取下一个排队
-    next_queue = db_manager.get_next_queue(request.business_type, window['business_sort'])
-    if not next_queue:
-        return {'success': False, 'message': '没有等待的患者'}
+    # ========== 1. 在这里添加 Redis 分布式锁 ==========
+    redis_client = redis.Redis(connection_pool=pool)  # 使用已有的连接池
+    lock_key = f"call_lock:{request.window_id}"
 
-    # 叫号
-    success = db_manager.call_queue(next_queue['queue_number'], request.window_id, window['window_name'])
+    # 尝试获取锁，过期时间设为 3 秒（防止死锁），nx=True 表示键不存在时才设置
+    if not redis_client.set(lock_key, "1", ex=3, nx=True):
+        raise HTTPException(status_code=429, detail="操作过于频繁，请稍后再试")
 
-    if success:
-        # 转换datetime
-        call_time = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    try:
+        next_queue = db_manager.call_next_queue(request.business_type, window['business_sort'],
+                                                request.window_id, window['window_name'])
+        if not next_queue:
+            return {'success': False, 'message': '叫号失败'}
 
         # 广播叫号信息
         call_data = {
@@ -370,26 +372,59 @@ async def call_queue(request: CallRequest):
             'business_name': next_queue['business_name'],
             'window_id': request.window_id,
             'window_name': window['window_name'],
-            'call_time': call_time
+            'call_time': datetime.now().strftime("%Y-%m-%d %H:%M:%S")
         }
 
-        await manager.broadcast_all({
-            'type': 'call',
-            'data': call_data
-        })
+        await manager.broadcast_all({'type': 'call', 'data': call_data})
+        await manager.send_to_window(request.window_id, {'type': 'call_success', 'data': call_data})
 
-        await manager.send_to_window(request.window_id, {
-            'type': 'call_success',
-            'data': call_data
-        })
+        return {'success': True, 'queue': next_queue, 'window': window}
+    finally:
+        # ========== 3. 无论成功或失败，都要释放锁 ==========
+        redis_client.delete(lock_key)
 
-        return {
-            'success': True,
-            'queue': next_queue,
-            'window': window
-        }
-    else:
-        raise HTTPException(status_code=500, detail="叫号失败")
+
+
+    # # 获取下一个排队
+    # next_queue = db_manager.get_next_queue(request.business_type, window['business_sort'])
+    # if not next_queue:
+    #     return {'success': False, 'message': '没有等待的患者'}
+    #
+    # # 叫号
+    # success = db_manager.call_queue(next_queue['queue_number'], request.window_id, window['window_name'])
+    #
+    # if success:
+    #     # 转换datetime
+    #     call_time = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    #
+    #     # 广播叫号信息
+    #     call_data = {
+    #         'queue_number': next_queue['queue_number'],
+    #         'patient_name': next_queue['patient_name'],
+    #         'business_type': next_queue['business_type'],
+    #         'business_name': next_queue['business_name'],
+    #         'window_id': request.window_id,
+    #         'window_name': window['window_name'],
+    #         'call_time': call_time
+    #     }
+    #
+    #     await manager.broadcast_all({
+    #         'type': 'call',
+    #         'data': call_data
+    #     })
+    #
+    #     await manager.send_to_window(request.window_id, {
+    #         'type': 'call_success',
+    #         'data': call_data
+    #     })
+    #
+    #     return {
+    #         'success': True,
+    #         'queue': next_queue,
+    #         'window': window
+    #     }
+    # else:
+    #     raise HTTPException(status_code=500, detail="叫号失败")
 
 
 """完成服务"""

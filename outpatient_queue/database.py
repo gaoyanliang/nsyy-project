@@ -521,6 +521,64 @@ class DatabaseManager:
             cursor.close()
             conn.close()
 
+    """获取下一个等待号 """
+    def call_next_queue(self, business_type: str, business_sort: str, window_id: int, window_name: str) -> Optional[
+        Dict]:
+        conn = self.get_connection()
+        try:
+            cursor = conn.cursor(dictionary=True)
+            conn.start_transaction()
+
+            sort_list = [s.strip() for s in business_sort.split(",") if s.strip()]
+            if not sort_list:
+                raise ValueError(f"无效的排序参数 {business_sort}")
+            placeholders = ",".join(["%s"] * len(sort_list))
+            sql = f""" SELECT * FROM hqs_queue_records WHERE business_type = %s AND status = 'waiting'  
+                AND queue_date = %s AND business_id IN ({placeholders}) 
+                ORDER BY FIELD(business_id, {placeholders}), priority DESC, create_time ASC 
+                LIMIT 1 FOR UPDATE """
+            params = [business_type, datetime.now().strftime("%Y%m%d")] + sort_list + sort_list
+            cursor.execute(sql, params)
+            queue = cursor.fetchone()
+            if not queue:
+                conn.commit()
+                return None
+
+            # 更新为 calling
+            cursor.execute("""UPDATE hqs_queue_records
+                SET status = 'calling', window_id = %s, window_name = %s, call_time = NOW()
+                WHERE queue_number = %s AND status = 'waiting' AND queue_date = %s
+            """, (window_id, window_name, queue['queue_number'], datetime.now().strftime("%Y%m%d")))
+
+            # 更新窗口当前叫号
+            cursor.execute("""UPDATE hqs_windows
+                SET current_queue_number = %s, last_call_time = NOW() WHERE id = %s
+            """, (queue['queue_number'], window_id))
+
+            conn.commit()
+
+            # Redis 通知
+            if self.redis_client:
+                try:
+                    self.redis_client.publish('queue_update', json.dumps({ 'action': 'call',
+                        'queue_number': queue['queue_number'], 'window_id': window_id, 'window_name': window_name}))
+                except Exception as redis_e:
+                    logger.warning(f"Redis 发布失败: {redis_e}")
+
+            # 更新 Redis 计数器（安全递减）
+            self._update_waiting_counts(queue['business_id'], -1)
+
+            return queue
+        except Exception as e:
+            conn.rollback()
+            logger.error(f"call_next_queue 失败: {e}")
+            return None
+        finally:
+            if cursor:
+                cursor.close()
+            if conn:
+                conn.close()
+
     """叫号（事务保护两个表更新）"""
     def call_queue(self, queue_number: str, window_id: int, window_name: str) -> bool:
         conn = self.get_connection()
@@ -549,14 +607,6 @@ class DatabaseManager:
             cursor.execute("""UPDATE hqs_windows SET current_queue_number = %s, last_call_time = NOW() WHERE id = %s
             """, (queue_number, window_id))
             conn.commit()
-
-            if self.redis_client:
-                try:
-                    date_str = datetime.now().strftime("%Y%m%d")
-                    self.redis_client.decr(f"waiting_count:{business_id}:{date_str}")
-                    self.redis_client.decr(f"waiting_count:all:{date_str}")
-                except Exception as e:
-                    logger.warning(f"Redis 更新失败: {e}")
 
             # Redis 通知
             if self.redis_client:

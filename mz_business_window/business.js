@@ -481,7 +481,7 @@ function handleWebSocketMessage(data) {
             break;
         case 'tts_call':
             console.log('语音叫号:', messageData);
-            showToast('socket 语音叫号');
+//            showToast('socket 语音叫号');
             speakWithNative(messageData.queue_number, messageData.patient_name || '--');
             break;
         default:
@@ -511,7 +511,7 @@ function startAutoRefresh() {
 
 // ==================== 调用android 广告机 TTS进行语音播报 ====================
 
-function speakWithNative1(queueNumber, patientName) {
+function speakWithNative(queueNumber, patientName) {
     console.log('调用android TTS进行语音播报:', queueNumber, patientName);
     const windowName = (currentWindowInfo && currentWindowInfo.window_name) || '窗口';
     const text = patientName && patientName.trim()
@@ -522,34 +522,6 @@ function speakWithNative1(queueNumber, patientName) {
     } else {
         showToast('当前环境不支持原生TTS调用');
     }
-}
-
-function speakWithNative1(queueNumber, patientName, retries = 3) {
-    const windowName = (currentWindowInfo && currentWindowInfo.window_name) || '窗口';
-    const text = patientName && patientName.trim()
-        ? `请 ${patientName}，到${windowName}办理业务`
-        : `请${queueNumber}号，到${windowName}办理业务`;
-
-    function trySpeak(attempt) {
-        if (typeof window.androidTTS === 'undefined') {
-            showToast('不支持TTS');
-            return;
-        }
-        // 调用 speak 并检查返回值（需配合 Android 端返回 boolean）
-        // 注意：需要修改 TTSJSInterface.speak 返回 boolean
-        var success = window.androidTTS.speak(text);
-        if (success) {
-            console.log('语音播报成功');
-            return;
-        }
-        if (attempt > 0) {
-            // 200ms 后重试，保证实时性
-            setTimeout(() => trySpeak(attempt - 1), 200);
-        } else {
-            console.warn('语音播报失败，患者可看屏幕文字');
-        }
-    }
-    trySpeak(retries);
 }
 
 
