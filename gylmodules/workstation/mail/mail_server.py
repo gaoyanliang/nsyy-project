@@ -288,13 +288,13 @@ def build_email_message(json_data: dict, message_id: str):
         db = DbUtil(global_config.DB_HOST, global_config.DB_USERNAME, global_config.DB_PASSWORD,
                     global_config.DB_DATABASE_GYL)
         group_list = ', '.join(f"'{item}'" for item in recipients_group)
-        db_mail_group = db.query_all(f"SELECT id, account FROM nsyy_gyl.ws_mail_group WHERE account in ({group_list})")
+        db_mail_group = db.query_all(f"SELECT group_id id, mail_account account FROM nsyy_gyl.group WHERE account in ({group_list})")
         if db_mail_group:
             recipients_group = [item['account'] for item in db_mail_group]
             group_id_list = [item['id'] for item in db_mail_group]
 
-            account_in_group_list = db.query_all(f"SELECT user_account FROM nsyy_gyl.ws_mail_group_members "
-                                                 f"WHERE mail_group_id in ({','.join(str(i) for i in group_id_list)})")
+            account_in_group_list = db.query_all(f"SELECT user_mail_account user_account FROM nsyy_gyl.group_members "
+                                                 f"WHERE group_id in ({','.join(str(i) for i in group_id_list)}) and state = 1")
 
             if account_in_group_list:
                 account_in_group_list = [item['user_account'] for item in account_in_group_list]
@@ -1060,314 +1060,154 @@ def move_email_to_folder(user_account: str, message_ids, mailbox, target_folder)
 # =============   mail group manager    =====================
 # ===========================================================
 
-"""
-创建邮箱分组
-"""
 
-
-def create_mail_group(json_data):
-    start_time = time.time()
-    user_account = json_data.get("user_account")
-    user_name = json_data.get("user_name")
-    mail_group_name = json_data.get("mail_group_name")
-    mail_group_description = json_data.get("mail_group_description")
-    user_list = json_data.get("user_list")
-    is_public = json_data.get("is_public")
-    if not all([user_account, user_name, mail_group_name]):
-        raise ValueError("缺少必要参数")
-
-    redis_client = redis.Redis(connection_pool=pool)
-    # 尝试设置键，只有当键不存在时才设置成功.  ex=60 表示过期时间 60 秒（1 分钟），nx=True 表示不存在时才设置
-    if not redis_client.set(f"mail:create:{user_account}", 1, ex=60, nx=True):
-        raise Exception('创建失败：请勿频繁创建群组，请于1分钟后再次尝试')
-
-    db = DbUtil(global_config.DB_HOST, global_config.DB_USERNAME, global_config.DB_PASSWORD, global_config.DB_DATABASE_GYL)
-    ssh = SshUtil(mail_config.MAIL_SSH_HOST, mail_config.MAIL_SSH_USERNAME, mail_config.MAIL_SSH_PASSWORD)
+def create_mail_group_at_mail_server(group_id, group_name, mail_account, is_public):
     try:
-        # 随机生成群组账号
-        mail_group_account = generate_maillist_code(5)
-        # 查询是否存在重复的id
-        query_sql = f"select id from nsyy_gyl.ws_mail_group where account = '{mail_group_account}' "
-        if db.query_one(query_sql):
-            # 随机生成的群账号重复，重新生成
-            raise Exception(f"系统繁忙，请稍后再试")
-
-        # 调用邮箱服务器群组管理脚本，创建新群组
-        group_name = mail_group_account + mail_config.MAIL_DOMAIN
-        group_name = group_name.lower()
+        db = DbUtil(global_config.DB_HOST, global_config.DB_USERNAME, global_config.DB_PASSWORD,
+                    global_config.DB_DATABASE_GYL)
+        ssh = SshUtil(mail_config.MAIL_SSH_HOST, mail_config.MAIL_SSH_USERNAME, mail_config.MAIL_SSH_PASSWORD)
 
         # 检查群组列表是否存在
         output = ssh.execute_shell_command(f"echo {mail_config.MAIL_SSH_PASSWORD} | sudo -S bash -c "
-                                           f"'cd /opt/mlmmjadmin/tools; python3 maillist_admin.py info {group_name}' ")
-        if 'Error: NO_SUCH_ACCOUNT' not in output:
-            raise Exception(f"系统繁忙，请稍后再试 {output}")
+                                           f"'cd /opt/mlmmjadmin/tools; python3 maillist_admin.py info {mail_account}' ")
+        if 'Error: NO_SUCH_ACCOUNT' in output:
+            # 创建群组
+            op_status = False
+            try_timed = 3
+            while try_timed > 0:
+                try:
+                    output = ssh.execute_shell_command(f" echo {mail_config.MAIL_SSH_PASSWORD} | sudo -S bash -c "
+                                                       f"'cd /opt/mlmmjadmin/tools; python3 maillist_admin.py create {mail_account}"
+                                                       f" only_subscriber_can_post={'yes' if int(is_public) == 0 else 'no'} "
+                                                       f"disable_archive=no disable_send_copy_to_sender=yes '")
 
-        # 创建群组
-        output = ssh.execute_shell_command(f" echo {mail_config.MAIL_SSH_PASSWORD} | sudo -S bash -c "
-                                           f"'cd /opt/mlmmjadmin/tools; python3 maillist_admin.py create {group_name}"
-                                           f" only_subscriber_can_post={'yes' if int(is_public) == 0 else 'no'} "
-                                           f"disable_archive=no disable_send_copy_to_sender=yes '")
-        if 'Created.' not in output:
-            raise Exception("邮箱群组群组" + mail_group_name + f" 创建失败  {output}")
+                    if 'Created.' not in output:
+                        raise Exception(f"邮箱群组 {group_name} 创建失败  {output}")
 
-        timer = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-        args = (mail_group_name, mail_group_account, mail_group_description, user_account, user_name, timer, is_public)
-        insert_sql = "INSERT INTO nsyy_gyl.ws_mail_group (name, account, description, " \
-                     "user_account, user_name, timer, is_public) VALUES (%s,%s,%s,%s,%s,%s,%s)"
-        last_rowid = db.execute(insert_sql, args, need_commit=True)
-        if last_rowid == -1:
-            raise Exception("新群组入库失败!")
+                    op_status = True
+                    break
+                except Exception:
+                    try_timed -= 1
 
-        # 2. 组装用户邮箱账号 [用户账号]@邮箱后缀， 将用户邮箱加入到新群组中
-        batch_insert_list, failed_user_list, user_dict = [], [], {}
-        # 将创建者本人也加入
-        user_list.append({"user_account": user_account, "user_name": user_name})
-        for user in user_list:
-            account = user.get('user_account')
-            mail_account = account + mail_config.MAIL_DOMAIN
-            mail_account = mail_account.lower()
-            # 账号存在将账号加入到
-            command = (f" echo {mail_config.MAIL_SSH_PASSWORD} | sudo -S bash -c 'cd /opt/mlmmjadmin/tools; "
-                       f"python3 maillist_admin.py add_subscribers {group_name} {mail_account} ' ")
-            output = ssh.execute_shell_command(command)
-            # 将执行不成功的（账号不存在，添加失败） 移除列表，并想办法告知客户端
-            if 'Added.' not in output:
-                failed_user_list.append(account)
-            else:
-                batch_insert_list.append(account)
-                user_dict[account] = user
+            if not op_status:
+                logger.error(f"邮箱群组 {group_name} 创建失败  {output}")
+                raise Exception(f"邮箱群组 {group_name} 创建失败  {output}")
 
-        query_sql = f"select user_account from nsyy_gyl.ws_mail_group_members where mail_group_id = {int(last_rowid)} "
-        mem = db.query_all(query_sql)
-        if mem:
-            mem = [m.get('user_account') for m in mem]
-            batch_insert_list = list(set(batch_insert_list) - set(mem))
+            db.execute(f"update nsyy_gyl.group set mail_account_state = 1 where group_id = {group_id}",
+                       need_commit=True)
+        else:
+            logger.warning(f"邮箱群组 {group_name} 已经存在, {output}")
 
-        # 批量插入群组成员
-        if batch_insert_list:
-            args = []
-            for account in batch_insert_list:
-                user = user_dict.get(account)
-                allow_edit = 1 if user.get('user_account') == user_account else 0
-                args.append((last_rowid, user.get('user_account'), user.get('user_name'), timer, allow_edit))
-            insert_sql = """INSERT INTO nsyy_gyl.ws_mail_group_members(mail_group_id, user_account, user_name,
-                                                                       timer, allow_edit) \
-                            VALUES (%s, %s, %s, %s, %s) \
-                            ON DUPLICATE KEY UPDATE timer      = VALUES(timer), \
-                                                    user_name  = VALUES(user_name), \
-                                                    allow_edit = VALUES(allow_edit)"""
-            db.execute_many(insert_sql, args, need_commit=True)
-
-        logger.debug(f"群组创建成功，耗时 {time.time() - start_time}")
-        return failed_user_list
+        return True
     except Exception as e:
-        logger.error(f"创建邮件群组失败: {e}", exc_info=True)
-        raise
+        logger.error(f"邮箱操作异常： {e}")
     finally:
         # 自动释放资源
         del db
         del ssh
 
-
-"""
-编辑群组
-operate_type = 0 更新群组描述
-operate_type = 1 向群组中新增用户
-operate_type = 2 从群组中移除用户
-operate_type = 3 修改群组公开性
-operate_type = 4 删除群组 
-"""
+    return False
 
 
-def operate_mail_group(json_data):
-    # TODO 找时间优化
-    user_account = json_data.get("user_account")
-    mail_group_id = json_data.get("mail_group_id")
-    mail_group_name = json_data.get("mail_group_name")
-    mail_group_account = json_data.get("mail_group_account", '')
-    operate_type = json_data.get("operate_type")
-    new_mail_group_desc = json_data.get("new_mail_group_desc")
-    user_list = json_data.get("user_list")
-    is_public = json_data.get("is_public")
+def op_group_members_at_mail_server(group_id, group_name, mail_account, user_mail_account, is_add: bool = True):
+    try:
+        if not mail_account or not user_mail_account:
+            logger.error("邮箱账号或用户邮箱账号为空")
+            return False
+        db = DbUtil(global_config.DB_HOST, global_config.DB_USERNAME, global_config.DB_PASSWORD,
+                    global_config.DB_DATABASE_GYL)
+        ssh = SshUtil(mail_config.MAIL_SSH_HOST, mail_config.MAIL_SSH_USERNAME, mail_config.MAIL_SSH_PASSWORD)
 
-    mail_group = mail_group_account + mail_config.MAIL_DOMAIN
-    mail_group = mail_group.lower()
+        if is_add:
+            command = (f" echo {mail_config.MAIL_SSH_PASSWORD} | sudo -S bash -c 'cd /opt/mlmmjadmin/tools; "
+                       f"python3 maillist_admin.py add_subscribers {mail_account} {user_mail_account} ' ")
+            out_msg = "Added."
+        else:
+            command = (f"echo {mail_config.MAIL_SSH_PASSWORD} | sudo -S bash -c 'cd /opt/mlmmjadmin/tools; "
+                       f"python3 maillist_admin.py remove_subscribers {mail_account} {user_mail_account}' ")
+            out_msg = "Removed."
 
+        op_status = False
+        try_timed = 3
+        output = ''
+        while try_timed > 0:
+            try:
+                output = ssh.execute_shell_command(command)
+                if 'Added.' not in output:
+                    raise Exception(f"邮箱群组 {group_name} 成员 {out_msg} 操作失败  {output}")
+
+                op_status = True
+                break
+            except Exception:
+                try_timed -= 1
+
+        if not op_status:
+            logger.error(f"群成员操作失败： {user_mail_account} --> {mail_account}, {output}")
+            raise Exception(f"邮箱群组 {group_name} 群成员操作失败  {output}")
+
+        db.execute(f"update nsyy_gyl.group_member set mail_state = 1 where group_id = "
+                   f"{group_id} and user_mail_account = '{user_mail_account}' ", need_commit=True)
+
+        return True
+    except Exception as e:
+        logger.error(f"在邮件服务器操作群组成员失败, {e}")
+    finally:
+        # 自动释放资源
+        del db
+        del ssh
+    return False
+
+
+def auto_op_abnormal_account():
     db = DbUtil(global_config.DB_HOST, global_config.DB_USERNAME, global_config.DB_PASSWORD,
                 global_config.DB_DATABASE_GYL)
-    timer = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-    if operate_type == mail_config.MAIL_OPERATE_UPDATE:
-        # 更新群组描述
-        update_sql = 'UPDATE nsyy_gyl.ws_mail_group SET description = %s, timer = %s WHERE id = %s'
-        args = (new_mail_group_desc, timer, mail_group_id)
-        db.execute(update_sql, args, need_commit=True)
-        del db
-        return
-    elif operate_type == mail_config.MAIL_OPERATE_ADD:
-        # 添加群组成员
-        ssh = SshUtil(mail_config.MAIL_SSH_HOST, mail_config.MAIL_SSH_USERNAME, mail_config.MAIL_SSH_PASSWORD)
-        joined_user_list = []
-        failed_user_list = []
-        user_dict = {}
-        for user in user_list:
-            account = user.get('user_account')
-            mail_account = account + mail_config.MAIL_DOMAIN
-            mail_account = mail_account.lower()
-            # 账号存在将账号加入到邮箱群组
-            command = f" echo {mail_config.MAIL_SSH_PASSWORD} | sudo -S bash -c 'cd /opt/mlmmjadmin/tools; python3 maillist_admin.py add_subscribers {mail_group} {mail_account} ' "
-            output = ssh.execute_shell_command(command)
-            # 将执行不成功的（账号不存在，添加失败） 移除列表，并想办法告知客户端
-            if 'Added.' not in output:
-                failed_user_list.append(account)
-            else:
-                joined_user_list.append(account)
-                user_dict[account] = user
-        del ssh
-
-        query_sql = f"select user_account from nsyy_gyl.ws_mail_group_members where mail_group_id = {int(mail_group_id)} "
-        mem = db.query_all(query_sql)
-        if mem:
-            mem = [m.get('user_account') for m in mem]
-            joined_user_list = list(set(joined_user_list) - set(mem))
-
-        # 批量插入群组成员
-        if joined_user_list:
-            args = []
-            for account in joined_user_list:
-                user = user_dict.get(account)
-                args.append((mail_group_id, user.get('user_account'), user.get('user_name'), timer))
-            insert_sql = "INSERT INTO nsyy_gyl.ws_mail_group_members (mail_group_id, " \
-                         "user_account, user_name, timer) VALUES (%s,%s,%s,%s)"
-            db.execute_many(insert_sql, args, need_commit=True)
-
-        del db
-        return failed_user_list
-    elif operate_type == mail_config.MAIL_OPERATE_REMOVE:
-        # 移除群组成员
-        ssh = SshUtil(mail_config.MAIL_SSH_HOST, mail_config.MAIL_SSH_USERNAME, mail_config.MAIL_SSH_PASSWORD)
-        removed_user_list = []
-        failed_user_list = []
-        for user in user_list:
-            account = user.get('user_account')
-            mail_account = account + mail_config.MAIL_DOMAIN
-            mail_account = mail_account.lower()
-            # 账号存在将账号加入到邮箱群组
-            output = ssh.execute_shell_command(f"echo {mail_config.MAIL_SSH_PASSWORD} | sudo -S bash -c "
-                                               f"'cd /opt/mlmmjadmin/tools; "
-                                               f"python3 maillist_admin.py remove_subscribers"
-                                               f" {mail_group} {mail_account}' ")
-            # 将执行不成功的（账号不存在，添加失败） 移除列表，并想办法告知客户端
-            if 'Removed.' not in output:
-                failed_user_list.append(account)
-            else:
-                removed_user_list.append(account)
-        del ssh
-
-        if removed_user_list:
-            delete_sql = "DELETE FROM nsyy_gyl.ws_mail_group_members " \
-                         f"WHERE mail_group_id = {mail_group_id} and user_account in " \
-                         f"({', '.join([repr(item) for item in removed_user_list])})  "
-            db.execute(delete_sql, need_commit=True)
-
-        del db
-        return failed_user_list
-    elif operate_type == mail_config.MAIL_OPERATE_PUBLIC:
-        query_sql = f"select * from nsyy_gyl.ws_mail_group where id = {int(mail_group_id)} "
-        mail_group_record = db.query_one(query_sql)
-        if int(mail_group_record.get('is_public')) == int(is_public):
-            return
-
-        # 只有创建者本人可以修改群组公开性
-        if mail_group_record.get('user_account').lower() != user_account.lower():
-            raise Exception("不可操作，只有创建者本人可以修改群组公开性")
-        query_sql = "select * from nsyy_gyl.ws_mail_group_permissions where user_account = '{}' " \
-            .format(str(user_account))
-        user = db.query_one(query_sql)
-        if user is None:
-            raise Exception("当前用户没有创建公开群组的权限, ", user_account)
-
-        update_sql = 'UPDATE nsyy_gyl.ws_mail_group SET is_public = %s, timer = %s WHERE id = %s'
-        args = (is_public, timer, mail_group_id)
-        db.execute(update_sql, args, need_commit=True)
-        del db
-
-        only_subscriber_can_post = 'no'
-        if int(is_public) == 0:
-            only_subscriber_can_post = 'yes'
-        # 如果群组公开，则允许不在群组中的人向群组发送邮件
-        ssh = SshUtil(mail_config.MAIL_SSH_HOST, mail_config.MAIL_SSH_USERNAME, mail_config.MAIL_SSH_PASSWORD)
-        ssh.execute_shell_command(f"echo {mail_config.MAIL_SSH_PASSWORD} | sudo -S bash -c 'cd /opt/mlmmjadmin/tools; "
-                                  f"python3 maillist_admin.py update {mail_group} "
-                                  f"only_subscriber_can_post={only_subscriber_can_post} disable_subscription=yes'")
-        del ssh
-
-        return
-    elif operate_type == mail_config.MAIL_OPERATE_DELETE:
-        query_sql = f"select * from nsyy_gyl.ws_mail_group where id = {int(mail_group_id)} "
-        mail_group = db.query_one(query_sql)
-        # 只有创建者本人可以修改群组公开性
-        if mail_group.get('user_account').lower() != user_account.lower():
-            raise Exception("不可操作，只有创建者本人可以删除当前群组")
-
-        ssh = SshUtil(mail_config.MAIL_SSH_HOST, mail_config.MAIL_SSH_USERNAME, mail_config.MAIL_SSH_PASSWORD)
-        ssh.execute_shell_command(f"echo {mail_config.MAIL_SSH_PASSWORD} | sudo -S bash -c "
-                                  f"'cd /opt/mlmmjadmin/tools; python3 maillist_admin.py delete"
-                                  f" {mail_group.get('account') + mail_config.MAIL_DOMAIN}'")
-        del ssh
-
-        db.execute(f"DELETE FROM nsyy_gyl.ws_mail_group WHERE id = {mail_group_id} ", need_commit=True)
-        db.execute(f"DELETE FROM nsyy_gyl.ws_mail_group_members WHERE mail_group_id = {mail_group_id} ",
-                   need_commit=True)
-        del db
-
-
-"""
-查询当前用户可以看到的所有群组
-1. 已加入的群组（包含本人创建的）
-2. 公开的群组
-"""
-
-
-def query_mail_group_list(user_account: str):
-    sql = f"""SELECT g.*,
-            m.id              AS member_id,
-            m.user_account    AS member_user_account,
-            m.user_name       AS member_user_name,
-            m.allow_edit      AS member_allow_edit,
-            m.timer           AS member_timer,
-            m.is_show         AS member_is_show
-        FROM nsyy_gyl.ws_mail_group g LEFT JOIN nsyy_gyl.ws_mail_group_members m ON g.id = m.mail_group_id
-        WHERE g.is_public = 1 OR EXISTS (
-            SELECT 1  FROM nsyy_gyl.ws_mail_group_members m2 WHERE m2.mail_group_id = g.id 
-            AND m2.user_account = '{user_account}' AND m2.is_show = 1) ORDER BY g.id, m.id"""
-
-    db = DbUtil(global_config.DB_HOST, global_config.DB_USERNAME, global_config.DB_PASSWORD,
-                global_config.DB_DATABASE_GYL)
-    rows = db.query_all(sql)
+    mail_groups = db.query_all("select group_id, group_name, mail_account, is_public from nsyy_gyl.group "
+                               "where mail_account_state = 0 and created_at < DATE_SUB(NOW(), INTERVAL 10 MINUTE) ")
+    group_members = db.query_all("select a.group_id, a.group_name, a.mail_account, b.user_mail_account "
+                                 "from nsyy_gyl.group_member b join nsyy_gyl.group a on a.group_id = b.group_id "
+                                 "where a.mail_account_state = 1 and b.mail_state = 0 and b.state = 1 "
+                                 "and created_at < DATE_SUB(NOW(), INTERVAL 10 MINUTE) ")
     del db
 
-    groups = {}
-    for row in rows:
-        gid = row['id']
-        if gid not in groups:
-            # 第一次见到这个组，构建组信息（去掉 member_ 开头的字段）
-            group = {k: v for k, v in row.items() if not k.startswith('member_')}
-            group['members'] = []
-            groups[gid] = group
+    if mail_groups:
+        for mail_group in mail_groups:
+            group_id = mail_group.get("group_id")
+            group_name = mail_group.get("group_name")
+            mail_account = mail_group.get("mail_account")
+            is_public = mail_group.get("is_public")
 
-        # 如果有成员信息（LEFT JOIN 可能为 NULL）
-        if row['member_id'] is not None:
-            groups[gid]['members'].append({
-                'id': row['member_id'],
-                'user_account': row['member_user_account'],
-                'user_name': row['member_user_name'],
-                'is_show': row['member_is_show'],
-                'allow_edit': row['member_allow_edit'],
-                'timer': row['member_timer'],
-                # 其他成员字段也加在这里
-            })
+            create_mail_group_at_mail_server(group_id, group_name, mail_account, is_public)
 
-    return list(groups.values())
+    if group_members:
+        for group_member in group_members:
+            group_id = group_member.get("group_id")
+            group_name = group_member.get("group_name")
+            mail_account = group_member.get("mail_account")
+            user_mail_account = group_member.get("user_mail_account")
+
+            op_group_members_at_mail_server(group_id, group_name, mail_account, user_mail_account)
+
+
+def delete_mail_group(mail_account, group_name):
+    ssh = SshUtil(mail_config.MAIL_SSH_HOST, mail_config.MAIL_SSH_USERNAME, mail_config.MAIL_SSH_PASSWORD)
+
+    op_status = False
+    try_timed = 3
+    while try_timed > 0:
+        try:
+            ssh.execute_shell_command(f"echo {mail_config.MAIL_SSH_PASSWORD} | sudo -S bash -c "
+                                      f"'cd /opt/mlmmjadmin/tools; python3 maillist_admin.py delete {mail_account}'")
+
+            op_status = True
+            break
+        except Exception:
+            try_timed -= 1
+
+    if not op_status:
+        logger.error(f"邮箱服务器群组 {group_name} 移除失败 ")
+        raise Exception(f"邮箱服务器群组 {group_name} 移除失败 ")
+
+    del ssh
 
 
 """生成指定长度的字符串 群组邮箱编号 固定以 maillist_ 为前缀  """
@@ -1510,7 +1350,7 @@ def cache_flags():
     start_time = time.time()
     db = DbUtil('192.168.3.12', 'root', '123123', "oa_test")
     flags = db.query_all(f"select * from nsyy_gyl.ws_mail_custome ")
-    mail_groups = db.query_all(f"select account, name from nsyy_gyl.ws_mail_group")
+    mail_groups = db.query_all(f"select mail_account account, group_name name from nsyy_gyl.group")
     sql = """select a.pers_id, a.pers_name, a.emp_nub, b.dept_id, c.dept_name, b.dept_source, a.email 
         from oa_test.hr_pers_main a left join oa_test.hr_pers_dept b on a.pers_id = b.pers_id 
         left join oa_test.hr_dept c on b.dept_id = c.dept_id where a.email is not null"""
@@ -1520,7 +1360,7 @@ def cache_flags():
         db = DbUtil(global_config.DB_HOST, global_config.DB_USERNAME, global_config.DB_PASSWORD,
                     global_config.DB_DATABASE_GYL)
         flags = db.query_all(f"select * from nsyy_gyl.ws_mail_custome ")
-        mail_groups = db.query_all(f"select account, name from nsyy_gyl.ws_mail_group")
+        mail_groups = db.query_all(f"select mail_account account, group_name name from nsyy_gyl.group")
         del db
 
     if flags:
@@ -1574,43 +1414,43 @@ def create_mail_account(user_list):
     del ssh
 
 
-def delete_mail_account(user_account):
-    db = DbUtil(global_config.DB_HOST, global_config.DB_USERNAME, global_config.DB_PASSWORD,
-                global_config.DB_DATABASE_GYL)
-    ssh = SshUtil(mail_config.MAIL_SSH_HOST, mail_config.MAIL_SSH_USERNAME, mail_config.MAIL_SSH_PASSWORD)
-
-    # 删除用户创建的群组
-    query_sql = "select id, name from nsyy_gyl.ws_mail_group where user_account = '{}' ".format(user_account)
-    mail_group_list = db.query_all(query_sql)
-    for mail_group in mail_group_list:
-        ssh.execute_shell_command(
-            f"cd /opt/mlmmjadmin/tools; python3 maillist_admin.py delete"
-            f" {mail_group.get('name') + mail_config.MAIL_DOMAIN}", sudo=True)
-
-        args = (mail_group.get('id'))
-        delete_sql = "DELETE FROM nsyy_gyl.ws_mail_group " \
-                     "WHERE id = %s "
-        db.execute(delete_sql, args, need_commit=True)
-        delete_sql = "DELETE FROM nsyy_gyl.ws_mail_group_members " \
-                     "WHERE mail_group_id = %s "
-        db.execute(delete_sql, args, need_commit=True)
-
-    # 将用户从加入的群组中移除
-    query_sql = "select id, account from nsyy_gyl.ws_mail_group where id in " \
-                "(select mail_group_id from nsyy_gyl.ws_mail_group_members where user_account = '{}' ) " \
-        .format(user_account)
-    mail_group_list = db.query_all(query_sql)
-    for mail_group in mail_group_list:
-        ssh.execute_shell_command(
-            f"echo {mail_config.MAIL_SSH_PASSWORD} | sudo -S bash -c 'cd /opt/mlmmjadmin/tools; "
-            f"python3 maillist_admin.py remove_subscribers"
-            f" {mail_group.get('account') + mail_config.MAIL_DOMAIN} {user_account + mail_config.MAIL_DOMAIN}'")
-
-    delete_sql = f"DELETE FROM nsyy_gyl.ws_mail_group_members WHERE user_account = '{user_account}' "
-    db.execute(delete_sql, need_commit=True)
-
-    del ssh
-    del db
+# def delete_mail_account(user_account):
+#     db = DbUtil(global_config.DB_HOST, global_config.DB_USERNAME, global_config.DB_PASSWORD,
+#                 global_config.DB_DATABASE_GYL)
+#     ssh = SshUtil(mail_config.MAIL_SSH_HOST, mail_config.MAIL_SSH_USERNAME, mail_config.MAIL_SSH_PASSWORD)
+#
+#     # 删除用户创建的群组
+#     query_sql = "select id, name from nsyy_gyl.ws_mail_group where user_account = '{}' ".format(user_account)
+#     mail_group_list = db.query_all(query_sql)
+#     for mail_group in mail_group_list:
+#         ssh.execute_shell_command(
+#             f"cd /opt/mlmmjadmin/tools; python3 maillist_admin.py delete"
+#             f" {mail_group.get('name') + mail_config.MAIL_DOMAIN}", sudo=True)
+#
+#         args = (mail_group.get('id'))
+#         delete_sql = "DELETE FROM nsyy_gyl.ws_mail_group " \
+#                      "WHERE id = %s "
+#         db.execute(delete_sql, args, need_commit=True)
+#         delete_sql = "DELETE FROM nsyy_gyl.ws_mail_group_members " \
+#                      "WHERE mail_group_id = %s "
+#         db.execute(delete_sql, args, need_commit=True)
+#
+#     # 将用户从加入的群组中移除
+#     query_sql = "select id, account from nsyy_gyl.ws_mail_group where id in " \
+#                 "(select mail_group_id from nsyy_gyl.ws_mail_group_members where user_account = '{}' ) " \
+#         .format(user_account)
+#     mail_group_list = db.query_all(query_sql)
+#     for mail_group in mail_group_list:
+#         ssh.execute_shell_command(
+#             f"echo {mail_config.MAIL_SSH_PASSWORD} | sudo -S bash -c 'cd /opt/mlmmjadmin/tools; "
+#             f"python3 maillist_admin.py remove_subscribers"
+#             f" {mail_group.get('account') + mail_config.MAIL_DOMAIN} {user_account + mail_config.MAIL_DOMAIN}'")
+#
+#     delete_sql = f"DELETE FROM nsyy_gyl.ws_mail_group_members WHERE user_account = '{user_account}' "
+#     db.execute(delete_sql, need_commit=True)
+#
+#     del ssh
+#     del db
 
 
 def reset_user_password(user_account, old_password, new_password, is_default):

@@ -62,44 +62,46 @@ def notification(json_data):
 #  ==========================================================================================
 
 
-#  创建群聊
-@message_router.route('/create_group', methods=['POST'])
-@api_response
-def create_group(json_data):
-    return message_server.create_group(json_data.get("group_name"), json_data.get("creator"),
-                                       json_data.get("creator_name"), json_data.get("members"))
+#  创建群聊 废弃⚠️
+# @message_router.route('/create_group', methods=['POST'])
+# @api_response
+# def create_group(json_data):
+#     return message_server.create_group(json_data.get("group_name"), json_data.get("creator"),
+#                                        json_data.get("creator_name"), json_data.get("members"))
 
 
-@message_router.route('/query_group', methods=['POST'])
-@api_response
-def query_group(json_data):
-    return message_server.query_group(json_data.get("group_id"))
+# 废弃⚠️
+# @message_router.route('/query_group', methods=['POST'])
+# @api_response
+# def query_group(json_data):
+#     return message_server.query_group(json_data.get("group_id"))
 
 
-@message_router.route('/query_groups', methods=['POST'])
-@api_response
-def query_groups(json_data):
-    return message_server.query_groups(json_data.get("user_id"))
+# 废弃⚠️
+# @message_router.route('/query_groups', methods=['POST'])
+# @api_response
+# def query_groups(json_data):
+#     return message_server.query_groups(json_data.get("user_id"))
 
 
-#  群名称更新
-@message_router.route('/update_group', methods=['POST'])
-@api_response
-def update_group(json_data):
-    group_id = json_data.get("group_id")
-    members = json_data.get('members') if json_data.get('members') else []
-    message_server.update_group(int(group_id), json_data.get("group_name"), members)
+# #  群名称更新 。废弃⚠️
+# @message_router.route('/update_group', methods=['POST'])
+# @api_response
+# def update_group(json_data):
+#     group_id = json_data.get("group_id")
+#     members = json_data.get('members') if json_data.get('members') else []
+#     message_server.update_group(int(group_id), json_data.get("group_name"), members)
 
 
-#  确认加入群聊
-@message_router.route('/confirm_join_group', methods=['POST'])
-@api_response
-def confirm_join_group(json_data):
-    group_id = json_data.get("group_id")
-    user_id = json_data.get("user_id")
-    confirm = json_data.get("confirm")
-    message_server.confirm_join_group(int(group_id), json_data.get("group_name"), int(user_id),
-                                      json_data.get("user_name"), int(confirm))
+# #  确认加入群聊 废弃⚠️
+# @message_router.route('/confirm_join_group', methods=['POST'])
+# @api_response
+# def confirm_join_group(json_data):
+#     group_id = json_data.get("group_id")
+#     user_id = json_data.get("user_id")
+#     confirm = json_data.get("confirm")
+#     message_server.confirm_join_group(int(group_id), json_data.get("group_name"), int(user_id),
+#                                       json_data.get("user_name"), int(confirm))
 
 
 # 存储用户手机信息 token pers——id brand
@@ -113,7 +115,7 @@ def save_phone_info(json_data):
 @message_router.route('/push_msg_to_devices', methods=['POST'])
 @api_response
 def push_msg_to_devices(json_data):
-    return msg_push_tool.push_msg_to_devices(json_data.get('pers_id'), json_data.get('title'), json_data.get('body'))
+    return msg_push_tool.push_msg_to_devices(json_data.get('pers_id'), json_data.get('title'), json_data.get('body'), json_data.get('is_ringtone', False))
 
 
 @message_router.route('/test', methods=['GET', "POST"])
@@ -133,4 +135,39 @@ def socket_test():
                             "timer": cur_time
                         }})
     return "push ok"
+
+
+
+#  ==========================================================================================
+#  ==========================     患者管理      ==============================================
+#  ==========================================================================================
+
+@message_router.route('/follow', methods=['POST'])
+@api_response
+def follow_doctor(json_data):
+    message_server.follow_doctor(json_data.get('patient_pers_id'), json_data.get('patient_name'),
+                                 json_data.get('doctor_pers_id'), json_data.get('doctor_name'))
+
+
+@message_router.route('/unfollow', methods=['POST'])
+@api_response
+def unfollow_doctor(json_data):
+    message_server.unfollow_doctor(json_data.get('patient_pers_id'), json_data.get('doctor_pers_id'))
+
+
+@message_router.route('/follow_list', methods=['GET', 'POST'])
+@api_response
+def follow_list(json_data):
+    return message_server.query_follow_list(json_data.get('patient_pers_id'))
+
+
+@message_router.route('/patient_group_chat', methods=['GET', 'POST'])
+@api_response
+def patient_group_chat(json_data):
+    return message_server.patient_msg_query(json_data.get('group_id'), json_data.get('start'),
+                                     json_data.get('count'), json_data.get('keyword'),
+                                     json_data.get('start_time_str'), json_data.get('end_time_str'))
+
+
+
 

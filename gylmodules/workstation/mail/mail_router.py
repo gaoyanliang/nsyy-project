@@ -94,40 +94,40 @@ def delete_mail(json_data):
 # ===========================================================
 
 
-#  创建邮箱分组
-@mail_router.route('/create_mail_group', methods=['POST'])
-@api_response
-def create_mail_group(json_data):
-    failed_user_list = mail.create_mail_group(json_data)
-    if len(failed_user_list) != 0:
-        return '邮箱群组创建成功，但成员 ' + ' '.join(failed_user_list) + ' 加入群组失败，请检查以上用户是否拥有邮箱账户'
-    return '邮箱群组创建成功'
-
-
-#  编辑邮箱分组
-@mail_router.route('/operate_mail_group', methods=['POST'])
-@api_response
-def operate_mail_group(json_data):
-    operate_type = json_data.get("operate_type")
-    mail_group_name = json_data.get("mail_group_name")
-
-    failed_user_list = mail.operate_mail_group(json_data)
-    if failed_user_list and len(failed_user_list) != 0:
-        if operate_type == mail_config.MAIL_OPERATE_ADD:
-            info = ' '.join(failed_user_list) + ': 以上用户订阅邮箱群组 ' + mail_group_name + ' 失败, 请联系管理员处理'
-        elif operate_type == mail_config.MAIL_OPERATE_REMOVE:
-            info = ' '.join(failed_user_list) + ': 以上用户取消订阅邮箱群组 ' + mail_group_name + ' 失败, 请联系管理员处理'
-        else:
-            info = ''
-        return info
-    return '邮箱群组操作成功'
-
-
-@mail_router.route('/query_mail_group_list', methods=['POST'])
-@api_response
-def query_mail_group_list(json_data):
-    user_account = json_data.get("user_account")
-    return mail.query_mail_group_list(user_account)
+# #  创建邮箱分组  废弃⚠️ 邮箱群组接口 改用统一群组
+# @mail_router.route('/create_mail_group', methods=['POST'])
+# @api_response
+# def create_mail_group(json_data):
+#     failed_user_list = mail.create_mail_group(json_data)
+#     if len(failed_user_list) != 0:
+#         return '邮箱群组创建成功，但成员 ' + ' '.join(failed_user_list) + ' 加入群组失败，请检查以上用户是否拥有邮箱账户'
+#     return '邮箱群组创建成功'
+#
+#
+# #  编辑邮箱分组
+# @mail_router.route('/operate_mail_group', methods=['POST'])
+# @api_response
+# def operate_mail_group(json_data):
+#     operate_type = json_data.get("operate_type")
+#     mail_group_name = json_data.get("mail_group_name")
+#
+#     failed_user_list = mail.operate_mail_group(json_data)
+#     if failed_user_list and len(failed_user_list) != 0:
+#         if operate_type == mail_config.MAIL_OPERATE_ADD:
+#             info = ' '.join(failed_user_list) + ': 以上用户订阅邮箱群组 ' + mail_group_name + ' 失败, 请联系管理员处理'
+#         elif operate_type == mail_config.MAIL_OPERATE_REMOVE:
+#             info = ' '.join(failed_user_list) + ': 以上用户取消订阅邮箱群组 ' + mail_group_name + ' 失败, 请联系管理员处理'
+#         else:
+#             info = ''
+#         return info
+#     return '邮箱群组操作成功'
+#
+#
+# @mail_router.route('/query_mail_group_list', methods=['POST'])
+# @api_response
+# def query_mail_group_list(json_data):
+#     user_account = json_data.get("user_account")
+#     return mail.query_mail_group_list(user_account)
 
 
 @mail_router.route('/manager_custom_flags', methods=['POST'])
@@ -177,11 +177,11 @@ def create_mail_account(json_data):
 
 
 # todo 删除邮箱账户，这里只删除群组依赖，邮箱账户需要到 iRedMail 管理后台手动删除
-@mail_router.route('/delete_mail_account', methods=['POST'])
-@api_response
-def delete_mail_account(json_data):
-    user_account = json_data.get("user_account")
-    mail.delete_mail_account(user_account)
+# @mail_router.route('/delete_mail_account', methods=['POST'])
+# @api_response
+# def delete_mail_account(json_data):
+#     user_account = json_data.get("user_account")
+#     mail.delete_mail_account(user_account)
 
 
 @mail_router.route('/reset_user_password', methods=['POST'])
