@@ -1249,3 +1249,274 @@ body {
         font-size: 0.75rem;
     }
 }
+
+/* ===== 头部"模板管理"按钮 ===== */
+.header-action-btn {
+    font-size: 0.7rem;
+    padding: 3px 12px;
+    border-radius: 14px;
+    border: 1.5px solid var(--primary);
+    background: transparent;
+    color: var(--primary);
+    cursor: pointer;
+    transition: all 0.2s ease;
+    font-family: inherit;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    line-height: 1;
+    height: 26px;
+    white-space: nowrap;
+    box-sizing: border-box;
+}
+.header-action-btn:hover {
+    background: var(--primary-light);
+    border-color: var(--primary-dark);
+    transform: scale(1.02);
+}
+.header-action-btn:active { transform: scale(0.96); }
+
+/* ===== 模板管理子页面 ===== */
+.tm-view {
+    max-width: 1200px;
+    margin: 0 auto;
+    padding: 12px 16px 24px;
+    min-height: calc(100vh - 52px);
+}
+.tm-topbar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    margin-bottom: 12px;
+    flex-wrap: wrap;
+}
+.tm-tabs {
+    display: flex;
+    gap: 4px;
+    background: var(--surface);
+    padding: 4px;
+    border-radius: var(--radius);
+    box-shadow: var(--shadow-sm);
+}
+.tm-tab {
+    padding: 6px 16px;
+    border: none;
+    background: transparent;
+    cursor: pointer;
+    font-size: 0.85rem;
+    font-weight: 600;
+    color: var(--text-secondary);
+    border-radius: var(--radius-sm);
+    transition: all var(--transition);
+    font-family: inherit;
+    white-space: nowrap;
+}
+.tm-tab:hover { background: var(--surface-alt); color: var(--text); }
+.tm-tab.active { background: var(--primary); color: #fff; }
+
+.tm-panel {
+    background: var(--surface);
+    border-radius: var(--radius-lg);
+    box-shadow: var(--shadow);
+    padding: 14px 18px 18px;
+}
+.tm-toolbar {
+    display: flex;
+    gap: 8px;
+    align-items: center;
+    margin-bottom: 12px;
+    flex-wrap: wrap;
+}
+.tm-toolbar .tm-input {
+    flex: 1;
+    min-width: 180px;
+    height: 32px;
+    padding: 0 12px;
+    border: 1.5px solid var(--border);
+    border-radius: var(--radius-sm);
+    font-size: 0.8rem;
+    font-family: inherit;
+    outline: none;
+    transition: all var(--transition);
+    background: var(--surface-alt);
+    box-sizing: border-box;
+}
+.tm-toolbar .tm-input:focus {
+    border-color: var(--primary);
+    background: #fff;
+    box-shadow: 0 0 0 3px rgba(26,111,181,0.08);
+}
+.tm-table-wrap { overflow-x: auto; }
+.tm-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 0.8rem;
+}
+.tm-table th {
+    text-align: left;
+    padding: 8px;
+    border-bottom: 2px solid var(--border);
+    color: var(--text-secondary);
+    font-weight: 600;
+    white-space: nowrap;
+    background: var(--surface-alt);
+    position: sticky;
+    top: 0;
+}
+.tm-table td {
+    padding: 8px;
+    border-bottom: 1px solid var(--border-light);
+    vertical-align: top;
+    word-break: break-word;
+}
+.tm-table tbody tr:hover td { background: #fafbfc; }
+/* ===== 预览单元格（替换原有的 .tm-cell-text） ===== */
+.tm-cell-wrap {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+}
+.tm-cell-text {
+    white-space: pre-wrap;
+    line-height: 1.55;
+    word-break: break-word;
+    font-size: 0.78rem;
+    color: var(--text);
+}
+.tm-cell-text.tm-cell-collapsed {
+    max-height: 66px;
+    overflow: hidden;
+    position: relative;
+}
+.tm-cell-text.tm-cell-collapsed::after {
+    content: '';
+    position: absolute;
+    left: 0; right: 0; bottom: 0;
+    height: 22px;
+    background: linear-gradient(to bottom, rgba(255,255,255,0), rgba(255,255,255,1));
+    pointer-events: none;
+}
+.tm-cell-text.tm-cell-expanded {
+    max-height: none;
+}
+.tm-cell-toggle {
+    align-self: flex-start;
+    font-size: 0.7rem;
+    color: var(--primary);
+    background: none;
+    border: none;
+    padding: 0;
+    cursor: pointer;
+    font-family: inherit;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    user-select: none;
+    line-height: 1.6;
+}
+.tm-cell-toggle:hover { text-decoration: underline; }
+.tm-cell-meta {
+    color: var(--text-muted);
+    font-size: 0.65rem;
+    font-weight: 400;
+}
+.tm-cell-empty {
+    color: var(--text-muted);
+    font-style: italic;
+}
+
+/* ===== 大文本编辑器 ===== */
+.tm-field-group { margin-bottom: 14px; }
+.tm-field-head {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 4px;
+}
+.tm-field-label {
+    font-size: 0.75rem;
+    font-weight: 600;
+    color: #5f6570;
+    text-transform: uppercase;
+}
+.tm-field-meta {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 0.7rem;
+    color: #949aa5;
+}
+.tm-char-counter {
+    color: #5f6570;
+    font-variant-numeric: tabular-nums;
+    font-weight: 600;
+}
+.tm-btn-expand {
+    padding: 1px 8px;
+    border: 1px solid #e2e5ea;
+    border-radius: 4px;
+    background: #fff;
+    cursor: pointer;
+    font-family: inherit;
+    font-size: 0.68rem;
+    color: #5f6570;
+    line-height: 1.6;
+    transition: all 0.15s;
+}
+.tm-btn-expand:hover {
+    border-color: #1a6fb5;
+    color: #1a6fb5;
+    background: #f0f7fd;
+}
+.tm-editor-hint {
+    font-size: 0.68rem;
+    color: #949aa5;
+    margin-top: 3px;
+    line-height: 1.45;
+}
+
+/* 全屏编辑状态 */
+.tm-form-overlay.tm-has-fs .tm-form-box {
+    max-width: 96vw !important;
+    width: 96vw !important;
+    max-height: 94vh !important;
+}
+.tm-form-overlay.tm-has-fs .tm-form-body {
+    max-height: calc(94vh - 130px);
+    overflow-y: auto;
+}
+textarea.tm-ta-fs {
+    min-height: calc(88vh - 240px) !important;
+    font-family: var(--font-mono), 'Cascadia Code', Consolas, Monaco, monospace !important;
+    font-size: 0.82rem !important;
+    line-height: 1.7 !important;
+    tab-size: 4;
+    background: #fff !important;
+    border-color: var(--primary) !important;
+    box-shadow: 0 0 0 3px rgba(26,111,181,0.08) !important;
+}
+.tm-empty {
+    text-align: center;
+    color: var(--text-muted);
+    padding: 24px !important;
+}
+.tm-actions { display: flex; gap: 4px; flex-wrap: wrap; }
+.tm-tag {
+    display: inline-block;
+    padding: 2px 8px;
+    border-radius: 10px;
+    font-size: 0.7rem;
+    background: var(--primary-light);
+    color: var(--primary);
+    font-weight: 600;
+    white-space: nowrap;
+}
+
+@media (max-width: 640px) {
+    .tm-view { padding: 8px 10px; }
+    .tm-toolbar { gap: 6px; }
+    .tm-table { font-size: 0.7rem; }
+    .tm-table th, .tm-table td { padding: 5px 4px; }
+}

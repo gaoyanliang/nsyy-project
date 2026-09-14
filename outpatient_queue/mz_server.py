@@ -793,8 +793,8 @@ pool = redis.ConnectionPool(host=global_config.REDIS_HOST, port=global_config.RE
 INDICATOR_TASK_KEY = 'pacs_indicator_task'
 INDICATOR_TASK_RUNNING_KEY = 'pacs_indicator_task_running'
 
-AUTO_REPORT_TASK_KEY = 'pacs_auto_report_task'
-AUTO_REPORT_TASK_RUNNING_KEY = 'pacs_auto_report_task_running'
+REPORT_TASK_KEY = 'pacs_report_task'
+REPORT_TASK_RUNNING_KEY = 'pacs_report_task_running'
 
 API_KEY = "sk-1d02e5ab8bc5420aa4c6c7d2ac9464dd"
 WORKSPACE_ID = "ws-nzup4ofn31zrv9f9"
@@ -802,6 +802,10 @@ ASR_WS_URL = (
     f"wss://{WORKSPACE_ID}.cn-beijing.maas.aliyuncs.com/api-ws/v1/realtime"
     "?model=qwen-audio-3.0-realtime-flash"
 )
+
+# 模版和词条 key
+PACS_TEMPLATE_KEY = "pacs_template"
+PACS_ENTRY_KEY = "pacs_entry"
 
 
 @mz_router.websocket("/asr/ws/transcribe")
@@ -1100,6 +1104,7 @@ async def pacs_submit(request: AsrSubmitRequest):
 
     redis_client = redis.Redis(connection_pool=pool)
     redis_client.set(INDICATOR_TASK_KEY, 1)
+    redis_client.set(REPORT_TASK_KEY, 1)
     return {'success': True}
 
 
@@ -1199,7 +1204,6 @@ async def update_pacs_report(report_id: int, request: UpdateReportRequest):
                 db.execute(f"""update nsyy_gyl.pacs_ai_report set patient_info = %s where id = %s""",
                                     (request.patient_info, report_id), need_commit=True)
 
-        # TODO 检查指标是否完善 测试阶段 更新即默认完善
         if request.indicator_data is not None:
             indicator_data = request.indicator_data
             if isinstance(indicator_data, dict):
@@ -1222,15 +1226,6 @@ async def update_pacs_report(report_id: int, request: UpdateReportRequest):
         "code": 200,
         "success": True,
         "message": "更新成功"
-    }
-
-
-@mz_router.get("/asr/trigger_pacs_task")
-async def trigger_pacs_task():
-    redis_client = redis.Redis(connection_pool=pool)
-    redis_client.set(INDICATOR_TASK_KEY, 1)
-    return {
-        "success": True
     }
 
 
@@ -1282,7 +1277,7 @@ def pacs_indicator_data_task():
     while True:
         with DbUtil(global_config.DB_HOST, global_config.DB_USERNAME,
                     global_config.DB_PASSWORD, global_config.DB_DATABASE_GYL) as db:
-            records = db.query_all(f"select * from nsyy_gyl.pacs_ai_report "
+            records = db.query_all(f"select id, check_items, patient_info from nsyy_gyl.pacs_ai_report "
                                   f"where indicator_data is null OR CHAR_LENGTH(indicator_data) < 10 order by submit_time limit 5")
 
         if not records:
@@ -1348,13 +1343,6 @@ def pacs_indicator_data_task():
             except Exception as e:
                 logger.error(f"pacs 指标任务 - 异常: {e.__str__()}")
 
-        if not redis_client.exists(AUTO_REPORT_TASK_KEY):
-            redis_client.set(AUTO_REPORT_TASK_KEY, 1)
-            pacs_auto_report_task()
-
-
-# pacs_indicator_data_task()
-
 
 def xinzang_zhibiao(ai_indicator):
     def pad_by_visual(text, target_width):
@@ -1414,55 +1402,86 @@ def xinzang_zhibiao(ai_indicator):
 def pacs_auto_report_task():
     """异步执行所有 自动生成报告任务"""
     redis_client = redis.Redis(connection_pool=pool)
-    if not redis_client.exists(AUTO_REPORT_TASK_KEY):
-        logger.debug("没有需要执行的 pacs auto report 任务")
-        return
-    if redis_client.exists(AUTO_REPORT_TASK_RUNNING_KEY):
+    if not redis_client.exists(REPORT_TASK_KEY):
+        with DbUtil(global_config.DB_HOST, global_config.DB_USERNAME,
+                    global_config.DB_PASSWORD, global_config.DB_DATABASE_GYL) as db:
+            records = db.query_one(f"select count(*) from nsyy_gyl.pacs_ai_report "
+                                   f"where ai_report is null OR CHAR_LENGTH(ai_report) < 10")
+            if not records or records['count(*)'] == 0:
+                logger.debug("没有需要执行的报告生成任务")
+                return
+    if redis_client.exists(REPORT_TASK_RUNNING_KEY):
         logger.info("有正在执行的 pacs auto report 任务")
         return
 
     while True:
         with DbUtil(global_config.DB_HOST, global_config.DB_USERNAME,
                     global_config.DB_PASSWORD, global_config.DB_DATABASE_GYL) as db:
-            records = db.query_all(f"select id, indicator_data, check_items, patient_info from nsyy_gyl.pacs_ai_report "
-                                  f"where (ai_report is null OR CHAR_LENGTH(ai_report) < 10) and indicator_status = 1 order by submit_time limit 5")
+            records = db.query_all(f"select id, patient_age, patient_sex, check_items, patient_info from nsyy_gyl.pacs_ai_report "
+                                  f"where (ai_report is null OR CHAR_LENGTH(ai_report) < 10) order by submit_time limit 5")
 
         if not records:
             logger.info("所有 pacs auto report 任务均已执行完成")
-            redis_client.delete(AUTO_REPORT_TASK_KEY)
-            redis_client.delete(AUTO_REPORT_TASK_RUNNING_KEY)
+            redis_client.delete(REPORT_TASK_KEY)
+            redis_client.delete(REPORT_TASK_RUNNING_KEY)
             return
         for record in records:
             logger.info(f"开始执行 pacs auto report 任务:report id {record.get('id', '')}")
             # 添加运行标识
-            redis_client.set(AUTO_REPORT_TASK_RUNNING_KEY, record.get('id'))
+            redis_client.set(REPORT_TASK_RUNNING_KEY, record.get('id'))
             try:
-                text = f"""
-                        患者检查项目: {record.get('check_items', '')}
-                        请根据医生检查过程中口述的患者情况，生成一份规范的超声检查报告。
-                        规则：
-                            1. 报告仅包含“超声所见”和“超声提示”两部分，纯文本格式，不要Markdown。
-                            2. “超声所见”应遵循以下原则：
-                               - **只描述有临床意义的异常发现**（包括超出正常范围的数值、形态结构异常、血流异常等），对于正常范围的心腔大小、血管内径、瓣膜活动、心包等，一律用一句概括性语句表述（例如：“各房室大小及大血管内径未见明显异常”或“心腔大小及大血管内径均属正常范围”）。
-                               - **若某项指标异常，则写入其具体测量值**（如“左房前后径36mm”），但不要罗列所有正常指标的数据。
-                               - 对于心功能评估，仅写结论性描述（如“左室收缩功能正常”、“左室舒张功能减低（I级）”），不需要列出E峰、A峰、e'、E/A等具体参数，除非这些参数是异常结论的唯一证据且需要保留，否则统一归入结论。
-                               - 对于瓣膜病变，定性描述程度（轻度/中度/重度）和性质（关闭不全/狭窄），不需要写具体流速、压差等数值，除非程度分级依赖这些数值。
-                            3. “超声提示”部分：总结异常诊断，按重要性排序，与“所见”相呼应，不重复具体数值。
-                            4. 检查所见部分不能出现诊断性描述，只描述客观事实。诊断性描述应在“超声提示”部分描述。
-                        
-                        数据返回格式要求：
-                        请只输出一个 JSON 数组，不要添加任何其他说明文字。
-                        {{ "seen": "超声所见内容", "prompt": "超声提示内容" }}
-                        
-                        请基于以下医生口述内容生成报告（口述中可能含有非专业口语，请自动转换为专业术语，但保留所有异常数据）：
+                prompt_template = """
+                你是一名专业超声科报告生成助手。请严格根据以下信息生成一份规范的超声检查报告。
 
-                    医生口述的患者情况：
+                【检查项目】
+                {check_items}
+                
+                【患者信息】
+                性别：{sex}
+                年龄：{age}
+                
+                【报告模板】
+                {template}
+                
+                【词条映射表】
+                {terms_json}
+                
+                【医生口述】
+                {oral_text}
+                
+                生成规则：
+                1. 只输出一个 JSON 对象，格式为：{{"seen":"超声所见内容","prompt":"超声提示内容"}}。
+                   不要输出 Markdown、代码块、解释文字，不要用数组包裹。
+                2. “超声所见”以【报告模板】中的“检查所见模板”为骨架。 模板中正常描述默认保留；仅口述中的异常发现替换或追加到对应部位。正常测值不追加。
+                   若口述中匹配到【词条映射表】中的异常词条，则将该词条的 "seen" 追加到超声所见中，将该词条的 "prompt" 追加到超声提示中，。
+                3. 数据填充：
+                   - 口述中有单位则保留原单位；无单位时按词条默认单位（如 mm）。
+                   - 口述中的“乘以”“x”“X”“*”统一转为“×”。
+                   - 若未提取到数据，不要编造，可省略该数值。
+                4. 口述中未提及的器官，一律按模板正常描述输出。 口述与模板正常描述冲突时，以口述和词条为准。
+                5. “超声所见”只写客观描述，不写诊断结论。诊断性描述只能出现在“超声提示”中。 禁止按口述顺序罗列数据。正常功能只写“xxx功能正常”，不列具体数值。
+                6. “超声提示”总结所有异常诊断，按临床重要性排序，与“所见”呼应，不重复具体数值，除非词条模板要求。
+                7. 口述中可能含有口语，请转换为专业术语，但必须保留所有异常数据。
+                8. 不要添加口述和词条中不存在的异常发现。
+                9. 若同一器官有多个异常，合并描述，避免重复。
+                10. 若模板中有未填充的占位符（如“大小约mmxmm”），且口述未提供数据，则替换为“大小未见明显异常”或删除该数值描述，保持语句通顺。
+                11. 超声所见不要堆砌检查数据，有模版的话以模版为骨架进行完善，没有模版的话 尽量是总结性的描述
+                """
 
-                    """
+                report_template, template_id = get_pacs_templates(record['check_items'])
+                terms = get_pacs_entrys(template_id)
 
-                text = text + record.get("patient_info", '')
+                prompt = prompt_template.format(
+                    check_items=record['check_items'],
+                    sex=record['patient_sex'],
+                    age=record['patient_age'],
+                    template=report_template,
+                    terms_json=json.dumps(terms, ensure_ascii=False) if terms else '',
+                    oral_text=record['patient_info']
+                )
+
                 start_time = time.time()
-                ai_report = ai_tool.call_ai_for_patient(text, is_json=True)
+                ai_report = ai_tool.call_ai_for_patient(prompt, is_json=True)
                 try:
                     if isinstance(ai_report, dict):
                         ai_report = json.dumps(ai_report, ensure_ascii=False, default=str)
@@ -1479,23 +1498,384 @@ def pacs_auto_report_task():
                 logger.error(f"pacs auto report 任务 - 异常: {e.__str__()}")
 
 
-def pacs_auto_report_task_check():
-    """检查是否有自动生成报告任务未执行"""
+
+# =========================================================================================================
+# =================================== 模板与词条管理模块（独立，不影响主功能） ===================================
+# =========================================================================================================
+
+
+""" 查询pacs 检查项目报告模版 """
+@mz_router.get("/asr/pacs_report_template")
+async def pacs_report_template(page: int = Query(1, ge=1),
+    page_size: int = Query(20, ge=1, le=100), keyword: str = ''):
+
+    offset = (page - 1) * page_size
+    with DbUtil(global_config.DB_HOST, global_config.DB_USERNAME,
+                global_config.DB_PASSWORD, global_config.DB_DATABASE_GYL) as db:
+        where_str = '' if not keyword else f"where check_item like '%{keyword}%'"
+        # 1️⃣ 查总数
+        total_row = db.query_one(f"""SELECT COUNT(*) AS total FROM nsyy_gyl.pacs_report_template {where_str}""")
+        total = total_row['total'] if total_row else 0
+
+        # 2️⃣ 查分页数据（列表页不查 LONGTEXT）
+        list_sql = f""" SELECT * FROM nsyy_gyl.pacs_report_template {where_str} 
+        ORDER BY id DESC LIMIT {page_size} OFFSET {offset} """
+        rows = db.query_all(list_sql)
+    return {
+        "success": True,
+        "total": total,
+        "total_pages": (total + page_size - 1) // page_size,
+        "data": rows
+    }
+
+
+# ---------- 2. 查询单条（前端"编辑"回显备用） ----------
+@mz_router.get("/asr/pacs_report_template/{tid}")
+async def get_pacs_report_template(tid: int):
+    with DbUtil(global_config.DB_HOST, global_config.DB_USERNAME,
+                global_config.DB_PASSWORD, global_config.DB_DATABASE_GYL) as db:
+        row = db.query_one(f"SELECT * FROM nsyy_gyl.pacs_report_template WHERE id = {tid}")
+    if not row:
+        return {"success": False, "message": f"模板 #{tid} 不存在"}
+    return {"success": True, "data": row}
+
+
+# ---------- 3. 新增模板 ----------
+@mz_router.post("/asr/pacs_report_template")
+async def create_pacs_report_template(body: TemplateBody):
+    if not body.check_item or not body.check_item.strip():
+        return {"success": False, "message": "check_item 不能为空"}
+
+    with DbUtil(global_config.DB_HOST, global_config.DB_USERNAME,
+                global_config.DB_PASSWORD, global_config.DB_DATABASE_GYL) as db:
+        # 检查重名（同一检查项目不允许重复）
+        exists = db.query_one(
+            "SELECT id FROM nsyy_gyl.pacs_report_template WHERE check_item = %s LIMIT 1",
+            (body.check_item.strip(),)
+        )
+        if exists:
+            return {"success": False, "message": f"检查项目【{body.check_item}】已存在"}
+
+        insert_sql = """
+            INSERT INTO nsyy_gyl.pacs_report_template (check_item, report_template, group_id)
+            VALUES (%s, %s, %s)
+        """
+        new_id = db.execute(insert_sql, (
+            body.check_item.strip(),
+            body.report_template or '',
+            body.group_id if body.group_id is not None else -1
+        ), need_commit=True)
+
+    cache_pacs_template(cache_template=True, cache_entry=False)
+    return {"success": True, "message": "创建成功", "id": new_id}
+
+
+# ---------- 4. 更新模板 ----------
+@mz_router.put("/asr/pacs_report_template/{tid}")
+async def update_pacs_report_template(tid: int, body: TemplateBody):
+    with DbUtil(global_config.DB_HOST, global_config.DB_USERNAME,
+                global_config.DB_PASSWORD, global_config.DB_DATABASE_GYL) as db:
+        row = db.query_one(f"SELECT id FROM nsyy_gyl.pacs_report_template WHERE id = {tid}")
+        if not row:
+            return {"success": False, "message": f"模板 #{tid} 不存在"}
+
+        update_sql = """
+            UPDATE nsyy_gyl.pacs_report_template
+            SET check_item = %s, report_template = %s, group_id = %s
+            WHERE id = %s
+        """
+        db.execute(update_sql, (
+            body.check_item.strip(),
+            body.report_template or '',
+            body.group_id if body.group_id is not None else -1,
+            tid
+        ), need_commit=True)
+
+    cache_pacs_template(cache_template=True, cache_entry=False)
+    return {"success": True, "message": "更新成功", "id": tid}
+
+# ---------- 5. 删除模板 ----------
+@mz_router.delete("/asr/pacs_report_template/{tid}")
+async def delete_pacs_report_template(tid: int):
+    with DbUtil(global_config.DB_HOST, global_config.DB_USERNAME,
+                global_config.DB_PASSWORD, global_config.DB_DATABASE_GYL) as db:
+        row = db.query_one(f"SELECT id FROM nsyy_gyl.pacs_report_template WHERE id = {tid}")
+        if not row:
+            return {"success": False, "message": f"模板 #{tid} 不存在"}
+
+        db.execute(f"DELETE FROM nsyy_gyl.pacs_report_template WHERE id = {tid}", need_commit=True)
+
+    cache_pacs_template(cache_template=True, cache_entry=False)
+    return {"success": True, "message": "删除成功", "id": tid}
+
+
+
+
+# =========================================================
+# 二、报告词条表 pacs_report_entry
+# =========================================================
+
+# ---------- 1. 查询列表 ----------
+@mz_router.get("/asr/pacs_report_entry")
+async def pacs_report_entry_list(
+    page: int = Query(1, ge=1),
+    page_size: int = Query(20, ge=1, le=100),
+    keyword: str = '',
+    check_item: str = '',
+    check_item_id: Optional[int] = None
+):
+    # 强制 int，保险一层
+    page = int(page)
+    page_size = int(page_size)
+    offset = (page - 1) * page_size
+
+    # 组装 WHERE（多条件）
+    conditions = []
+    params_list = []
+
+    if keyword:
+        like = f"%{keyword}%"
+        conditions.append("(keyword LIKE %s OR seen LIKE %s OR prompt LIKE %s)")
+        params_list.extend([like, like, like])
+
+    if check_item:
+        conditions.append("check_item = %s")
+        params_list.append(check_item)
+
+    if check_item_id is not None:
+        conditions.append("check_item_id = %s")
+        params_list.append(check_item_id)
+
+    where_str = ("WHERE " + " AND ".join(conditions)) if conditions else ""
+
+    with DbUtil(global_config.DB_HOST, global_config.DB_USERNAME,
+                global_config.DB_PASSWORD, global_config.DB_DATABASE_GYL) as db:
+
+        # 1️⃣ 总数
+        count_sql = f"SELECT COUNT(*) AS total FROM nsyy_gyl.pacs_report_entry {where_str}"
+        if params_list:
+            count_row = db.query_one(count_sql, tuple(params_list))
+        else:
+            count_row = db.query_one(count_sql)
+        total = count_row['total'] if count_row else 0
+
+        # 2️⃣ 分页：LIMIT/OFFSET 直接内联整数（已类型校验，安全）
+        list_sql = f"""
+                    SELECT * FROM nsyy_gyl.pacs_report_entry
+                    {where_str}
+                    ORDER BY id DESC
+                    LIMIT {page_size} OFFSET {offset}
+                """
+        if params_list:
+            rows = db.query_all(list_sql, tuple(params_list))
+        else:
+            rows = db.query_all(list_sql)
+
+    return {
+        "success": True,
+        "total": total,
+        "total_pages": (total + page_size - 1) // page_size,
+        "data": rows
+    }
+
+
+# ---------- 2. 查询单条 ----------
+@mz_router.get("/asr/pacs_report_entry/{eid}")
+async def get_pacs_report_entry(eid: int):
+    with DbUtil(global_config.DB_HOST, global_config.DB_USERNAME,
+                global_config.DB_PASSWORD, global_config.DB_DATABASE_GYL) as db:
+        row = db.query_one(f"SELECT * FROM nsyy_gyl.pacs_report_entry WHERE id = {eid}")
+    if not row:
+        return {"success": False, "message": f"词条 #{eid} 不存在"}
+    return {"success": True, "data": row}
+
+
+# ---------- 3. 新增词条 ----------
+@mz_router.post("/asr/pacs_report_entry")
+async def create_pacs_report_entry(body: EntryBody):
+    if not body.keyword or not body.keyword.strip():
+        return {"success": False, "message": "keyword 不能为空"}
+
+    with DbUtil(global_config.DB_HOST, global_config.DB_USERNAME,
+                global_config.DB_PASSWORD, global_config.DB_DATABASE_GYL) as db:
+        # 同一检查项目下关键字唯一
+        if body.check_item_id is not None:
+            exists = db.query_one(
+                """SELECT id FROM nsyy_gyl.pacs_report_entry
+                   WHERE keyword = %s AND check_item_id = %s LIMIT 1""",
+                (body.keyword.strip(), body.check_item_id)
+            )
+        else:
+            exists = db.query_one(
+                """SELECT id FROM nsyy_gyl.pacs_report_entry
+                   WHERE keyword = %s AND (check_item_id IS NULL OR check_item_id = 0) LIMIT 1""",
+                (body.keyword.strip(),)
+            )
+        if exists:
+            return {"success": False,
+                    "message": f"该检查项目下关键字【{body.keyword}】已存在"}
+
+        insert_sql = """
+            INSERT INTO nsyy_gyl.pacs_report_entry
+                (keyword, seen, prompt, check_item_id, check_item)
+            VALUES (%s, %s, %s, %s, %s)
+        """
+        new_id = db.execute(insert_sql, (
+            body.keyword.strip(),
+            body.seen or '',
+            body.prompt or '',
+            body.check_item_id,
+            body.check_item or ''
+        ), need_commit=True)
+
+    cache_pacs_template(cache_template=False, cache_entry=True)
+    return {"success": True, "message": "创建成功", "id": new_id}
+
+
+# ---------- 4. 更新词条 ----------
+@mz_router.put("/asr/pacs_report_entry/{eid}")
+async def update_pacs_report_entry(eid: int, body: EntryBody):
+    with DbUtil(global_config.DB_HOST, global_config.DB_USERNAME,
+                global_config.DB_PASSWORD, global_config.DB_DATABASE_GYL) as db:
+        row = db.query_one(f"SELECT id FROM nsyy_gyl.pacs_report_entry WHERE id = {eid}")
+        if not row:
+            return {"success": False, "message": f"词条 #{eid} 不存在"}
+
+        update_sql = """
+            UPDATE nsyy_gyl.pacs_report_entry
+            SET keyword = %s, seen = %s, prompt = %s,
+                check_item_id = %s, check_item = %s
+            WHERE id = %s
+        """
+        db.execute(update_sql, (
+            body.keyword.strip(),
+            body.seen or '',
+            body.prompt or '',
+            body.check_item_id,
+            body.check_item or '',
+            eid
+        ), need_commit=True)
+
+    cache_pacs_template(cache_template=False, cache_entry=True)
+    return {"success": True, "message": "更新成功", "id": eid}
+
+
+# ---------- 5. 删除词条 ----------
+@mz_router.delete("/asr/pacs_report_entry/{eid}")
+async def delete_pacs_report_entry(eid: int):
+    with DbUtil(global_config.DB_HOST, global_config.DB_USERNAME,
+                global_config.DB_PASSWORD, global_config.DB_DATABASE_GYL) as db:
+        row = db.query_one(f"SELECT id FROM nsyy_gyl.pacs_report_entry WHERE id = {eid}")
+        if not row:
+            return {"success": False, "message": f"词条 #{eid} 不存在"}
+
+        db.execute(f"DELETE FROM nsyy_gyl.pacs_report_entry WHERE id = {eid}", need_commit=True)
+
+    cache_pacs_template(cache_template=False, cache_entry=True)
+    return {"success": True, "message": "删除成功", "id": eid}
+
+
+# ---------- 6. 模版列表 ----------
+@mz_router.get("/asr/check_item_options")
+async def check_item_options(keyword: str = ''):
+    """
+    返回所有检查项目（来自 pacs_report_template），用于词条表单的下拉选择。
+    不分页，一次性返回（检查项目通常不超过几百条）。
+    """
+    with DbUtil(global_config.DB_HOST, global_config.DB_USERNAME,
+                global_config.DB_PASSWORD, global_config.DB_DATABASE_GYL) as db:
+        if keyword:
+            sql = """
+                SELECT id, check_item
+                FROM nsyy_gyl.pacs_report_template
+                WHERE check_item LIKE %s
+                ORDER BY check_item ASC
+            """
+            rows = db.query_all(sql, (f"%{keyword}%",))
+        else:
+            sql = """
+                SELECT id, check_item
+                FROM nsyy_gyl.pacs_report_template
+                ORDER BY check_item ASC
+            """
+            rows = db.query_all(sql)
+
+    return {"success": True, "total": len(rows), "data": rows}
+
+NO_TEMPLATE = ('该检查项目没有固定报告模版，请根据患者情况进行生成', -1)
+
+def get_pacs_templates(check_item: str):
+    if not check_item:
+        return NO_TEMPLATE
+
     redis_client = redis.Redis(connection_pool=pool)
-    if redis_client.exists(AUTO_REPORT_TASK_RUNNING_KEY):
-        return
+    try:
+        raw = redis_client.hgetall(PACS_TEMPLATE_KEY)
+    finally:
+        redis_client.close()          # 归还连接到池，不是关闭池
 
-    while True:
-        with DbUtil(global_config.DB_HOST, global_config.DB_USERNAME,
-                    global_config.DB_PASSWORD, global_config.DB_DATABASE_GYL) as db:
-            records = db.query_all(f"select id from nsyy_gyl.pacs_ai_report "
-                                  f"where (ai_report is null OR CHAR_LENGTH(ai_report) < 10) and indicator_status = 1 order by submit_time limit 5")
+    import re
+    def _norm(s: str) -> str:
+        return re.sub(r'[\s()（）、]', '', s or '')
+    for field, value in raw.items():
+        try:
+            tmp = json.loads(value)
+            if _norm(tmp.get('check_item')) == _norm(check_item):
+                if tmp.get('report_template'):
+                    return tmp['report_template'], tmp.get('id')
+                return NO_TEMPLATE
 
-        if not records:
-            logger.debug("所有 pacs auto report 任务均已执行完成")
-            redis_client.delete(AUTO_REPORT_TASK_KEY)
-            redis_client.delete(AUTO_REPORT_TASK_RUNNING_KEY)
-            return
-        redis_client.set(AUTO_REPORT_TASK_KEY, 1)
-        pacs_auto_report_task()
+        except (json.JSONDecodeError, TypeError):
+            logger.warning("模板 %s 反序列化失败，跳过", field)
+    return NO_TEMPLATE
+
+
+def get_pacs_entrys(check_item_id: int):
+    if check_item_id <= 0:
+        return []
+    redis_client = redis.Redis(connection_pool=pool)
+    try:
+        raw = redis_client.hgetall(PACS_ENTRY_KEY)
+    finally:
+        redis_client.close()          # 归还连接到池，不是关闭池
+
+    entrys = []
+    for field, value in raw.items():
+        try:
+            entry = json.loads(value)
+            if entry['check_item_id'] == check_item_id:
+                entrys.append({
+                    "triggers": entry['keyword'].split('1'),
+                    "prompt": entry.get('prompt', ''),
+                    "seen": entry.get('seen', '')
+                })
+        except (json.JSONDecodeError, TypeError):
+            logger.warning("词条 %s 反序列化失败，跳过", field)
+    return entrys
+
+
+
+def cache_pacs_template(cache_template: bool = False, cache_entry: bool = False):
+    redis_client = redis.Redis(connection_pool=pool)
+    # 服务启动时 删除运行标识，防止服务异常退出导致运行标识未删除
+    redis_client.delete(INDICATOR_TASK_RUNNING_KEY)
+    redis_client.delete(REPORT_TASK_RUNNING_KEY)
+
+    with DbUtil(global_config.DB_HOST, global_config.DB_USERNAME,
+                global_config.DB_PASSWORD, global_config.DB_DATABASE_GYL) as db:
+        if cache_template:
+            templates = db.query_all("SELECT * FROM nsyy_gyl.pacs_report_template")
+            if templates:
+                for item in templates:
+                    redis_client.hset(PACS_TEMPLATE_KEY, str(item['id']), json.dumps(item))
+        if cache_entry:
+            entrys = db.query_all("SELECT * FROM nsyy_gyl.pacs_report_entry")
+            if entrys:
+                for item in entrys:
+                    redis_client.hset(PACS_ENTRY_KEY, str(item['id']), json.dumps(item))
+
+cache_pacs_template(cache_template=True, cache_entry=True)
+
+
+
 

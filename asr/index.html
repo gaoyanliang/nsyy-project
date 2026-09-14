@@ -26,6 +26,7 @@
             <!-- 右侧：清除按钮 + 状态徽章（横向排列，垂直居中） -->
             <div class="header-actions">
                 <button class="cache-clear-btn" id="clearCacheBtn" title="清除所有本地暂存数据">🗑 清除暂存</button>
+                <button class="header-action-btn" id="tmOpenBtn" title="模板与词条管理">⚙️ 模板管理</button>
                 <span id="voiceStatusBadge" class="header-badge online">
                     <span class="dot"></span> 语音就绪
                 </span>
@@ -182,6 +183,71 @@
         </div>
     </div>
 
+    <!-- ===== 模板管理子页面 ===== -->
+    <div id="templateManageView" class="tm-view" style="display:none;">
+        <div class="tm-topbar">
+            <button class="btn btn-ghost btn-sm" id="tmBackBtn" style="font-size:0.85rem;">← 返回主页面</button>
+            <div class="tm-tabs">
+                <button class="tm-tab active" data-tab="template">📋 报告模板</button>
+                <button class="tm-tab" data-tab="entry">📝 词条管理</button>
+            </div>
+        </div>
+
+        <!-- 模板面板 -->
+        <div class="tm-panel" id="tmPanel-template">
+            <div class="tm-toolbar">
+                <input type="text" id="tmTemplateSearch" class="tm-input" placeholder="🔍 搜索检查项目...">
+                <button class="btn btn-outline btn-sm" id="tmRefreshTemplateBtn">🔄 刷新</button>
+                <button class="btn btn-primary btn-sm" id="tmAddTemplateBtn">➕ 新增模板</button>
+            </div>
+            <div class="tm-table-wrap">
+                <table class="tm-table">
+                    <thead>
+                        <tr>
+                            <th style="width:60px;">ID</th>
+                            <th style="width:220px;">检查项目</th>
+                            <th>报告模板</th>
+                            <th style="width:90px;">分组ID</th>
+                            <th style="width:150px;">操作</th>
+                        </tr>
+                    </thead>
+                    <tbody id="tmTemplateBody">
+                        <tr><td colspan="5" class="tm-empty">加载中...</td></tr>
+                    </tbody>
+                </table>
+            </div>
+            <div class="pagination" id="tmTemplatePagination"></div>
+        </div>
+
+        <!-- 词条面板 -->
+        <div class="tm-panel" id="tmPanel-entry" style="display:none;">
+            <div class="tm-toolbar">
+                <input type="text" id="tmEntrySearch" class="tm-input" placeholder="🔍 搜索关键字 / 检查项目...">
+                <button class="btn btn-outline btn-sm" id="tmRefreshEntryBtn">🔄 刷新</button>
+                <button class="btn btn-primary btn-sm" id="tmAddEntryBtn">➕ 新增词条</button>
+            </div>
+            <div class="tm-table-wrap">
+                <table class="tm-table">
+                    <thead>
+                        <tr>
+                            <th style="width:60px;">ID</th>
+                            <th style="width:110px;">关键字</th>
+                            <th style="width:180px;">检查项目</th>
+                            <th style="width:70px;">项目ID</th>
+                            <th>超声所见补充内容</th>
+                            <th>超声提示补充内容</th>
+                            <th style="width:150px;">操作</th>
+                        </tr>
+                    </thead>
+                    <tbody id="tmEntryBody">
+                        <tr><td colspan="7" class="tm-empty">加载中...</td></tr>
+                    </tbody>
+                </table>
+            </div>
+            <div class="pagination" id="tmEntryPagination"></div>
+        </div>
+    </div>
+
     <!-- ===== 模态框（保留原样） ===== -->
     <div class="modal-overlay" id="reportModal">
         <div class="modal-box">
@@ -202,5 +268,6 @@
     <!-- ============================================================ -->
     <!-- ===== JavaScript（核心功能，保留原逻辑，仅添加互斥控制） ===== -->
     <script src="asr.js"></script>
+    <script src="template-manage.js"></script>
 </body>
 </html>

@@ -1,5 +1,6 @@
 from typing import Optional, List
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
+
 
 class TakeNumberRequest(BaseModel):
     patient_id: str
@@ -49,3 +50,16 @@ class UpdateReportRequest(BaseModel):
     patient_info: Optional[str] = None
     indicator_data: Optional[str] = None
     re_edit: Optional[bool] = False
+
+class TemplateBody(BaseModel):
+    check_item: str = Field(..., description="检查项目名称")
+    report_template: Optional[str] = Field('', description="报告模板内容")
+    group_id: Optional[int] = Field(-1, description="共用模板的分组ID，默认-1")
+
+
+class EntryBody(BaseModel):
+    keyword: str = Field(..., description="关键字")
+    seen: Optional[str] = Field('', description="超声所见应补充内容")
+    prompt: Optional[str] = Field('', description="超声提示应补充内容")
+    check_item_id: Optional[int] = Field(None, description="检查项目ID")
+    check_item: Optional[str] = Field('', description="检查项目名称")
