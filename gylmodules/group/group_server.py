@@ -152,18 +152,18 @@ def update_group(group_id: int, group_name: str, desc: str, is_public, cur_user_
         for member in members:
             if not member.get('user_id') or not member.get('user_name') :
                 continue
-            values.append((group_id, member.get('user_id'), member.get('user_name'), member.get('user_mail_account'),
-                               member.get('status'), timer, timer, 0))
+            values.append((group_id, member.get('user_id'), member.get('user_name'), member.get('user_mail_account', ''),
+                               member.get('state', 0), member.get('allow_edit', 0), 0, timer, timer))
 
         insert_sql = """INSERT INTO nsyy_gyl.group_member (group_id, user_id, user_name, user_mail_account, 
-                    state, created_at, updated_at, is_reply) VALUES (%s, %s, %s, %s, %s, %s, %s, %s) 
-                    ON DUPLICATE KEY UPDATE state = VALUES(state), updated_at = VALUES(updated_at), is_reply = VALUES(is_reply)"""
+                    state, allow_edit, is_reply,  created_at, updated_at) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s) 
+                    ON DUPLICATE KEY UPDATE allow_edit = VALUES(allow_edit), updated_at = VALUES(updated_at), state = VALUES(state), is_reply = VALUES(is_reply)"""
         db.execute_many(insert_sql, args=values, need_commit=True)
 
     del db
 
     for member in members:
-        if member.get('status') == 0:
+        if member.get('state') == 0:
             # 邀请人群
             send_notification_message(ws_config.NOTIFICATION_MESSAGE,
                                       int(group.get('owner_id')),
@@ -181,7 +181,7 @@ def update_group(group_id: int, group_name: str, desc: str, is_public, cur_user_
                                           }
                                       }, default=str))
 
-        elif member.get('status') == 2:
+        elif member.get('state') == 2:
             # 移出缓存
             group_member_redis_key = group_config.group_member_ids_key.format(group_id)
             if redis_client.sismember(group_member_redis_key, str(member.get('user_id'))) == 1:
