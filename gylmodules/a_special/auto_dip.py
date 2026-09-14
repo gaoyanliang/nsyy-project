@@ -631,6 +631,8 @@ def process_all_patients(dept_name, max_workers=MAX_WORKERS):
                             总费用, 患者费别, 手术, 手术记录, 病案诊断, 诊断, 检查, 检验, 治疗医嘱, 用药医嘱 FROM nsyy_gyl.dip_patient 
                             where 出院科室 = '{dept_name}' and 来源 = '{source_dict[CONFIG['source']]}' and 最终DIP代码 is null """
         patient_list = db.query_all(sql)
+
+    logger.info(f"开始处理科室 {dept_name} 共有 {len(patient_list) if patient_list else 0} 个患者")
     if not patient_list:
         return
 
@@ -839,6 +841,7 @@ if __name__ == "__main__":
     if dept_list:
         dept_list = [item.get('出院科室') for item in dept_list]
         dept_list = list(set(dept_list))
+        logger.info(f"共有 {len(dept_list)} 个科室需要处理")
         for dept_name in dept_list:
             if not query_balance():
                 logger.info("deepseek 没有余额 该充值了")
