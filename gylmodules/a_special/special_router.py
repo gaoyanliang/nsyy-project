@@ -1072,3 +1072,24 @@ def mark_complete():
     return jsonify({"code": 20000, "data": 'successed'})
 
 
+
+# 根据院前系统请求，查询抢救记录(病历名字模糊查询：抢救)  提供给卒中系统使用
+@special_system.route("/rescue_record", methods=["POST"])
+def rescue_record():
+    req_json = request.get_json()
+    if not req_json:
+        return jsonify({"error": "请求体必须是 JSON 格式", 'code': 50000})
+    if not req_json.get('bingrenzyid') or not req_json.get('start_time') or not req_json.get('end_time'):
+        return jsonify({"error": "请求体必须包含 bingrenzyid, start_time, end_time", 'code': 50000})
+
+    sql = f"""
+    select  zb.bingrenzyid,wb.binglimc as bingli_name,
+    array_to_string(xpath('//*/text()', wb2.wenjiannr::xml), ' ') bingli_content
+    from df_jj_zhuyuan.zy_bingrenxx zb 
+    join df_bingli.ws_binglijl wb on zb.bingrenzyid =wb.bingrenzyid and wb.zuofeibz =0 and wb.wenshuzt=2 and wb.binglimc like '%抢救%'
+    join df_bingli.ws_binglijlnr wb2 on wb.binglijlid =wb2.binglijlid 
+    where zb.bingrenzyid = '{req_json.get('bingrenzyid')}' and wb.xiugaisj>='{req_json.get('start_time')}' and wb.xiugaisj <='{req_json.get('end_time')}'
+    """
+    data = global_tools.call_new_his_pg(sql)
+
+    return jsonify({"code": 20000, "data": data})
