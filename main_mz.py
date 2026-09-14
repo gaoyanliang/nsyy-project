@@ -4,8 +4,9 @@ import os
 import uuid
 import threading
 from contextlib import asynccontextmanager
-from datetime import datetime, date
+from datetime import datetime
 
+from apscheduler.schedulers.asyncio import AsyncIOScheduler
 from apscheduler.schedulers.background import BackgroundScheduler
 from starlette.middleware.base import BaseHTTPMiddleware
 from starlette.responses import JSONResponse
@@ -26,12 +27,12 @@ logger = logging.getLogger(__name__)
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import FileResponse
-from fastapi import FastAPI, Request, Response
+from fastapi import FastAPI
 from fastapi import Request
 import uvicorn
 
 # ---------- 导入 FastAPI 应用 ----------
-from outpatient_queue.mz_server import mz_router, pacs_indicator_data_task, pacs_auto_report_task_check
+from outpatient_queue.mz_server import mz_router, pacs_indicator_data_task, pacs_auto_report_task
 
 
 class RequestIDMiddleware(BaseHTTPMiddleware):
@@ -75,13 +76,13 @@ async def lifespan(app: FastAPI):
     # --- 启动时执行 ---
     scheduler = BackgroundScheduler()
     # 添加任务：每 3 秒执行一次
-    scheduler.add_job(pacs_indicator_data_task, 'interval', seconds=60)
-    scheduler.add_job(pacs_auto_report_task_check, 'interval', seconds=300)
+    scheduler.add_job(pacs_indicator_data_task, 'interval', seconds=30)
+    scheduler.add_job(pacs_auto_report_task, 'interval', seconds=35)
     scheduler.start()
     logger.info("调度器已启动")
     yield
-    # --- 关闭时执行 ---
-    scheduler.shutdown()
+    # ---- 关闭 ----
+    scheduler.shutdown(wait=False)  # 别 wait=True，会卡事件循环
     logger.info("调度器已关闭")
 
 app = FastAPI(title="南阳南石医院", lifespan=lifespan)
