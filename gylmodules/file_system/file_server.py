@@ -1,3 +1,5 @@
+import os
+import paramiko
 import json
 import logging
 from datetime import datetime
@@ -440,9 +442,9 @@ def download_file(json_data):
 """更新文件名称/发布状态"""
 
 
-def update_file(json_data):
+def update_file(json_data, new_files):
     owner_id = json_data.get("owner_id")
-    owner_depts = json_data.get("owner_depts")
+    owner_depts = json.loads(json_data.get("owner_depts"))
     document_id = json_data.get("document_id")
 
     with DbUtil(global_config.DB_HOST, global_config.DB_USERNAME,
@@ -471,6 +473,29 @@ def update_file(json_data):
         if condition_sql:
             db.execute(f"UPDATE nsyy_gyl.file_document SET {condition_sql} WHERE document_id = {document_id}",
                        need_commit=True)
+
+        if new_files:
+            if not check_root_permission(owner_id, document.get('file_type'), [str(item.get('dept_id')) for item in owner_depts],
+                                         json_data.get('group_id', 0)):
+                raise Exception("您无权在此根目录下上传文件")
+
+            # 上传文件到服务器
+            file_paths = _upload_file(new_files)
+            if not file_paths:
+                raise Exception("文件上传失败")
+
+            # 将旧文件存入历史信息
+            insert_sql = """INSERT INTO nsyy_gyl.file_document_version 
+                                    (document_id, version_id, storage_path, owner_id, owner, comment, is_deleted, updated_at) 
+                                    VALUES (%s, %s, %s, %s, %s, %s, %s, %s)"""
+            db.execute(insert_sql, (document_id, document.get('cur_version_id'), document.get('storage_path'),
+                                        document.get('owner_id'), document.get('owner'), json_data.get('comment', ''), 0,
+                                        datetime.now().strftime('%Y-%m-%d %H:%M:%S')), need_commit=True)
+
+            version = document.get('cur_version_id', 1) + 1
+            # 更新文件地址 和 版本
+            db.execute(f"UPDATE nsyy_gyl.file_document SET storage_path = '{file_paths[0].get('path')}', "
+                       f"cur_version_id = {version} WHERE document_id = {document_id}", need_commit=True)
 
 
 """查询当前目录内容"""
@@ -624,27 +649,103 @@ def query_file_list(json_data):
     return {"folders": visible_folders, "documents": visible_documents}
 
 
+"""查询删除的文件和文件夹"""
+
+def query_deleted_list(json_data):
+    user_id = json_data.get("owner_id")
+    with DbUtil(global_config.DB_HOST, global_config.DB_USERNAME,
+                global_config.DB_PASSWORD, global_config.DB_DATABASE_GYL) as db:
+
+        # ========= 1. 查询子文件夹 =========
+        folders = db.query_all(f"select * from nsyy_gyl.file_folder where is_deleted = 1 and owner_id = {user_id}")
+
+        # ========= 2. 查询文件 =========
+        documents = db.query_all(f"select * from nsyy_gyl.file_document where is_deleted = 1 and owner_id = {user_id}")
+
+    return {"folders": folders, "documents": documents}
+
+
 def _upload_file(files):
     if not files:
         return ''
     try:
-        import os
-        # 确保上传目录存在
-        path = f"{file_config.upload_path_local if global_config.run_in_local else file_config.upload_path_dev}/{datetime.now().strftime('%Y%m%d')}"
-        if not os.path.exists(path):
-            os.makedirs(path)
-
         paths = []
-        for file in files:
-            # 安全保存文件
-            file_path = os.path.join(path, f"{datetime.now().strftime('%Y%m%d%H%M%S%f')}_{file.filename}")
-            file.save(file_path)
-            paths.append({"name": file.filename, "path": file_path})
+        if global_config.run_in_local:
+            import os
+            # 确保上传目录存在
+            path = f"{file_config.upload_path_local}/{datetime.now().strftime('%Y%m%d')}"
+            if not os.path.exists(path):
+                os.makedirs(path)
+
+            for file in files:
+                # 安全保存文件
+                file_path = os.path.join(path, f"{datetime.now().strftime('%Y%m%d%H%M%S%f')}_{file.filename}")
+                file.save(file_path)
+                paths.append({"name": file.filename, "path": file_path})
+        else:
+            remote_dir = f"{file_config.upload_path_dev}/{datetime.now().strftime('%Y%m%d')}"
+            paths = _upload_file_to_remote(files, remote_dir)
         return paths
     except Exception as e:
         logger.error(f"文件上传失败 {e}")
     return []
 
+
+def _upload_file_to_remote(files, remote_dir):
+    if not files:
+        return ''
+
+    sftp = None
+    ssh = None
+    try:
+        # 建立 SSH / SFTP 连接
+        ssh = paramiko.SSHClient()
+        ssh.set_missing_host_key_policy(paramiko.AutoAddPolicy())
+        ssh.connect(
+            hostname=file_config.SFTP_HOST,
+            port=file_config.SFTP_PORT,
+            username=file_config.SFTP_USERNAME,
+            password=file_config.SFTP_PASSWORD,
+            timeout=10,
+        )
+        sftp = ssh.open_sftp()
+
+        # 递归创建远程目录
+        _mkdir_p(sftp, remote_dir)
+
+        paths = []
+        for file in files:
+            filename = f"{datetime.now().strftime('%Y%m%d%H%M%S%f')}_{file.filename}"
+            remote_path = f"{remote_dir}/{filename}".replace('\\', '/')
+
+            # 上传文件（流式上传，避免落本地磁盘）
+            file.stream.seek(0)
+            sftp.putfo(file.stream, remote_path)
+
+            paths.append({"name": file.filename, "path": remote_path})
+        return paths
+    except Exception as e:
+        logger.error(f"文件上传失败 {e}")
+    finally:
+        if sftp:
+            sftp.close()
+        if ssh:
+            ssh.close()
+    return []
+
+
+def _mkdir_p(sftp, remote_dir):
+    """在远程服务器上递归创建目录"""
+    remote_dir = remote_dir.replace('\\', '/')
+    dirs = []
+    while remote_dir and remote_dir not in ('/', ''):
+        dirs.append(remote_dir)
+        remote_dir, _ = os.path.split(remote_dir)
+    for d in reversed(dirs):
+        try:
+            sftp.stat(d)
+        except IOError:
+            sftp.mkdir(d)
 
 
 """文件/文件夹 权限查询 返回用户对 文档 或 文件夹 的最终权限"""
@@ -831,8 +932,6 @@ def get_effective_permission(user_id, dept_list, doc_id=None, folder_id=None, re
                 }
     # 默认无权限
     return empty_perm()
-
-
 
 
 # ==================================================

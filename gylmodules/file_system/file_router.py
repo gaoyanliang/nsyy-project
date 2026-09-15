@@ -74,9 +74,9 @@ def upload_file():
 
 
 @file_system.route('/update_file', methods=['POST'])
-@api_response
-def update_file(json_data):
-    return file_server.update_file(json_data)
+def update_file():
+    file_server.update_file(request.form, request.files.getlist('new_files'))
+    return jsonify({'code': 20000, 'message': '更新成功'})
 
 
 @file_system.route('/download', methods=['POST', 'GET'])
@@ -98,6 +98,11 @@ def download_file():
 def query_file_list(json_data):
     return file_server.query_file_list(json_data)
 
+
+@file_system.route('/query_deleted_file_list', methods=['POST', 'GET'])
+@api_response
+def query_deleted_file_list(json_data):
+    return file_server.query_deleted_list(json_data)
 
 
 
