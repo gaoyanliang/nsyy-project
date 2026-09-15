@@ -16,6 +16,7 @@ class CallRequest(BaseModel):
     business_id: Optional[str] = None
     patient_name: Optional[str] = ""
     queue_number: Optional[str] = None
+    count: Optional[int] = 1  # 新增：批量叫号数量（默认 1）
 
 class CompleteRequest(BaseModel):
     queue_number: str

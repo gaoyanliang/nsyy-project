@@ -1019,3 +1019,49 @@ body {
         padding: 0 6px;
     }
 }
+
+/* ===== 批量叫号数量选择器 ===== */
+.call-count-select {
+    flex: 0 0 auto;
+    min-width: 78px;
+    padding: 8px 6px;
+    border: 2px solid var(--primary);
+    border-radius: var(--radius-lg);
+    background: white;
+    color: var(--primary);
+    font-size: 1rem;
+    font-weight: 700;
+    font-family: inherit;
+    cursor: pointer;
+    text-align: center;
+    transition: all 0.2s;
+}
+
+.call-count-select:hover {
+    background: var(--primary-bg);
+}
+
+.call-count-select:focus {
+    outline: none;
+    box-shadow: 0 0 0 3px rgba(59,130,246,0.25);
+}
+
+/* 多患者叫号时缩小字号 */
+.current-call-info .call-number.multi {
+    font-size: 2.6rem;
+    letter-spacing: 2px;
+}
+
+.current-call-info .patient-name.multi {
+    font-size: 1.15rem;
+    letter-spacing: 2px;
+    line-height: 1.35;
+}
+
+@media (max-width: 500px) {
+    .call-count-select {
+        min-width: 62px;
+        font-size: 0.9rem;
+        padding: 6px 4px;
+    }
+}

@@ -42,7 +42,7 @@ let windows = {};
 let currentWindowInfo = null;
 
 // 缓存当前显示数据
-let cachedCurrentCall = null;
+let cachedCurrentCalls = [];     // 当前窗口所有正在叫号的记录
 let cachedQueues = [];
 
 // ==================== 控制标志 ====================
@@ -242,8 +242,8 @@ async function switchWindow(windowId) {
         document.getElementById('windowSelect').value = windowId;
 
         // 5. 重置显示缓存和当前叫号显示
-        cachedCurrentCall = null;
-        updateCurrentCallDisplay('---', '等待叫号');
+        cachedCurrentCalls = [];
+        updateCurrentCallsDisplay([]);
 
         // 6. 重新加载数据
         await loadQueueStatus();
@@ -282,52 +282,79 @@ async function loadQueueStatus() {
 }
 
 function showError() {
-    updateCurrentCallDisplay('---', '等待叫号');
+    cachedCurrentCalls = [];
+    updateCurrentCallsDisplay([]);
 }
 
 // ==================== 更新显示 - 增量更新（无数据真空期） ====================
 function updateDisplay(data) {
-    // 更新当前叫号
-    if (data.current_calls && data.current_calls.length > 0) {
-        // 使用严格相等，确保类型匹配
-        const windowCall = data.current_calls.find(call => Number(call.window_id) === Number(currentWindowId));
-        if (windowCall) {
-            // 检查是否真的变化了
-            const newCallKey = `${windowCall.queue_number}_${windowCall.patient_name}`;
-            const cachedKey = cachedCurrentCall ? `${cachedCurrentCall.queue_number}_${cachedCurrentCall.patient_name}` : null;
-            if (cachedKey !== newCallKey) {
-                updateCurrentCallDisplay(windowCall.queue_number, windowCall.patient_name || '--');
-                animateCall();
-                cachedCurrentCall = windowCall;
-            }
-        } else {
-            // 当前窗口没有叫号，但之前有显示
-            if (cachedCurrentCall) {
-                updateCurrentCallDisplay('---', '暂无叫号');
-                cachedCurrentCall = null;
-            }
-        }
-    } else {
-        // 没有任何叫号
-        if (cachedCurrentCall) {
-            updateCurrentCallDisplay('---', '暂无叫号');
-            cachedCurrentCall = null;
-        }
-    }
+    // 取出当前窗口所有正在叫号的患者（批量叫号时会有多条）
+    const windowCalls = (data.current_calls || []).filter(
+        call => Number(call.window_id) === Number(currentWindowId)
+    );
 
+    const newKey = makeCallsKey(windowCalls);
+    const oldKey = makeCallsKey(cachedCurrentCalls);
+
+    if (newKey !== oldKey) {
+        updateCurrentCallsDisplay(windowCalls);
+        if (windowCalls.length > 0) {
+            animateCall();
+        }
+        cachedCurrentCalls = windowCalls;
+    }
 }
 
+// 生成用于比较的 key（排序后拼接，避免顺序抖动导致误判）
+function makeCallsKey(calls) {
+    if (!calls || calls.length === 0) return '';
+    return calls
+        .map(c => `${c.queue_number}_${c.patient_name || ''}`)
+        .sort()
+        .join('|');
+}
+
+function updateCurrentCallsDisplay(calls) {
+    const container = document.getElementById('callsDisplay');
+    if (!container) return;
+
+    // 空状态
+    if (!calls || calls.length === 0) {
+        container.className = 'calls-display single';
+        container.innerHTML = `
+            <div class="call-item">
+                <div class="call-number">---</div>
+                <div class="patient-name">请等待</div>
+            </div>
+        `;
+        return;
+    }
+
+    // 根据人数设置布局 class
+    let layoutClass;
+    if (calls.length === 1)      layoutClass = 'single';
+    else if (calls.length === 2) layoutClass = 'multi-2';
+    else if (calls.length <= 4)  layoutClass = 'multi-3';
+    else                          layoutClass = 'multi-many';
+
+    container.className = `calls-display ${layoutClass}`;
+
+    // 渲染所有号码/姓名
+    container.innerHTML = calls.map(call => `
+        <div class="call-item">
+            <div class="call-number">${escapeHtml(call.queue_number || '---')}</div>
+            <div class="patient-name">${escapeHtml((call.patient_name || '').trim() || '&nbsp;')}</div>
+        </div>
+    `).join('');
+}
+
+// 保持旧函数入口兼容（其他地方若有调用）
 function updateCurrentCallDisplay(queueNumber, patientName) {
-    const numberElement = document.getElementById('callNumber');
-    const patientElement = document.getElementById('patientName');
-
-    if (numberElement) {
-        patientElement.textContent = patientName || '请等待';
+    if (!queueNumber || queueNumber === '---') {
+        updateCurrentCallsDisplay([]);
+        return;
     }
-
-    if (patientElement) {
-        numberElement.textContent = queueNumber || '---';
-    }
+    updateCurrentCallsDisplay([{ queue_number: queueNumber, patient_name: patientName }]);
 }
 
 
@@ -445,28 +472,22 @@ function handleWebSocketMessage(data) {
             console.log('接收到 test socket消息:', messageData);
             break
         case 'call_success':
-            // 更新当前叫号
-            if (messageData && messageData.queue_number) {
-                updateCurrentCallDisplay(messageData.queue_number, messageData.patient_name || '--');
+            // 优先用 data_list（批量叫号），退化到单条
+            const list = (data.data_list && data.data_list.length > 0)
+                ? data.data_list
+                : (messageData && messageData.queue_number
+                    ? [{ queue_number: messageData.queue_number,
+                         patient_name: messageData.patient_name,
+                         window_id: currentWindowId }]
+                    : (messageData && messageData.current_call ? [messageData.current_call] : []));
+
+            if (list.length > 0) {
+                cachedCurrentCalls = list;
+                updateCurrentCallsDisplay(list);
                 animateCall();
-                // 更新缓存
-                cachedCurrentCall = {
-                    queue_number: messageData.queue_number,
-                    patient_name: messageData.patient_name,
-                    window_id: currentWindowId
-                };
-            } else if (messageData && messageData.current_call) {
-                const call = messageData.current_call;
-                updateCurrentCallDisplay(call.queue_number, call.patient_name || '--');
-                animateCall();
-                cachedCurrentCall = {
-                    queue_number: call.queue_number,
-                    patient_name: call.patient_name,
-                    window_id: currentWindowId
-                };
-            } else if (cachedCurrentCall) {
-                updateCurrentCallDisplay('---', '暂无叫号');
-                cachedCurrentCall = null;
+            } else if (cachedCurrentCalls.length > 0) {
+                cachedCurrentCalls = [];
+                updateCurrentCallsDisplay([]);
             }
             // 刷新队列
             loadQueueStatus();

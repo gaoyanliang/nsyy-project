@@ -40,6 +40,7 @@ let currentWindowId = 1;
 let currentWindowInfo = null;
 let ws = null;
 let currentCall = null;
+let currentCalls = [];        // 新增：当前窗口所有叫号中患者
 let businessTypes = {};
 let windows = {};
 let refreshTimer = null;
@@ -89,6 +90,26 @@ async function init() {
 
     // 确保按钮可见性正确（即使窗口未切换）
     updatePharmacyButtonVisibility(currentWindowId);
+
+    // ==================== 恢复并持久化"批量叫号数量" ====================
+    const countSelect = document.getElementById('callCountSelect');
+    if (countSelect) {
+        // 默认值：HTML 里 selected 的项（一般是 1）
+        const savedCount = localStorage.getItem('callCount');
+        if (savedCount && countSelect.querySelector(`option[value="${savedCount}"]`)) {
+            countSelect.value = savedCount;
+        } else {
+            // 没有存档时，保持 HTML 默认（× 1）
+            countSelect.value = '1';
+        }
+
+        // 用户改变时立即保存
+        countSelect.addEventListener('change', (e) => {
+            localStorage.setItem('callCount', e.target.value);
+        });
+    }
+    // =================================================================
+
 
     // 创建激活按钮（仅当语音不可用时显示，但这里直接作为保险）
     const activateBtn = document.createElement('button');
@@ -299,6 +320,7 @@ async function switchWindow(windowId) {
 
     // 4. 重置状态但不立即清空显示（保持旧数据直到新数据到来）
     currentCall = null;
+    currentCalls = [];   // 新增
 
     if (previousWindowId !== currentWindowId) {
         console.log(`切换到 ${currentWindowInfo?.window_name || '窗口' + windowId}`);
@@ -337,13 +359,42 @@ function updatePharmacyButtonVisibility(windowId) {
 }
 
 // ==================== 当前叫号显示 ====================
+
+// 兼容单个：内部调用多参数版本
 function updateCurrentCallDisplay(queueNumber, patientName) {
+    if (queueNumber === '---' || !queueNumber) {
+        updateCurrentCallsDisplay([]);
+        return;
+    }
+    updateCurrentCallsDisplay([{ queue_number: queueNumber, patient_name: patientName }]);
+}
+
+// 多患者显示
+function updateCurrentCallsDisplay(calls) {
     const numberElement = document.getElementById('callNumber');
     const patientElement = document.getElementById('patientName');
+    if (!numberElement || !patientElement) return;
 
-    if (numberElement && patientElement) {
-        numberElement.textContent = queueNumber || '---';
-        patientElement.textContent = patientName || '等待叫号';
+    if (!calls || calls.length === 0) {
+        numberElement.textContent = '---';
+        patientElement.textContent = '等待叫号';
+        numberElement.classList.remove('multi');
+        patientElement.classList.remove('multi');
+        return;
+    }
+
+    const numbers = calls.map(c => c.queue_number).filter(Boolean);
+    const names   = calls.map(c => (c.patient_name && c.patient_name.trim()) || '患者');
+
+    numberElement.textContent = numbers.join('、');
+    patientElement.textContent = names.join('、');
+
+    if (calls.length > 1) {
+        numberElement.classList.add('multi');
+        patientElement.classList.add('multi');
+    } else {
+        numberElement.classList.remove('multi');
+        patientElement.classList.remove('multi');
     }
 }
 
@@ -436,27 +487,29 @@ function updateBusinessCards(statusData) {
         </div>
 
     `;
-        // 放在  `; 里面
-        // <button class="call-main-btn" onclick="window.callNext('${businessType}')">
-        //     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-        //         <polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/>
-        //         <path d="M19.07 4.93a10 10 0 0 1 0 14.14"/>
-        //         <path d="M15.54 8.46a5 5 0 0 1 0 7.07"/>
-        //     </svg>
-        //     叫下一个号
-        // </button>
     container.appendChild(card);
 
     // 加载该业务的排队列表
     loadQueueList(businessType);
 
-    // 恢复当前叫号（如果有）
+    // 恢复当前叫号（支持多个）
     if (statusData.current_calls && statusData.current_calls.length > 0) {
-        const windowCall = statusData.current_calls.find(call => call.window_id === currentWindowId);
-        if (windowCall) {
-            currentCall = windowCall;
-            updateCurrentCallDisplay(windowCall.queue_number, windowCall.patient_name || '患者');
+        const windowCalls = statusData.current_calls.filter(
+            c => Number(c.window_id) === Number(currentWindowId)
+        );
+        if (windowCalls.length > 0) {
+            currentCalls = windowCalls;
+            currentCall = windowCalls[0];
+            updateCurrentCallsDisplay(windowCalls);
+        } else {
+            currentCalls = [];
+            currentCall = null;
+            updateCurrentCallsDisplay([]);
         }
+    } else {
+        currentCalls = [];
+        currentCall = null;
+        updateCurrentCallsDisplay([]);
     }
 }
 
@@ -707,20 +760,32 @@ function handleWebSocketMessage(data) {
     switch (data.type) {
         case 'init':
         case 'status':
-            if (data.data && data.data.current_call) {
-                currentCall = data.data.current_call;
-                if (currentCall.window_id === currentWindowId) updateCurrentCallDisplay(currentCall.queue_number, currentCall.patient_name || '患者');
-            } else {
-                currentCall = null;
-                updateCurrentCallDisplay('---', '等待叫号');
+            console.log('收到状态消息:', data);
+
+            const list1 = data.data.current_calls && data.data.current_calls.length > 0
+                ? data.data.current_calls
+                : (data.data.current_call ? [data.data.current_call] : []);
+
+            if (list1.length > 0 && list1[0].window_id === currentWindowId) {
+                currentCalls = list1;
+                currentCall = list1[0];
+                if (currentCall.window_id === currentWindowId) updateCurrentCallsDisplay(list1);
             }
             break;
 
         case 'call_success':
-            currentCall = data.data;
-            if (currentCall.window_id === currentWindowId) updateCurrentCallDisplay(data.data.queue_number, data.data.patient_name || '患者');
-            console.log(`叫号成功：${data.data.queue_number}`);
-            animateCallNumber();
+            const list = data.data_list && data.data_list.length > 0
+                ? data.data_list
+                : (data.data ? [data.data] : []);
+
+            if (list.length > 0 && list[0].window_id === currentWindowId) {
+                currentCalls = list;
+                currentCall = list[0];
+                if (currentCall.window_id === currentWindowId) updateCurrentCallsDisplay(list);
+                console.log(`叫号成功：${list.map(q => q.queue_number).join('、')}`);
+                animateCallNumber();
+            }
+
             // 使用防抖刷新，避免频繁请求
             scheduleRefresh();
             break;
@@ -781,6 +846,10 @@ async function callNext(businessType) {
         return;
     }
 
+    // 读取叫号数量
+    const countSelect = document.getElementById('callCountSelect');
+    const count = countSelect ? Math.max(1, parseInt(countSelect.value) || 1) : 1;
+
     isCalling = true;
     console.log('正在呼叫下一个患者...');
 
@@ -794,15 +863,26 @@ async function callNext(businessType) {
                 business_type: businessType,
                 business_id: '',
                 patient_name: '',
-                queue_number: ''
+                queue_number: '',
+                count: count      // 新增
             })
         });
 
         const result = await response.json();
 
         if (result.success) {
-            currentCall = result.queue;
-            if (currentCall.window_id === currentWindowId) updateCurrentCallDisplay(result.queue.queue_number, result.queue.patient_name || '患者');
+            const queues = result.queues || (result.queue ? [result.queue] : []);
+            if (queues.length === 0) {
+                updateCurrentCallsDisplay([]);
+                return;
+            }
+            currentCalls = queues;
+            currentCall = queues[0];
+            if (currentCall.window_id === currentWindowId) updateCurrentCallsDisplay(queues);
+
+            // 后端返回当前呼叫对象，更新 currentCall
+//            currentCall = result.queue;
+//            if (currentCall.window_id === currentWindowId) updateCurrentCallDisplay(result.queue.queue_number, result.queue.patient_name || '患者');
             playVoice(result.queue.queue_number, result.queue.patient_name);
             animateCallNumber();
             // 使用防抖刷新
@@ -879,20 +959,30 @@ async function callSpecific(queueNumber, patientName, businessType) {
 // ==================== 服务完成 ====================
 async function completeService() {
     if (!currentCall || currentCall.status !== 'calling') {
-        console.log('没有正在服务的患者');
-        showToast('没有正在服务的患者');
+        // 若 currentCalls 有数据，允许直接完成
+        if (currentCalls.length === 0) {
+            console.log('没有正在服务的患者');
+            showToast('没有正在服务的患者');
+            return;
+        }
+    }
+    if (isCalling) return;
+    isCalling = true;
+
+    const target = currentCall || currentCalls[0];
+    if (!target) {
+        console.log('没有可完成的患者');
+        isCalling = false;
         return;
     }
-    console.log(currentCall);
-    if (isCalling) return; // 正在处理其他请求
-    isCalling = true;
+
     try {
         const response = await fetch(`${API_BASE}/api/complete`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
                 status: 0,
-                queue_number: currentCall.queue_number,
+                queue_number: target.queue_number,
                 window_id: currentWindowId
             })
         });
@@ -900,27 +990,41 @@ async function completeService() {
         const result = await response.json();
 
         if (result.success) {
-            console.log(`完成服务：${currentCall.queue_number}`);
-            updateCurrentCallDisplay('---', '等待叫号');
-            currentCall = null;
+            console.log(`完成服务：${target.queue_number}`);
+
+            // 从列表移除已完成患者
+            currentCalls = currentCalls.filter(c => c.queue_number !== target.queue_number);
+
+            if (currentCalls.length > 0) {
+                currentCall = currentCalls[0];
+                updateCurrentCallsDisplay(currentCalls);
+            } else {
+                currentCall = null;
+                updateCurrentCallsDisplay([]);
+
+                // 无剩余，自动叫下一个
+//                setTimeout(() => {
+//                    // 自动呼叫下一个，注意此时当前服务已结束，互斥锁需要释放后再 callNext
+//                    if (currentCalls.length === 0 && !isCalling) {
+//                        callNext(currentBusinessType);
+//                    } else {
+//                        // 如果 isCalling 仍为 true，则稍后重试或放弃
+//                        console.log('自动叫号跳过：已有请求进行中或已有服务');
+//                    }
+//                }, 500);
+            }
+
             // 使用防抖刷新
             scheduleRefresh();
-
-            // 自动呼叫下一个，注意此时当前服务已结束，互斥锁需要释放后再 callNext
-            setTimeout(() => {
-                // 重新调用 callNext 前需确保 isCalling 已释放，并且当前没有新的 currentCall
-                if (!currentCall && !isCalling) {
-                    callNext(currentBusinessType);
-                } else {
-                    // 如果 isCalling 仍为 true，则稍后重试或放弃
-                    console.log('自动叫号跳过：已有请求进行中或已有服务');
-                }
-            }, 500);
-
             loadHistory(); // 新增
+        }   else {
+            console.log('完成服务失败：', result.message || '接口返回失败');
+            showToast(result.message || '完成服务失败');
         }
     } catch (error) {
-        console.log('完成服务失败：网络错误');
+        // ✅ 打印真实错误，别再一律叫"网络错误"
+        console.error('完成服务异常:', error);
+        showToast('完成服务异常，请查看控制台');
     } finally {
         isCalling = false;
     }
@@ -928,19 +1032,20 @@ async function completeService() {
 
 // ==================== 跳过/过号 ====================
 async function skipCurrent() {
-    if (!currentCall) {
-        console.log('没有正在服务的患者');
+    if (!currentCall && currentCalls.length === 0) {
+        showToast('没有正在服务的患者');
         return;
     }
     if (isCalling) return;
-
     isCalling = true;
+
+    const target = currentCall || currentCalls[0];
     try {
         const response = await fetch(`${API_BASE}/api/skip`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
-                queue_number: currentCall.queue_number,
+                queue_number: target.queue_number,
                 reason: '过号'
             })
         });
@@ -948,17 +1053,24 @@ async function skipCurrent() {
         const result = await response.json();
 
         if (result.success) {
-            console.log(`过号：${currentCall.queue_number}`);
-            updateCurrentCallDisplay('---', '等待叫号');
-            currentCall = null;
-            // 使用防抖刷新
-            scheduleRefresh();
+            console.log(`过号：${target.queue_number}`);
+            currentCalls = currentCalls.filter(c => c.queue_number !== target.queue_number);
 
-            setTimeout(() => {
-                if (!currentCall && !isCalling) {
-                    callNext(currentBusinessType);
-                }
-            }, 500);
+            if (currentCalls.length > 0) {
+                currentCall = currentCalls[0];
+                updateCurrentCallsDisplay(currentCalls);
+            } else {
+                currentCall = null;
+                updateCurrentCallsDisplay([]);
+
+//                setTimeout(() => {
+//                    if (currentCalls.length === 0 && !isCalling) {
+//                        callNext(currentBusinessType);
+//                    }
+//                }, 500);
+            }
+            scheduleRefresh();
+            loadSkippedList();
         }
     } catch (error) {
         console.log('过号失败：网络错误');
@@ -988,15 +1100,15 @@ function showToast(message) {
 
 // ==================== 重复呼叫 ====================
 async function recallCurrent() {
-    if (!currentCall || currentCall.status !== 'calling') {
+    if (currentCalls.length === 0 || currentCall.status !== 'calling') {
         console.log('没有正在服务的患者');
         showToast('没有正在服务的患者');
         return;
     }
-
-    playVoice(currentCall.queue_number, currentCall.patient_name);
+    // 重呼时把所有已叫号的患者再拼一次
+    await playVoiceMulti(currentCalls);
     animateCallNumber();
-    console.log(`重复呼叫：${currentCall.queue_number}`);
+    console.log(`重复呼叫：${currentCalls.map(q => q.queue_number).join('、')}`);
 }
 
 // ==================== 语音播报 ====================
@@ -1036,6 +1148,7 @@ function playVoice1(queueNumber, patientName) {
 }
 
 async function playVoice(queueNumber, patientName) {
+    console.log('播放语音：playVoice 11111111111111111111111')
     console.log(`播放语音：${queueNumber}`);
     try {
         const response = await fetch(`${API_BASE}/api/tts_call`, {
@@ -1057,6 +1170,47 @@ async function playVoice(queueNumber, patientName) {
         } else {
            console.log('呼叫识别失败：', result);
            showToast('呼叫失败，请稍后重试');
+        }
+    } catch (error) {
+        console.log('呼叫识别失败：', error);
+        showToast('呼叫失败，请稍后重试');
+    }
+}
+
+async function playVoiceMulti(queues) {
+    console.log('播放语音：playVoiceMulti 22222222222222222222')
+    if (!queues || queues.length === 0) return;
+    const names = queues
+        .map(q => (q.patient_name || '').trim())
+        .filter(Boolean);
+
+    const numbers = queues
+        .map(q => (q.queue_number || '').trim())
+        .filter(Boolean);
+
+    // 让窗口大屏拼接播报：把合并后的人名作为 patient_name 传入
+    const combinedName = names.length > 0 ? names.join('、') : '';
+    const combineNumber = numbers.length > 0 ? numbers.join('、') : '';
+
+    try {
+        const response = await fetch(`${API_BASE}/api/tts_call`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                call_type: 'tts_call',
+                business_type: '',
+                business_id: '',
+                queue_number: combineNumber,
+                patient_name: combinedName,      // 大屏会拼接成 "请 张三、李四、王五，到X窗口办理业务"
+                window_id: currentWindowId
+            })
+        });
+
+        const result = await response.json();
+        if (result.success) {
+            showToast(`呼叫成功（${queues.length} 人）`);
+        } else {
+            showToast('呼叫失败，请稍后重试');
         }
     } catch (error) {
         console.log('呼叫识别失败：', error);

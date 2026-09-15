@@ -211,10 +211,11 @@ async function loadPendingPatients() {
             }).length;
 
             // 如果开关开启且有待发药患者，触发语音播报
-            if (voiceAlertEnabled && newPendingCount > 0) {
-                // 如果是新增患者或者列表有变化，延迟一点播报确保界面已更新
+            // ✅ 只有数量"增加"时才播报（避免每 20 秒刷屏）
+            if (voiceAlertEnabled && newPendingCount > lastPendingCount) {
+                const added = newPendingCount - lastPendingCount;
                 setTimeout(() => {
-                    announcePendingPatients();
+                    announcePendingPatients(added);
                 }, 500);
             }
 
@@ -290,6 +291,7 @@ function renderPatientList() {
                 <span>${currentTab === 'pending' ? '暂无待取药患者' : '暂无已取药记录'}</span>
             </div>
         `;
+        cachedPatientsData = [];   // ✅ 清空缓存
         return;
     }
 
@@ -790,33 +792,24 @@ function initVoiceSwitch() {
 }
 
 // 语音播报待发药患者
-function announcePendingPatients() {
-    if (!voiceAlertEnabled || pendingPatients.length === 0) {
-        return;
-    }
+function announcePendingPatients(added = 0) {
+    if (!voiceAlertEnabled) return;
+    if (!('speechSynthesis' in window)) return;
 
-    // 检查浏览器是否支持语音合成
-    if (!('speechSynthesis' in window)) {
-        console.log('浏览器不支持语音合成');
-        return;
-    }
-
-    // 取消之前的播报
     speechSynthesis.cancel();
 
-    // 统计待发药患者数量
-    const pendingToDispense = pendingPatients.filter(p => {
+    // 有新增时播报"有 N 位新增待发药"
+    // 首次进入页面（added === 总数）时，播报"有 N 位患者待发药"
+    const total = pendingPatients.filter(p => {
         const state = parseInt(p.medication_state);
-        return state === 0 || state === 1; // 待发药或药品收集中
-    });
+        return state === 0 || state === 1;
+    }).length;
 
-    if (pendingToDispense.length > 0) {
-        // 构建播报文本
-        let announcement = `您好，有${pendingToDispense.length}位患者待发药，请尽快安排`;
+    const msg = added > 0 && added < total
+        ? `您好，新增${added}位患者待发药，请尽快安排`
+        : `您好，有${total}位患者待发药，请尽快安排`;
 
-        // 播报语音
-        speakText(announcement);
-    }
+    speakText(msg);
 }
 
 // 执行语音播报

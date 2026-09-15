@@ -350,6 +350,7 @@ async def call_queue(request: CallRequest):
             'window': window
         }
 
+    # ---------- 顺序叫号（支持批量） ----------
     # ========== 1. 在这里添加 Redis 分布式锁 ==========
     redis_client = redis.Redis(connection_pool=pool)  # 使用已有的连接池
     lock_key = f"call_lock:{request.window_id}"
@@ -359,24 +360,38 @@ async def call_queue(request: CallRequest):
         raise HTTPException(status_code=429, detail="操作过于频繁，请稍后再试")
 
     try:
-        next_queue = db_manager.call_next_queue(request.business_type, window['business_sort'],
-                                                request.window_id, window['window_name'])
+        count = max(1, min(int(request.count or 1), 5))
+        if count == 1:
+            next_queue = db_manager.call_next_queue(request.business_type, window['business_sort'],
+                                                    request.window_id, window['window_name'])
+        else:
+            next_queue = db_manager.call_next_queue_batch(
+                request.business_type,
+                window['business_sort'],
+                request.window_id,
+                window['window_name'],
+                count=count
+            )
         if not next_queue:
             return {'success': False, 'message': '叫号失败'}
 
+
         # 广播叫号信息
-        call_data = {
-            'queue_number': next_queue['queue_number'],
-            'patient_name': next_queue['patient_name'],
-            'business_type': next_queue['business_type'],
-            'business_name': next_queue['business_name'],
+        call_time = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        call_data_list = [{
+            'queue_number': q['queue_number'],
+            'patient_name': q['patient_name'],
+            'business_type': q['business_type'],
+            'business_name': q['business_name'],
             'window_id': request.window_id,
             'window_name': window['window_name'],
-            'call_time': datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-        }
+            'call_time': call_time
+        } for q in next_queue]
 
-        await manager.broadcast_all({'type': 'call', 'data': call_data})
-        await manager.send_to_window(request.window_id, {'type': 'call_success', 'data': call_data})
+        await manager.send_to_window(request.window_id, {'type': 'call_success',
+                                                         'data': call_data_list[0],
+                                                         "data_list": call_data_list,
+                                                         "count": len(call_data_list)})
 
         return {'success': True, 'queue': next_queue, 'window': window}
     finally:
@@ -672,20 +687,23 @@ async def websocket_window(websocket: WebSocket, window_id: int):
 
         # 连接成功后发送当前窗口的叫号状态
         # 获取该窗口正在叫号的患者
-        current_call = db_manager.get_current_window_calls(window_id)
+        current_calls = db_manager.get_current_window_calls(window_id) or []
 
         # 获取窗口信息
         window_info = db_manager.get_window_info(window_id)
 
         # 转换datetime
-        if current_call:
-            if current_call.get('call_time'):
-                current_call['call_time'] = current_call['call_time'].strftime("%Y-%m-%d %H:%M:%S") if isinstance(
-                    current_call['call_time'], datetime) else current_call['call_time']
-            if current_call.get('create_time'):
-                current_call['create_time'] = current_call['create_time'].strftime("%Y-%m-%d %H:%M:%S") if isinstance(
-                    current_call['create_time'], datetime) else current_call['create_time']
+        if current_calls:
+            for item in current_calls:
+                if item.get('call_time'):
+                    item['call_time'] = item['call_time'].strftime("%Y-%m-%d %H:%M:%S") if isinstance(
+                        item['call_time'], datetime) else item['call_time']
+                if item.get('create_time'):
+                    item['create_time'] = item['create_time'].strftime("%Y-%m-%d %H:%M:%S") if isinstance(
+                        item['create_time'], datetime) else item['create_time']
 
+        # ✅ 安全取第一条
+        first_call = current_calls[0] if current_calls else None
         # 发送初始化数据
         init_data = {
             'type': 'init',
@@ -693,14 +711,14 @@ async def websocket_window(websocket: WebSocket, window_id: int):
                 'window_id': window_id,
                 'window_name': window_info['window_name'] if window_info else f'窗口{window_id}',
                 'window_type': window_info['window_type'] if window_info else 'general',
-                'current_call': current_call
+                'current_call': first_call, 'current_calls': current_calls
             }
         }
 
         await websocket.send_json(init_data)
 
-        if current_call:
-            logger.debug(f"窗口 {window_id} 恢复当前叫号: {current_call['queue_number']}")
+        if first_call:
+            logger.debug(f"窗口 {window_id} 恢复当前叫号: {first_call['queue_number']}")
 
         while True:
             # 接收客户端消息
@@ -711,20 +729,24 @@ async def websocket_window(websocket: WebSocket, window_id: int):
                 await websocket.send_text('pong')
             elif data == 'get_status':
                 # 客户端请求当前窗口状态
-                current_call = db_manager.get_current_window_calls(window_id)
-                if current_call:
-                    if current_call.get('call_time'):
-                        current_call['call_time'] = current_call['call_time'].strftime(
-                            "%Y-%m-%d %H:%M:%S") if isinstance(current_call['call_time'], datetime) else current_call[
-                            'call_time']
-                        current_call['create_time'] = current_call['create_time'].strftime(
-                            "%Y-%m-%d %H:%M:%S") if isinstance(current_call['create_time'], datetime) else current_call[
-                            'call_time']
+                current_calls = db_manager.get_current_window_calls(window_id)
+                if current_calls:
+                    for call in current_calls:
+                        if call.get('call_time'):
+                            call['call_time'] = call['call_time'].strftime(
+                                "%Y-%m-%d %H:%M:%S") if isinstance(call['call_time'], datetime) else call[
+                                'call_time']
+                            call['create_time'] = call['create_time'].strftime(
+                                "%Y-%m-%d %H:%M:%S") if isinstance(call['create_time'], datetime) else call[
+                                'call_time']
 
+                first_call = current_calls[0] if current_calls else None
                 await websocket.send_json({
                     'type': 'status',
                     'data': {
-                        'current_call': current_call
+                        'current_call': first_call,
+                        'current_calls': current_calls,
+
                     }
                 })
             else:
