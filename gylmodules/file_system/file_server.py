@@ -134,15 +134,15 @@ def new_folder(json_data):
             if file_type == 2 and group_id:
                 # 群组所有成员获得查看权限
                 perm_sql = """INSERT INTO nsyy_gyl.file_folder_permission 
-                                      (folder_id, group_id, can_view, can_upload) 
-                                      VALUES (%s, %s, 1, 1) ON DUPLICATE KEY UPDATE can_view=1, can_upload=1"""
+                                      (folder_id, group_id, can_view, can_upload, can_download) 
+                                      VALUES (%s, %s, 1, 1, 1) ON DUPLICATE KEY UPDATE can_view=1, can_upload=1, can_download=1"""
                 db.execute(perm_sql, (folder_id, group_id), need_commit=True)
             elif file_type == 3 and owner_depts:
                 # 科室所有成员获得查看权限（可能多个科室，都给）
                 for dept_id in owner_depts:
                     perm_sql = """INSERT INTO nsyy_gyl.file_folder_permission 
-                                          (folder_id, dept_id, can_view, can_upload) 
-                                          VALUES (%s, %s, 1, 1) ON DUPLICATE KEY UPDATE can_view=1, can_upload=1"""
+                                          (folder_id, dept_id, can_view, can_upload, can_download) 
+                                          VALUES (%s, %s, 1, 1, 1) ON DUPLICATE KEY UPDATE can_view=1, can_upload=1, can_download=1"""
                     db.execute(perm_sql, (folder_id, dept_id), need_commit=True)
 
         # 可选：验证插入
@@ -850,11 +850,11 @@ def get_effective_permission(user_id, dept_list, doc_id=None, folder_id=None, re
             # 文档组/科室权限（次优先级）
             if groups or depts:
                 sql = f"SELECT can_view, can_edit, can_delete, can_download FROM nsyy_gyl.file_document_permission WHERE document_id = {doc_id}"
-                params = [doc_id]
-                conds = []
                 if groups and not depts:
+                    groups = [str(item) for item in groups]
                     sql += f" AND group_id IN ({','.join(groups)})"
                 if depts and not groups:
+                    depts = [str(item) for item in depts]
                     sql += f" AND dept_id IN ({','.join(depts)})"
                 if groups and depts:
                     groups = [str(item) for item in groups]
@@ -899,18 +899,19 @@ def get_effective_permission(user_id, dept_list, doc_id=None, folder_id=None, re
 
                 # 文件夹组/科室权限
             if groups or depts:
-                sql = ("SELECT can_view, can_edit, can_delete, can_download, can_upload "
-                       "FROM nsyy_gyl.file_folder_permission WHERE folder_id = %s AND (")
-                params = [folder_id]
-                conds = []
-                if groups:
-                    conds.append(f"group_id IN ({','.join(['%s'] * len(groups))})")
-                    params.extend(groups)
-                if depts:
-                    conds.append(f"dept_id IN ({','.join(['%s'] * len(depts))})")
-                    params.extend(depts)
-                sql += " OR ".join(conds) + ")"
-                rows = db.execute(sql, tuple(params))
+                sql = f"SELECT can_view, can_edit, can_delete, can_download, can_upload FROM nsyy_gyl.file_folder_permission WHERE folder_id = {folder_id}"
+                if groups and not depts:
+                    groups = [str(item) for item in groups]
+                    sql += f" AND group_id IN ({','.join(groups)})"
+                if depts and not groups:
+                    depts = [str(item) for item in depts]
+                    sql += f" AND dept_id IN ({','.join(depts)})"
+                if groups and depts:
+                    groups = [str(item) for item in groups]
+                    depts = [str(item) for item in depts]
+                    sql += f" AND (group_id IN ({','.join(groups)}) OR dept_id IN ({','.join(depts)}))"
+
+                rows = db.query_all(sql)
                 if rows:
                     perm = {f: False for f in PERM_FIELDS}
                     for r in rows:
