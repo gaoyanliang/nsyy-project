@@ -478,7 +478,9 @@ def safe_value(val, numeric=False):
 
 
 def handle_ai_dip(data):
-    ai_dip_dict = {item.get('jiesuanid'): item for item in data}
+    ai_dip_dict = {item.get('jiesuanid'): item for item in data if len(item.get('recommendations', [])) > 0}
+    if not ai_dip_dict:
+        return
 
     jiesuanids = ','.join([f"'{item}'" for item in ai_dip_dict.keys()])
     with DbUtil(host=CONFIG['host'], user=CONFIG['user'], password=CONFIG['password'],
@@ -528,12 +530,6 @@ def handle_ai_dip(data):
             item['最终DIP盈亏'] = ai_sort[0].get('yk')
             item['最终DIP来源'] = "AI方案一"
         else:
-            good_rate = item.get('现DIP倍率')
-            good_score = item.get('现DIP分值')
-            good_group = item.get('现DIP代码')
-            good_group_name = item.get('现DIP名称')
-            good_jieyu = Decimal(str(item.get('现DIP盈亏')))
-            good_source = "科室"
             item['最终DIP代码'] = item.get('现DIP代码')
             item['最终DIP名称'] = item.get('现DIP名称')
             item['最终DIP分值'] = item.get('现DIP分值')
@@ -629,7 +625,7 @@ def process_all_patients(dept_name, max_workers=MAX_WORKERS):
                 database=CONFIG['database']) as db:
         sql = f"""SELECT 住院医师, 住院号, 住院次数, 入院时间, 出院时间, 出院科室, 出院记录, 医保结算流水号, 医嘱, 年龄, 性别, 
                             总费用, 患者费别, 手术, 手术记录, 病案诊断, 诊断, 检查, 检验, 治疗医嘱, 用药医嘱 FROM nsyy_gyl.dip_patient 
-                            where 出院科室 = '{dept_name}' and 来源 = '{source_dict[CONFIG['source']]}' and 最终DIP代码 is null """
+                            where 出院科室 = '{dept_name}' and 来源 = '{source_dict[CONFIG['source']]}' and (最终DIP代码 is null or AI方案1DIP代码 = '') """
         patient_list = db.query_all(sql)
 
     logger.info(f"开始处理科室 {dept_name} 共有 {len(patient_list) if patient_list else 0} 个患者")
@@ -836,7 +832,7 @@ if __name__ == "__main__":
     with DbUtil(host=CONFIG['host'], user=CONFIG['user'], password=CONFIG['password'],
                 database=CONFIG['database']) as db:
         dept_list = db.query_all(
-            f"""SELECT DISTINCT 出院科室 FROM nsyy_gyl.dip_patient where 来源 = '{source_dict[CONFIG['source']]}' and 最终DIP代码 is null """)
+            f"""SELECT DISTINCT 出院科室 FROM nsyy_gyl.dip_patient where 来源 = '{source_dict[CONFIG['source']]}' and (最终DIP代码 is null or AI方案1DIP代码 = '') """)
 
     if dept_list:
         dept_list = [item.get('出院科室') for item in dept_list]
