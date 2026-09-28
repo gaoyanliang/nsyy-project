@@ -871,7 +871,14 @@ async function callNext(businessType) {
         const result = await response.json();
 
         if (result.success) {
-            const queues = result.queues || (result.queue ? [result.queue] : []);
+            const queues = result.queues
+                ? result.queues
+                : Array.isArray(result.queue)
+                    ? result.queue
+                    : result.queue
+                        ? [result.queue]
+                        : [];
+
             if (queues.length === 0) {
                 updateCurrentCallsDisplay([]);
                 return;
@@ -883,7 +890,7 @@ async function callNext(businessType) {
             // 后端返回当前呼叫对象，更新 currentCall
 //            currentCall = result.queue;
 //            if (currentCall.window_id === currentWindowId) updateCurrentCallDisplay(result.queue.queue_number, result.queue.patient_name || '患者');
-            playVoice(result.queue.queue_number, result.queue.patient_name);
+            playVoiceMulti(queues);
             animateCallNumber();
             // 使用防抖刷新
             scheduleRefresh();
@@ -938,11 +945,25 @@ async function callSpecific(queueNumber, patientName, businessType) {
         const result = await response.json();
 
          if (result.success) {
-            // 后端返回当前呼叫对象，更新 currentCall
-            currentCall = result.queue || { queue_number: queueNumber, patient_name: patientName };
-            updateCurrentCallDisplay(queueNumber, patientName || '患者');
-            playVoice(queueNumber, patientName);
+            const queues = result.queues
+                ? result.queues
+                : Array.isArray(result.queue)
+                    ? result.queue
+                    : result.queue
+                        ? [result.queue]
+                        : [];
+
+            if (queues.length === 0) {
+                updateCurrentCallsDisplay([]);
+                return;
+            }
+
+            currentCall = queues[0];
+            if (currentCall.window_id === currentWindowId) updateCurrentCallsDisplay(queues);
+            playVoiceMulti(queues);
             animateCallNumber();
+            // 使用防抖刷新
+            scheduleRefresh();
             console.log(`呼叫指定患者成功：${queueNumber}`);
         } else {
             console.log(`呼叫指定患者失败：${result.message}`);

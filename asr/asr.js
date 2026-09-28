@@ -293,6 +293,7 @@
 
     // ---- 录音核心 ----
     async function startRecording() {
+        console.log('[TRACE] 1. startRecording 入口');
         console.log('[DEBUG] startRecording called');
         if (isRecording) {
             console.log('[DEBUG] Already recording, return');
@@ -317,11 +318,13 @@
             }
         }
         try {
+            console.log('[TRACE] 2. 准备请求 getUserMedia');
             console.log('[DEBUG] Requesting getUserMedia...');
             mediaStream = await navigator.mediaDevices.getUserMedia({
                 audio: { sampleRate: SAMPLE_RATE, channelCount: 1, echoCancellation: true, noiseSuppression: true }
             });
             console.log('[DEBUG] getUserMedia success, stream:', mediaStream);
+            console.log('[TRACE] 3. getUserMedia 成功');
 
             // 确保 UI 更新在下一帧
             requestAnimationFrame(() => {
@@ -356,11 +359,15 @@
             };
             mediaRecorder.start();
 
+            console.log('[TRACE] 4. 准备创建 AudioContext');
             audioContext = new (window.AudioContext || window.webkitAudioContext)({ sampleRate: SAMPLE_RATE });
+            console.log('[TRACE] 5. AudioContext 创建成功, sampleRate:', audioContext.sampleRate);
             const audioSource = audioContext.createMediaStreamSource(mediaStream);
             const audioProcessor = audioContext.createScriptProcessor(CHUNK_SIZE, 1, 1);
+            console.log('[TRACE] 6. AudioProcessor 创建成功');
             audioSource.connect(audioProcessor);
             audioProcessor.connect(audioContext.destination);
+            console.log('[TRACE] 7. 音频节点连接成功');
 
             audioProcessor.onaudioprocess = (e) => {
                 if (!isRecording || !isConnected) return;
@@ -381,6 +388,7 @@
                 }
             }, 15000);
         } catch (err) {
+            console.error('[TRACE] 启动录音失败:', err);
             console.error('启动录音失败:', err);
             showError('麦克风启动失败: ' + err.message);
             startBtn.disabled = false;
@@ -619,12 +627,11 @@
                     left: 0;
                     width: 100vw;
                     height: 100vh;
-                    background: rgba(0,0,0,0.5);
+                    background: rgba(0,0,0,0.55);
                     z-index: 999999;
                     display: flex;
                     align-items: center;
                     justify-content: center;
-                    backdrop-filter: blur(2px);
                 `;
                 // 点击背景不关闭，防止误触
 
@@ -772,12 +779,11 @@
                     left: 0;
                     width: 100vw;
                     height: 100vh;
-                    background: rgba(0,0,0,0.5);
+                    background: rgba(0,0,0,0.55);
                     z-index: 99999;
                     display: flex;
                     align-items: center;
                     justify-content: center;
-                    backdrop-filter: blur(2px);
                 `;
                 // 点击背景关闭
                 overlay.addEventListener('click', function(e) {

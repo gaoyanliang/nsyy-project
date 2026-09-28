@@ -1520,3 +1520,9 @@ textarea.tm-ta-fs {
     .tm-table { font-size: 0.7rem; }
     .tm-table th, .tm-table td { padding: 5px 4px; }
 }
+
+/* 覆盖所有 backdrop-filter，防止 Qt WebEngine 崩溃 */
+* {
+    backdrop-filter: none !important;
+    -webkit-backdrop-filter: none !important;
+}
