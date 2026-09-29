@@ -5,8 +5,7 @@ import redis
 from dateutil.relativedelta import relativedelta
 
 from gylmodules import global_config, global_tools
-from gylmodules.composite_appointment import appt_config
-from gylmodules.composite_appointment.appt_config import APPT_ROOMS_KEY, APPT_PROJECTS_KEY
+from gylmodules.composite_appointment.appt_config import APPT_PROJECTS_KEY
 from gylmodules.composite_appointment import ca_server
 from gylmodules.utils.db_utils import DbUtil
 

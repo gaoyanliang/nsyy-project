@@ -1,5 +1,4 @@
 import pandas as pd
-import cx_Oracle as orcl
 import psycopg2
 def yz():
     his_conn = psycopg2.connect(
@@ -9,8 +8,6 @@ def yz():
         password="nyogg@2024",
         dbname="df_his"
     )
-    #his_conn = orcl.connect('system/NSpingtai!8166@192.168.8.84:1521/nsyypt')
-    # his_conn = orcl.connect('zlhis/.1451534F81B@192.168.3.8:1521/orcl')
     # 建立连接
     start_time='2026-02-01'
     end_time='2026-03-01'
