@@ -17,6 +17,7 @@ from apscheduler.schedulers.background import BackgroundScheduler
 
 from gylmodules import global_config, global_tools
 from gylmodules.critical_value import cv_config
+from gylmodules.critical_value.cv_notice import alert_async
 from gylmodules.utils.db_utils import DbUtil
 import asyncio
 import aiohttp
@@ -691,7 +692,7 @@ def manual_report_cv(json_data):
     # 发送危机值 直接通知医生和护士
     msg = '[{} - {} - {} - {}]'.format(json_data.get('patient_name', 'unknown'), json_data.get('req_docno', 'unknown'),
                                        json_data.get('patient_treat_id', '0'), json_data.get('patient_bed_num', '0'))
-    main_alert(json_data.get('dept_id'), json_data.get('ward_id'),
+    alert_async(json_data.get('dept_id'), json_data.get('ward_id'),
                f'发现新危急值, 请及时查看并处理 <br> [患者-主管医生-住院/门诊号-床号] <br> {msg} <br> <br> <br> 点击 [确认] 跳转至危急值页面')
 
     # 通知医技科室
@@ -890,7 +891,7 @@ def create_cv_by_system(json_data, cv_source):
     # 发送危机值 直接通知医生和护士
     msg = '[{} - {} - {} - {}]'.format(cvd.get('patient_name', 'unknown'), cvd.get('req_docno', 'unknown'),
                                        cvd.get('patient_treat_id', '0'), cvd.get('patient_bed_num', '0'))
-    main_alert(cvd.get('dept_id'), cvd.get('ward_id'),
+    alert_async(cvd.get('dept_id'), cvd.get('ward_id'),
                f'发现新危急值, 请及时查看并处理 <br> [患者-主管医生-住院/门诊号-床号] <br> {msg}  <br> <br> <br> 点击 [确认] 跳转至危急值页面')
 
     # 通知医技科室
@@ -1039,7 +1040,7 @@ def query_process_cv_and_notice(dept_id, ward_id):
             dept_id = dept_id[0]
         if ward_id and type(ward_id) == list:
             ward_id = ward_id[0]
-        main_alert(dept_id, ward_id,
+        alert_async(dept_id, ward_id,
                    f'以下危急值未及时处理 <br> [患者-主管医生-住院/门诊号-床号] <br> ' + ' <br> '.join(
                        msgs) + ' <br> <br> <br> 点击 [确认] 跳转至危急值页面')
 
@@ -1189,7 +1190,7 @@ def push(json_data):
         # 弹框提醒医生
         msg = '[{} - {} - {} - {}]'.format(patient_name, value.get('req_docno', 'unknown'),
                                            value.get('patient_treat_id', '0'), value.get('patient_bed_num', '0'))
-        main_alert(dept_id, None,
+        alert_async(dept_id, None,
                    f"发现新危机值, 护理已确认，请医生及时查看并处理, <br> [患者-主管医生-住院/门诊号-床号] <br> {msg}  <br> <br> <br> 点击 [确认] 跳转至危急值页面")
     del db
 
@@ -2241,7 +2242,7 @@ def manual_push_cv(cv_id):
 
     msg = '[{} - {} - {} - {}]'.format(record.get('patient_name', 'unknown'), record.get('req_docno', 'unknown'),
                                        record.get('patient_treat_id', '0'), record.get('patient_bed_num', '0'))
-    main_alert(record.get('dept_id', 0), record.get('ward_id', 0),
+    alert_async(record.get('dept_id', 0), record.get('ward_id', 0),
                f'发现危急值, 请及时查看并处理 <br> [患者-主管医生-住院/门诊号-床号] <br> {msg} <br> <br> <br> 点击 [确认] 跳转至危急值页面')
 
 
