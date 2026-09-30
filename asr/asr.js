@@ -371,11 +371,11 @@
 
             audioProcessor.onaudioprocess = (e) => {
                 if (!isRecording || !isConnected) return;
-                const inputData = e.inputBuffer.getChannelData(0);
-                const pcmData = float32ToInt16(inputData);
-                const base64Data = arrayBufferToBase64(pcmData);
+                const inputData = e.inputBuffer.getChannelData(0);   // ① 读音频数据
+                const pcmData = float32ToInt16(inputData);           // ② 转码
+                const base64Data = arrayBufferToBase64(pcmData);     // ③ 转 Base64
                 if (ws && ws.readyState === WebSocket.OPEN) {
-                    ws.send(JSON.stringify({ type: 'audio', data: base64Data }));
+                    ws.send(JSON.stringify({ type: 'audio', data: base64Data }));  // ④ WebSocket 发送
                 }
             };
             processor = audioProcessor;
@@ -409,7 +409,11 @@
         if (ws && ws.readyState === WebSocket.OPEN) {
             ws.send(JSON.stringify({ type: 'commit' }));
         }
-        if (processor) { processor.disconnect(); processor = null; }
+//        if (processor) { processor.disconnect(); processor = null; }
+        if (processor) {
+            try { processor.disconnect(); } catch (e) {}
+            processor = null;
+        }
         if (source) { source.disconnect(); source = null; }
         if (audioContext) { await audioContext.close(); audioContext = null; }
         if (mediaStream) { mediaStream.getTracks().forEach(track => track.stop()); mediaStream = null; }
