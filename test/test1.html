@@ -1,0 +1,1094 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.5, user-scalable=yes" />
+    <title>危急值管理系统</title>
+    <style>
+        /* ===== 全局重置 & 基础 ===== */
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+            background: #f0f4f9;
+            min-height: 100vh;
+            color: #1e293b;
+            padding: 20px;
+            display: flex;
+            justify-content: center;
+            align-items: flex-start;
+        }
+
+        /* ===== 主容器 ===== */
+        .app-container {
+            max-width: 1280px;
+            width: 100%;
+            background: #ffffff;
+            border-radius: 28px;
+            box-shadow: 0 20px 60px rgba(0, 20, 40, 0.08);
+            padding: 28px 32px 20px;
+            transition: padding 0.2s;
+        }
+
+        /* ===== 顶部栏 ===== */
+        .app-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            flex-wrap: wrap;
+            gap: 12px 20px;
+            padding-bottom: 20px;
+            border-bottom: 1px solid #eef2f6;
+        }
+
+        .app-brand {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+
+        .app-brand .brand-icon {
+            width: 44px;
+            height: 44px;
+            background: linear-gradient(135deg, #2563eb, #1d4ed8);
+            border-radius: 14px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: #fff;
+            font-size: 22px;
+            flex-shrink: 0;
+        }
+
+        .app-brand h1 {
+            font-size: 22px;
+            font-weight: 700;
+            letter-spacing: 0.3px;
+            color: #0f172a;
+        }
+        .app-brand h1 small {
+            font-weight: 400;
+            font-size: 14px;
+            color: #64748b;
+            margin-left: 8px;
+        }
+
+        .app-header-right {
+            display: flex;
+            align-items: center;
+            gap: 16px;
+            font-size: 14px;
+            color: #64748b;
+        }
+        .app-header-right .time-display {
+            background: #f1f5f9;
+            padding: 6px 16px;
+            border-radius: 40px;
+            font-weight: 500;
+            color: #1e293b;
+            white-space: nowrap;
+        }
+        .app-header-right .status-badge {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            background: #dcfce7;
+            color: #166534;
+            padding: 4px 14px 4px 10px;
+            border-radius: 40px;
+            font-size: 13px;
+            font-weight: 500;
+        }
+        .app-header-right .status-badge i {
+            font-size: 10px;
+        }
+
+        /* ===== 统计卡片 ===== */
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 16px;
+            margin: 22px 0 28px;
+        }
+
+        .stat-card {
+            background: #f8fafc;
+            border-radius: 18px;
+            padding: 18px 20px 16px;
+            transition: background 0.2s, transform 0.15s;
+            border: 1px solid #eef2f6;
+        }
+        .stat-card:hover {
+            background: #f1f5f9;
+            transform: translateY(-2px);
+        }
+
+        .stat-card .stat-label {
+            font-size: 13px;
+            color: #64748b;
+            font-weight: 500;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+        .stat-card .stat-label i {
+            font-size: 14px;
+            color: #94a3b8;
+        }
+        .stat-card .stat-value {
+            font-size: 28px;
+            font-weight: 700;
+            color: #0f172a;
+            margin-top: 6px;
+            letter-spacing: -0.5px;
+        }
+        .stat-card .stat-change {
+            font-size: 12px;
+            color: #64748b;
+            margin-top: 4px;
+        }
+        .stat-card .stat-change .up {
+            color: #16a34a;
+        }
+        .stat-card .stat-change .down {
+            color: #dc2626;
+        }
+
+        /* ===== 功能卡片网格 ===== */
+        .section-title {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 18px;
+        }
+        .section-title h2 {
+            font-size: 18px;
+            font-weight: 600;
+            color: #0f172a;
+        }
+        .section-title .hint {
+            font-size: 13px;
+            color: #94a3b8;
+        }
+
+        .func-grid {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 18px;
+        }
+
+        .func-card {
+            background: #ffffff;
+            border-radius: 20px;
+            padding: 28px 20px 22px;
+            border: 1px solid #eef2f6;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.02);
+            transition: all 0.25s cubic-bezier(0.34, 1.56, 0.64, 1);
+            cursor: pointer;
+            position: relative;
+            display: flex;
+            flex-direction: column;
+            align-items: flex-start;
+            gap: 10px;
+        }
+        .func-card:hover {
+            transform: translateY(-6px);
+            box-shadow: 0 16px 40px rgba(0, 20, 40, 0.08);
+            border-color: #cbd5e1;
+        }
+        .func-card:active {
+            transform: scale(0.97);
+        }
+
+        .func-card .card-icon {
+            width: 52px;
+            height: 52px;
+            border-radius: 16px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 24px;
+            color: #fff;
+            flex-shrink: 0;
+        }
+        .func-card .card-icon.blue {
+            background: linear-gradient(135deg, #3b82f6, #2563eb);
+        }
+        .func-card .card-icon.red {
+            background: linear-gradient(135deg, #f87171, #dc2626);
+        }
+        .func-card .card-icon.green {
+            background: linear-gradient(135deg, #4ade80, #16a34a);
+        }
+        .func-card .card-icon.gray {
+            background: linear-gradient(135deg, #94a3b8, #64748b);
+        }
+        .func-card .card-icon.purple {
+            background: linear-gradient(135deg, #a78bfa, #7c3aed);
+        }
+
+        .func-card .card-title {
+            font-size: 17px;
+            font-weight: 600;
+            color: #0f172a;
+            margin-top: 2px;
+        }
+        .func-card .card-desc {
+            font-size: 13px;
+            color: #94a3b8;
+            line-height: 1.5;
+            flex: 1;
+        }
+        .func-card .card-tag {
+            font-size: 11px;
+            font-weight: 600;
+            padding: 2px 12px;
+            border-radius: 40px;
+            background: #f1f5f9;
+            color: #64748b;
+            margin-top: 4px;
+            letter-spacing: 0.3px;
+        }
+        .func-card .card-tag.active {
+            background: #dcfce7;
+            color: #166534;
+        }
+        .func-card .card-tag.dev {
+            background: #fef9c3;
+            color: #854d0e;
+        }
+
+        .func-card .card-arrow {
+            position: absolute;
+            right: 20px;
+            top: 28px;
+            color: #cbd5e1;
+            font-size: 14px;
+            transition: transform 0.2s;
+        }
+        .func-card:hover .card-arrow {
+            transform: translateX(4px);
+            color: #94a3b8;
+        }
+
+        /* ===== 模态框 ===== */
+        .modal-overlay {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(15, 23, 42, 0.50);
+            backdrop-filter: blur(4px);
+            -webkit-backdrop-filter: blur(4px);
+            z-index: 1000;
+            justify-content: center;
+            align-items: center;
+            padding: 20px;
+            animation: fadeIn 0.25s ease;
+        }
+        .modal-overlay.show {
+            display: flex;
+        }
+
+        .modal-box {
+            background: #ffffff;
+            border-radius: 28px;
+            max-width: 560px;
+            width: 100%;
+            max-height: 90vh;
+            overflow-y: auto;
+            padding: 32px 36px 28px;
+            box-shadow: 0 40px 80px rgba(0, 0, 0, 0.20);
+            animation: slideUp 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
+            position: relative;
+        }
+        .modal-box .modal-close {
+            position: absolute;
+            right: 18px;
+            top: 18px;
+            width: 36px;
+            height: 36px;
+            border: none;
+            background: #f1f5f9;
+            border-radius: 50%;
+            font-size: 18px;
+            color: #64748b;
+            cursor: pointer;
+            transition: background 0.2s, transform 0.15s;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        .modal-box .modal-close:hover {
+            background: #e2e8f0;
+            transform: rotate(90deg);
+        }
+
+        .modal-box .modal-title {
+            font-size: 22px;
+            font-weight: 700;
+            color: #0f172a;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            margin-bottom: 6px;
+        }
+        .modal-box .modal-title i {
+            color: #dc2626;
+        }
+        .modal-box .modal-sub {
+            font-size: 14px;
+            color: #94a3b8;
+            margin-bottom: 24px;
+        }
+
+        /* ===== 表单 ===== */
+        .form-group {
+            margin-bottom: 18px;
+        }
+        .form-group label {
+            display: block;
+            font-size: 14px;
+            font-weight: 600;
+            color: #1e293b;
+            margin-bottom: 5px;
+        }
+        .form-group label .required {
+            color: #dc2626;
+            margin-left: 2px;
+        }
+        .form-group .field-hint {
+            font-size: 12px;
+            color: #94a3b8;
+            font-weight: 400;
+            margin-left: 6px;
+        }
+        .form-group input,
+        .form-group textarea {
+            width: 100%;
+            padding: 10px 14px;
+            border: 1.5px solid #e2e8f0;
+            border-radius: 12px;
+            font-size: 15px;
+            font-family: inherit;
+            color: #0f172a;
+            background: #fafbfc;
+            transition: border-color 0.2s, box-shadow 0.2s;
+            outline: none;
+        }
+        .form-group input:focus,
+        .form-group textarea:focus {
+            border-color: #3b82f6;
+            box-shadow: 0 0 0 4px rgba(59, 130, 246, 0.10);
+            background: #ffffff;
+        }
+        .form-group input::placeholder,
+        .form-group textarea::placeholder {
+            color: #b9c4d0;
+        }
+        .form-group textarea {
+            resize: vertical;
+            min-height: 68px;
+        }
+        .form-row {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 14px;
+        }
+
+        .form-actions {
+            display: flex;
+            gap: 12px;
+            margin-top: 24px;
+            flex-wrap: wrap;
+        }
+        .form-actions button {
+            flex: 1;
+            min-width: 100px;
+            padding: 12px 24px;
+            border: none;
+            border-radius: 14px;
+            font-size: 16px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.2s;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+        }
+        .btn-primary {
+            background: linear-gradient(135deg, #2563eb, #1d4ed8);
+            color: #fff;
+            box-shadow: 0 4px 14px rgba(37, 99, 235, 0.25);
+        }
+        .btn-primary:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 24px rgba(37, 99, 235, 0.30);
+        }
+        .btn-primary:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+            transform: none !important;
+        }
+        .btn-secondary {
+            background: #f1f5f9;
+            color: #475569;
+        }
+        .btn-secondary:hover {
+            background: #e2e8f0;
+        }
+        .btn-danger {
+            background: linear-gradient(135deg, #ef4444, #dc2626);
+            color: #fff;
+            box-shadow: 0 4px 14px rgba(220, 38, 38, 0.20);
+        }
+        .btn-danger:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 24px rgba(220, 38, 38, 0.25);
+        }
+        .btn-danger:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+            transform: none !important;
+        }
+
+        /* ===== Toast ===== */
+        .toast-container {
+            position: fixed;
+            bottom: 30px;
+            right: 30px;
+            z-index: 2000;
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+            max-width: 420px;
+            width: 100%;
+            pointer-events: none;
+        }
+        .toast {
+            background: #0f172a;
+            color: #f8fafc;
+            padding: 14px 22px;
+            border-radius: 16px;
+            box-shadow: 0 12px 40px rgba(0, 0, 0, 0.18);
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            font-size: 14px;
+            font-weight: 500;
+            animation: toastIn 0.35s cubic-bezier(0.34, 1.56, 0.64, 1);
+            pointer-events: auto;
+            backdrop-filter: blur(8px);
+            border: 1px solid rgba(255, 255, 255, 0.06);
+        }
+        .toast.success {
+            background: #065f46;
+            border-color: rgba(52, 211, 153, 0.20);
+        }
+        .toast.error {
+            background: #7f1d1d;
+            border-color: rgba(248, 113, 113, 0.20);
+        }
+        .toast.info {
+            background: #1e3a5f;
+            border-color: rgba(96, 165, 250, 0.20);
+        }
+        .toast .toast-icon {
+            font-size: 20px;
+            flex-shrink: 0;
+        }
+        .toast .toast-msg {
+            flex: 1;
+        }
+        .toast .toast-close {
+            background: none;
+            border: none;
+            color: rgba(255, 255, 255, 0.5);
+            font-size: 18px;
+            cursor: pointer;
+            padding: 0 4px;
+            transition: color 0.2s;
+        }
+        .toast .toast-close:hover {
+            color: #fff;
+        }
+
+        /* ===== 响应式 ===== */
+        @media (max-width: 1024px) {
+            .func-grid {
+                grid-template-columns: repeat(2, 1fr);
+            }
+            .stats-grid {
+                grid-template-columns: repeat(2, 1fr);
+            }
+        }
+
+        @media (max-width: 768px) {
+            .app-container {
+                padding: 16px 14px 14px;
+                border-radius: 20px;
+            }
+            .app-brand h1 {
+                font-size: 18px;
+            }
+            .app-brand h1 small {
+                display: block;
+                margin-left: 0;
+                font-size: 12px;
+            }
+            .app-header-right .time-display {
+                font-size: 12px;
+                padding: 4px 12px;
+            }
+            .app-header-right .status-badge {
+                font-size: 11px;
+                padding: 2px 10px 2px 8px;
+            }
+            .stats-grid {
+                gap: 10px;
+                margin: 16px 0 20px;
+            }
+            .stat-card {
+                padding: 14px 14px 12px;
+            }
+            .stat-card .stat-value {
+                font-size: 22px;
+            }
+            .func-grid {
+                grid-template-columns: 1fr 1fr;
+                gap: 12px;
+            }
+            .func-card {
+                padding: 20px 16px 18px;
+                gap: 6px;
+            }
+            .func-card .card-icon {
+                width: 44px;
+                height: 44px;
+                font-size: 20px;
+            }
+            .func-card .card-title {
+                font-size: 15px;
+            }
+            .func-card .card-desc {
+                font-size: 12px;
+            }
+            .func-card .card-arrow {
+                display: none;
+            }
+            .modal-box {
+                padding: 24px 18px 22px;
+                border-radius: 20px;
+                margin: 10px;
+            }
+            .modal-box .modal-title {
+                font-size: 19px;
+            }
+            .form-row {
+                grid-template-columns: 1fr;
+                gap: 0;
+            }
+            .form-actions {
+                flex-direction: column;
+            }
+            .form-actions button {
+                min-width: unset;
+                width: 100%;
+            }
+            .toast-container {
+                right: 14px;
+                bottom: 14px;
+                max-width: calc(100% - 28px);
+            }
+            .toast {
+                padding: 12px 16px;
+                font-size: 13px;
+            }
+        }
+
+        @media (max-width: 440px) {
+            .func-grid {
+                grid-template-columns: 1fr 1fr;
+                gap: 10px;
+            }
+            .stats-grid {
+                grid-template-columns: 1fr 1fr;
+                gap: 8px;
+            }
+            .stat-card .stat-value {
+                font-size: 19px;
+            }
+            .app-brand .brand-icon {
+                width: 36px;
+                height: 36px;
+                font-size: 18px;
+                border-radius: 10px;
+            }
+            .app-brand h1 {
+                font-size: 16px;
+            }
+            .section-title h2 {
+                font-size: 16px;
+            }
+        }
+
+        /* ===== 动画 ===== */
+        @keyframes fadeIn {
+            from {
+                opacity: 0;
+            }
+            to {
+                opacity: 1;
+            }
+        }
+        @keyframes slideUp {
+            from {
+                opacity: 0;
+                transform: translateY(30px) scale(0.96);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0) scale(1);
+            }
+        }
+        @keyframes toastIn {
+            from {
+                opacity: 0;
+                transform: translateY(20px) scale(0.94);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0) scale(1);
+            }
+        }
+
+        /* ===== 滚动条美化 ===== */
+        .modal-box::-webkit-scrollbar {
+            width: 5px;
+        }
+        .modal-box::-webkit-scrollbar-track {
+            background: transparent;
+        }
+        .modal-box::-webkit-scrollbar-thumb {
+            background: #d1d5db;
+            border-radius: 10px;
+        }
+        .modal-box::-webkit-scrollbar-thumb:hover {
+            background: #9ca3af;
+        }
+
+        /* ===== 加载状态 ===== */
+        .spinner {
+            display: inline-block;
+            width: 20px;
+            height: 20px;
+            border: 2.5px solid rgba(255, 255, 255, 0.25);
+            border-top-color: #fff;
+            border-radius: 50%;
+            animation: spin 0.7s linear infinite;
+        }
+        @keyframes spin {
+            to {
+                transform: rotate(360deg);
+            }
+        }
+
+        /* ===== 底部 ===== */
+        .app-footer {
+            margin-top: 32px;
+            padding-top: 16px;
+            border-top: 1px solid #eef2f6;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            flex-wrap: wrap;
+            gap: 8px;
+            font-size: 13px;
+            color: #94a3b8;
+        }
+        .app-footer a {
+            color: #64748b;
+            text-decoration: none;
+            transition: color 0.2s;
+        }
+        .app-footer a:hover {
+            color: #2563eb;
+        }
+
+        /* 功能卡片禁用状态 */
+        .func-card.disabled {
+            opacity: 0.7;
+            cursor: default;
+        }
+        .func-card.disabled:hover {
+            transform: none !important;
+            box-shadow: none !important;
+            border-color: #eef2f6 !important;
+        }
+        .func-card.disabled:active {
+            transform: none !important;
+        }
+    </style>
+</head>
+<body>
+
+    <div class="app-container">
+
+        <!-- ===== 顶部 ===== -->
+        <header class="app-header">
+            <div class="app-brand">
+                <div class="brand-icon"><i class="fas fa-heartbeat"></i></div>
+                <h1>管理后台 <small>Admin Panel</small></h1>
+            </div>
+            <div class="app-header-right">
+                <span class="status-badge"><i class="fas fa-circle" style="color:#22c55e;"></i> 系统运行中</span>
+                <span class="time-display" id="headerTime"><i class="far fa-clock"></i> 加载中…</span>
+            </div>
+        </header>
+
+        <!-- ===== 统计卡片 ===== -->
+<!--        <div class="stats-grid">-->
+<!--            <div class="stat-card">-->
+<!--                <div class="stat-label"><i class="fas fa-database"></i> 总危急值</div>-->
+<!--                <div class="stat-value">1,284</div>-->
+<!--                <div class="stat-change">较昨日 <span class="up">↑ 12</span></div>-->
+<!--            </div>-->
+<!--            <div class="stat-card">-->
+<!--                <div class="stat-label"><i class="fas fa-clock"></i> 待处理</div>-->
+<!--                <div class="stat-value">23</div>-->
+<!--                <div class="stat-change">较昨日 <span class="down">↑ 3</span></div>-->
+<!--            </div>-->
+<!--            <div class="stat-card">-->
+<!--                <div class="stat-label"><i class="fas fa-check-circle"></i> 已处理</div>-->
+<!--                <div class="stat-value">1,189</div>-->
+<!--                <div class="stat-change">较昨日 <span class="up">↑ 9</span></div>-->
+<!--            </div>-->
+<!--            <div class="stat-card">-->
+<!--                <div class="stat-label"><i class="fas fa-trash-alt"></i> 作废率</div>-->
+<!--                <div class="stat-value">7.4%</div>-->
+<!--                <div class="stat-change">较昨日 <span class="down">↓ 0.2%</span></div>-->
+<!--            </div>-->
+<!--        </div>-->
+
+        <!-- ===== 功能入口 ===== -->
+        <div class="section-title">
+            <h2><i class="fas fa-th-large" style="color:#2563eb;margin-right:8px;"></i>功能入口</h2>
+            <span class="hint"><i class="far fa-lightbulb"></i> 点击卡片使用对应功能</span>
+        </div>
+
+        <div class="func-grid" id="funcGrid">
+            <!-- 卡片 1: 作废危急值 (已启用) -->
+            <div class="func-card" data-func="invalid" tabindex="0" role="button" aria-label="作废危急值">
+                <div class="card-icon red"><i class="fas fa-times-circle"></i></div>
+                <div class="card-title">作废危急值</div>
+                <div class="card-desc">对异常或错误的危急值进行作废处理</div>
+                <span class="card-tag active"><i class="fas fa-check-circle"></i> 已启用</span>
+                <span class="card-arrow"><i class="fas fa-chevron-right"></i></span>
+            </div>
+
+            <!-- 卡片 2: 查询危急值 (开发中) -->
+            <div class="func-card disabled" data-func="query" tabindex="0" role="button" aria-label="功能2">
+                <div class="card-icon blue"><i class="fas fa-search"></i></div>
+                <div class="card-title">功能2</div>
+                <div class="card-desc">功能2</div>
+                <span class="card-tag dev"><i class="fas fa-code"></i> 开发中</span>
+                <span class="card-arrow"><i class="fas fa-chevron-right"></i></span>
+            </div>
+
+            <!-- 卡片 3: 数据统计 (开发中) -->
+            <div class="func-card disabled" data-func="stats" tabindex="0" role="button" aria-label="功能3">
+                <div class="card-icon green"><i class="fas fa-chart-pie"></i></div>
+                <div class="card-title">功能3</div>
+                <div class="card-desc">功能3</div>
+                <span class="card-tag dev"><i class="fas fa-code"></i> 开发中</span>
+                <span class="card-arrow"><i class="fas fa-chevron-right"></i></span>
+            </div>
+
+            <!-- 卡片 4: 系统设置 (开发中) -->
+            <div class="func-card disabled" data-func="settings" tabindex="0" role="button" aria-label="系统设置">
+                <div class="card-icon gray"><i class="fas fa-sliders-h"></i></div>
+                <div class="card-title">系统设置</div>
+                <div class="card-desc">配置规则、通知与告警参数</div>
+                <span class="card-tag dev"><i class="fas fa-code"></i> 开发中</span>
+                <span class="card-arrow"><i class="fas fa-chevron-right"></i></span>
+            </div>
+        </div>
+
+        <!-- ===== 底部 ===== -->
+        <footer class="app-footer">
+            <span>© 2026 系统后台 <span style="color:#cbd5e1;">v1.0</span></span>
+            <span>
+                <i class="fas fa-shield-alt" style="color:#94a3b8;"></i>
+                内网安全 · 数据加密传输
+            </span>
+        </footer>
+    </div>
+
+    <!-- ===== 模态框：作废危急值 ===== -->
+    <div class="modal-overlay" id="invalidModal">
+        <div class="modal-box">
+            <button class="modal-close" id="modalClose" aria-label="关闭弹窗"><i class="fas fa-times"></i></button>
+
+            <div class="modal-title">
+                <i class="fas fa-times-circle" style="color:#dc2626;"></i> 作废危急值
+            </div>
+            <div class="modal-sub">填写以下信息，确认作废该条危急值记录</div>
+
+            <form id="invalidForm" autocomplete="off">
+                <div class="form-group">
+                    <label>危急值 ID <span class="required">*</span></label>
+                    <input type="text" id="cvId" placeholder="请输入危急值 ID，如 1787740542783" value="" required />
+                </div>
+
+                <div class="form-row">
+                    <div class="form-group">
+                        <label>数据来源 <span class="field-hint">(cv_source)</span></label>
+                        <input type="number" id="cvSource" placeholder="来源编号" value="2" />
+                    </div>
+                    <div class="form-group">
+                        <label>作废人 <span class="field-hint">(invalid_person)</span></label>
+                        <input type="text" id="invalidPerson" placeholder="作废人姓名" value="admin" />
+                    </div>
+                </div>
+
+                <div class="form-group">
+                    <label>作废原因 <span class="field-hint">(invalid_reason)</span></label>
+                    <textarea id="invalidReason" rows="2" placeholder="请输入作废原因">异常危急值 作废</textarea>
+                </div>
+
+                <div class="form-actions">
+                    <button type="button" class="btn-secondary" id="modalCancel">取消</button>
+                    <button type="submit" class="btn-danger" id="submitBtn">
+                        <i class="fas fa-trash-alt"></i> 确认作废
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- ===== Toast 容器 ===== -->
+    <div class="toast-container" id="toastContainer"></div>
+
+    <script>
+        (function() {
+            'use strict';
+
+            // ===== DOM 引用 =====
+            const modal = document.getElementById('invalidModal');
+            const modalClose = document.getElementById('modalClose');
+            const modalCancel = document.getElementById('modalCancel');
+            const form = document.getElementById('invalidForm');
+            const submitBtn = document.getElementById('submitBtn');
+            const cvIdInput = document.getElementById('cvId');
+            const cvSourceInput = document.getElementById('cvSource');
+            const invalidPersonInput = document.getElementById('invalidPerson');
+            const invalidReasonInput = document.getElementById('invalidReason');
+            const toastContainer = document.getElementById('toastContainer');
+            const funcCards = document.querySelectorAll('.func-card');
+            const headerTime = document.getElementById('headerTime');
+
+            // ===== 时间更新 =====
+            function updateClock() {
+                const now = new Date();
+                const pad = n => String(n).padStart(2, '0');
+                const str =
+                    `${now.getFullYear()}-${pad(now.getMonth()+1)}-${pad(now.getDate())} ${pad(now.getHours())}:${pad(now.getMinutes())}:${pad(now.getSeconds())}`;
+                if (headerTime) headerTime.textContent = '🕒 ' + str;
+            }
+            updateClock();
+            setInterval(updateClock, 1000);
+
+            // ===== Toast 系统 =====
+            function showToast(message, type = 'info', duration = 4500) {
+                const icons = {
+                    success: 'fas fa-check-circle',
+                    error: 'fas fa-exclamation-circle',
+                    info: 'fas fa-info-circle'
+                };
+                const icon = icons[type] || icons.info;
+                const toast = document.createElement('div');
+                toast.className = `toast ${type}`;
+                toast.innerHTML = `
+                    <span class="toast-icon"><i class="${icon}"></i></span>
+                    <span class="toast-msg">${message}</span>
+                    <button class="toast-close"><i class="fas fa-times"></i></button>
+                `;
+                toastContainer.appendChild(toast);
+
+                // 关闭按钮
+                const closeBtn = toast.querySelector('.toast-close');
+                closeBtn.addEventListener('click', () => {
+                    toast.remove();
+                });
+
+                // 自动关闭
+                const timer = setTimeout(() => {
+                    if (toast.parentNode) toast.remove();
+                }, duration);
+
+                // 鼠标悬停暂停计时
+                toast.addEventListener('mouseenter', () => clearTimeout(timer));
+                toast.addEventListener('mouseleave', () => {
+                    setTimeout(() => {
+                        if (toast.parentNode) toast.remove();
+                    }, 1200);
+                });
+
+                return toast;
+            }
+
+            // ===== 打开模态框 =====
+            function openModal() {
+                modal.classList.add('show');
+                document.body.style.overflow = 'hidden';
+                // 聚焦到第一个输入框
+                setTimeout(() => cvIdInput.focus(), 100);
+                // 重置按钮状态
+                submitBtn.disabled = false;
+                submitBtn.innerHTML = '<i class="fas fa-trash-alt"></i> 确认作废';
+                // 清空旧的状态样式
+                submitBtn.classList.remove('btn-primary');
+                submitBtn.classList.add('btn-danger');
+            }
+
+            function closeModal() {
+                modal.classList.remove('show');
+                document.body.style.overflow = '';
+            }
+
+            // ===== 关闭事件 =====
+            modalClose.addEventListener('click', closeModal);
+            modalCancel.addEventListener('click', closeModal);
+            modal.addEventListener('click', (e) => {
+                if (e.target === modal) closeModal();
+            });
+            document.addEventListener('keydown', (e) => {
+                if (e.key === 'Escape' && modal.classList.contains('show')) closeModal();
+            });
+
+            // ===== 功能卡片点击 =====
+            funcCards.forEach(card => {
+                card.addEventListener('click', function(e) {
+                    const func = this.dataset.func;
+                    // 如果卡片有 disabled 类，不可用
+                    if (this.classList.contains('disabled')) {
+                        showToast('该功能正在开发中，敬请期待 🚧', 'info', 3000);
+                        return;
+                    }
+                    if (func === 'invalid') {
+                        openModal();
+                    } else {
+                        showToast('功能未配置，请联系管理员', 'info', 2500);
+                    }
+                });
+
+                // 键盘支持 (Enter / Space)
+                card.addEventListener('keydown', function(e) {
+                    if (e.key === 'Enter' || e.key === ' ') {
+                        e.preventDefault();
+                        this.click();
+                    }
+                });
+            });
+
+            // ===== 表单提交 =====
+            form.addEventListener('submit', async function(e) {
+                e.preventDefault();
+
+                // 基本验证
+                const cvId = cvIdInput.value.trim();
+                if (!cvId) {
+                    showToast('请输入危急值 ID', 'error', 3000);
+                    cvIdInput.focus();
+                    return;
+                }
+
+                // 组装数据
+                const payload = {
+                    cv_id: cvId,
+                    cv_source: parseInt(cvSourceInput.value.trim()) || 2,
+                    invalid_person: invalidPersonInput.value.trim() || 'admin',
+                    invalid_reason: invalidReasonInput.value.trim() || '异常危急值 作废'
+                };
+
+                // 按钮加载状态
+                submitBtn.disabled = true;
+                submitBtn.innerHTML = '<span class="spinner"></span> 提交中…';
+
+                try {
+                    const response = await fetch('https://oa.nsyy.com.cn:6081/gyl/cv/invalid_cv', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                        },
+                        body: JSON.stringify(payload),
+                    });
+
+                    // 尝试解析响应
+                    let result;
+                    const contentType = response.headers.get('content-type');
+                    if (contentType && contentType.includes('application/json')) {
+                        result = await response.json();
+                    } else {
+                        const text = await response.text();
+                        result = { message: text || '请求已处理' };
+                    }
+
+                    if (response.ok) {
+                        showToast('✅ 危急值作废成功！', 'success', 4000);
+                        // 成功后清空 cv_id (保留其他默认值)
+                        cvIdInput.value = '';
+                        // 聚焦准备下一条
+                        setTimeout(() => cvIdInput.focus(), 300);
+                        // 可以延迟关闭，让用户看到成功提示
+                        setTimeout(closeModal, 1200);
+                    } else {
+                        // 服务端返回错误状态
+                        const errMsg = result.message || result.msg || result.error || `请求失败 (HTTP ${response.status})`;
+                        showToast(`❌ ${errMsg}`, 'error', 5000);
+                    }
+                } catch (err) {
+                    // 网络错误 / 跨域 / 其他
+                    let msg = '网络请求失败，请检查：\n';
+                    if (err.message.includes('Failed to fetch') || err.message.includes('NetworkError')) {
+                        msg += '• 服务地址不可达，请确认 oa.nsyy.com.cn:6081 可访问\n';
+                        msg += '• 可能存在跨域限制 (CORS)，请联系后端配置';
+                    } else {
+                        msg += err.message || '未知错误';
+                    }
+                    showToast(`❌ ${msg}`, 'error', 6000);
+                } finally {
+                    submitBtn.disabled = false;
+                    submitBtn.innerHTML = '<i class="fas fa-trash-alt"></i> 确认作废';
+                }
+            });
+
+            // ===== 点击外部关闭 toast (方便测试) =====
+            // 无额外操作
+
+            // ===== 控制台指引 =====
+            console.log('%c 管理后台 v1.0', 'font-size:18px;font-weight:bold;color:#2563eb;');
+            console.log('📌 已启用功能: 作废危急值');
+            console.log('📌 预留功能: 查询、统计、设置 (开发中)');
+            console.log('📌 API 地址: https://oa.nsyy.com.cn:6081/gyl/cv/invalid_cv');
+
+            // ===== 自动填充演示提示 =====
+            // 页面加载后，如果 cvId 有值，给出提示
+            setTimeout(() => {
+                if (cvIdInput.value) {
+                    showToast('💡 已自动填充示例 ID，可修改后提交', 'info', 3500);
+                }
+            }, 600);
+
+        })();
+    </script>
+
+</body>
+</html>
