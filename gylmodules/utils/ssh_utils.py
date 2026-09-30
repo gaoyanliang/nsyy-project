@@ -1,6 +1,4 @@
 import logging
-from datetime import datetime
-
 import paramiko
 
 logger = logging.getLogger(__name__)

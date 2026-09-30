@@ -7,7 +7,7 @@ import threading
 
 from datetime import datetime, timedelta
 
-from gylmodules import global_config, global_tools
+from gylmodules import global_config
 from gylmodules.utils.db_utils_new import DbUtil
 
 from gylmodules.workstation import ws_config

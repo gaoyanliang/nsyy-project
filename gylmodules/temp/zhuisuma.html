@@ -1,0 +1,1854 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>药房追溯码管理系统 | Pharmacy Traceability System</title>
+    <style>
+        /* ===== 全局样式 ===== */
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+        
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'PingFang SC', 'Hiragino Sans GB', 'Microsoft YaHei', sans-serif;
+            background: linear-gradient(135deg, #f8fafc 0%, #eef2f7 100%);
+            color: #2d3748;
+            line-height: 1.6;
+            min-height: 100vh;
+            padding: 20px;
+        }
+        
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 16px;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.08);
+            overflow: hidden;
+        }
+        
+        /* ===== 头部样式 ===== */
+        header {
+            background: linear-gradient(135deg, #0ea5e9 0%, #0891b2 100%);
+            color: white;
+            padding: 32px 40px;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+        }
+        
+        .header-content {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        
+        h1 {
+            font-size: 28px;
+            font-weight: 600;
+            letter-spacing: -0.5px;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+        
+        .logo-icon {
+            font-size: 32px;
+            filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.2));
+        }
+        
+        .system-status {
+            background: rgba(255, 255, 255, 0.15);
+            padding: 8px 16px;
+            border-radius: 20px;
+            font-size: 14px;
+            font-weight: 500;
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+        }
+        
+        /* ===== 标签页样式 ===== */
+        .tabs {
+            display: flex;
+            background: #f1f5f9;
+            padding: 0 40px;
+            border-bottom: 1px solid #e2e8f0;
+        }
+        
+        .tab-btn {
+            padding: 18px 28px;
+            font-size: 15px;
+            font-weight: 600;
+            color: #64748b;
+            background: transparent;
+            border: none;
+            border-bottom: 3px solid transparent;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            position: relative;
+            overflow: hidden;
+        }
+        
+        .tab-btn:hover {
+            color: #0ea5e9;
+            background: rgba(14, 165, 233, 0.05);
+        }
+        
+        .tab-btn.active {
+            color: #0ea5e9;
+            border-bottom-color: #0ea5e9;
+            background: white;
+        }
+        
+        .tab-icon {
+            font-size: 18px;
+        }
+        
+        /* ===== 内容区样式 ===== */
+        .section {
+            padding: 40px;
+            display: none;
+            animation: fadeIn 0.3s ease-out;
+        }
+        
+        .section.active {
+            display: block;
+        }
+        
+        @keyframes fadeIn {
+            from {
+                opacity: 0;
+                transform: translateY(10px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+        
+        .section-header {
+            margin-bottom: 28px;
+        }
+        
+        .section-title {
+            font-size: 20px;
+            font-weight: 600;
+            color: #1e293b;
+            margin-bottom: 8px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        
+        .section-subtitle {
+            color: #64748b;
+            font-size: 14px;
+        }
+        
+        /* ===== 扫描录入区域 ===== */
+        .scan-area {
+            max-width: 700px;
+        }
+        
+        .scan-input-wrapper {
+            position: relative;
+            margin-bottom: 20px;
+        }
+        
+        .scan-input {
+            width: 100%;
+            padding: 18px 24px;
+            font-size: 18px;
+            border: 2px solid #e2e8f0;
+            border-radius: 12px;
+            background: #f8fafc;
+            transition: all 0.2s;
+            font-family: 'Consolas', 'Monaco', monospace;
+        }
+        
+        .scan-input:focus {
+            outline: none;
+            border-color: #0ea5e9;
+            background: white;
+            box-shadow: 0 0 0 3px rgba(14, 165, 233, 0.1);
+        }
+        
+        .scan-hint {
+            position: absolute;
+            right: 16px;
+            top: 50%;
+            transform: translateY(-50%);
+            background: #10b981;
+            color: white;
+            padding: 6px 12px;
+            border-radius: 6px;
+            font-size: 12px;
+            font-weight: 600;
+            pointer-events: none;
+        }
+        
+        .codes-list {
+            background: white;
+            border: 2px solid #e2e8f0;
+            border-radius: 12px;
+            margin: 20px 0;
+            max-height: 300px;
+            overflow-y: auto;
+        }
+        
+        .codes-list-header {
+            padding: 16px 24px;
+            background: #f8fafc;
+            border-bottom: 2px solid #e2e8f0;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            font-weight: 600;
+            color: #475569;
+        }
+        
+        .codes-list-body {
+            padding: 0;
+        }
+        
+        .code-item {
+            padding: 14px 24px;
+            border-bottom: 1px solid #f1f5f9;
+            font-family: 'Consolas', 'Monaco', monospace;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            transition: background 0.2s;
+        }
+        
+        .code-item:hover {
+            background: #f8fafc;
+        }
+        
+        .code-item:last-child {
+            border-bottom: none;
+        }
+        
+        .code-index {
+            color: #64748b;
+            font-size: 14px;
+            font-weight: 600;
+            min-width: 30px;
+        }
+        
+        .code-value {
+            flex: 1;
+            word-break: break-all;
+            padding: 0 20px;
+        }
+        
+        .code-actions {
+            display: flex;
+            gap: 8px;
+        }
+        
+        .action-btn {
+            padding: 6px 12px;
+            border-radius: 6px;
+            font-size: 12px;
+            font-weight: 600;
+            border: none;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+        
+        .remove-btn {
+            background: #fee2e2;
+            color: #dc2626;
+        }
+        
+        .remove-btn:hover {
+            background: #fecaca;
+        }
+        
+        .action-buttons {
+            display: flex;
+            gap: 16px;
+            margin-top: 30px;
+        }
+        
+        .primary-btn {
+            background: linear-gradient(135deg, #0ea5e9 0%, #0891b2 100%);
+            color: white;
+            border: none;
+            padding: 16px 32px;
+            border-radius: 10px;
+            font-size: 16px;
+            font-weight: 600;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            transition: all 0.3s;
+            box-shadow: 0 4px 12px rgba(14, 165, 233, 0.3);
+        }
+        
+        .primary-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 16px rgba(14, 165, 233, 0.4);
+        }
+        
+        .secondary-btn {
+            background: white;
+            color: #64748b;
+            border: 2px solid #e2e8f0;
+            padding: 16px 32px;
+            border-radius: 10px;
+            font-size: 16px;
+            font-weight: 600;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            transition: all 0.3s;
+        }
+        
+        .secondary-btn:hover {
+            background: #f8fafc;
+            border-color: #cbd5e1;
+        }
+        
+        .status-message {
+            margin-top: 20px;
+            padding: 16px;
+            border-radius: 10px;
+            font-weight: 500;
+            display: none;
+        }
+        
+        .status-success {
+            background: #d1fae5;
+            color: #065f46;
+            border: 1px solid #a7f3d0;
+            display: block;
+        }
+        
+        .status-error {
+            background: #fee2e2;
+            color: #991b1b;
+            border: 1px solid #fecaca;
+            display: block;
+        }
+        
+        .status-info {
+            background: #dbeafe;
+            color: #1e40af;
+            border: 1px solid #bfdbfe;
+            display: block;
+        }
+        
+        /* ===== 历史记录区域 ===== */
+        .history-controls {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 24px;
+        }
+        
+        .refresh-btn {
+            background: #10b981;
+            color: white;
+            border: none;
+            padding: 12px 24px;
+            border-radius: 8px;
+            font-size: 14px;
+            font-weight: 600;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            transition: all 0.3s;
+        }
+        
+        .refresh-btn:hover {
+            background: #0da271;
+            transform: translateY(-1px);
+        }
+        
+        .records-count {
+            color: #64748b;
+            font-size: 14px;
+            background: #f8fafc;
+            padding: 8px 16px;
+            border-radius: 6px;
+        }
+        
+        .history-table {
+            width: 100%;
+            border-collapse: separate;
+            border-spacing: 0;
+            background: white;
+            border-radius: 12px;
+            overflow: hidden;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
+        }
+        
+        .history-table th {
+            background: linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%);
+            padding: 18px 24px;
+            text-align: left;
+            font-weight: 600;
+            color: #475569;
+            border-bottom: 2px solid #e2e8f0;
+            font-size: 14px;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+        
+        .history-table td {
+            padding: 20px 24px;
+            border-bottom: 1px solid #f1f5f9;
+            vertical-align: middle;
+        }
+        
+        .history-table tbody tr {
+            transition: background 0.2s;
+        }
+        
+        .history-table tbody tr:hover {
+            background: #f8fafc;
+        }
+        
+        .history-table tbody tr:last-child td {
+            border-bottom: none;
+        }
+        
+        .code-cell {
+            font-family: 'Consolas', 'Monaco', monospace;
+            font-size: 14px;
+            color: #1e293b;
+        }
+        
+        .time-cell {
+            color: #64748b;
+            font-size: 14px;
+            white-space: nowrap;
+        }
+        
+        .company-cell {
+            font-size: 14px;
+        }
+        
+        .company-id {
+            background: #e0f2fe;
+            color: #0369a1;
+            padding: 4px 8px;
+            border-radius: 4px;
+            font-family: 'Consolas', monospace;
+            font-size: 12px;
+        }
+        
+        .detail-btn {
+            background: linear-gradient(135deg, #8b5cf6 0%, #7c3aed 100%);
+            color: white;
+            border: none;
+            padding: 10px 18px;
+            border-radius: 8px;
+            font-size: 13px;
+            font-weight: 600;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            transition: all 0.3s;
+        }
+        
+        .detail-btn:hover {
+            transform: translateY(-1px);
+            box-shadow: 0 4px 12px rgba(139, 92, 246, 0.3);
+        }
+        
+        /* ===== 弹窗样式 ===== */
+        .modal-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(15, 23, 42, 0.8);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            z-index: 1000;
+            padding: 20px;
+            backdrop-filter: blur(4px);
+            animation: fadeIn 0.3s ease;
+        }
+        
+        .modal-content {
+            background: white;
+            border-radius: 16px;
+            width: 100%;
+            max-width: 900px;
+            max-height: 90vh;
+            overflow: hidden;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+            animation: slideUp 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+        }
+        
+        @keyframes slideUp {
+            from {
+                opacity: 0;
+                transform: translateY(40px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+        
+        .modal-header {
+            background: linear-gradient(135deg, #1e293b 0%, #334155 100%);
+            color: white;
+            padding: 28px 32px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        
+        .modal-title {
+            font-size: 22px;
+            font-weight: 600;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+        
+        .close-btn {
+            background: rgba(255, 255, 255, 0.15);
+            color: white;
+            border: none;
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            font-size: 20px;
+            transition: all 0.2s;
+        }
+        
+        .close-btn:hover {
+            background: rgba(255, 255, 255, 0.25);
+            transform: rotate(90deg);
+        }
+        
+        .modal-body {
+            padding: 32px;
+            overflow-y: auto;
+            max-height: calc(90vh - 150px);
+        }
+        
+        .info-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 24px;
+            margin-bottom: 32px;
+        }
+        
+        .info-card {
+            background: #f8fafc;
+            border: 1px solid #e2e8f0;
+            border-radius: 12px;
+            padding: 24px;
+        }
+        
+        .info-label {
+            font-size: 13px;
+            color: #64748b;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            margin-bottom: 8px;
+            font-weight: 600;
+        }
+        
+        .info-value {
+            font-size: 18px;
+            font-weight: 600;
+            color: #1e293b;
+        }
+        
+        .code-value-lg {
+            font-family: 'Consolas', monospace;
+            font-size: 16px;
+            word-break: break-all;
+            color: #0ea5e9;
+        }
+        
+        .json-section {
+            margin-top: 32px;
+        }
+        
+        .json-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
+            padding-bottom: 16px;
+            border-bottom: 2px solid #e2e8f0;
+        }
+        
+        .json-title {
+            font-size: 18px;
+            font-weight: 600;
+            color: #1e293b;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        
+        .json-actions {
+            display: flex;
+            gap: 12px;
+        }
+        
+        .json-btn {
+            padding: 10px 18px;
+            border-radius: 8px;
+            font-size: 14px;
+            font-weight: 600;
+            border: none;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            transition: all 0.2s;
+        }
+        
+        .copy-btn {
+            background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+            color: white;
+        }
+        
+        .copy-btn:hover {
+            transform: translateY(-1px);
+            box-shadow: 0 4px 12px rgba(16, 185, 129, 0.3);
+        }
+        
+        .toggle-btn {
+            background: #f1f5f9;
+            color: #475569;
+            border: 1px solid #e2e8f0;
+        }
+        
+        .toggle-btn:hover {
+            background: #e2e8f0;
+        }
+        
+        .json-container {
+            background: #1e293b;
+            border-radius: 12px;
+            padding: 24px;
+            overflow-x: auto;
+            font-family: 'Consolas', 'Monaco', monospace;
+            font-size: 14px;
+            line-height: 1.6;
+            max-height: 400px;
+            overflow-y: auto;
+        }
+        
+        .json-line {
+            display: flex;
+            align-items: flex-start;
+            margin-bottom: 4px;
+        }
+        
+        .json-indent {
+            width: 24px;
+            flex-shrink: 0;
+        }
+        
+        .json-key {
+            color: #60a5fa;
+            font-weight: 600;
+            flex-shrink: 0;
+        }
+        
+        .json-colon {
+            color: #cbd5e1;
+            margin: 0 8px;
+        }
+        
+        .json-string {
+            color: #34d399;
+        }
+        
+        .json-number {
+            color: #fbbf24;
+        }
+        
+        .json-boolean {
+            color: #f472b6;
+        }
+        
+        .json-null {
+            color: #f87171;
+        }
+        
+        .json-bracket {
+            color: #cbd5e1;
+        }
+        
+        .json-collapsible {
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+        
+        .json-collapsible:hover {
+            opacity: 0.8;
+        }
+        
+        .json-collapse-icon {
+            color: #94a3b8;
+            font-size: 12px;
+            margin-right: 8px;
+            transition: transform 0.2s;
+        }
+        
+        .json-collapsible.expanded .json-collapse-icon {
+            transform: rotate(90deg);
+        }
+        
+        .json-hidden {
+            display: none;
+        }
+        
+        /* ===== 响应式设计 ===== */
+        @media (max-width: 768px) {
+            body {
+                padding: 10px;
+            }
+            
+            .container {
+                border-radius: 12px;
+            }
+            
+            header {
+                padding: 24px 20px;
+            }
+            
+            .header-content {
+                flex-direction: column;
+                gap: 16px;
+                align-items: flex-start;
+            }
+            
+            .tabs {
+                padding: 0 20px;
+                flex-wrap: wrap;
+            }
+            
+            .tab-btn {
+                padding: 16px 20px;
+                flex: 1;
+                min-width: 120px;
+            }
+            
+            .section {
+                padding: 24px 20px;
+            }
+            
+            .action-buttons {
+                flex-direction: column;
+            }
+            
+            .history-table {
+                display: block;
+                overflow-x: auto;
+            }
+            
+            .modal-body {
+                padding: 24px;
+            }
+            
+            .info-grid {
+                grid-template-columns: 1fr;
+            }
+        }
+        
+        /* ===== 加载动画 ===== */
+        .loading {
+            display: inline-block;
+            width: 20px;
+            height: 20px;
+            border: 3px solid #e2e8f0;
+            border-top: 3px solid #0ea5e9;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+        }
+        
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+        
+        .empty-state {
+            text-align: center;
+            padding: 60px 20px;
+            color: #94a3b8;
+        }
+        
+        .empty-icon {
+            font-size: 48px;
+            margin-bottom: 16px;
+            opacity: 0.5;
+        }
+        
+        .empty-text {
+            font-size: 16px;
+        }
+
+
+
+        /* 添加扫描输入框的特殊状态样式 */
+        .scan-input:focus {
+            outline: none;
+            border-color: #0ea5e9;
+            background: white;
+            box-shadow: 0 0 0 3px rgba(14, 165, 233, 0.2), 
+                        0 4px 12px rgba(14, 165, 233, 0.1);
+            animation: pulse 2s infinite;
+        }
+
+        @keyframes pulse {
+            0% {
+                box-shadow: 0 0 0 3px rgba(14, 165, 233, 0.2), 
+                            0 4px 12px rgba(14, 165, 233, 0.1);
+            }
+            50% {
+                box-shadow: 0 0 0 3px rgba(14, 165, 233, 0.4), 
+                            0 4px 16px rgba(14, 165, 233, 0.2);
+            }
+            100% {
+                box-shadow: 0 0 0 3px rgba(14, 165, 233, 0.2), 
+                            0 4px 12px rgba(14, 165, 233, 0.1);
+            }
+        }
+
+        /* 扫描状态指示器 */
+        .scan-status {
+            position: absolute;
+            right: -10px;
+            top: 50%;
+            transform: translateY(-50%);
+            width: 8px;
+            height: 8px;
+            background: #10b981;
+            border-radius: 50%;
+            animation: scanPulse 2s infinite;
+        }
+
+        @keyframes scanPulse {
+            0% {
+                transform: translateY(-50%) scale(1);
+                opacity: 1;
+            }
+            50% {
+                transform: translateY(-50%) scale(1.3);
+                opacity: 0.7;
+            }
+            100% {
+                transform: translateY(-50%) scale(1);
+                opacity: 1;
+            }
+        }
+
+        /* 键盘快捷键提示 */
+        .shortcut-hint {
+            margin-top: 8px;
+            color: #94a3b8;
+            font-size: 12px;
+            display: flex;
+            gap: 16px;
+        }
+
+        .shortcut-item {
+            display: flex;
+            align-items: center;
+            gap: 4px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <div class="header-content">
+                <h1>
+                    <span class="logo-icon">💊</span>
+                    药房追溯码管理系统
+                </h1>
+                <div class="system-status">
+                    <span class="status-dot" style="color: #10b981;">●</span> 系统在线
+
+                    <!-- 在状态信息区域添加暂存提示 -->
+                    <div id="draftInfo" style="display: none; margin-top: 15px; padding: 12px; background: #f0f9ff; border: 1px solid #bae6fd; border-radius: 8px; color: #0369a1;">
+                        <div style="display: flex; justify-content: space-between; align-items: center;">
+                            <div>
+                                <strong>💾 有暂存数据</strong>
+                                <div style="font-size: 13px; margin-top: 4px;">上次暂存：<span id="lastSaveTime"></span></div>
+                            </div>
+                            <div style="margin-left: 40px;">
+                                <button id="clearDraftBtn" style="
+                                    background: #dc2626; 
+                                    color: white; 
+                                    border: none; 
+                                    padding: 6px 12px; 
+                                    border-radius: 4px; 
+                                    font-size: 12px; 
+                                    cursor: pointer;
+                                ">
+                                    清除暂存
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+
+                    
+                </div>
+
+                
+
+
+
+            </div>
+        </header>
+
+        <div class="tabs">
+            <button class="tab-btn active" data-tab="scan">
+                <span class="tab-icon">📱</span>
+                扫描录入
+            </button>
+            <button class="tab-btn" data-tab="history">
+                <span class="tab-icon">📋</span>
+                历史记录
+            </button>
+        </div>
+
+        <!-- 扫描录入区域 -->
+        <div id="scan-section" class="section active">
+            <div class="scan-area">
+                <div class="section-header">
+                    <h2 class="section-title">
+                        <span>📱</span>
+                        药品追溯码扫描
+                    </h2>
+                    <p class="section-subtitle">
+                        使用扫码枪连续扫描追溯码（需设置扫码后自动回车），扫描完一批后点击"提交"
+                    </p>
+                </div>
+
+                <div class="scan-input-wrapper">
+                    <input type="text" 
+                           id="scanInput" 
+                           class="scan-input" 
+                           placeholder="请使用扫码枪扫描药品追溯码..." 
+                           autofocus>
+                    <div class="scan-hint">等待扫描...</div>
+                    <div class="focus-tip" style="
+                        position: absolute;
+                        left: 10px;
+                        top: 50%;
+                        transform: translateY(-50%);
+                        color: #94a3b8;
+                        font-size: 12px;
+                        pointer-events: none;
+                        display: none;
+                    " id="focusTip">⏎ 回车确认</div>
+                </div>
+
+                <div class="codes-list" id="codesList">
+                    <div class="codes-list-header">
+                        <span>已扫描追溯码</span>
+                        <span id="codesCount">0 个</span>
+                    </div>
+                    <div class="codes-list-body" id="codeList">
+                        <!-- 动态插入扫描的追溯码 -->
+                    </div>
+                </div>
+
+                <div id="status" class="status-message"></div>
+
+                <div class="action-buttons">
+                    <button id="submitBtn" class="primary-btn">
+                        <span>📤</span>
+                        批量提交保存
+                    </button>
+                    <button id="clearBtn" class="secondary-btn">
+                        <span>🗑️</span>
+                        清空列表
+                    </button>
+
+
+
+                    <!-- 添加暂存控制按钮 -->
+                    <button id="saveDraftBtn" class="secondary-btn" style="background: #f0f9ff; color: #0369a1; border-color: #bae6fd;">
+                        💾 暂存数据
+                    </button>
+                    <button id="loadDraftBtn" class="secondary-btn" style="background: #f0f9ff; color: #0369a1; border-color: #bae6fd;">
+                       📂 恢复暂存
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <!-- 历史记录区域 -->
+        <div id="history-section" class="section">
+            <div class="history-controls">
+                <div class="section-header">
+                    <h2 class="section-title">
+                        <span>📋</span>
+                        历史记录
+                    </h2>
+                    <p class="section-subtitle">
+                        已提交的所有批次记录（按提交时间倒序排列）
+                    </p>
+                </div>
+                <div class="controls-right">
+                    <span class="records-count" id="recordsCount">加载中...</span>
+                    <button id="refreshHistory" class="refresh-btn">
+                        <span>🔄</span>
+                        刷新记录
+                    </button>
+                </div>
+            </div>
+
+            <table class="history-table" id="historyTable">
+                <thead>
+                    <tr>
+                        <th width="25%">追溯码</th>
+                        <th width="20%">提交时间</th>
+                        <th width="20%">药品名称</th>
+                        <th width="25%">企业信息</th>
+                        <th width="10%">操作</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <!-- 动态插入历史记录 -->
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <!-- 详情弹窗模板 -->
+    <template id="detailModalTemplate">
+        <div class="modal-overlay">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h3 class="modal-title">
+                        <span>🔍</span>
+                        追溯码详细信息
+                    </h3>
+                    <button class="close-btn">×</button>
+                </div>
+                <div class="modal-body">
+                    <div class="info-grid">
+                        <div class="info-card">
+                            <div class="info-label">追溯码</div>
+                            <div class="info-value code-value-lg" id="modal-code"></div>
+                        </div>
+                        <div class="info-card">
+                            <div class="info-label">药品名称</div>
+                            <div class="info-value" id="modal-name"></div>
+                        </div>
+                    </div>
+
+                    <div class="json-section">
+                        <div class="json-header">
+                            <h4 class="json-title">
+                                <span>📊</span>
+                                追溯信息详情
+                            </h4>
+                            <div class="json-actions">
+                                <button class="json-btn toggle-btn" id="toggleAllBtn">
+                                    <span>↕️</span>
+                                    展开/折叠
+                                </button>
+                                <button class="json-btn copy-btn" id="copyJsonBtn">
+                                    <span>📋</span>
+                                    复制JSON
+                                </button>
+                            </div>
+                        </div>
+                        <div class="json-container" id="jsonDisplay">
+                            <!-- JSON内容动态生成 -->
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </template>
+
+    <script>
+        // const API_BASE = 'http://localhost:8080';
+        const API_BASE = 'http://192.168.3.12:6080';
+        
+        let codes = [];
+
+
+        // 存储键名
+        const STORAGE_KEY = 'pharmacy_scan_draft';
+
+
+        // DOM 元素
+        const scanInput = document.getElementById('scanInput');
+        const codeList = document.getElementById('codeList');
+        const status = document.getElementById('status');
+        const submitBtn = document.getElementById('submitBtn');
+        const clearBtn = document.getElementById('clearBtn');
+        const codesCount = document.getElementById('codesCount');
+        const recordsCount = document.getElementById('recordsCount');
+
+
+        const saveDraftBtn = document.getElementById('saveDraftBtn');
+        const loadDraftBtn = document.getElementById('loadDraftBtn');
+        const draftInfo = document.getElementById('draftInfo');
+        const lastSaveTime = document.getElementById('lastSaveTime');
+        const clearDraftBtn = document.getElementById('clearDraftBtn');
+
+
+
+        // Tab 切换 - 修改部分
+        document.querySelectorAll('.tab-btn').forEach(btn => {
+            btn.addEventListener('click', () => {
+                document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+                btn.classList.add('active');
+
+                document.querySelectorAll('.section').forEach(s => s.classList.remove('active'));
+                document.getElementById(btn.dataset.tab + '-section').classList.add('active');
+
+                // 切换到扫描标签时，自动聚焦到输入框
+                if (btn.dataset.tab === 'scan') {
+                    setTimeout(() => {
+                        scanInput.focus();
+                        scanInput.select(); // 可选：选中文本方便扫码
+                    }, 100);
+                }
+                // 切换到历史时自动刷新
+                else if (btn.dataset.tab === 'history') {
+                    loadHistory();
+                }
+            });
+        });
+
+        // 扫描输入监听 - 增强版本
+        scanInput.addEventListener('keydown', e => {
+            if (e.key === 'Enter') {
+                e.preventDefault();
+                const code = scanInput.value.trim();
+                
+                if (code) {
+                    if (codes.includes(code)) {
+                        showStatus('重复的追溯码已忽略', 'warning');
+                    } else {
+                        codes.push(code);
+                        addCodeToList(code, codes.length);
+                        updateCodesCount();
+                        showStatus(`已添加: ${code} (共 ${codes.length} 条)`, 'info');
+                    }
+                    scanInput.value = '';
+                    
+                    // 扫码后立即重新聚焦，确保下一次扫描能够输入
+                    setTimeout(() => {
+                        scanInput.focus();
+                        scanInput.select(); // 确保光标在输入框内
+                    }, 10);
+                }
+            }
+        });
+
+        // 添加代码到列表
+        function addCodeToList(code, index) {
+            const div = document.createElement('div');
+            div.className = 'code-item';
+            div.innerHTML = `
+                <span class="code-index">${index}</span>
+                <span class="code-value">${code}</span>
+                <div class="code-actions">
+                    <button class="action-btn remove-btn" onclick="removeCode(${index - 1})">
+                        移除
+                    </button>
+                </div>
+            `;
+            codeList.appendChild(div);
+        }
+
+        // 移除代码
+        function removeCode(index) {
+            if (index >= 0 && index < codes.length) {
+                codes.splice(index, 1);
+                updateCodesList();
+                showStatus('已移除追溯码', 'info');
+            }
+        }
+
+        // 更新代码列表显示
+        function updateCodesList() {
+            codeList.innerHTML = '';
+            codes.forEach((code, index) => {
+                addCodeToList(code, index + 1);
+            });
+            updateCodesCount();
+        }
+
+        // 更新计数
+        function updateCodesCount() {
+            codesCount.textContent = `${codes.length} 个`;
+        }
+
+        // 显示状态消息
+        function showStatus(message, type = 'info') {
+            status.textContent = message;
+            status.className = 'status-message';
+            
+            switch (type) {
+                case 'success':
+                    status.classList.add('status-success');
+                    break;
+                case 'error':
+                    status.classList.add('status-error');
+                    break;
+                case 'warning':
+                    status.classList.add('status-info');
+                    break;
+                default:
+                    status.classList.add('status-info');
+            }
+            
+            // 5秒后自动隐藏
+            setTimeout(() => {
+                status.className = 'status-message';
+            }, 5000);
+        }
+
+        // 提交完成后也要重新聚焦
+        submitBtn.addEventListener('click', async () => {
+
+            if (codes.length === 0) {
+                showStatus('没有可提交的追溯码', 'warning');
+                scanInput.focus(); // 即使没有数据也要聚焦
+                return;
+            }
+
+            // 禁用按钮并显示加载状态
+            submitBtn.innerHTML = '<span class="loading"></span> 提交中...';
+            submitBtn.disabled = true;
+            
+            showStatus('正在提交数据...', 'info');
+
+            try {
+                const res = await fetch(`${API_BASE}/gyl/zsm/save-codes`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ codes })
+                });
+                
+                const data = await res.json();
+
+                if (data.code === 20000) {
+                    showStatus(`提交成功！批次ID: ${data.data}`, 'success');
+                    codes = [];
+                    updateCodesList();
+                    
+                    // 提交成功后重新聚焦到输入框
+                    setTimeout(() => {
+                        scanInput.focus();
+                        scanInput.select();
+                        showStatus('可以继续扫描下一批药品', 'info');
+                    }, 500);
+                } else {
+                    showStatus('提交失败: ' + (data.msg || '未知错误'), 'error');
+                    scanInput.focus(); // 失败时也要聚焦
+                }
+            } catch (err) {
+                showStatus('网络错误: ' + err.message, 'error');
+                scanInput.focus(); // 网络错误时也要聚焦
+            } finally {
+                // 恢复按钮状态
+                submitBtn.innerHTML = '<span>📤</span> 批量提交保存';
+                submitBtn.disabled = false;
+            }
+        });
+
+        // 清空按钮 - 清空后重新聚焦
+        clearBtn.addEventListener('click', () => {
+            if (codes.length === 0) {
+                scanInput.focus();
+                return;
+            }
+            
+            if (confirm('确定要清空当前扫描列表吗？')) {
+                codes = [];
+                updateCodesList();
+                showStatus('列表已清空', 'info');
+                
+                // 清空后重新聚焦
+                setTimeout(() => {
+                    scanInput.focus();
+                    scanInput.select();
+                }, 10);
+            }
+        });
+
+        // 加载历史记录
+        async function loadHistory() {
+            const tbody = document.querySelector('#historyTable tbody');
+            const refreshBtn = document.getElementById('refreshHistory');
+            
+            // 显示加载状态
+            refreshBtn.innerHTML = '<span class="loading"></span> 加载中...';
+            tbody.innerHTML = `
+                <tr>
+                    <td colspan="5" style="text-align: center; padding: 60px;">
+                        <div class="loading"></div>
+                        <p style="margin-top: 16px; color: #64748b;">正在加载历史记录...</p>
+                    </td>
+                </tr>
+            `;
+
+            try {
+                const res = await fetch(`${API_BASE}/gyl/zsm/history`);
+                const result = await res.json();
+
+                if (result.code !== 20000) {
+                    throw new Error(result.message || '加载失败');
+                }
+
+                const data = result.data || [];
+                tbody.innerHTML = '';
+
+                if (data.length === 0) {
+                    tbody.innerHTML = `
+                        <tr>
+                            <td colspan="5">
+                                <div class="empty-state">
+                                    <div class="empty-icon">📭</div>
+                                    <div class="empty-text">暂无历史记录</div>
+                                </div>
+                            </td>
+                        </tr>
+                    `;
+                    recordsCount.textContent = '0 条记录';
+                    return;
+                }
+
+                // 更新记录计数
+                recordsCount.textContent = `${data.length} 条记录`;
+
+                // 渲染表格行
+                data.forEach(item => {
+                    // 时间转换 (UTC+8)
+                    const gmtDate = new Date(item.submit_time);
+                    const hktDate = new Date(gmtDate.getTime() + 8 * 60 * 60 * 1000);
+                    const timeStr = hktDate.toLocaleString('zh-CN', {
+                        year: 'numeric',
+                        month: '2-digit',
+                        day: '2-digit',
+                        hour: '2-digit',
+                        minute: '2-digit',
+                        second: '2-digit',
+                        hour12: false
+                    }).replace(/\//g, '-');
+
+                    // 解析code_info
+                    let codeInfo = {};
+                    let companyId = '未知';
+                    
+                    try {
+                        if (typeof item.code_info === 'string') {
+                            codeInfo = JSON.parse(item.code_info);
+                        } else if (typeof item.code_info === 'object') {
+                            codeInfo = item.code_info;
+                        }
+                        companyId = codeInfo['企业id'] || codeInfo.company_id || '未知';
+                    } catch (e) {
+                        console.error('解析code_info失败:', e);
+                    }
+
+                    const tr = document.createElement('tr');
+                    tr.innerHTML = `
+                        <td class="code-cell">${item.code || ''}</td>
+                        <td class="time-cell">${timeStr}</td>
+                        <td>${item.standard_name || ''}</td>
+                        <td class="company-cell">
+                            <span class="company-id">${companyId}</span>
+                        </td>
+                        <td>
+                            <button class="detail-btn" 
+                                    data-code="${item.code || ''}"
+                                    data-name="${item.standard_name || ''}"
+                                    data-info='${encodeURIComponent(JSON.stringify(codeInfo))}'>
+                                <span>👁️</span>
+                                查看
+                            </button>
+                        </td>
+                    `;
+                    tbody.appendChild(tr);
+                });
+
+                // 绑定详情按钮事件
+                tbody.querySelectorAll('.detail-btn').forEach(btn => {
+                    btn.addEventListener('click', () => {
+                        const code = btn.getAttribute('data-code');
+                        const name = btn.getAttribute('data-name');
+                        const info = JSON.parse(decodeURIComponent(btn.getAttribute('data-info')));
+                        showDetailModal(code, name, info);
+                    });
+                });
+
+            } catch (err) {
+                tbody.innerHTML = `
+                    <tr>
+                        <td colspan="5" style="color: #dc2626; text-align: center; padding: 40px;">
+                            ❌ 加载失败: ${err.message}
+                        </td>
+                    </tr>
+                `;
+                recordsCount.textContent = '加载失败';
+                console.error('加载历史记录失败:', err);
+            } finally {
+                refreshBtn.innerHTML = '<span>🔄</span> 刷新记录';
+            }
+        }
+
+        // 显示详情弹窗
+        function showDetailModal(code, name, codeInfo) {
+            const template = document.getElementById('detailModalTemplate');
+            const modal = template.content.cloneNode(true);
+            
+            // 填充基本信息
+            modal.querySelector('#modal-code').textContent = code;
+            modal.querySelector('#modal-name').textContent = name;
+            
+            // 生成JSON显示
+            const jsonDisplay = modal.querySelector('#jsonDisplay');
+            jsonDisplay.innerHTML = formatJsonToHtml(codeInfo, 0);
+            
+            // 添加到页面
+            document.body.appendChild(modal);
+            
+            // 绑定事件
+            const overlay = document.body.lastElementChild;
+            const closeBtn = overlay.querySelector('.close-btn');
+            const copyBtn = overlay.querySelector('#copyJsonBtn');
+            const toggleBtn = overlay.querySelector('#toggleAllBtn');
+            
+            // 关闭弹窗
+            closeBtn.addEventListener('click', () => overlay.remove());
+            overlay.addEventListener('click', (e) => {
+                if (e.target === overlay) overlay.remove();
+            });
+            
+            // 复制JSON
+            copyBtn.addEventListener('click', () => {
+                const jsonStr = JSON.stringify(codeInfo, null, 2);
+                navigator.clipboard.writeText(jsonStr).then(() => {
+                    copyBtn.innerHTML = '<span>✅</span> 已复制';
+                    setTimeout(() => {
+                        copyBtn.innerHTML = '<span>📋</span> 复制JSON';
+                    }, 2000);
+                }).catch(err => {
+                    console.error('复制失败:', err);
+                    copyBtn.innerHTML = '<span>❌</span> 复制失败';
+                    setTimeout(() => {
+                        copyBtn.innerHTML = '<span>📋</span> 复制JSON';
+                    }, 2000);
+                });
+            });
+            
+            // 折叠/展开所有
+            let allExpanded = false;
+            toggleBtn.addEventListener('click', () => {
+                const collapsibles = jsonDisplay.querySelectorAll('.json-collapsible');
+                allExpanded = !allExpanded;
+                
+                collapsibles.forEach(el => {
+                    if (allExpanded) {
+                        el.classList.add('expanded');
+                    } else {
+                        el.classList.remove('expanded');
+                    }
+                });
+                
+                toggleBtn.innerHTML = allExpanded ? 
+                    '<span>↕️</span> 折叠所有' : 
+                    '<span>↕️</span> 展开所有';
+            });
+            
+            // 绑定折叠项点击事件
+            setTimeout(() => {
+                jsonDisplay.querySelectorAll('.json-collapsible').forEach(el => {
+                    el.addEventListener('click', () => {
+                        el.classList.toggle('expanded');
+                    });
+                });
+            }, 0);
+        }
+
+        // JSON格式化函数
+        function formatJsonToHtml(obj, depth = 0) {
+            const indent = ' '.repeat(depth * 2);
+            
+            if (obj === null) {
+                return `<div class="json-line">
+                    ${indent}<span class="json-null">null</span>
+                </div>`;
+            }
+            
+            if (typeof obj === 'boolean') {
+                return `<div class="json-line">
+                    ${indent}<span class="json-boolean">${obj}</span>
+                </div>`;
+            }
+            
+            if (typeof obj === 'number') {
+                return `<div class="json-line">
+                    ${indent}<span class="json-number">${obj}</span>
+                </div>`;
+            }
+            
+            if (typeof obj === 'string') {
+                return `<div class="json-line">
+                    ${indent}<span class="json-string">"${obj}"</span>
+                </div>`;
+            }
+            
+            if (Array.isArray(obj)) {
+                if (obj.length === 0) {
+                    return `<div class="json-line">
+                        ${indent}<span class="json-bracket">[]</span>
+                    </div>`;
+                }
+                
+                const items = obj.map(item => 
+                    formatJsonToHtml(item, depth + 1)
+                ).join('');
+                
+                return `<div class="json-line json-collapsible ${depth === 0 ? 'expanded' : ''}">
+                    ${indent}<span class="json-collapse-icon">▶</span>
+                    <span class="json-bracket">[</span>
+                </div>
+                <div class="json-content ${depth === 0 ? '' : 'json-hidden'}">
+                    ${items}
+                    <div class="json-line">
+                        ${indent}<span class="json-bracket">]</span>
+                    </div>
+                </div>`;
+            }
+            
+            if (typeof obj === 'object') {
+                const keys = Object.keys(obj);
+                if (keys.length === 0) {
+                    return `<div class="json-line">
+                        ${indent}<span class="json-bracket">{}</span>
+                    </div>`;
+                }
+                
+                const items = keys.map(key => {
+                    const value = obj[key];
+                    const isComplex = typeof value === 'object' && value !== null;
+                    
+                    return `<div class="json-line">
+                        <span class="json-indent">${indent}  </span>
+                        <span class="json-key">"${key}"</span>
+                        <span class="json-colon">:</span>
+                        ${isComplex ? formatJsonToHtml(value, depth + 1).replace(indent, '') : ''}
+                        ${!isComplex ? formatJsonToHtml(value, 0) : ''}
+                    </div>`;
+                }).join('');
+                
+                return `<div class="json-line json-collapsible ${depth === 0 ? 'expanded' : ''}">
+                    ${indent}<span class="json-collapse-icon">▶</span>
+                    <span class="json-bracket">{</span>
+                </div>
+                <div class="json-content ${depth === 0 ? '' : 'json-hidden'}">
+                    ${items}
+                    <div class="json-line">
+                        ${indent}<span class="json-bracket">}</span>
+                    </div>
+                </div>`;
+            }
+            
+            return `<div class="json-line">
+                ${indent}${String(obj)}
+            </div>`;
+        }
+
+        // 手动刷新按钮
+        document.getElementById('refreshHistory').addEventListener('click', loadHistory);
+
+        // 页面加载时聚焦输入框 - 增强版本
+        window.addEventListener('load', () => {
+            checkDraftData();
+
+            // 延迟一点确保DOM完全加载
+            setTimeout(() => {
+                scanInput.focus();
+                scanInput.select();
+                
+                // 添加视觉提示
+                scanInput.style.boxShadow = '0 0 0 3px rgba(14, 165, 233, 0.3)';
+                setTimeout(() => {
+                    scanInput.style.boxShadow = '';
+                }, 2000);
+            }, 300);
+        });
+
+            // 检查是否有暂存数据
+        function checkDraftData() {
+            try {
+                const saved = localStorage.getItem(STORAGE_KEY);
+                if (saved) {
+                    const data = JSON.parse(saved);
+                    
+                    // 更新显示暂存数据信息
+                    draftInfo.style.display = 'block';
+                    
+                    // 格式化时间显示
+                    const saveTime = data.timestamp ? 
+                        new Date(data.timestamp).toLocaleString() : 
+                        '未知时间';
+                    lastSaveTime.textContent = saveTime;
+                    
+                    // 显示条数
+                    const count = data.count || 0;
+                    draftInfo.querySelector('strong').textContent = `💾 有 ${count} 条暂存数据`;
+                    
+                    showStatus(`检测到 ${count} 条暂存数据，点击"恢复暂存"按钮可恢复`, 'info');
+                } else {
+                    draftInfo.style.display = 'none';
+                }
+            } catch (e) {
+                console.error('检查暂存数据失败:', e);
+            }
+        }
+
+
+            // 保存暂存数据（手动触发）
+        saveDraftBtn.addEventListener('click', () => {
+            if (codes.length === 0) {
+                showStatus('没有数据可以暂存', 'warning');
+                return;
+            }
+            
+            const data = {
+                codes: codes,
+                timestamp: Date.now(),
+                count: codes.length
+            };
+            
+            try {
+                localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
+                showStatus(`已暂存 ${codes.length} 条数据`, 'success');
+                
+                // 更新显示
+                checkDraftData();
+                
+            } catch (e) {
+                showStatus('暂存失败: ' + e.message, 'error');
+            }
+        });
+
+            // 恢复暂存数据
+        loadDraftBtn.addEventListener('click', () => {
+            try {
+                const saved = localStorage.getItem(STORAGE_KEY);
+                if (!saved) {
+                    showStatus('没有暂存数据可以恢复', 'warning');
+                    return;
+                }
+                
+                const data = JSON.parse(saved);
+                if (!data.codes || !Array.isArray(data.codes)) {
+                    throw new Error('暂存数据格式错误');
+                }
+                
+                // 合并现有数据和新数据（去重）
+                const existingCount = codes.length;
+                data.codes.forEach(code => {
+                    if (!codes.includes(code)) {
+                        codes.push(code);
+                    }
+                });
+                
+                const addedCount = codes.length - existingCount;
+                
+                if (addedCount === 0) {
+                    showStatus('没有新的数据可以恢复（所有数据已存在）', 'warning');
+                    return;
+                }
+                
+                // 更新列表显示
+                updateCodesList();
+                
+                showStatus(`已恢复 ${addedCount} 条数据，当前共 ${codes.length} 条`, 'success');
+                
+            } catch (e) {
+                showStatus('恢复暂存失败: ' + e.message, 'error');
+            }
+        });
+
+        // 清除暂存数据
+        clearDraftBtn.addEventListener('click', () => {
+            if (confirm('确定要清除所有暂存数据吗？')) {
+                localStorage.removeItem(STORAGE_KEY);
+                draftInfo.style.display = 'none';
+                showStatus('已清除暂存数据', 'info');
+            }
+        });
+
+        // 提交成功后清除暂存
+        submitBtn.addEventListener('click', async () => {
+            if (codes.length === 0) {
+                showStatus('没有可提交的追溯码', 'warning');
+                scanInput.focus();
+                return;
+            }
+
+            // 禁用按钮并显示加载状态
+            submitBtn.innerHTML = '<span class="loading"></span> 提交中...';
+            submitBtn.disabled = true;
+            
+            showStatus('正在提交数据...', 'info');
+
+            try {
+                const res = await fetch(`${API_BASE}/gyl/zsm/save-codes`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ codes })
+                });
+                
+                const data = await res.json();
+
+                if (data.code === 20000) {
+                    showStatus(`提交成功！批次ID: ${data.data}`, 'success');
+                    
+                    // 提交成功后清除暂存数据
+                    localStorage.removeItem(STORAGE_KEY);
+                    draftInfo.style.display = 'none';
+                    
+                    codes = [];
+                    updateCodesList();
+                    
+                    setTimeout(() => {
+                        scanInput.focus();
+                        scanInput.select();
+                        showStatus('可以继续扫描下一批药品', 'info');
+                    }, 500);
+                } else {
+                    showStatus('提交失败: ' + (data.msg || '未知错误'), 'error');
+                    scanInput.focus();
+                }
+            } catch (err) {
+                showStatus('网络错误: ' + err.message, 'error');
+                scanInput.focus();
+            } finally {
+                // 恢复按钮状态
+                submitBtn.innerHTML = '<span>📤</span> 批量提交保存';
+                submitBtn.disabled = false;
+            }
+        });
+
+        // 清空列表时也清除暂存（如果用户想彻底清空）
+        clearBtn.addEventListener('click', () => {
+            if (codes.length === 0) {
+                scanInput.focus();
+                return;
+            }
+            
+            // 询问是否同时清除暂存
+            const message = localStorage.getItem(STORAGE_KEY) ? 
+                '确定要清空当前列表吗？同时清除暂存数据吗？' : 
+                '确定要清空当前列表吗？';
+            
+            if (confirm(message)) {
+                codes = [];
+                updateCodesList();
+                showStatus('列表已清空', 'info');
+                
+                // 如果选择了清除暂存
+                if (localStorage.getItem(STORAGE_KEY)) {
+                    localStorage.removeItem(STORAGE_KEY);
+                    draftInfo.style.display = 'none';
+                }
+                
+                setTimeout(() => {
+                    scanInput.focus();
+                    scanInput.select();
+                }, 10);
+            }
+        });
+
+
+
+        // 监听全局点击事件，如果点击其他地方后想要重新聚焦
+        document.addEventListener('click', (e) => {
+            // 如果点击的是扫描区域但不是输入框本身，且当前在扫描标签页
+            if (e.target.closest('#scan-section') && 
+                e.target !== scanInput &&
+                !e.target.closest('.action-btn') &&
+                !e.target.closest('button[id]')) {
+                
+                // 延迟一点避免与其他事件冲突
+                setTimeout(() => {
+                    if (document.querySelector('#scan-section').classList.contains('active')) {
+                        scanInput.focus();
+                        scanInput.select();
+                    }
+                }, 50);
+            }
+        });
+
+        // 监听窗口获得焦点事件，确保窗口激活时输入框聚焦
+        window.addEventListener('focus', () => {
+            if (document.querySelector('#scan-section').classList.contains('active')) {
+                setTimeout(() => {
+                    scanInput.focus();
+                    scanInput.select();
+                }, 100);
+            }
+        });
+
+        // 添加一个"点击聚焦"的提示
+        const scanHint = document.querySelector('.scan-hint');
+        scanInput.addEventListener('blur', () => {
+            scanHint.textContent = '点击此处聚焦';
+            scanHint.style.background = '#64748b';
+        });
+
+        scanInput.addEventListener('focus', () => {
+            scanHint.textContent = '等待扫描...';
+            scanHint.style.background = '#10b981';
+        });
+
+        // 监控输入框状态，确保始终可用
+        setInterval(() => {
+            if (document.querySelector('#scan-section').classList.contains('active') &&
+                document.activeElement !== scanInput &&
+                !document.querySelector('.modal-overlay')) {
+                
+                // 如果当前在扫描页，且没有弹窗，但没有聚焦到输入框
+                scanInput.focus();
+            }
+        }, 1000);
+
+        // 监听页面卸载，保存数据
+        window.addEventListener('beforeunload', () => {
+            if (codes.length > 0) {
+                localStorage.setItem('scanCodes', JSON.stringify(codes));
+            } else {
+                localStorage.removeItem('scanCodes');
+            }
+        });
+    </script>
+</body>
+</html>

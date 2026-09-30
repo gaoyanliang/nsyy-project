@@ -4,7 +4,6 @@ import datetime
 import logging
 from concurrent.futures import ThreadPoolExecutor, as_completed
 import time
-import argparse
 from typing import Tuple, List, Dict
 
 import pymysql

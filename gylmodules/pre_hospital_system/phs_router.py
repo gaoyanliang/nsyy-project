@@ -1,4 +1,4 @@
-from flask import Blueprint, jsonify, request
+from flask import Blueprint
 
 from gylmodules.global_tools import api_response, validate_params
 from gylmodules.pre_hospital_system import phs_server, phs_config

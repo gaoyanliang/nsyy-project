@@ -1,6 +1,5 @@
 import json
 
-import requests
 from flask import jsonify
 
 from gylmodules import global_config, global_tools

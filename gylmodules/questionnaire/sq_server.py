@@ -1,7 +1,6 @@
 import json
 import logging
 import re
-import threading
 import time
 from operator import itemgetter
 from concurrent.futures import ThreadPoolExecutor
@@ -9,7 +8,7 @@ from concurrent.futures import ThreadPoolExecutor
 import requests
 
 from itertools import groupby
-from datetime import datetime, timedelta
+from datetime import datetime
 from gylmodules import global_config, global_tools
 from gylmodules.utils.db_utils import DbUtil
 

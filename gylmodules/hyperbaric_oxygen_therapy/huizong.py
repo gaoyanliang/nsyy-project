@@ -6,7 +6,7 @@ import psycopg2
 from collections import defaultdict
 
 from datetime import datetime, timedelta
-from gylmodules import global_config, global_tools
+from gylmodules import global_tools
 
 DB_CONFIG = {
     "dbname": "df_his",

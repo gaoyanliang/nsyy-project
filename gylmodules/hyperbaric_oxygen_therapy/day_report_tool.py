@@ -1,4 +1,4 @@
-from gylmodules import global_config, global_tools
+from gylmodules import global_tools
 
 from datetime import datetime
 from decimal import Decimal

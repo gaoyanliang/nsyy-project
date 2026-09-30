@@ -11,7 +11,7 @@ from collections import defaultdict
 from concurrent.futures import ThreadPoolExecutor
 from itertools import groupby
 from typing import Tuple, Dict, List
-from datetime import datetime, timedelta, date
+from datetime import datetime, timedelta
 
 # 添加日志配置
 # 配置日志系统
@@ -33,8 +33,7 @@ logger = logging.getLogger(__name__)
 
 from gylmodules import global_config, global_tools
 from gylmodules.shift_change import shift_change_config
-from gylmodules.shift_change.shift_change_config import PATIENT_TYPE_ORDER, LOCK_KEY_DEPT_LIST, CACHE_KEY_DEPT_LIST, \
-    LOCK_EXPIRE_SECONDS, CACHE_EXPIRE_SECONDS, CACHE_KEY_SINGLE_CONFIG, CACHE_KEY_ALL_CONFIG
+from gylmodules.shift_change.shift_change_config import PATIENT_TYPE_ORDER
 from gylmodules.shift_change.shift_change_server import query_shift_config
 from gylmodules.utils.db_utils_new import DbUtil
 

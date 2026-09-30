@@ -1,8 +1,6 @@
-import logging
-
 import requests
 import time
-from typing import Dict, List, Any, Optional
+from typing import Dict, List, Any
 import urllib3
 
 urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)

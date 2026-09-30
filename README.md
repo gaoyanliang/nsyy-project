@@ -55,6 +55,42 @@ openssl x509 -in ck.pem -text -noout  # 验证证书部分
 openssl rsa -in ck.pem -check  # 验证私钥部分（如果有错误会提示）
 ```
 
+
+改用 aioapns 库之后，aioapns 和 httpx 的 cert= 参数都不支持传密码，所以它会卡住等输入；在 PyCharm 这类无交互终端里则会一直阻塞，最终被系统 SIGKILL。
+ck.pem 里同时包含 BEGIN CERTIFICATE 和 BEGIN ENCRYPTED PRIVATE KEY 两段，即证书 + 加密私钥合并文件。
+需要改为无密码的证书
+```shell
+cd /Users/gaoyanliang/nsyy/nsyy-project/gylmodules/workstation/message/
+
+# 1. 提取并解密私钥（用你原来的密码 gyl.2015）
+openssl rsa -in ck.pem -out ck_nopass.key -passin pass:gyl.2015
+
+# 2. 提取证书
+openssl x509 -in ck.pem -out ck.crt
+
+# 3. 合并成无密码 PEM
+cat ck_nopass.key ck.crt > ck_nopass.pem
+
+# 4. 清理中间文件
+rm ck_nopass.key ck.crt
+
+# 5. 验证：应直接输出 "RSA key ok"，不再提示 Enter PEM pass phrase
+openssl rsa -in ck_nopass.pem -check -noout
+
+# 生成后的使用方式，把 get_apns_client() 里的 cert= 指向新文件：
+
+python
+pem_path = os.path.join(script_dir, "ck_nopass.pem")
+APNS_CLIENT = httpx.Client(
+    http2=True,
+    cert=pem_path,
+    timeout=httpx.Timeout(10.0, connect=5.0),
+    limits=httpx.Limits(max_connections=100, max_keepalive_connections=50),
+)
+```
+
+
+
 发送测试推送
 
     可以使用命令行工具如 curl 或专用工具（如 Pusher、Postman）

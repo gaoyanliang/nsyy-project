@@ -5,9 +5,7 @@ import time
 import uuid
 import redis
 from collections import defaultdict
-from concurrent.futures import ThreadPoolExecutor
 from itertools import groupby
-from typing import Tuple, Dict, List
 
 from gylmodules import global_config, global_tools
 from gylmodules.shift_change import shift_change_config

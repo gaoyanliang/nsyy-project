@@ -1,6 +1,6 @@
-from flask import Blueprint, jsonify, request
+from flask import Blueprint
 
-from gylmodules.global_tools import api_response, validate_params
+from gylmodules.global_tools import api_response
 from gylmodules.parking import parking_server, parking_config
 
 parking = Blueprint('parking system', __name__, url_prefix='/parking')

@@ -2,7 +2,6 @@ import logging
 
 from flask import Blueprint
 
-from gylmodules import global_config
 from gylmodules.a_special.special_router import special_system
 from gylmodules.app_version.app_version_router import app_version
 from gylmodules.critical_value.critical_value_router import cv
@@ -20,7 +19,6 @@ from gylmodules.medical_record_analysis.parse_router import parse
 from gylmodules.shift_change.shift_change_router import shift_change
 from gylmodules.workstation.message.message_router import message_router
 from gylmodules.workstation.mail.mail_router import mail_router
-from gylmodules.zhuisuma.zhuisuma_router import zhuisuma_system
 
 # # 初始化日志
 # if global_config.run_in_local:

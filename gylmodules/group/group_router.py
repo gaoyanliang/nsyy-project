@@ -1,14 +1,7 @@
-import os
-import re
+from flask import Blueprint
 
-from flask import Blueprint, jsonify, request, send_file
-from io import BytesIO
-
-from gylmodules import global_config
 from gylmodules.global_tools import api_response
 from gylmodules.group import group_server
-from gylmodules.workstation.mail import mail_config
-from gylmodules.workstation.mail import mail_server as mail
 
 group_router = Blueprint('group router', __name__, url_prefix='/group')
 

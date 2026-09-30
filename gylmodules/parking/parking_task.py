@@ -7,7 +7,7 @@ import logging
 import time
 import sys
 import redis
-from datetime import datetime, timedelta
+from datetime import datetime
 
 # 添加日志配置
 # 配置日志系统
