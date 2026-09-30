@@ -112,13 +112,17 @@ cache_capacity()
 
 def call_third_systems_obtain_data(url: str, type: str, param: dict):
     data = []
-    if global_config.run_in_local:
+    max_retries, retry_count, retry_delay = 3, 0, 1
+    while retry_count < max_retries:
         try:
-            # 发送 POST 请求，将字符串数据传递给 data 参数
-            # response = requests.post(f"http://192.168.3.12:6080/{url}", json=param)
-            response = requests.post(f"http://192.168.124.53:6080/{url}", timeout=3, json=param)
-            data = response.text
-            data = json.loads(data)
+            if global_config.run_in_local:
+                response = requests.post(f"http://192.168.124.53:6080/{url}", timeout=3, json=param)
+            else:
+                response = requests.post(f"http://192.168.3.12:6080/{url}", timeout=3, json=param)
+            # 检查 HTTP 状态码
+            response.raise_for_status()
+
+            result = response.json()
             if type == 'his_visit_reg':
                 logger.info(f'his 取号返回: {data}, 取号参数： {param}')
                 data = data[2]
@@ -126,38 +130,17 @@ def call_third_systems_obtain_data(url: str, type: str, param: dict):
                 data = data
             else:
                 data = data.get('data')
-        except Exception as e:
-            logger.error(f'调用第三方系统方法失败：type = {type}, param = {param}, {e}')
-    else:
-        if type == 'his_visit_reg':
-            # 门诊挂号 当天
-            from tools import nhis_api
-            data = nhis_api(param, tcode='4005')
-            logger.info(f'his 取号返回: {data}, 取号参数：{param}')
-            data = data[2]
-            # data = data.get('ResultCode')
-        elif type == 'his_visit_check':
-            # 查询当天患者挂号信息
-            from tools import his_visit_check
-            data = his_visit_check(param)
-        elif type == 'his_yizhu_info':
-            # 查询当天患者医嘱信息
-            # from tools import his_yizhu_info
-            # data = his_yizhu_info(param)
-            data = []
-        elif type == 'his_pay_info':
-            # 查询付款状态
-            from tools import his_pay_info
-            data = his_pay_info(param)
-        elif type == 'orcl_db_read':
-            # 根据 sql 查询数据
-            from tools import orcl_db_read
-            data = orcl_db_read(param)
-        elif type == 'reg_refund_apply':
-            from tools import reg_refund_apply
-            data = reg_refund_apply(param)
 
-    return data
+            return data
+        except Exception as e:
+            retry_count += 1
+            if retry_count < max_retries:
+                sleep_time = retry_delay * (2 ** (retry_count - 1))  # 指数退避
+                logger.warning(f"{url} 第 {retry_count}/{max_retries} 次重试... {sleep_time} 秒后重试")
+                time.sleep(sleep_time)
+            else:
+                logger.error(f"{url} 已达最大重试次数 {max_retries}。最后错误: {str(e)}\n")
+                return []
 
 
 def his_yizhu_info(patient_id, doc_name):
