@@ -10,16 +10,16 @@ REDIS_CONFIG = {
 
 # 业务类型配置 - 使用字母前缀
 BUSINESS_TYPES = {
-    "1": {
-        'name': '门诊取药',
-        'type': 'medicine',
-        'windows': [],
-        'prefix': 'A',      # 使用A开头
-        'color': '#e74c3c',
-        'description': '含药品查询', # '含药品查询缴费',
-        'icon': '💊',
-        'voice': 'A'        # 语音播报用字母A
-    },
+    # "1": {
+    #     'name': '门诊取药',
+    #     'type': 'medicine',
+    #     'windows': [],
+    #     'prefix': 'A',      # 使用A开头
+    #     'color': '#e74c3c',
+    #     'description': '含药品查询', # '含药品查询缴费',
+    #     'icon': '💊',
+    #     'voice': 'A'        # 语音播报用字母A
+    # },
     "2": {
         'name': '打印病历',
         'type': 'record',
