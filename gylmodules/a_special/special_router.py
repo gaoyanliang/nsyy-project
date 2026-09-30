@@ -389,7 +389,7 @@ def tax_fapiao():
             except IOError as e:
                 # 如果报错是“没有那个文件或目录”，说明需要创建
                 if e.errno == errno.ENOENT:
-                    print(f"Creating remote directory: {new_path}")
+                    logger.error(f"Creating remote directory: {new_path}")
                     sftp.mkdir(new_path)
                 else:
                     raise  # 其他错误（如权限问题）抛出

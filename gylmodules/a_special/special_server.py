@@ -193,7 +193,7 @@ case when exists  (
 
                 # 如果诊断没有变化 不更新
                 if item.get('today_update') == 0:
-                    if redis_client.exists('dip_all_patients', patient_id):
+                    if redis_client.hexists('dip_all_patients', patient_id):
                         old_data = redis_client.hget('dip_all_patients', patient_id)
                         if old_data:
                             old_data = json.loads(old_data)

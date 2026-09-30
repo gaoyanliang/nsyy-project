@@ -103,7 +103,17 @@ def cache_capacity():
     logger.info(f'房间容量缓存完成, 耗时: {time.time() - start_time} s')
 
 
-cache_capacity()
+# 改成显式的初始化函数，在应用工厂里调用
+def init_cache():
+    """显式初始化综合预约缓存。应由应用启动时主动调用，不要在模块导入时执行。"""
+    logger.info("开始初始化综合预约缓存 ...")
+    try:
+        cache_capacity()
+        logger.info("综合预约缓存初始化完成")
+    except Exception as e:
+        logger.error(f"综合预约缓存初始化失败: {e}", exc_info=True)
+        # 这里可以选择 raise，让应用启动失败；也可以吞掉，让应用以“降级模式”运行
+        raise
 
 """
 调用第三方系统
@@ -523,7 +533,7 @@ def create_numbering_record(id_card_list, medical_card_list, rid):
         logger.warning(f"房间 {rid} 存在预约记录 当日没有排班信息 ")
         return
 
-    numbering_record = {"id_card_no": "411324199605164530", "book_date": f"{date.today()}",
+    numbering_record = {"id_card_no": patient_id, "book_date": f"{date.today()}",
                         "book_period": shift_type, "patient_id": patient_id, "patient_name": patient_name,
                         "pid": daily_sched[0].get('pid'), "doc_id": daily_sched[0].get('did'), "rid": rid,
                         "type": appt_config.APPT_TYPE['numbering'], "level": appt_config.APPT_URGENCY_LEVEL['green'],
@@ -1249,11 +1259,13 @@ def sign_in(json_data, over_num: bool = False):
 """
 
 
-def __get_signin_num(appt_proj_id: int):
+def __get_signin_num(appt_proj_id: int) -> int:
+    # redis_client = redis.Redis(connection_pool=pool)
+    # num = redis_client.hget(APPT_SIGN_IN_NUM_KEY, appt_proj_id) or 0
+    # redis_client.hset(APPT_SIGN_IN_NUM_KEY, appt_proj_id, int(num) + 1)
+    # return int(num) + 1
     redis_client = redis.Redis(connection_pool=pool)
-    num = redis_client.hget(APPT_SIGN_IN_NUM_KEY, appt_proj_id) or 0
-    redis_client.hset(APPT_SIGN_IN_NUM_KEY, appt_proj_id, int(num) + 1)
-    return int(num) + 1
+    return redis_client.hincrby(APPT_SIGN_IN_NUM_KEY, appt_proj_id, 1)
 
 
 def if_the_current_time_period_is_available(period):
@@ -1281,35 +1293,42 @@ def next_num(id, is_group):
     :param is_group:
     :return:
     """
-    data_list, doctor, project = query_wait_list({'type': 1, 'wait_id': id})
+    redis_client = redis.Redis(connection_pool=pool)
+    lock_key = f"appt_next_lock:{id}"
+    if not redis_client.set(lock_key, 1, nx=True, ex=5):
+        raise Exception("请稍候，正在处理中")
+    try:
+        data_list, doctor, project = query_wait_list({'type': 1, 'wait_id': id})
 
-    # 更新列表中第一个为处理中
-    if data_list:
-        wait_list = data_list[0].get('wait_list')
-        if wait_list and wait_list[0].get('state') == appt_config.APPT_STATE['processing']:
-            raise Exception('当前存在处理中的病患，无法执行下一个操作，请先处理当前患者')
+        # 更新列表中第一个为处理中
+        if data_list:
+            wait_list = data_list[0].get('wait_list')
+            if wait_list and wait_list[0].get('state') == appt_config.APPT_STATE['processing']:
+                raise Exception('当前存在处理中的病患，无法执行下一个操作，请先处理当前患者')
 
-        db = DbUtil(global_config.DB_HOST, global_config.DB_USERNAME, global_config.DB_PASSWORD,
-                    global_config.DB_DATABASE_GYL)
-        update_sql = 'UPDATE nsyy_gyl.appt_record SET state = {} WHERE id = {} ' \
-            .format(appt_config.APPT_STATE['processing'], data_list[0].get('wait_list')[0].get('id'))
-        db.execute(sql=update_sql, need_commit=True)
-        del db
+            db = DbUtil(global_config.DB_HOST, global_config.DB_USERNAME, global_config.DB_PASSWORD,
+                        global_config.DB_DATABASE_GYL)
+            update_sql = 'UPDATE nsyy_gyl.appt_record SET state = {} WHERE id = {} ' \
+                .format(appt_config.APPT_STATE['processing'], data_list[0].get('wait_list')[0].get('id'))
+            db.execute(sql=update_sql, need_commit=True)
+            del db
 
-        # 呼叫患者
-        json_data = {
-            'socket_id': 'd' + str(is_group) if is_group != -1 else 'z' + str(id),
-            'name': data_list[0].get('wait_list')[0].get('patient_name'),
-            'proj_room': data_list[0].get('wait_list')[0].get('room')
-        }
-        room = ' '.join(list(json_data.get('proj_room')))
-        socket_data = {"msg": '请患者 {} 到 {} 诊室就诊'.format(json_data.get('name'), room), "type": 200}
-        data = {'socket_data': socket_data, 'pers_id': ['d' + str(is_group) if is_group != -1 else 'z' + str(id)], 'socketd': 'w_site',
-                "type": 200, "timer": datetime.now().strftime("%Y-%m-%d %H:%M:%S")}
-        global_tools.socket_push('综合预约呼叫患者', data)
-        data_list[0].get('wait_list')[0]['state'] = appt_config.APPT_STATE['processing']
+            # 呼叫患者
+            json_data = {
+                'socket_id': 'd' + str(is_group) if is_group != -1 else 'z' + str(id),
+                'name': data_list[0].get('wait_list')[0].get('patient_name'),
+                'proj_room': data_list[0].get('wait_list')[0].get('room')
+            }
+            room = ' '.join(list(json_data.get('proj_room')))
+            socket_data = {"msg": '请患者 {} 到 {} 诊室就诊'.format(json_data.get('name'), room), "type": 200}
+            data = {'socket_data': socket_data, 'pers_id': ['d' + str(is_group) if is_group != -1 else 'z' + str(id)], 'socketd': 'w_site',
+                    "type": 200, "timer": datetime.now().strftime("%Y-%m-%d %H:%M:%S")}
+            global_tools.socket_push('综合预约呼叫患者', data)
+            data_list[0].get('wait_list')[0]['state'] = appt_config.APPT_STATE['processing']
 
-    return data_list
+        return data_list
+    finally:
+        redis_client.delete(lock_key)
 
 
 def query_all_appt_project(type: int, target_pid: int, only_today: bool = False):

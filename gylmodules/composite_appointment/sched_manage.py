@@ -189,6 +189,7 @@ def copy_schedule(source_date, target_date, pid, did, rid, copy_by: str = 'docto
         db.execute_many(insert_sql, new_schedules, need_commit=True)
         del db
     except Exception as e:
+        del db
         raise e
 
 
