@@ -33,59 +33,57 @@ cv_id_lock = threading.Lock()
 
 logger = logging.getLogger(__name__)
 
-"""调用第三方系统获取数据"""
+
+
 def call_third_systems_obtain_data(type: str, param: dict):
     data = []
-    if global_config.run_in_local:
+    max_retries, retry_count, retry_delay = 3, 0, 1
+    while retry_count < max_retries:
         try:
-            # 发送 POST 请求，将字符串数据传递给 data 参数
-            # response = requests.post("http://127.0.0.1:6080/int_api", timeout=3, json=param)
-            response = requests.post("http://192.168.124.53:6080/int_api", timeout=3, json=param)
+            if global_config.run_in_local:
+                response = requests.post(f"http://192.168.124.53:6080/int_api", timeout=3, json=param)
+            else:
+                response = requests.post(f"http://127.0.0.1:6080/int_api", timeout=3, json=param)
+            # 检查 HTTP 状态码
+            response.raise_for_status()
             data = response.text
             data = json.loads(data)
             data = data.get('data')
+
+            if type == 'get_dept_info_by_emp_num':
+                # 使用列表推导式提取 "缺省" 值为 1 的元素
+                if data and isinstance(data, list) and len(data) > 0:
+                    result = [item for item in data if item.get("缺省") == 1]
+                    if result:
+                        return result[0].get('HIS_DEPT_ID'), result[0].get('DEPT_NAME'), \
+                            result[0].get('PERS_NAME'), result[0].get('oa_pers_id')
+                    return data[0].get('HIS_DEPT_ID'), data[0].get('DEPT_NAME'), \
+                        data[0].get('PERS_NAME'), data[0].get('oa_pers_id')
+                else:
+                    logger.error(f'根据员工号抓取部门信息失败 {param}')
+                    return -1, 'unknow', 'unkonw', -1
+
+            elif type == 'cache_all_dept_info':
+                # 缓存所有科室信息
+                redis_client = redis.Redis(connection_pool=pool)
+                if len(data) > 0:
+                    for d in data:
+                        redis_client.hset(cv_config.DEPT_INFO_REDIS_KEY, d.get('his_dept_id'),
+                                          json.dumps(d, default=str))
+                        if not redis_client.hexists(cv_config.DEPT_INFO_REDIS_KEY, d.get('dept_code')):
+                            redis_client.hset(cv_config.DEPT_INFO_REDIS_KEY, d.get('dept_code'),
+                                              json.dumps(d, default=str))
+
+            return data
         except Exception as e:
-            logger.error(f'调用第三方系统方法失败：type = {type}, param = {param}, {e}')
-    else:
-        if type == 'data_feedback':
-            # 数据回传
-            from tools import orcl_db_update
-            orcl_db_update(param)
-        elif type == 'get_dept_info_by_emp_num':
-            # 根据员工号，查询科室信息
-            from tools import his_dept_pers
-            data = his_dept_pers(param)
-        elif type == 'cache_all_dept_info':
-            from tools import his_dept
-            data = his_dept(param)
-        elif type == 'send_wx_msg':
-            # 向企业微信推送消息
-            from tools import send_wx_msg
-            data = send_wx_msg(param)
-
-    if type == 'get_dept_info_by_emp_num':
-        # 使用列表推导式提取 "缺省" 值为 1 的元素
-        if data and isinstance(data, list) and len(data) > 0:
-            result = [item for item in data if item.get("缺省") == 1]
-            if result:
-                return result[0].get('HIS_DEPT_ID'), result[0].get('DEPT_NAME'), \
-                    result[0].get('PERS_NAME'), result[0].get('oa_pers_id')
-            return data[0].get('HIS_DEPT_ID'), data[0].get('DEPT_NAME'), \
-                data[0].get('PERS_NAME'), data[0].get('oa_pers_id')
-        else:
-            logger.error(f'根据员工号抓取部门信息失败 {param}')
-            return -1, 'unknow', 'unkonw', -1
-
-    elif type == 'cache_all_dept_info':
-        # 缓存所有科室信息
-        redis_client = redis.Redis(connection_pool=pool)
-        if len(data) > 0:
-            for d in data:
-                redis_client.hset(cv_config.DEPT_INFO_REDIS_KEY, d.get('his_dept_id'), json.dumps(d, default=str))
-                if not redis_client.hexists(cv_config.DEPT_INFO_REDIS_KEY, d.get('dept_code')):
-                    redis_client.hset(cv_config.DEPT_INFO_REDIS_KEY, d.get('dept_code'), json.dumps(d, default=str))
-
-    return data
+            retry_count += 1
+            if retry_count < max_retries:
+                sleep_time = retry_delay * (2 ** (retry_count - 1))  # 指数退避
+                logger.warning(f"cv call_third_systems_obtain_data 第 {retry_count}/{max_retries} 次重试... {sleep_time} 秒后重试")
+                time.sleep(sleep_time)
+            else:
+                logger.error(f"cv call_third_systems_obtain_data 已达最大重试次数 {max_retries}。最后错误: {str(e)}\n")
+                return []
 
 
 """操作缓存"""

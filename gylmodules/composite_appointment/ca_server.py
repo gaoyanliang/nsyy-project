@@ -118,11 +118,10 @@ def call_third_systems_obtain_data(url: str, type: str, param: dict):
             if global_config.run_in_local:
                 response = requests.post(f"http://192.168.124.53:6080/{url}", timeout=3, json=param)
             else:
-                response = requests.post(f"http://192.168.3.12:6080/{url}", timeout=3, json=param)
+                response = requests.post(f"http://127.0.0.1:6080/{url}", timeout=3, json=param)
             # 检查 HTTP 状态码
             response.raise_for_status()
-
-            result = response.json()
+            data = response.json()
             if type == 'his_visit_reg':
                 logger.info(f'his 取号返回: {data}, 取号参数： {param}')
                 data = data[2]
