@@ -635,21 +635,9 @@ def handle_ai_dip(data):
 # --------------------------------------- 主处理函数（并行） --------------------------------------------
 # ----------------------------------------------------------------------------------------------------
 
-def process_all_patients(dept_name, max_workers=MAX_WORKERS):
+def process_all_patients(patient_list, max_workers=MAX_WORKERS):
     """ 使用线程池执行 并行处理多个患者"""
     # 一次处理一个科室，然后按照数量进行批次处理 一个批次处理
-
-    with DbUtil(host=CONFIG['host'], user=CONFIG['user'], password=CONFIG['password'],
-                database=CONFIG['database']) as db:
-        # sql = f"""SELECT 住院医师, 住院号, 住院次数, 入院时间, 出院时间, 出院科室, 出院记录, 医保结算流水号, 医嘱, 年龄, 性别,
-        #                     总费用, 患者费别, 手术, 手术记录, 病案诊断, 诊断, 检查, 检验, 治疗医嘱, 用药医嘱 FROM nsyy_gyl.dip_patient
-        #                     where 出院科室 = '{dept_name}' and 来源 = '{source_dict[CONFIG['source']]}' and (最终DIP代码 is null or AI方案1DIP代码 = '') """
-        sql = f"""SELECT 住院医师, 住院号, 住院次数, 入院时间, 出院时间, 出院科室, 出院记录, 医保结算流水号, 医嘱, 年龄, 性别,
-                                    总费用, 患者费别, 手术, 手术记录, 病案诊断, 诊断, 检查, 检验, 治疗医嘱, 用药医嘱 FROM nsyy_gyl.dip_patient
-                                    where 出院科室 = '{dept_name}' and 来源 = '{source_dict[CONFIG['source']]}' and 最终DIP代码 is null """
-
-        patient_list = db.query_all(sql)
-
     logger.info(f"开始处理科室 {dept_name} 共有 {len(patient_list) if patient_list else 0} 个患者")
     if not patient_list:
         return
@@ -858,23 +846,32 @@ if __name__ == "__main__":
                     database=CONFIG['database']) as db:
             # dept_list = db.query_all(
             #     f"""SELECT DISTINCT 出院科室 FROM nsyy_gyl.dip_patient where 来源 = '{source_dict[CONFIG['source']]}' and (最终DIP代码 is null or AI方案1DIP代码 = '') """)
-            dept_list = db.query_all(
-                f"""SELECT DISTINCT 出院科室 FROM nsyy_gyl.dip_patient where 来源 = '{source_dict[CONFIG['source']]}' and 最终DIP代码 is null """)
 
-        if not dept_list:
-            logger.info("没有需要处理的科室")
+            sql = f"""SELECT 住院医师, 住院号, 住院次数, 入院时间, 出院时间, 出院科室, 出院记录, 医保结算流水号, 医嘱, 年龄, 性别,
+                                                总费用, 患者费别, 手术, 手术记录, 病案诊断, 诊断, 检查, 检验, 治疗医嘱, 用药医嘱 FROM nsyy_gyl.dip_patient
+                                                where 来源 = '{source_dict[CONFIG['source']]}' and 最终DIP代码 is null """
+            patient_list = db.query_all(sql)
+
+        if not patient_list:
+            logger.info("没有需要处理的dip数据")
             break
 
-        dept_list = [item.get('出院科室') for item in dept_list]
-        dept_list = list(set(dept_list))
-        logger.info(f"共有 {len(dept_list)} 个科室需要处理")
-        for dept_name in dept_list:
+        patients = {}
+        for item in patient_list:
+            if item.get('出院科室') not in patients:
+                patients[item.get('出院科室')] = []
+            patients[item.get('出院科室')].append(item)
+
+        logger.info(f"共有 {len(patient_list)} 条数据需要处理， 其中共有 {len(patients.keys())} 个科室")
+        for dept_name, pats in patients.items():
             if not query_balance():
                 logger.info("deepseek 没有余额 该充值了")
                 break
-            process_all_patients(dept_name)
-            logger.info(f"{dept_name} 所有患者 DIP 数据处理结束")
-
+            try:
+                process_all_patients(pats)
+                logger.info(f"{dept_name} 所有患者 DIP 数据处理结束")
+            except Exception as e:
+                logger.error(f"{dept_name} 处理失败: {e}")
 
 
 
