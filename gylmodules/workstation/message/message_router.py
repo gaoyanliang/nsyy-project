@@ -1,4 +1,4 @@
-from flask import Blueprint, jsonify, request
+from flask import Blueprint
 
 from gylmodules import global_tools
 from gylmodules.global_tools import api_response

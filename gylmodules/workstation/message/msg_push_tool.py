@@ -1,9 +1,6 @@
-import asyncio
-import collections
 import hashlib
 import json
 import logging
-import os
 import random
 import threading
 import time
@@ -13,16 +10,14 @@ from concurrent.futures import ThreadPoolExecutor
 from threading import Lock
 from urllib.parse import quote
 
-import aiohttp
+import httpx
 import requests
 from datetime import datetime
-from apns2.client import APNsClient
-from apns2.payload import Payload, PayloadAlert
 
 from gylmodules import global_config
 from gylmodules.global_tools import timed_lru_cache
 from gylmodules.utils.db_utils import DbUtil
-from gylmodules.utils.event_loop import GlobalEventLoop
+from gylmodules.workstation.message.ios_push import send_apns_batch
 
 # Android manufacturer
 VIVO = 'VIVO'
@@ -226,51 +221,40 @@ def build_payload(manufacturer, title, body, push_token):
     return {}
 
 
-# =============================== android 推送 ===============================
+
+# =============================== android 推送（同步实现） ===============================
+
+_ANDROID_HTTP_CLIENT = None
+_ANDROID_HTTP_LOCK = threading.Lock()
 
 
-async def _async_push(url, headers, payload):
-    """真正的异步推送实现"""
-    try:
-        # 设置合理的超时配置
-        timeout = aiohttp.ClientTimeout(
-            total=6,  # 总超时6秒
-            connect=2,  # 连接超时2秒
-            sock_read=3  # 读取超时3秒
-        )
-        async with aiohttp.ClientSession(timeout=timeout) as session:
-            # 自动选择json或data参数
-            content_type = headers.get('Content-Type', '').lower()
-            use_json = (isinstance(payload, dict) and
-                    ('application/json' in content_type or not content_type))
-
-            if use_json:
-                async with session.post(url, json=payload, headers=headers) as resp:
-                    return await resp.json()
-            else:
-                async with session.post(url, data=payload, headers=headers) as resp:
-                    return await resp.json()
-    except Exception as e:
-        logger.error(f"android push error: {str(e)}")
-        return {"code": "80800001", "msg": str(e)}
+def get_android_http_client() -> httpx.Client:
+    """全局同步 HTTP 客户端，复用连接池"""
+    global _ANDROID_HTTP_CLIENT
+    with _ANDROID_HTTP_LOCK:
+        if _ANDROID_HTTP_CLIENT is None:
+            _ANDROID_HTTP_CLIENT = httpx.Client(
+                timeout=httpx.Timeout(6.0, connect=2.0, read=3.0),
+                limits=httpx.Limits(max_connections=100, max_keepalive_connections=50),
+            )
+        return _ANDROID_HTTP_CLIENT
 
 
 def android_push(url, headers, payload):
-    """线程安全的异步调用入口"""
-    start_time = time.time()
-    loop = GlobalEventLoop().get_loop()
-    # 创建协程任务
-    coro = _async_push(url, headers, payload)
-    # 线程安全地运行协程
-    future = asyncio.run_coroutine_threadsafe(coro, loop)
+    """同步推送入口（替代 asyncio.run_coroutine_threadsafe 版本）"""
+    client = get_android_http_client()
     try:
-        # 等待结果，设置超时
-        ret = future.result(timeout=10)
-        # logger.info(f"android 推送耗时：{time.time() - start_time}")
-        return ret
-    except TimeoutError:
-        future.cancel()
-        return {"code": "80000002", "msg": "Request timeout"}
+        content_type = headers.get('Content-Type', '').lower()
+        use_json = (isinstance(payload, dict)
+                    and ('application/json' in content_type or not content_type))
+        if use_json:
+            resp = client.post(url, json=payload, headers=headers)
+        else:
+            resp = client.post(url, data=payload, headers=headers)
+        return resp.json()
+    except Exception as e:
+        logger.error(f"android push error: {str(e)}")
+        return {"code": "80800001", "msg": str(e)}
 
 
 def build_and_push(manufacturer, device_tokens, title, body):
@@ -305,7 +289,7 @@ def build_and_push(manufacturer, device_tokens, title, body):
     elif manufacturer == HONOR:
         # 推送文档 https://developer.honor.com/cn/docs/11002/reference/downlink-message
         send_url = "https://push-api.cloud.honor.com/api/v1/104537220/sendMessage"
-        headers = {"Authorization": f"Bearer {push_token}", "Content-Type": "application/json", "timestamp": int(time.time() * 1000)}
+        headers = {"Authorization": f"Bearer {push_token}", "Content-Type": "application/json", "timestamp": str(time.time() * 1000)}
         for i in range(0, len(device_tokens), batch_size):
             batch_tokens = device_tokens[i:i + batch_size]
             payload["token"] = batch_tokens
@@ -435,73 +419,7 @@ def android_push_task(title, body, device_tokens):
 
 # =============================== iOS 推送 ===============================
 
-
-# 全局 client
-APNS_CLIENT = None
-APNS_CLIENT_LOCK = threading.Lock()  # 防止多线程竞争
-# 创建 Notification 模板（只需做一次，全局复用）
-Notification = collections.namedtuple('Notification', ['token', 'payload'])
-
-
-def get_apns_client():
-    global APNS_CLIENT
-    with APNS_CLIENT_LOCK:
-        if APNS_CLIENT is None:
-            script_dir = os.path.dirname(os.path.abspath(__file__))
-            pem_path = os.path.join(script_dir, "ck.pem")
-            APNS_CLIENT = APNsClient(credentials=pem_path, password="gyl.2015", use_sandbox=global_config.run_in_local)
-        return APNS_CLIENT
-
-def close_apns_client():
-    global APNS_CLIENT
-    with APNS_CLIENT_LOCK:
-        if APNS_CLIENT is not None:
-            try:
-                APNS_CLIENT._connection.close()  # 强制关闭底层连接
-            except:
-                pass
-            APNS_CLIENT = None  # 标记为需要重建
-
-
-def send_apns_batch(tokens, title, body, sound: str="default"):
-    if not tokens:
-        return []
-
-    start_time = time.time()
-    # 每次推送前都获取最新 client（可能已重建）
-    client = get_apns_client()
-    # 普通通知 default  铃声通知 alert.wav
-    payload = Payload(alert=PayloadAlert(title=title, body=body),
-        sound=sound, badge=1, category="MY_CATEGORY", custom={"type": "chat"})
-
-    # payload = Payload(alert=PayloadAlert(title=title, body=body),
-    #                   sound="alert.wav",  # 直接指定文件名（必须 ≤30秒）
-    #                   badge=1,
-    #                   category="MY_CATEGORY",
-    #                   custom={"type": "chat"})
-
-    notifications = [Notification(token, payload) for token in tokens]
-    failed_tokens = []
-    try:
-        results = client.send_notification_batch(notifications=notifications, topic="com.nsyy.Nsyy")
-        for token, status in results.items():
-            if status != "Success":
-                failed_tokens.append(token)
-                if status == "BadDeviceToken":
-                    logger.warning(f"可清理无效 token: {token[:16]}...")
-
-    except Exception as e:
-        logger.warning(f"APNs 批量异常（可能是连接重置）: {e}")
-        # 不抛异常，尽量保留成功部分
-        failed_tokens = tokens  # 保守起见算全部失败
-    finally:
-        # 关键！每次推送完都主动重建连接，下次推送不会复用旧连接
-        close_apns_client()
-
-    logger.debug(
-        f"ios 推送：目标设备: {len(tokens)} | 失败: {len(failed_tokens)} | 耗时: {time.time() - start_time:.2f}s")
-    return failed_tokens
-
+# ios_push.py
 
 # =============================== 向设备推送入口 ===============================
 
@@ -572,7 +490,7 @@ def push_msg_to_devices(pers_ids, title, body, is_ringtone: bool=False):
 
 
 
-# send_apns_batch(['0869381038197228300038136000CN01'], '危急值提醒', '发现新危急值，请及时处理[王世方-张彪-3078854-0]')
+# send_apns_batch(['fb701c01d93fa074c4ff12bbddd3d3a5534b11c0a43382c151cd22d981cf7abb'], '危急值提醒', '发现新危急值，请及时处理[王世方-张彪-3078854-0]')
 
 # android_push_task('危急值提醒', '发现新危急值，请及时处理[22王世方---张彪-3078854-0]', [{'device_token': '5aUCGHsxBk0r0Wk+jWdbXyrhThZH9z9XlmLbLL3tcxbqOUlbaF7UaU7x6dW9cxvv', 'brand': 'REDMI'}])
 

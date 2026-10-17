@@ -25,7 +25,7 @@ dip_muluku = ['A02.0-null', 'A03-null', 'A04.9-null', 'A08-null', 'A09-44.1300x0
 
 
 # ---------- 配置 ----------
-API_KEY = "sk-f4e288071c6647d3976067bb48b3133f"  # 替换为实际key
+API_KEY = "sk-34e7c54119f847258d43f40bc24111bd"  # 替换为实际key
 BASE_URL = "https://api.deepseek.com/"
 MODEL = "deepseek-v4-flash"  # 或 deepseek-chat
 MAX_WORKERS = 20  # 并发线程数，根据API限制调整
@@ -827,7 +827,7 @@ if __name__ == "__main__":
     })
 
     # 创建文件处理器（输出到文件）
-    new_log_file = f"/Users/gaoyanliang/nsyy/nsyy-project/gylmodules/a_special/logs/processing_{CONFIG['source']}.log" if global_config.run_in_local else f"/home/gyl/gyl_server/gylmodules/a_special/logs/processing_{CONFIG['source']}.log"
+    new_log_file = f"/Users/gaoyanliang/nsyy/nsyy-project/gylmodules/a_special/logs/processing_{CONFIG['source']}.log" if global_config.run_in_local else f"/home/gyl/312/gylmodules/a_special/logs/processing_{CONFIG['source']}.log"
     file_handler = logging.FileHandler(new_log_file, encoding='utf-8')
     file_handler.setLevel(logging.INFO)
     file_format = logging.Formatter('%(asctime)s - %(levelname)s - %(message)s')
@@ -841,21 +841,19 @@ if __name__ == "__main__":
             root_logger.removeHandler(h)
     root_logger.addHandler(file_handler)
 
-    while True:
-        with DbUtil(host=CONFIG['host'], user=CONFIG['user'], password=CONFIG['password'],
-                    database=CONFIG['database']) as db:
-            # dept_list = db.query_all(
-            #     f"""SELECT DISTINCT 出院科室 FROM nsyy_gyl.dip_patient where 来源 = '{source_dict[CONFIG['source']]}' and (最终DIP代码 is null or AI方案1DIP代码 = '') """)
+    with DbUtil(host=CONFIG['host'], user=CONFIG['user'], password=CONFIG['password'],
+                database=CONFIG['database']) as db:
+        # dept_list = db.query_all(
+        #     f"""SELECT DISTINCT 出院科室 FROM nsyy_gyl.dip_patient where 来源 = '{source_dict[CONFIG['source']]}' and (最终DIP代码 is null or AI方案1DIP代码 = '') """)
 
-            sql = f"""SELECT 住院医师, 住院号, 住院次数, 入院时间, 出院时间, 出院科室, 出院记录, 医保结算流水号, 医嘱, 年龄, 性别,
-                                                总费用, 患者费别, 手术, 手术记录, 病案诊断, 诊断, 检查, 检验, 治疗医嘱, 用药医嘱 FROM nsyy_gyl.dip_patient
-                                                where 来源 = '{source_dict[CONFIG['source']]}' and 最终DIP代码 is null """
-            patient_list = db.query_all(sql)
+        sql = f"""SELECT 住院医师, 住院号, 住院次数, 入院时间, 出院时间, 出院科室, 出院记录, 医保结算流水号, 医嘱, 年龄, 性别,
+                                            总费用, 患者费别, 手术, 手术记录, 病案诊断, 诊断, 检查, 检验, 治疗医嘱, 用药医嘱 FROM nsyy_gyl.dip_patient
+                                            where 来源 = '{source_dict[CONFIG['source']]}' and 最终DIP代码 is null """
+        patient_list = db.query_all(sql)
 
-        if not patient_list:
-            logger.info("没有需要处理的dip数据")
-            break
-
+    if not patient_list:
+        logger.info("没有需要处理的dip数据")
+    else:
         patients = {}
         for item in patient_list:
             if item.get('出院科室') not in patients:

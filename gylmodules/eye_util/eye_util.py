@@ -13,7 +13,7 @@ from gylmodules.utils.db_utils_new import DbUtil
 
 logger = logging.getLogger(__name__)
 pool = redis.ConnectionPool(host=global_config.REDIS_HOST, port=global_config.REDIS_PORT,
-                            db=global_config.REDIS_DB, decode_responses=True)
+                            db=global_config.REDIS_DB, decode_responses=True, protocol=2)
 
 """
 定时获取眼科视光检查结果

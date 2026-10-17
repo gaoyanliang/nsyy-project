@@ -1,7 +1,8 @@
 import logging
+import time
 
 from gylmodules import global_config, global_tools
-from gylmodules.utils.db_utils import DbUtil
+from gylmodules.utils.db_utils_new import DbUtil
 import requests
 import json
 from datetime import datetime
@@ -9,28 +10,32 @@ from datetime import datetime
 logger = logging.getLogger(__name__)
 
 
+
 def call_third_systems(param: dict):
     data = []
-    if global_config.run_in_local:
+    max_retries, retry_count, retry_delay = 3, 0, 1
+    while retry_count < max_retries:
         try:
-            # 发送 POST 请求，将字符串数据传递给 data 参数
-            response = requests.post("http://192.168.124.53:6080/int_api", json=param)
+            if global_config.run_in_local:
+                response = requests.post(f"http://192.168.124.8:6080/int_api", timeout=3, json=param)
+            else:
+                response = requests.post(f"http://127.0.0.1:6080/int_api", timeout=3, json=param)
+            # 检查 HTTP 状态码
+            response.raise_for_status()
             data = response.text
             data = json.loads(data)
             data = data.get('data')
-        except Exception as e:
-            data = []
-            logger.error(f'调用第三方系统方法失败：type = orcl_db_read {param}, {e}')
-    else:
-        # 根据住院号/门诊号查询 病人id 主页id
-        from tools import orcl_db_read
-        try:
-            data = orcl_db_read(param)
-        except Exception as e:
-            data = []
-            logger.error(f'调用第三方系统方法失败：type = orcl_db_read {param}, {e}')
 
-    return data
+            return data
+        except Exception as e:
+            retry_count += 1
+            if retry_count < max_retries:
+                sleep_time = retry_delay * (2 ** (retry_count - 1))  # 指数退避
+                logger.warning(f"orcl_db_read 第 {retry_count}/{max_retries} 次重试... {sleep_time} 秒后重试")
+                time.sleep(sleep_time)
+            else:
+                logger.error(f"orcl_db_read 已达最大重试次数 {max_retries}。最后错误: {str(e)}\n")
+                return []
 
 
 """
@@ -79,11 +84,10 @@ def check_crisis_value_count(json_data):
     for cv in remote_cv:
         remote_dict[cv['RESULTALERTID'] + '_' + str(cv['cv_source'])] = cv
 
-    db = DbUtil(global_config.DB_HOST, global_config.DB_USERNAME, global_config.DB_PASSWORD,
-                global_config.DB_DATABASE_GYL)
-    query_sql = f"SELECT * FROM nsyy_gyl.cv_info where {mysql_dt_condation} "
-    local_cv = db.query_all(query_sql)
-    del db
+    with DbUtil(global_config.DB_HOST, global_config.DB_USERNAME, global_config.DB_PASSWORD,
+                global_config.DB_DATABASE_GYL) as db:
+        query_sql = f"SELECT * FROM nsyy_gyl.cv_info where {mysql_dt_condation} "
+        local_cv = db.query_all(query_sql)
 
     remote_cv_set = [cv['RESULTALERTID'] + '_' + str(cv['cv_source']) for cv in remote_cv]
     local_cv_set = [cv['cv_id'] + '_' + str(cv['cv_source']) for cv in local_cv]
@@ -126,15 +130,15 @@ def check_crisis_value_count(json_data):
 
 def fetch_cv_record():
     logger.info('开始抓取并解析危急值报告处理记录')
-    db = DbUtil(global_config.DB_HOST, global_config.DB_USERNAME, global_config.DB_PASSWORD,
-                global_config.DB_DATABASE_GYL)
-    # db = DbUtil('192.168.3.12', 'gyl', '123456', global_config.DB_DATABASE_GYL)
+    with DbUtil(global_config.DB_HOST, global_config.DB_USERNAME, global_config.DB_PASSWORD,
+                global_config.DB_DATABASE_GYL) as db:
+    # with DbUtil('192.168.3.12', 'gyl', '123456', global_config.DB_DATABASE_GYL) as db:
 
-    query_sql = f"select * from nsyy_gyl.cv_info where alertdt >= DATE_SUB(NOW(), INTERVAL 3 DAY) " \
-                f"and (record is NULL or record = '') " \
-                f"and patient_type in (1, 2, 3) " \
-                f"and patient_treat_id not in ('0', '120') and state != 0 order by alertdt"
-    cvs = db.query_all(query_sql)
+        query_sql = f"select * from nsyy_gyl.cv_info where alertdt >= DATE_SUB(NOW(), INTERVAL 3 DAY) " \
+                    f"and (record is NULL or record = '') " \
+                    f"and patient_type in (1, 2, 3) " \
+                    f"and patient_treat_id not in ('0', '120') and state != 0 order by alertdt"
+        cvs = db.query_all(query_sql)
 
     for cv in cvs:
         if not cv.get('patient_treat_id'):
@@ -167,12 +171,14 @@ def fetch_cv_record():
             logger.error(f"Unsupported datetime format: {record[0]} cv_id = {cv.get('cv_id')}")
             continue
         record_time = date_object.strftime("%Y-%m-%d %H:%M:%S")
-        update_sql = "UPDATE nsyy_gyl.cv_info SET record = '{}', record_time = '{}' WHERE id = {}" \
-            .format(record[1], record_time, cv.get('id'))
-        db.execute(update_sql, need_commit=True)
 
-    logger.info('End 抓取并解析危急值报告处理记录完成')
-    del db
+        with DbUtil(global_config.DB_HOST, global_config.DB_USERNAME, global_config.DB_PASSWORD,
+                    global_config.DB_DATABASE_GYL) as db:
+            update_sql = "UPDATE nsyy_gyl.cv_info SET record = '{}', record_time = '{}' WHERE id = {}" \
+                .format(record[1], record_time, cv.get('id'))
+            db.execute(update_sql, need_commit=True)
+
+        logger.info('End 抓取并解析危急值报告处理记录完成')
 
 
 # # =========================  查询病历

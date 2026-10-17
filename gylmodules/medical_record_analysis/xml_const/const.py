@@ -8,7 +8,7 @@ xml_statement = """<?xml version="1.0" encoding="UTF-8"?>"""
 """
 xml 起始标签
 """
-xml_start = """
+xml_start = r"""
 <ClinicalDocument xmlns="urn:hl7-org:v3" xmlns:mif="urn:hl7-org:v3/mif"
 xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
 xsi:schemaLocation="urn:hl7-org:v3..\sdschemas\SDA.xsd">

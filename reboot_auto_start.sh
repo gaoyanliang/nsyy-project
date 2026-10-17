@@ -10,11 +10,11 @@ if pgrep -f "main:app" >/dev/null; then
 fi
 
 # 设置工作目录
-PROJECT_DIR="/home/gyl/gyl_server"
+PROJECT_DIR="/home/gyl/312"
 cd "$PROJECT_DIR" || { echo "错误：目录 $PROJECT_DIR 不存在"; exit 1; }
 
 # 定义 Conda 环境 Python 的绝对路径（请根据实际情况确认）
-PYTHON_BIN="/home/gyl/.conda/envs/gg/bin/python"
+PYTHON_BIN="/home/gyl/.conda/envs/312/bin/python"
 
 # 等待端口监听的函数（使用 ss）
 wait_for_port_listen() {

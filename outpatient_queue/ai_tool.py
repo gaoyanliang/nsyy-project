@@ -1,6 +1,7 @@
 import time
 import json
 import logging
+from decimal import Decimal
 from threading import Lock
 
 import requests
@@ -89,6 +90,8 @@ def retry_on_rate_limit(max_retries=MAX_RETRIES, delay=RETRY_DELAY):
 # ---------- 核心API调用（改写为可重用，每个患者独立） ----------
 
 def call_ai_for_patient(info, is_json: bool = False):
+    if not query_balance():
+        return None
     """ 处理单个患者的全部问题，返回结果字典。  内部包含重试和对话历史管理。 """
     info = info.replace("严格仅输出以下CSV格式表格", "严格仅输出以下CSV格式表格（不要markdown格式）")
     # 每个线程独立的OpenAI客户端（线程安全）
@@ -113,6 +116,12 @@ def query_balance():
     headers = {'Accept': 'application/json', 'Authorization': f'Bearer {API_KEY}'}
     response = requests.request("GET", "https://api.deepseek.com/user/balance", headers=headers, data={})
     logger.info(f"查询余额结果：{response.text}")
+    if response:
+        response = response.json()
+        if Decimal(response['balance_infos'][0]['total_balance']) < Decimal('1'):
+            return False
+        return True
+    return False
 
 
 def extract_json_from_response(response_text: str):

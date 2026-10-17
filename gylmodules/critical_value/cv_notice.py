@@ -1,5 +1,6 @@
 import concurrent.futures
 import logging
+from datetime import datetime
 
 import redis
 import requests
@@ -7,10 +8,11 @@ from ping3 import ping as sync_ping
 
 from gylmodules import global_config
 from gylmodules.critical_value import cv_config
+from gylmodules.utils.db_utils_new import DbUtil
 
 logger = logging.getLogger(__name__)
 pool = redis.ConnectionPool(host=global_config.REDIS_HOST, port=global_config.REDIS_PORT,
-                            db=global_config.REDIS_DB, decode_responses=True)
+                            db=global_config.REDIS_DB, decode_responses=True, protocol=2)
 
 # 全局复用，模块级只创建一次
 _ALERT_EXECUTOR = concurrent.futures.ThreadPoolExecutor(max_workers=32,thread_name_prefix="cv-alert",)
@@ -56,6 +58,30 @@ def _try_auto_start(ip: str) -> bool:
         return False
 
 
+"""推送弹框通知 type = 1 通知护士， type = 2 通知医生"""
+def write_alert_fail_log(fail_ips, fail_log):
+    redis_client = redis.Redis(connection_pool=pool)
+    try:
+        failed_log = []
+        for ip in fail_ips:
+            if redis_client.sismember(cv_config.ALERT_FAIL_IPS_REDIS_KEY, ip):
+                continue
+            failed_log.append({"ip": ip, "time": datetime.now().strftime("%Y-%m-%d %H:%M:%S"), "log": fail_log})
+
+        with DbUtil(global_config.DB_HOST, global_config.DB_USERNAME, global_config.DB_PASSWORD,
+                global_config.DB_DATABASE_GYL) as db:
+            for log in failed_log:
+                keys = ','.join(log.keys())
+                values = tuple(log.values())
+                # 存在则更新 不存在则插入
+                insert_sql = f'INSERT INTO nsyy_gyl.alert_fail_log ({keys}) VALUE {str(values)} '
+                db.execute(insert_sql, need_commit=True)
+                redis_client.sadd(cv_config.ALERT_FAIL_IPS_REDIS_KEY, ip)
+    except Exception:
+        pass
+
+
+
 def _notify_one_site(ip: str, msg: str) -> None:
     """对一个站点发通知：先 ping，再 popup，popup 失败则尝试拉起自动启动程序。"""
     if not _ping_ok(ip):
@@ -67,7 +93,6 @@ def _notify_one_site(ip: str, msg: str) -> None:
     if not _try_auto_start(ip):
         # 记录失败，供 re_alert_fail_ip_log 后续重试
         try:
-            from gylmodules.critical_value.critical_value import write_alert_fail_log
             write_alert_fail_log([ip], "通知失败")
         except Exception:
             logger.exception("write_alert_fail_log 失败 ip=%s", ip)

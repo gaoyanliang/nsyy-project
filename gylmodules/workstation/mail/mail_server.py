@@ -37,7 +37,7 @@ import re
 from gylmodules.workstation.message import msg_push_tool
 
 pool = redis.ConnectionPool(host=global_config.REDIS_HOST, port=global_config.REDIS_PORT,
-                            db=global_config.REDIS_DB, decode_responses=True)
+                            db=global_config.REDIS_DB, decode_responses=True, protocol=2)
 logger = logging.getLogger(__name__)
 
 # 全局预编译正则

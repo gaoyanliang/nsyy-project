@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 import sys
-sys.path.insert(0, '/home/gyl/gyl_server')  # 就这一行！
+sys.path.insert(0, '/home/gyl/312')  # 就这一行！
 
 import json
 import logging
@@ -29,7 +29,7 @@ from gylmodules.parking import parking_tools, parking_config
 from gylmodules.utils.db_utils_new import DbUtil
 
 pool = redis.ConnectionPool(host=global_config.REDIS_HOST, port=global_config.REDIS_PORT,
-                            db=global_config.REDIS_DB, decode_responses=True)
+                            db=global_config.REDIS_DB, decode_responses=True, protocol=2)
 
 
 def auto_execution_task():

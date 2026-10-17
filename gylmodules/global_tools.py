@@ -1,3 +1,11 @@
+from gylmodules import global_config
+import oracledb
+# # 启用 Thick 模式，连接 Oracle 11g
+if not global_config.run_in_local:
+    oracledb.init_oracle_client(lib_dir="/usr/lib/oracle/21/client64/lib")
+
+import pandas as pd
+import json
 from datetime import datetime, date
 import threading
 import traceback
@@ -8,7 +16,6 @@ from logging.handlers import RotatingFileHandler
 from functools import wraps, lru_cache
 from typing import Callable, Any, List, Dict
 
-import cx_Oracle
 import redis
 import requests
 import psycopg2
@@ -21,7 +28,7 @@ from gylmodules.utils.db_utils_new import DbUtil
 
 DB_CONFIG = {"dbname": "df_his", "user": "ogg", "password": "nyogg@2024", "host": "192.168.8.57", "port": "6000"}
 pool = redis.ConnectionPool(host=global_config.REDIS_HOST, port=global_config.REDIS_PORT,
-                            db=global_config.REDIS_DB, decode_responses=True)
+                            db=global_config.REDIS_DB, decode_responses=True, protocol=2)
 
 
 def setup_logging(log_file='app.log', level=logging.INFO, backup_count=5, max_bytes=10 * 1024 * 1024,  # 10MB
@@ -77,6 +84,8 @@ def setup_logging(log_file='app.log', level=logging.INFO, backup_count=5, max_by
     logging.getLogger("tzlocal").setLevel(logging.WARNING)  # 新增
     logging.getLogger("httpcore").setLevel(logging.WARNING)  # 新增
     logging.getLogger("websockets.client").setLevel(logging.WARNING)  # 新增
+    logging.getLogger('redis.connection').setLevel(logging.WARNING)
+    logging.getLogger('geventwebsocket.handler').setLevel(logging.WARNING)
 
     return logger
 
@@ -126,27 +135,39 @@ _oracle_pools = {}
 """获取或创建Oracle连接池"""
 
 
-def get_oracle_pool(sys: str) -> cx_Oracle.SessionPool:
+def get_oracle_pool(sys: str) -> oracledb.ConnectionPool:
     if sys not in _oracle_pools:
-        _oracle_pools[sys] = cx_Oracle.SessionPool(
-            user=oracle_env.get(f"ORACLE_{sys.upper()}_USER"),
-            password=oracle_env.get(f"ORACLE_{sys.upper()}_PASSWORD"),
-            dsn=oracle_env.get(f"ORACLE_{sys.upper()}_DSN"),
-            min=5, max=25, increment=2
+        # 从环境变量字典中获取凭据
+        user = oracle_env.get(f"ORACLE_{sys.upper()}_USER")
+        password = oracle_env.get(f"ORACLE_{sys.upper()}_PASSWORD")
+        dsn = oracle_env.get(f"ORACLE_{sys.upper()}_DSN")
+
+        # 关键：确保 user 和 password 不为 None 或空字符串
+        # 如果它们为空，需要检查你的 oracle_env 字典或环境变量配置
+        if not user or not password:
+            raise ValueError(f"Missing Oracle credentials for system: {sys}")
+
+        _oracle_pools[sys] = oracledb.create_pool(
+            user=user,
+            password=password,
+            dsn=dsn,
+            min=5,
+            max=25,
+            increment=2
         )
     return _oracle_pools[sys]
 
 
 """安全执行Oracle查询（参数化查询 + 连接池）"""
-
-
 def connect_oracle(sql: str, sys: str = 'newzt') -> List[Dict]:
+    pool = None
+    conn = None
+    cursor = None
     try:
         pool = get_oracle_pool(sys)
         conn = pool.acquire()
         cursor = conn.cursor()
 
-        # 执行SQL查询
         cursor.execute(sql)
         rows = cursor.fetchall()
         return normalize_oracle_result(cursor, rows)
@@ -154,11 +175,10 @@ def connect_oracle(sql: str, sys: str = 'newzt') -> List[Dict]:
         logger.error(f"Oracle错误: sys={sys}, sql {sql}, exception {e}")
         raise
     finally:
-        if 'cursor' in locals():
+        if cursor is not None:
             cursor.close()
-        if 'conn' in locals():
+        if conn is not None and pool is not None:
             pool.release(conn)
-
 
 """标准化 Oracle 查询结果，使其与 MySQL 格式一致"""
 
@@ -173,7 +193,7 @@ def normalize_oracle_result(cursor, rows: List[tuple]) -> List[Dict[str, Any]]:
         normalized_row = {}
         for i, value in enumerate(row):
             col_name = columns[i]
-            if isinstance(value, cx_Oracle.LOB):
+            if isinstance(value, oracledb.LOB):
                 # 处理 CLOB/BLOB 类型
                 if hasattr(value, 'read'):
                     normalized_row[col_name] = value.read()
@@ -182,11 +202,11 @@ def normalize_oracle_result(cursor, rows: List[tuple]) -> List[Dict[str, Any]]:
             elif value is None:
                 col_type = col_types[i]
                 # 根据字段类型设置默认值
-                if col_type == cx_Oracle.STRING:
+                if col_type == oracledb.STRING:
                     normalized_row[col_name] = ""
-                elif col_type == cx_Oracle.CLOB:
+                elif col_type == oracledb.CLOB:
                     normalized_row[col_name] = ""
-                elif col_type == cx_Oracle.BLOB:
+                elif col_type == oracledb.BLOB:
                     normalized_row[col_name] = b''
                 else:
                     normalized_row[col_name] = 0
@@ -195,8 +215,6 @@ def normalize_oracle_result(cursor, rows: List[tuple]) -> List[Dict[str, Any]]:
                     normalized_row[col_name] = value.strftime('%Y-%m-%d %H:%M:%S')
                 else:
                     normalized_row[col_name] = value.strftime('%Y-%m-%d')
-            elif isinstance(value, cx_Oracle.Timestamp):
-                normalized_row[col_name] = value.strftime('%Y-%m-%d %H:%M:%S')
             else:
                 normalized_row[col_name] = value
 
@@ -206,10 +224,6 @@ def normalize_oracle_result(cursor, rows: List[tuple]) -> List[Dict[str, Any]]:
 
 
 def call_new_his(sql: str, sys: str = 'newzt', clobl: list = None):
-    if global_config.run_in_local:
-        # 本地测试调用领导接口，线上直连数据库
-        return call_new_his_local(sql, sys, clobl)
-
     data = []
     max_retries, retry_count, retry_delay = 3, 0, 1
     while retry_count < max_retries:
@@ -219,48 +233,13 @@ def call_new_his(sql: str, sys: str = 'newzt', clobl: list = None):
             retry_count += 1
             if retry_count < max_retries:
                 sleep_time = retry_delay * (2 ** (retry_count - 1))  # 指数退避
-                logging.warning(f"call_new_his 第 {retry_count}/{max_retries} 次重试... {sleep_time} 秒后重试")
+                logger.warning(f"call_new_his 第 {retry_count}/{max_retries} 次重试... {sleep_time} 秒后重试")
                 time.sleep(sleep_time)
             else:
-                logging.error(f"call_new_his 已达最大重试次数 {max_retries}。最后错误: {str(e)}")
+                logger.error(f"call_new_his 已达最大重试次数 {max_retries}。最后错误: {str(e)}")
                 return []
 
     return data
-
-
-"""本地 调用领导 oracle_sql 接口实现 oracle 数据库查询"""
-
-
-def call_new_his_local(sql: str, sys: str = 'newzt', clobl: list = None):
-    """调用新 HIS 查询数据（支持异常重试）"""
-    # sql = base64.b64encode(sql.encode()).decode()
-    param = {"key": "o4YSo4nmde9HbeUPWY_FTp38mB1c", "sys": sys, "sql": sql}
-    if clobl:
-        param['clobl'] = clobl
-
-    # 动态 URL
-    query_oracle_url = "http://192.168.124.13:5000/oracle_sql"
-    # query_oracle_url = "http://192.168.3.12:6080/gyl/cv/query_oracle_data"
-
-    data = []
-    max_retries, retry_count, retry_delay = 3, 0, 1
-    while retry_count < max_retries:
-        try:
-            response = requests.post(query_oracle_url, json=param, timeout=30)
-            # 检查 HTTP 状态码
-            response.raise_for_status()
-            result = response.json()
-            data = result.get('data', [])
-            return data
-        except Exception as e:
-            retry_count += 1
-            if retry_count < max_retries:
-                sleep_time = retry_delay * (2 ** (retry_count - 1))  # 指数退避
-                logger.warning(f"call_new_his_api 第 {retry_count}/{max_retries} 次重试... {sleep_time} 秒后重试")
-                time.sleep(sleep_time)
-            else:
-                logger.error(f"call_new_his_api 已达最大重试次数 {max_retries}。最后错误: {str(e)}\nSQL: {sql}")
-                return []
 
 
 """查询PG数据库"""
@@ -286,10 +265,10 @@ def call_new_his_pg(sql, retry_count: int = 0):
             retry_count += 1
             if retry_count < max_retries:
                 sleep_time = retry_delay * (2 ** (retry_count - 1))  # 指数退避
-                logging.warning(f"数据库连接失败，第 {retry_count}/{max_retries} 次重试... {sleep_time} 秒后重试")
+                logger.warning(f"数据库连接失败，第 {retry_count}/{max_retries} 次重试... {sleep_time} 秒后重试")
                 time.sleep(sleep_time)
             else:
-                logging.error(f"数据库操作失败，已达最大重试次数 {max_retries}。最后错误: {str(e)}\nSQL: {sql}")
+                logger.error(f"数据库操作失败，已达最大重试次数 {max_retries}。最后错误: {str(e)}\nSQL: {sql}")
                 return []
 
     return results
@@ -402,20 +381,11 @@ def call_tijian_query(sql: str):
 
 
 def start_thread(funct, args=None, tl=None):
-    """
-    start a thread
-    :param funct:
-    :param args:
-    :param tl:
-    :return:
-    """
-
     if not tl:
         tl = []
     if not args:
         args = ()
-    t = threading.Thread(target=funct, args=args)
-    t.setDaemon(True)  # 服务器一直运行，所以子线程不会被关
+    t = threading.Thread(target=funct, args=args, daemon=True)
     tl.append(t)
     t.start()
     return t
@@ -465,7 +435,7 @@ def socket_push(info, data):
             retry_count += 1
             if retry_count < max_retries:
                 sleep_time = retry_delay * (2 ** (retry_count - 1))  # 指数退避
-                # logging.warning(f"socket_push 第 {retry_count}/{max_retries} 次重试... {sleep_time} 秒后重试")
+                # logger.warning(f"socket_push 第 {retry_count}/{max_retries} 次重试... {sleep_time} 秒后重试")
                 time.sleep(sleep_time)
             else:
                 logger.error(f" {info} Socket 推送失败:  {str(e)}  {data}")
@@ -554,7 +524,7 @@ def upload_sign_file(base64_str, is_pdf: bool = False):
     param = {"type": "save", "b64file": base64_str}
     if is_pdf:
         param['fext'] = 'pdf'
-    url = "http://192.168.124.53:6080/b64pic_process" if global_config.run_in_local \
+    url = "http://192.168.124.8:6080/b64pic_process" if global_config.run_in_local \
         else "http://192.168.3.12:6080/b64pic_process"
     response = requests.post(url, timeout=10, json=param)
     data = json.loads(response.text)
@@ -653,13 +623,13 @@ def call_yangcheng_sign_serve(param: dict, ts_sign: bool = False):
             retry_count += 1
             if retry_count <= max_retries:
                 sleep_time = retry_delay * (2 ** (retry_count - 1))  # 指数退避
-                logging.warning(
+                logger.warning(
                     f"签名服务器连接失败，第 {retry_count}/{max_retries} 次重试..."
                     f" user_id = {param.get('user_id', '')} 错误: {str(e)}，{sleep_time}秒后重试"
                 )
                 time.sleep(sleep_time)
             else:
-                logging.error(f"签名服务器连接失败，已达最大重试次数 {max_retries}。最后错误: {str(e)}\n")
+                logger.error(f"签名服务器连接失败，已达最大重试次数 {max_retries}。最后错误: {str(e)}\n")
                 return {}
 
 
@@ -759,10 +729,6 @@ def excel_to_jsons(file_path, sheet_num: int = 0, header_line: int = 1, keys: li
         results.append(row_dict)
 
     return results
-
-
-import pandas as pd
-import json
 
 
 def jsons_to_excel_pandas(json_list, file_path, sheet_name="Sheet1"):

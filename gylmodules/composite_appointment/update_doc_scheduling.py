@@ -11,10 +11,10 @@ import requests
 from gylmodules import global_config, global_tools
 from gylmodules.composite_appointment.appt_config import APPT_DOCTORS_BY_NAME_KEY, APPT_ROOMS_KEY, APPT_PROJECTS_KEY, \
     APPT_DOCTORS_KEY, APPT_REMAINING_RESERVATION_QUANTITY_KEY
-from gylmodules.utils.db_utils import DbUtil
+from gylmodules.utils.db_utils_new import DbUtil
 
 pool = redis.ConnectionPool(host=global_config.REDIS_HOST, port=global_config.REDIS_PORT,
-                            db=global_config.REDIS_DB, decode_responses=True)
+                            db=global_config.REDIS_DB, decode_responses=True, protocol=2)
 
 logger = logging.getLogger(__name__)
 
@@ -23,7 +23,7 @@ def call_third_systems_obtain_data(param: dict, max_retries: int = 3):
     data = []
     url = f"http://127.0.0.1:6080/his_socket"
     if global_config.run_in_local:
-        url = f"http://192.168.124.53:6080/his_socket"
+        url = f"http://192.168.124.8:6080/his_socket"
 
     retry_count = 0
     last_exception = None
@@ -120,128 +120,126 @@ def update_today_doc_info():
             latest_records[composite_key] = record
 
     redis_client = redis.Redis(connection_pool=pool)
-    db = DbUtil(global_config.DB_HOST, global_config.DB_USERNAME, global_config.DB_PASSWORD,
-                global_config.DB_DATABASE_GYL)
-    # db = DbUtil("192.168.3.12", "gyl", "123456", "nsyy_gyl")
-    update_time = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-    doc_in_db_list = db.query_all("select * from nsyy_gyl.appt_doctor")
-    doc_in_db_dict = {}
-    doc_in_db_sorted = sorted(doc_in_db_list, key=lambda x: (x["no"], x["dept_id"]))
-    for key, group in groupby(doc_in_db_sorted, key=lambda x: (x["no"], x["dept_id"])):
-        doc_in_db_dict[key] = list(group)
+    with DbUtil(global_config.DB_HOST, global_config.DB_USERNAME, global_config.DB_PASSWORD,
+                global_config.DB_DATABASE_GYL) as db:
+    # with DbUtil("192.168.3.12", "gyl", "123456", "nsyy_gyl") as db:
+        update_time = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        doc_in_db_list = db.query_all("select * from nsyy_gyl.appt_doctor")
+        doc_in_db_dict = {}
+        doc_in_db_sorted = sorted(doc_in_db_list, key=lambda x: (x["no"], x["dept_id"]))
+        for key, group in groupby(doc_in_db_sorted, key=lambda x: (x["no"], x["dept_id"])):
+            doc_in_db_dict[key] = list(group)
 
-    his_status_set = set()
-    for key, new_doc in latest_records.items():
-        doc_in_db = doc_in_db_dict.get(key)
-        emp_no = emp_dict.get(new_doc.get("医生ID"), '0')
-        if not doc_in_db:
-            # print(datetime.now(), f"医生 {key} 在数据库中不存在，新增医生信息", new_doc)
-            insert_sql = f"""
-                    insert into nsyy_gyl.appt_doctor(name, his_name, emp_nub, no, career, fee, appointment_id, 
-                    dept_id, dept_name, update_time, visit_id, his_status, farther_dept_id, farther_dept_name, 
-                    sex, u_count, shoufei_xm) values ('{new_doc.get('真实姓名')}', '{new_doc.get('医生姓名')}',
-                    '{emp_no}', {new_doc.get('医生ID')}, '{new_doc.get('挂号级别')}', 
-                    '{new_doc.get('现价')}', '{new_doc.get('号码')}', {new_doc.get('科室ID')}, 
-                    '{new_doc.get('部门名称')}', '{update_time}', '{new_doc.get('visit_id')}', 1, 
-                    {new_doc.get('FartherDepID')}, '{new_doc.get('FartherDepName')}', '{new_doc.get('Sex')}',
-                     {new_doc.get('UCount')}, '{new_doc.get('shouFeiXmMc')}')
-                    """
-            row_no = db.execute(insert_sql, need_commit=True)
-            if row_no == -1:
-                logger.warning(f"医生入库失败! sql = {insert_sql}")
-                continue
-            his_status_set.add(row_no)
-
-            doc = {'id': row_no, 'dept_id': int(new_doc.get('科室ID')), 'dept_name': new_doc.get('部门名称'),
-                   'no': new_doc.get('医生ID'), 'name': new_doc.get('真实姓名'), 'his_name': new_doc.get('医生姓名'),
-                   'career': new_doc.get('挂号级别'), 'fee': new_doc.get('现价'), 'appointment_id': new_doc.get('号码'),
-                   'visit_id': new_doc.get('visit_id'), 'farther_dept_id': new_doc.get('FartherDepID'),
-                   'farther_dept_name': new_doc.get('FartherDepName'), 'sex': new_doc.get('Sex'),
-                   'u_count': new_doc.get('UCount'), 'shoufei_xm': new_doc.get('shouFeiXmMc')}
-            redis_client.hset(APPT_DOCTORS_KEY, str(doc.get('id')), json.dumps(doc, default=str))
-            query_sql = f""" select * from nsyy_gyl.appt_doctor where his_name = '{doc.get('his_name')}' """
-            docs = db.query_all(query_sql)
-            # # 新增的数据中，新增的医生编号，如果没有编号，则从人员表获取
-            # db.execute("UPDATE nsyy_gyl.appt_doctor ad JOIN nsyy_gyl.人员表 e ON ad.no = e.ID "
-            #            "SET ad.emp_nub = e.编号 where ad.emp_nub is null")
-            redis_client.hset(APPT_DOCTORS_BY_NAME_KEY, doc.get('his_name'), json.dumps(docs, default=str))
-            continue
-
-        his_status_set.add(doc_in_db[0].get('id'))
-        if new_doc.get('号码') != doc_in_db[0].get('appointment_id') or \
-                int(new_doc.get('科室ID')) != int(doc_in_db[0].get('dept_id')) or \
-                new_doc.get('部门名称') != doc_in_db[0].get('dept_name') or \
-                new_doc.get('真实姓名') != doc_in_db[0].get('name') or \
-                new_doc.get('医生姓名') != doc_in_db[0].get('his_name') or \
-                new_doc.get('visit_id') != doc_in_db[0].get('visit_id') or \
-                new_doc.get('FartherDepID') != doc_in_db[0].get('farther_dept_id') or \
-                new_doc.get('UCount') != doc_in_db[0].get('u_count') or \
-                new_doc.get('shouFeiXmMc') != doc_in_db[0].get('shoufei_xm') or \
-                int(new_doc.get('医生ID')) != int(doc_in_db[0].get('no')) or \
-                float(new_doc.get('现价')) != float(doc_in_db[0].get('fee')):
-            update_sql = f"""
-                        update nsyy_gyl.appt_doctor set
-                          dept_id = {new_doc.get('科室ID')}, dept_name = '{new_doc.get('部门名称')}',
-                          no = {new_doc.get('医生ID')}, name = '{new_doc.get('真实姓名')}', emp_nub = '{emp_no}', 
-                          his_name = '{new_doc.get('医生姓名')}', career = '{new_doc.get('挂号级别')}', 
-                          fee = '{new_doc.get('现价')}', update_time = '{update_time}',
-                          appointment_id = '{new_doc.get('号码')}', visit_id = '{new_doc.get('visit_id')}', 
-                          farther_dept_id = {new_doc.get('FartherDepID')}, sex = '{new_doc.get('Sex')}',
-                          farther_dept_name = '{new_doc.get('FartherDepName')}', u_count = {new_doc.get('UCount')},
-                          shoufei_xm = '{new_doc.get('shouFeiXmMc')}' where id = {doc_in_db[0].get('id')}
+        his_status_set = set()
+        for key, new_doc in latest_records.items():
+            doc_in_db = doc_in_db_dict.get(key)
+            emp_no = emp_dict.get(new_doc.get("医生ID"), '0')
+            if not doc_in_db:
+                # print(datetime.now(), f"医生 {key} 在数据库中不存在，新增医生信息", new_doc)
+                insert_sql = f"""
+                        insert into nsyy_gyl.appt_doctor(name, his_name, emp_nub, no, career, fee, appointment_id, 
+                        dept_id, dept_name, update_time, visit_id, his_status, farther_dept_id, farther_dept_name, 
+                        sex, u_count, shoufei_xm) values ('{new_doc.get('真实姓名')}', '{new_doc.get('医生姓名')}',
+                        '{emp_no}', {new_doc.get('医生ID')}, '{new_doc.get('挂号级别')}', 
+                        '{new_doc.get('现价')}', '{new_doc.get('号码')}', {new_doc.get('科室ID')}, 
+                        '{new_doc.get('部门名称')}', '{update_time}', '{new_doc.get('visit_id')}', 1, 
+                        {new_doc.get('FartherDepID')}, '{new_doc.get('FartherDepName')}', '{new_doc.get('Sex')}',
+                         {new_doc.get('UCount')}, '{new_doc.get('shouFeiXmMc')}')
                         """
-            db.execute(update_sql, need_commit=True)
+                row_no = db.execute(insert_sql, need_commit=True)
+                if row_no == -1:
+                    logger.warning(f"医生入库失败! sql = {insert_sql}")
+                    continue
+                his_status_set.add(row_no)
 
-            doc = doc_in_db[0]
-            doc['dept_id'] = int(new_doc.get('科室ID'))
-            doc['dept_name'] = new_doc.get('部门名称')
-            doc['no'] = new_doc.get('医生ID')
-            doc['name'] = new_doc.get('真实姓名')
-            doc['his_name'] = new_doc.get('医生姓名')
-            doc['career'] = new_doc.get('挂号级别')
-            doc['fee'] = new_doc.get('现价')
-            doc['appointment_id'] = new_doc.get('号码')
-            doc['visit_id'] = new_doc.get('visit_id')
-            doc['farther_dept_id'] = new_doc.get('FartherDepID')
-            doc['farther_dept_name'] = new_doc.get('FartherDepName')
-            doc['sex'] = new_doc.get('Sex')
-            doc['u_count'] = new_doc.get('UCount')
-            doc['shoufei_xm'] = new_doc.get('shouFeiXmMc')
-            redis_client.hset(APPT_DOCTORS_KEY, str(doc.get('id')), json.dumps(doc, default=str))
-            query_sql = f""" select * from nsyy_gyl.appt_doctor where his_name = '{doc.get('his_name')}' """
-            docs = db.query_all(query_sql)
-            redis_client.hset(APPT_DOCTORS_BY_NAME_KEY, doc.get('his_name'), json.dumps(docs, default=str))
-            # print(datetime.now(), "医生信息有变化，更新", key, new_doc)
+                doc = {'id': row_no, 'dept_id': int(new_doc.get('科室ID')), 'dept_name': new_doc.get('部门名称'),
+                       'no': new_doc.get('医生ID'), 'name': new_doc.get('真实姓名'), 'his_name': new_doc.get('医生姓名'),
+                       'career': new_doc.get('挂号级别'), 'fee': new_doc.get('现价'), 'appointment_id': new_doc.get('号码'),
+                       'visit_id': new_doc.get('visit_id'), 'farther_dept_id': new_doc.get('FartherDepID'),
+                       'farther_dept_name': new_doc.get('FartherDepName'), 'sex': new_doc.get('Sex'),
+                       'u_count': new_doc.get('UCount'), 'shoufei_xm': new_doc.get('shouFeiXmMc')}
+                redis_client.hset(APPT_DOCTORS_KEY, str(doc.get('id')), json.dumps(doc, default=str))
+                query_sql = f""" select * from nsyy_gyl.appt_doctor where his_name = '{doc.get('his_name')}' """
+                docs = db.query_all(query_sql)
+                # # 新增的数据中，新增的医生编号，如果没有编号，则从人员表获取
+                # db.execute("UPDATE nsyy_gyl.appt_doctor ad JOIN nsyy_gyl.人员表 e ON ad.no = e.ID "
+                #            "SET ad.emp_nub = e.编号 where ad.emp_nub is null")
+                redis_client.hset(APPT_DOCTORS_BY_NAME_KEY, doc.get('his_name'), json.dumps(docs, default=str))
+                continue
 
-    # 更新当日医生坐诊状态
-    id_list = ','.join(map(str, his_status_set))
-    db.execute(f"""UPDATE nsyy_gyl.appt_doctor SET his_status = CASE WHEN id IN ({id_list}) THEN 1 ELSE 0 END""",
-               need_commit=True)
-    # # 当日医生非坐诊状态的排班记录设置为停诊  # TODO appt_schedules 中的状态应该没有作用了，暂不删除
-    # db.execute(f"""UPDATE nsyy_gyl.appt_schedules SET status = 3
-    #                 WHERE did NOT IN ({id_list}) and did != 0 and shift_date = '{datetime.now().date()}'""")
+            his_status_set.add(doc_in_db[0].get('id'))
+            if new_doc.get('号码') != doc_in_db[0].get('appointment_id') or \
+                    int(new_doc.get('科室ID')) != int(doc_in_db[0].get('dept_id')) or \
+                    new_doc.get('部门名称') != doc_in_db[0].get('dept_name') or \
+                    new_doc.get('真实姓名') != doc_in_db[0].get('name') or \
+                    new_doc.get('医生姓名') != doc_in_db[0].get('his_name') or \
+                    new_doc.get('visit_id') != doc_in_db[0].get('visit_id') or \
+                    new_doc.get('FartherDepID') != doc_in_db[0].get('farther_dept_id') or \
+                    new_doc.get('UCount') != doc_in_db[0].get('u_count') or \
+                    new_doc.get('shouFeiXmMc') != doc_in_db[0].get('shoufei_xm') or \
+                    int(new_doc.get('医生ID')) != int(doc_in_db[0].get('no')) or \
+                    float(new_doc.get('现价')) != float(doc_in_db[0].get('fee')):
+                update_sql = f"""
+                            update nsyy_gyl.appt_doctor set
+                              dept_id = {new_doc.get('科室ID')}, dept_name = '{new_doc.get('部门名称')}',
+                              no = {new_doc.get('医生ID')}, name = '{new_doc.get('真实姓名')}', emp_nub = '{emp_no}', 
+                              his_name = '{new_doc.get('医生姓名')}', career = '{new_doc.get('挂号级别')}', 
+                              fee = '{new_doc.get('现价')}', update_time = '{update_time}',
+                              appointment_id = '{new_doc.get('号码')}', visit_id = '{new_doc.get('visit_id')}', 
+                              farther_dept_id = {new_doc.get('FartherDepID')}, sex = '{new_doc.get('Sex')}',
+                              farther_dept_name = '{new_doc.get('FartherDepName')}', u_count = {new_doc.get('UCount')},
+                              shoufei_xm = '{new_doc.get('shouFeiXmMc')}' where id = {doc_in_db[0].get('id')}
+                            """
+                db.execute(update_sql, need_commit=True)
 
-    doctor_list = db.query_all(f"""select sid, did from nsyy_gyl.appt_schedules 
-                     where shift_date = '{datetime.now().date()}' and did not in ({id_list}) and did != 0 """)
-    update_list = []
-    for doc in doctor_list:
-        doc_in_cache = json.loads(redis_client.hget(APPT_DOCTORS_KEY, str(doc.get('did'))))
-        doc_in_cache = json.loads(redis_client.hget(APPT_DOCTORS_BY_NAME_KEY, str(doc_in_cache.get('his_name'))))
-        if not doc_in_cache:
-            continue
-        did = -1
-        sorted_doctors = sort_doctors(doc_in_cache)
-        for d in sorted_doctors:
-            if int(d.get('his_status')) == 1:
-                did = int(d.get('id'))
-                break
-        if did != -1:
-            update_list.append((did, int(doc.get('sid'))))
+                doc = doc_in_db[0]
+                doc['dept_id'] = int(new_doc.get('科室ID'))
+                doc['dept_name'] = new_doc.get('部门名称')
+                doc['no'] = new_doc.get('医生ID')
+                doc['name'] = new_doc.get('真实姓名')
+                doc['his_name'] = new_doc.get('医生姓名')
+                doc['career'] = new_doc.get('挂号级别')
+                doc['fee'] = new_doc.get('现价')
+                doc['appointment_id'] = new_doc.get('号码')
+                doc['visit_id'] = new_doc.get('visit_id')
+                doc['farther_dept_id'] = new_doc.get('FartherDepID')
+                doc['farther_dept_name'] = new_doc.get('FartherDepName')
+                doc['sex'] = new_doc.get('Sex')
+                doc['u_count'] = new_doc.get('UCount')
+                doc['shoufei_xm'] = new_doc.get('shouFeiXmMc')
+                redis_client.hset(APPT_DOCTORS_KEY, str(doc.get('id')), json.dumps(doc, default=str))
+                query_sql = f""" select * from nsyy_gyl.appt_doctor where his_name = '{doc.get('his_name')}' """
+                docs = db.query_all(query_sql)
+                redis_client.hset(APPT_DOCTORS_BY_NAME_KEY, doc.get('his_name'), json.dumps(docs, default=str))
+                # print(datetime.now(), "医生信息有变化，更新", key, new_doc)
 
-    if update_list:
-        db.execute_many("UPDATE nsyy_gyl.appt_schedules SET did = %s WHERE sid = %s", update_list, need_commit=True)
+        # 更新当日医生坐诊状态
+        id_list = ','.join(map(str, his_status_set))
+        db.execute(f"""UPDATE nsyy_gyl.appt_doctor SET his_status = CASE WHEN id IN ({id_list}) THEN 1 ELSE 0 END""",
+                   need_commit=True)
+        # # 当日医生非坐诊状态的排班记录设置为停诊  # TODO appt_schedules 中的状态应该没有作用了，暂不删除
+        # db.execute(f"""UPDATE nsyy_gyl.appt_schedules SET status = 3
+        #                 WHERE did NOT IN ({id_list}) and did != 0 and shift_date = '{datetime.now().date()}'""")
 
-    del db
+        doctor_list = db.query_all(f"""select sid, did from nsyy_gyl.appt_schedules 
+                         where shift_date = '{datetime.now().date()}' and did not in ({id_list}) and did != 0 """)
+        update_list = []
+        for doc in doctor_list:
+            doc_in_cache = json.loads(redis_client.hget(APPT_DOCTORS_KEY, str(doc.get('did'))))
+            doc_in_cache = json.loads(redis_client.hget(APPT_DOCTORS_BY_NAME_KEY, str(doc_in_cache.get('his_name'))))
+            if not doc_in_cache:
+                continue
+            did = -1
+            sorted_doctors = sort_doctors(doc_in_cache)
+            for d in sorted_doctors:
+                if int(d.get('his_status')) == 1:
+                    did = int(d.get('id'))
+                    break
+            if did != -1:
+                update_list.append((did, int(doc.get('sid'))))
+
+        if update_list:
+            db.execute_many("UPDATE nsyy_gyl.appt_schedules SET did = %s WHERE sid = %s", update_list, need_commit=True)
 
 
 def sort_doctors(doctor_list):
@@ -264,9 +262,6 @@ def update_today_sched(sched):
     :return:
     """
     redis_client = redis.Redis(connection_pool=pool)
-    db = DbUtil(global_config.DB_HOST, global_config.DB_USERNAME, global_config.DB_PASSWORD,
-                global_config.DB_DATABASE_GYL)
-
     pid = int(sched.get('pid'))
     proj = redis_client.hget(APPT_PROJECTS_KEY, str(pid))
     proj = json.loads(proj)
@@ -345,7 +340,7 @@ def do_update():
     # 查询最近新登录过 ip 列表
     login_check_url = "http://192.168.3.240:6093/mz_logincheck"
     if global_config.run_in_local:
-        login_check_url = "http://192.168.124.53:6080/mz_logincheck"
+        login_check_url = "http://192.168.124.8:6080/mz_logincheck"
 
     # 获取5分钟前的时间
     time_filter = datetime.now() - timedelta(minutes=5)
@@ -369,78 +364,75 @@ def do_update():
     # 根据 ip 列表查询房间号
     ips_str = ', '.join(f"'{ip}'" for ip in ip_to_dname.keys())
     query_sql = f"select * from nsyy_gyl.appt_room where ip in ({ips_str})"
-    db = DbUtil(global_config.DB_HOST, global_config.DB_USERNAME, global_config.DB_PASSWORD,
-                global_config.DB_DATABASE_GYL)
-    room_list = db.query_all(query_sql)
-    if not room_list:
-        del db
-        return
+    with DbUtil(global_config.DB_HOST, global_config.DB_USERNAME, global_config.DB_PASSWORD,
+                global_config.DB_DATABASE_GYL) as db:
+        room_list = db.query_all(query_sql)
+        if not room_list:
+            return
 
-    # 构建房间号映射
-    rid_to_ip = {room['id']: room['ip'] for room in room_list}
-    rids = list(rid_to_ip.keys())
+        # 构建房间号映射
+        rid_to_ip = {room['id']: room['ip'] for room in room_list}
+        rids = list(rid_to_ip.keys())
 
-    # 根据房间号查询此刻的排班信息
-    # 获取当前时段和工作时间
-    period = 1 if datetime.now().hour < 12 else 2
-    worktime = (datetime.now().weekday() + 1) % 8
+        # 根据房间号查询此刻的排班信息
+        # 获取当前时段和工作时间
+        period = 1 if datetime.now().hour < 12 else 2
+        worktime = (datetime.now().weekday() + 1) % 8
 
-    # 查询排班信息
-    rids_str = ', '.join(map(str, rids))
-    sql = f"""
-        SELECT a.* FROM nsyy_gyl.appt_schedules a
-        INNER JOIN (SELECT rid, MIN(sid) AS min_id  FROM nsyy_gyl.appt_schedules WHERE rid IN ({rids_str}) 
-        AND shift_date = {datetime.now().date()} AND shift_type = {period} GROUP BY rid
-        ) b ON a.rid = b.rid AND a.sid = b.min_id
-    """
-    schedule_list = db.query_all(sql)
-    if not schedule_list:
-        del db
-        return
+        # 查询排班信息
+        rids_str = ', '.join(map(str, rids))
+        sql = f"""
+            SELECT a.* FROM nsyy_gyl.appt_schedules a
+            INNER JOIN (SELECT rid, MIN(sid) AS min_id  FROM nsyy_gyl.appt_schedules WHERE rid IN ({rids_str}) 
+            AND shift_date = {datetime.now().date()} AND shift_type = {period} GROUP BY rid
+            ) b ON a.rid = b.rid AND a.sid = b.min_id
+        """
+        schedule_list = db.query_all(sql)
+        if not schedule_list:
+            return
 
-    redis_client = redis.Redis(connection_pool=pool)
-    for sched in schedule_list:
-        rid = sched['rid']
-        rip = rid_to_ip.get(rid)
-        if not rip:
-            continue
+        redis_client = redis.Redis(connection_pool=pool)
+        for sched in schedule_list:
+            rid = sched['rid']
+            rip = rid_to_ip.get(rid)
+            if not rip:
+                continue
 
-        dname = ip_to_dname.get(rip)
-        if not dname:
-            continue
+            dname = ip_to_dname.get(rip)
+            if not dname:
+                continue
 
-        # 获取医生 ID
-        doctor_data = redis_client.hget(APPT_DOCTORS_BY_NAME_KEY, dname)
-        if not doctor_data:
-            continue
-        doctor_info = json.loads(doctor_data)
+            # 获取医生 ID
+            doctor_data = redis_client.hget(APPT_DOCTORS_BY_NAME_KEY, dname)
+            if not doctor_data:
+                continue
+            doctor_info = json.loads(doctor_data)
 
-        today = datetime.today().date()
-        dids = [doctor_info['id']] if isinstance(doctor_info, dict) else [
-            doc['id'] for doc in doctor_info if doc.get('update_time') and
-                                                datetime.strptime(doc['update_time'],
-                                                                  "%Y-%m-%d %H:%M:%S").date() == today
-        ]
+            today = datetime.today().date()
+            dids = [doctor_info['id']] if isinstance(doctor_info, dict) else [
+                doc['id'] for doc in doctor_info if doc.get('update_time') and
+                                                    datetime.strptime(doc['update_time'],
+                                                                      "%Y-%m-%d %H:%M:%S").date() == today
+            ]
 
-        if not dids or sched['did'] in dids or sched['status'] != 3:
-            continue
+            if not dids or sched['did'] in dids or sched['status'] != 3:
+                continue
 
-        # 更新医生 ID
-        update_sql = f"""UPDATE nsyy_gyl.appt_schedules SET did = {dids[0]}, status = 1 WHERE sid = {sched['sid']}"""
-        db.execute(update_sql, need_commit=True)
-        logger.info(f'DEBUG: 更新排班 {sched} {dids[0]}')
+            # 更新医生 ID
+            update_sql = f"""UPDATE nsyy_gyl.appt_schedules SET did = {dids[0]}, status = 1 WHERE sid = {sched['sid']}"""
+            db.execute(update_sql, need_commit=True)
+            logger.info(f'DEBUG: 更新排班 {sched} {dids[0]}')
 
-        sched['did'] = dids[0]
-        sched['status'] = 1
-        update_today_sched(sched)
+            sched['did'] = dids[0]
+            sched['status'] = 1
+            update_today_sched(sched)
 
-        data = {'socket_data': {"patient_name": ''}, 'pers_id': [f'z{rid}'], 'socketd': 'w_site',
-                "type": 300, "timer": datetime.now().strftime("%Y-%m-%d %H:%M:%S")}
-        global_tools.socket_push("综合预约通知", data)
-        data = {'socket_data': {"patient_name": ''}, 'pers_id': [f'y{rid}'], 'socketd': 'w_site',
-                "type": 300, "timer": datetime.now().strftime("%Y-%m-%d %H:%M:%S")}
-        global_tools.socket_push("综合预约通知", data)
+            data = {'socket_data': {"patient_name": ''}, 'pers_id': [f'z{rid}'], 'socketd': 'w_site',
+                    "type": 300, "timer": datetime.now().strftime("%Y-%m-%d %H:%M:%S")}
+            global_tools.socket_push("综合预约通知", data)
+            data = {'socket_data': {"patient_name": ''}, 'pers_id': [f'y{rid}'], 'socketd': 'w_site',
+                    "type": 300, "timer": datetime.now().strftime("%Y-%m-%d %H:%M:%S")}
+            global_tools.socket_push("综合预约通知", data)
 
-    del db
 
 # do_update()

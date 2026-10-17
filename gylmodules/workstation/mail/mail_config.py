@@ -43,7 +43,7 @@ MAIL_OPERATE_PUBLIC = 3
 MAIL_OPERATE_DELETE = 4
 
 inline_attachments_dir_dev = "/Users/gaoyanliang/nsyy/nsyy-project/mail_inline_attachments"
-inline_attachments_dir_prod = "/home/gyl/gyl_server/mail_inline_attachments"
+inline_attachments_dir_prod = "/home/gyl/312/mail_inline_attachments"
 
 
 default_flags = []

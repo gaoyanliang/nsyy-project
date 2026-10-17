@@ -127,7 +127,7 @@ yt_doc_sign_list_name = {
 
 
 # 配置
-UPLOAD_FOLDER = "/Users/gaoyanliang/nsyy/nsyy-project/pacs_pdf_temp_uploads" if global_config.run_in_local else '/home/gyl/gyl_server/pacs_pdf_temp_uploads'
+UPLOAD_FOLDER = "/Users/gaoyanliang/nsyy/nsyy-project/pacs_pdf_temp_uploads" if global_config.run_in_local else '/home/gyl/312/pacs_pdf_temp_uploads'
 # 确保本地临时目录存在
 os.makedirs(UPLOAD_FOLDER, exist_ok=True)
 
@@ -146,6 +146,7 @@ def extract_dir(path: str) -> str:
 def upload_pdf_via_ftp(local_pdf, remote_path, remote_filename=None):
     """上传 PDF 到 FTP"""
     with FTP() as ftp:
+        ftp.encoding = 'gbk'
         if remote_path and remote_path.__contains__("YXY_YT"):
             # 油田 pdf 保存地址
             ftp.connect("192.168.200.3", 21)

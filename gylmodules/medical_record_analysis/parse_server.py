@@ -20,7 +20,7 @@ def call_third_systems_obtain_data(type: str, param: dict):
     if global_config.run_in_local:
         try:
             # 发送 POST 请求，将字符串数据传递给 data 参数
-            response = requests.post("http://192.168.124.53:6080/int_api", json=param)
+            response = requests.post("http://192.168.124.8:6080/int_api", json=param)
             data = response.text
             data = json.loads(data)
             data = data.get('data')

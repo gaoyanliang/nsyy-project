@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 import sys
-sys.path.insert(0, '/home/gyl/gyl_server')  # 就这一行！
+sys.path.insert(0, '/home/gyl/312')  # 就这一行！
 
 import logging
 import re
@@ -38,7 +38,7 @@ from gylmodules.shift_change.shift_change_server import query_shift_config
 from gylmodules.utils.db_utils_new import DbUtil
 
 pool = redis.ConnectionPool(host=global_config.REDIS_HOST, port=global_config.REDIS_PORT,
-                            db=global_config.REDIS_DB, decode_responses=True)
+                            db=global_config.REDIS_DB, decode_responses=True, protocol=2)
 
 
 # ========================================================================
@@ -56,7 +56,7 @@ def query_shoushu_patient_zhuyuanhao():
                 '{end_time}')ss on ss.bingrenzyid =zb.bingrenzyid where zb.quxiaorybz=0  and zb.yingerbz=0 
                 and zb.rukebz=1 and zb.zaiyuanzt=0"""
 
-    ydhl_sql = """with bingren as (select t.patient_id as 病人id, t.visit_id as 主页id,
+    ydhl_sql = r"""with bingren as (select t.patient_id as 病人id, t.visit_id as 主页id,
                 t.dept_name 所在病区 from kyeecis.v_his_pats_in_hospital t where t.dept_name in ('疼痛科护理单元')
                 ) , ss as (select t2.patient_id as 病人id, t2.visit_id as 主页id, case 
                 when regexp_like(t3.item_value, '^\d{4}[-/\.]\d{1,2}[-/\.]\d{1,2} \d{1,2}:\d{1,2}:\d{1,2}$') then 
@@ -513,7 +513,7 @@ def aicu_shift_change(reg_sqls, shift_classes, time_slot, dept_id, flush: bool =
 """妇产科 1000961 交班信息查询"""
 def ob_gyn_shift_change(reg_sqls, shift_classes, time_slot, shoushu, flush: bool = False, pid: str = None):
     if int(shift_classes) == 1:
-        trunc = '17.5'
+        trunc = '17'
     elif int(shift_classes) == 2:
         trunc = '21.5'
     else:
@@ -800,7 +800,7 @@ def icu_shift_change(reg_sqls, shift_classes, time_slot, flush: bool = False, pi
 def general_dept_shift_change(reg_sqls, shift_classes, time_slot, dept_list, shoushu, flush: bool = False,
                               pid: str = None):
     if int(shift_classes) == 1:
-        trunc = '17.5'
+        trunc = '17'
     elif int(shift_classes) == 2:
         trunc = '21.5'
     else:

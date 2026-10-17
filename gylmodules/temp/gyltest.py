@@ -2172,7 +2172,7 @@ prompt = """
 # param = {"randstr": "XPFDFZDF7193CIONS1PD7XCJ3AD4ORRC", "type": "update_templ", "templ_id": 3, "templ_content": prompt}
 # # param = {"randstr": "XPFDFZDF7193CIONS1PD7XCJ3AD4ORRC", "type": "update_templ", "templ_content": prompt}
 # response = requests.post("http://192.168.3.12:6080/chaosheng_bingli", json=param, timeout=30)
-# # response = requests.post("http://192.168.124.53:6080/chaosheng_bingli", json=param, timeout=30)
+# # response = requests.post("http://192.168.124.8:6080/chaosheng_bingli", json=param, timeout=30)
 # # 检查 HTTP 状态码
 # response.raise_for_status()
 # result = response.json()
@@ -2199,515 +2199,544 @@ prompt = """
 #
 # print(f"{'心脏指标数据':<16}" + "1")      # 左对齐，宽度16，后面加"1"
 # print("心脏指标数据".ljust(16) + "1")    # 同样效果
-
-str_d = {
-    "1": "34",
-    "2": "0.67",
-    "3": "76",
-    "4": "2.29",
-    "5": "29",
-    "6": "7.14",
-    "7": "29",
-    "8": "24",
-    "9": "8.78",
-    "10": "7.89",
-    "11": "6",
-    "12": "28",
-    "13": "19",
-    "14": "8",
-    "15": "38",
-    "16": "156",
-    "17": "38",
-    "18": "64",
-    "19": "40",
-    "20": "87",
-    "21": "12.16",
-    "22": "3.59",
-    "23": "10",
-    "24": "50",
-    "25": "0.72",
-    "26": "62",
-    "27": "0.77",
-    "28": "23",
-    "29": "0.82",
-}
-
-
-def pad_by_visual(text, target_width):
-    # 使用 GBK 编码计算视觉宽度（终端通常如此）
-    visual_len = len(text.encode('gbk', errors='ignore'))
-    if visual_len >= target_width:
-        return text
-    return text + ' ' * (target_width - visual_len)
-
-str_f = ''
-# 设定第一列视觉宽度为 22，第二列视觉宽度为 12，第三列视觉宽度为 22（可根据数据调整）
+#
+# str_d = {
+#     "1": "34",
+#     "2": "0.67",
+#     "3": "76",
+#     "4": "2.29",
+#     "5": "29",
+#     "6": "7.14",
+#     "7": "29",
+#     "8": "24",
+#     "9": "8.78",
+#     "10": "7.89",
+#     "11": "6",
+#     "12": "28",
+#     "13": "19",
+#     "14": "8",
+#     "15": "38",
+#     "16": "156",
+#     "17": "38",
+#     "18": "64",
+#     "19": "40",
+#     "20": "87",
+#     "21": "12.16",
+#     "22": "3.59",
+#     "23": "10",
+#     "24": "50",
+#     "25": "0.72",
+#     "26": "62",
+#     "27": "0.77",
+#     "28": "23",
+#     "29": "0.82",
+# }
+#
+#
+# def pad_by_visual(text, target_width):
+#     # 使用 GBK 编码计算视觉宽度（终端通常如此）
+#     visual_len = len(text.encode('gbk', errors='ignore'))
+#     if visual_len >= target_width:
+#         return text
+#     return text + ' ' * (target_width - visual_len)
+#
+# str_f = ''
+# # 设定第一列视觉宽度为 22，第二列视觉宽度为 12，第三列视觉宽度为 22（可根据数据调整）
+# # str_f = str_f + "心脏结构与尺寸".ljust(55) + "\n"
+# # str_f = str_f + "-"*75 + "\n"
+# str_f += pad_by_visual("左房前后径[25-40]", 23) + pad_by_visual(f"{str_d.get('1')} mm", 15) + pad_by_visual("左房容积", 23) + f"{str_d.get('2')} m/s \n"
+# str_f += pad_by_visual("右室前后径[16-30]", 23) + pad_by_visual(f"{str_d.get('5')} mm", 15) + pad_by_visual("主动脉瓣环", 23) + f"{str_d.get('6')} m/s \n"
+# str_f += pad_by_visual("主肺动脉径[16-30]", 23) + pad_by_visual(f"{str_d.get('7')} mm", 15) + pad_by_visual("左室后壁厚度", 23) + f"{str_d.get('8')} mmHg \n"
+# str_f += pad_by_visual("室间隔厚度[8-12]", 23) + pad_by_visual(f"{str_d.get('9')} mm", 15) + pad_by_visual("升主动脉内径", 23) + f"{str_d.get('10')} cm/s \n"
+# str_f += pad_by_visual("运动幅度-左室后壁", 23) + pad_by_visual(f"{str_d.get('11')} mm", 15) + pad_by_visual("左室舒张期内径", 23) + f"{str_d.get('12')} mmHg \n"
+# str_f += pad_by_visual("运动幅度-室间隔", 23) + pad_by_visual(f"{str_d.get('3')} ml", 15) + pad_by_visual("左室收缩期内径", 23) + f"{str_d.get('4')} m/s \n"
+#
+# # str_f = str_f + "\n"
+# # str_f = str_f + "心脏泵血功能".ljust(55) + "\n"
+# # str_f = str_f + "-"*75 + "\n"
+# str_f += pad_by_visual("左室舒张期容积", 23) + pad_by_visual(f"{str_d.get('13')} mm", 15) + pad_by_visual("即时心率", 23) + f"{str_d.get('14')} m/s \n"
+# str_f += pad_by_visual("左室收缩期容积", 23) + pad_by_visual(f"{str_d.get('15')} mm", 15) + pad_by_visual("每搏输出量", 23) + f"{str_d.get('16')} ml \n"
+# str_f += pad_by_visual("左室射血分数[50-80]", 23) + pad_by_visual(f"{str_d.get('17')} mm", 15) + pad_by_visual("每分钟输出量", 23) + f"{str_d.get('18')} ml \n"
+# str_f += pad_by_visual("左室短轴缩短率", 23) + pad_by_visual(f"{str_d.get('19')} mm", 15) + '\n'
+#
+# # 血液流动与瓣膜
+# # str_f = str_f + "\n"
+# # str_f = str_f + "血液流动与瓣膜".ljust(55) + "\n"
+# # str_f = str_f + "-"*75 + "\n"
+# str_f += pad_by_visual("二尖瓣环间隔测", 23) + pad_by_visual(f"{str_d.get('21')} mm", 15) + pad_by_visual("二尖瓣A峰", 23) + f"{str_d.get('22')} L/min \n"
+# str_f += pad_by_visual("二尖瓣环侧隔测", 23) + pad_by_visual(f"{str_d.get('23')} mm", 15) + pad_by_visual("二尖瓣E峰", 23) + f"{str_d.get('24')} m/s \n"
+# str_f += pad_by_visual("三尖瓣反流流速", 23) + pad_by_visual(f"{str_d.get('25')} m/s", 15) + pad_by_visual("E/e'", 23) + f"{str_d.get('26')} bpm \n"
+# str_f += pad_by_visual("肺动脉流速", 23) + pad_by_visual(f"{str_d.get('29')} m/s", 15) + pad_by_visual("主动脉流速", 23) + f"{str_d.get('28')} % \n"
+# str_f += pad_by_visual("估测肺动脉压约", 23) + pad_by_visual(f"{str_d.get('27')} m/s", 15) + pad_by_visual("压力阶差", 23) + f"{str_d.get('28')} % \n"
+#
+#
+#
+# print(str_f)
+# print()
+# print()
+# print()
+# print()
+# print()
+#
+#
+#
+#
+#
+#
+#
+#
+# str_f = ''
+# # 设定第一列视觉宽度为 22，第二列视觉宽度为 12，第三列视觉宽度为 22（可根据数据调整）
 # str_f = str_f + "心脏结构与尺寸".ljust(55) + "\n"
 # str_f = str_f + "-"*75 + "\n"
-str_f += pad_by_visual("左房前后径[25-40]", 23) + pad_by_visual(f"{str_d.get('1')} mm", 15) + pad_by_visual("左房容积", 23) + f"{str_d.get('2')} m/s \n"
-str_f += pad_by_visual("右室前后径[16-30]", 23) + pad_by_visual(f"{str_d.get('5')} mm", 15) + pad_by_visual("主动脉瓣环", 23) + f"{str_d.get('6')} m/s \n"
-str_f += pad_by_visual("主肺动脉径[16-30]", 23) + pad_by_visual(f"{str_d.get('7')} mm", 15) + pad_by_visual("左室后壁厚度", 23) + f"{str_d.get('8')} mmHg \n"
-str_f += pad_by_visual("室间隔厚度[8-12]", 23) + pad_by_visual(f"{str_d.get('9')} mm", 15) + pad_by_visual("升主动脉内径", 23) + f"{str_d.get('10')} cm/s \n"
-str_f += pad_by_visual("运动幅度-左室后壁", 23) + pad_by_visual(f"{str_d.get('11')} mm", 15) + pad_by_visual("左室舒张期内径", 23) + f"{str_d.get('12')} mmHg \n"
-str_f += pad_by_visual("运动幅度-室间隔", 23) + pad_by_visual(f"{str_d.get('3')} ml", 15) + pad_by_visual("左室收缩期内径", 23) + f"{str_d.get('4')} m/s \n"
-
-# str_f = str_f + "\n"
-# str_f = str_f + "心脏泵血功能".ljust(55) + "\n"
-# str_f = str_f + "-"*75 + "\n"
-str_f += pad_by_visual("左室舒张期容积", 23) + pad_by_visual(f"{str_d.get('13')} mm", 15) + pad_by_visual("即时心率", 23) + f"{str_d.get('14')} m/s \n"
-str_f += pad_by_visual("左室收缩期容积", 23) + pad_by_visual(f"{str_d.get('15')} mm", 15) + pad_by_visual("每搏输出量", 23) + f"{str_d.get('16')} ml \n"
-str_f += pad_by_visual("左室射血分数[50-80]", 23) + pad_by_visual(f"{str_d.get('17')} mm", 15) + pad_by_visual("每分钟输出量", 23) + f"{str_d.get('18')} ml \n"
-str_f += pad_by_visual("左室短轴缩短率", 23) + pad_by_visual(f"{str_d.get('19')} mm", 15) + '\n'
-
-# 血液流动与瓣膜
+# str_f += pad_by_visual("左房前后径[25-40]", 18) + pad_by_visual(f"{str_d.get('1')} mm", 10) + pad_by_visual("左房容积", 18) + pad_by_visual(f"{str_d.get('2')} m/s ", 10) + pad_by_visual("左室舒张期容积", 23) + pad_by_visual(f"{str_d.get('13')} mm", 15) + pad_by_visual("即时心率", 23) + f"{str_d.get('14')} m/s \n"
+# str_f += pad_by_visual("右室前后径[16-30]", 18) + pad_by_visual(f"{str_d.get('5')} mm", 10) + pad_by_visual("主动脉瓣环", 18) + pad_by_visual(f"{str_d.get('6')} m/s ", 10) + pad_by_visual("左室收缩期容积", 23) + pad_by_visual(f"{str_d.get('15')} mm", 15) + pad_by_visual("每搏输出量", 23) + f"{str_d.get('16')} ml \n"
+# str_f += pad_by_visual("主肺动脉径[16-30]", 18) + pad_by_visual(f"{str_d.get('7')} mm", 10) + pad_by_visual("左室后壁厚度", 18) + pad_by_visual(f"{str_d.get('8')} mmHg ", 10) + pad_by_visual("左室射血分数[50-80]", 23) + pad_by_visual(f"{str_d.get('17')} mm", 15) + pad_by_visual("每分钟输出量", 23) + f"{str_d.get('18')} ml \n"
+# str_f += pad_by_visual("室间隔厚度[8-12]", 18) + pad_by_visual(f"{str_d.get('9')} mm", 10) + pad_by_visual("升主动脉内径", 18) + pad_by_visual(f"{str_d.get('10')} m/s ", 10) + pad_by_visual("左室短轴缩短率", 23) + pad_by_visual(f"{str_d.get('19')} mm", 15) + '\n'
+# str_f += pad_by_visual("运动幅度-左室后壁", 18) + pad_by_visual(f"{str_d.get('11')} mm", 10) + pad_by_visual("左室舒张期内径", 18) + f"{str_d.get('12')} mmHg \n"
+# str_f += pad_by_visual("运动幅度-室间隔", 18) + pad_by_visual(f"{str_d.get('3')} ml", 10) + pad_by_visual("左室收缩期内径", 18) + f"{str_d.get('4')} m/s \n"
+#
+# # 血液流动与瓣膜
 # str_f = str_f + "\n"
 # str_f = str_f + "血液流动与瓣膜".ljust(55) + "\n"
 # str_f = str_f + "-"*75 + "\n"
-str_f += pad_by_visual("二尖瓣环间隔测", 23) + pad_by_visual(f"{str_d.get('21')} mm", 15) + pad_by_visual("二尖瓣A峰", 23) + f"{str_d.get('22')} L/min \n"
-str_f += pad_by_visual("二尖瓣环侧隔测", 23) + pad_by_visual(f"{str_d.get('23')} mm", 15) + pad_by_visual("二尖瓣E峰", 23) + f"{str_d.get('24')} m/s \n"
-str_f += pad_by_visual("三尖瓣反流流速", 23) + pad_by_visual(f"{str_d.get('25')} m/s", 15) + pad_by_visual("E/e'", 23) + f"{str_d.get('26')} bpm \n"
-str_f += pad_by_visual("肺动脉流速", 23) + pad_by_visual(f"{str_d.get('29')} m/s", 15) + pad_by_visual("主动脉流速", 23) + f"{str_d.get('28')} % \n"
-str_f += pad_by_visual("估测肺动脉压约", 23) + pad_by_visual(f"{str_d.get('27')} m/s", 15) + pad_by_visual("压力阶差", 23) + f"{str_d.get('28')} % \n"
+# str_f += pad_by_visual("二尖瓣环间隔测", 23) + pad_by_visual(f"{str_d.get('21')} mm", 15) + pad_by_visual("二尖瓣A峰", 23) + f"{str_d.get('22')} L/min \n"
+# str_f += pad_by_visual("二尖瓣环侧隔测", 23) + pad_by_visual(f"{str_d.get('23')} mm", 15) + pad_by_visual("二尖瓣E峰", 23) + f"{str_d.get('24')} m/s \n"
+# str_f += pad_by_visual("三尖瓣反流流速", 23) + pad_by_visual(f"{str_d.get('25')} m/s", 15) + pad_by_visual("E/e'", 23) + f"{str_d.get('26')} bpm \n"
+# str_f += pad_by_visual("肺动脉流速", 23) + pad_by_visual(f"{str_d.get('29')} m/s", 15) + pad_by_visual("主动脉流速", 23) + f"{str_d.get('28')} % \n"
+# str_f += pad_by_visual("估测肺动脉压约", 23) + pad_by_visual(f"{str_d.get('27')} m/s", 15) + pad_by_visual("压力阶差", 23) + f"{str_d.get('28')} % \n"
+#
+#
+#
+# print(str_f)
+# print()
+# print()
+# print()
+# print()
+# print()
+#
+#
+#
+#
+#
+# def xinzang_zhibiao(ai_indicator):
+#     def pad_by_visual(text, target_width):
+#         # 使用 GBK 编码计算视觉宽度（终端通常如此）
+#         visual_len = len(text.encode('gbk', errors='ignore'))
+#         if visual_len >= target_width:
+#             return text
+#         return text + ' ' * (target_width - visual_len)
+#
+#     str_f = ''
+#     try:
+#         str_d = {}
+#         for item in ai_indicator:
+#             if item.get('value'):
+#                 str_d[item.get('name')] = f"{item.get('value')}{item.get('unit')} {item.get('abnormal')}" if item.get('abnormal') and item.get('abnormal', '') not in ['null', "None"] else f"{item.get('value')}{item.get('unit')}"
+#
+#         str_f += (pad_by_visual("左房前后径[25-40]", 18) + pad_by_visual(f"{str_d.get('左房前后径')}", 8) +
+#                   pad_by_visual("右室前后径[16-30]", 18) + pad_by_visual(f"{str_d.get('右室前后径')}", 8) +
+#                   pad_by_visual("主肺动脉径[16-30]", 18) + pad_by_visual(f"{str_d.get('主肺动脉径')}", 8) +
+#                   pad_by_visual("室间隔厚度[8-12]", 18) + pad_by_visual(f"{str_d.get('室间隔厚度')}", 8) +
+#                   '\n')
+#         str_f += (
+#                 pad_by_visual("左室射血分数[50-60]", 18) + pad_by_visual(f"{str_d.get('左室射血分数')}", 8) +
+#                 pad_by_visual("运动幅度-左室后壁", 18) + pad_by_visual(f"{str_d.get('运动幅度-左室后壁')}", 8) +
+#                 pad_by_visual("运动幅度-室间隔", 18) + pad_by_visual(f"{str_d.get('运动幅度-室间隔')}", 8) +
+#                 pad_by_visual("估测肺动脉压约", 18) + pad_by_visual(f"{str_d.get('估测肺动脉压约')}", 8) +
+#                 '\n')
+#
+#         str_f += (
+#                 pad_by_visual("左室舒张期内径", 18) + pad_by_visual(f"{str_d.get('左室舒张期内径')} ", 8) +
+#                 pad_by_visual("左室收缩期内径", 18) + pad_by_visual(f"{str_d.get('左室收缩期内径')} ", 8) +
+#                 pad_by_visual("左室短轴缩短率", 18) + pad_by_visual(f"{str_d.get('左室短轴缩短率')}", 8) +
+#                 pad_by_visual("二尖瓣环间隔侧", 18) + pad_by_visual(f"{str_d.get('二尖瓣环间隔测')}", 8) +
+#                 '\n')
+#
+#         str_f += (
+#                 pad_by_visual("二尖瓣环侧隔侧", 18) + pad_by_visual(f"{str_d.get('二尖瓣环侧隔测')}", 8) +
+#                 pad_by_visual("三尖瓣反流流速", 18) + pad_by_visual(f"{str_d.get('三尖瓣反流流速')}", 8) +
+#                 pad_by_visual("左室舒张期容积", 18) + pad_by_visual(f"{str_d.get('左室舒张期容积')}", 8) +
+#                 pad_by_visual("左室收缩期容积", 18) + pad_by_visual(f"{str_d.get('左室收缩期容积')}", 8) +
+#                 '\n')
+#         str_f += (
+#                 pad_by_visual("左室后壁厚度", 18) + pad_by_visual(f"{str_d.get('左室后壁厚度')} ", 8) +
+#                 pad_by_visual("升主动脉内径", 18) + pad_by_visual(f"{str_d.get('升主动脉内径')} ", 8) +
+#                 pad_by_visual("每分钟输出量", 18) + pad_by_visual(f"{str_d.get('每分钟输出量')} ", 8) +
+#                 pad_by_visual("每搏输出量", 18) + pad_by_visual(f"{str_d.get('每搏输出量')} ", 8) +
+#                 '\n')
+#
+#         str_f += (
+#                 pad_by_visual("主动脉瓣环", 18) + pad_by_visual(f"{str_d.get('主动脉瓣环')} ", 8) +
+#                 pad_by_visual("肺动脉流速", 18) + pad_by_visual(f"{str_d.get('肺动脉流速')}", 8) +
+#                 pad_by_visual("主动脉流速", 18) + pad_by_visual(f"{str_d.get('主动脉流速')} ", 8) +
+#                 pad_by_visual("二尖瓣A峰", 18) + pad_by_visual(f"{str_d.get('二尖瓣A峰')} ", 8) +
+#                 '\n')
+#
+#         str_f += (
+#                 pad_by_visual("二尖瓣E峰", 18) + pad_by_visual(f"{str_d.get('二尖瓣E峰')} ", 8) +
+#                 pad_by_visual("压力阶差", 18) + pad_by_visual(f"{str_d.get('压力阶差')} ", 8) +
+#                 pad_by_visual("即时心率", 18) + pad_by_visual(f"{str_d.get('即时心率')} ", 8) +
+#                 pad_by_visual("左房容积", 18) + pad_by_visual(f"{str_d.get('左房容积')} ", 8) +
+#                 '\n')
+#
+#         str_f += (
+#                 pad_by_visual("E/e", 18) + pad_by_visual(f"{str_d.get('E/e')} ", 8) +
+#
+#                 '\n\n')
+#
+#     except Exception:
+#         print("指标数据解析异常")
+#         pass
+#     return str_f.replace('None', ' ')
+#
+#
+#
+# def xinzang_zhibiao11(ai_indicator):
+#     """
+#     指标排版输出。
+#     规则：
+#       · 自动读取 ai_indicator 中所有「有值」的指标，按出现顺序排版；
+#       · 每行固定 4 组「名称 + 数值」；
+#       · 名称列最小宽度 18，数值列固定宽度 8（终端视觉宽度，中文按 2 计）；
+#       · 若某名称超过 18，则该列自动加宽，保证同行其余数据不错位。
+#     """
+#     KEY_WIDTH = 18       # 名称列最小宽度
+#     VAL_WIDTH = 8        # 数值列固定宽度
+#     PER_ROW   = 4        # 每行数据组数
+#
+#     # 名称 -> 展示文案（需要带参考范围 / 别名时在此登记；未登记的按 name 原样输出）
+#     LABELS = {
+#         '左房前后径':     '左房前后径[25-40]',
+#         '右室前后径':     '右室前后径[16-30]',
+#         '主肺动脉径':     '主肺动脉径[16-30]',
+#         '室间隔厚度':     '室间隔厚度[8-12]',
+#         '左室射血分数':   '左室射血分数[50-60]',
+#         '二尖瓣环间隔测': '二尖瓣环间隔侧',
+#         '二尖瓣环侧隔测': '二尖瓣环侧隔侧',
+#     }
+#
+#     def visual_len(text):
+#         """按 GBK 编码统计终端视觉宽度（中文 2，ASCII 1）。"""
+#         return len(str(text).encode('gbk', errors='ignore'))
+#
+#     def pad_by_visual(text, width):
+#         """右侧补空格到指定视觉宽度；已超宽则原样返回。"""
+#         text = str(text)
+#         gap = width - visual_len(text)
+#         return text + ' ' * gap if gap > 0 else text
+#
+#     # ---------- 1. 解析数据 ----------
+#     data = {}
+#     try:
+#         for item in ai_indicator:
+#             name = (item.get('name') or '').strip()
+#             value = item.get('value')
+#             if not name or not value:
+#                 continue
+#
+#             unit = item.get('unit') or ''
+#             abnormal = item.get('abnormal')
+#             text = f"{value}{unit}"
+#             if abnormal and str(abnormal) not in ('null', 'None'):
+#                 text += f" {abnormal}"
+#
+#             data[LABELS.get(name, name)] = text.strip()
+#     except Exception:
+#         print("指标数据解析异常")
+#         return ''
+#
+#     if not data:
+#         return ''
+#
+#     # ---------- 2. 计算每一列的名称宽度 ----------
+#     items = list(data.items())
+#     col_widths = [KEY_WIDTH] * PER_ROW
+#     for idx, (label, _) in enumerate(items):
+#         col = idx % PER_ROW
+#         col_widths[col] = max(col_widths[col], visual_len(label))
+#
+#     # ---------- 3. 逐行拼接 ----------
+#     lines = []
+#     for start in range(0, len(items), PER_ROW):
+#         chunk = items[start:start + PER_ROW]
+#         line = ''.join(
+#             pad_by_visual(label, col_widths[i]) + pad_by_visual(value, VAL_WIDTH)
+#             for i, (label, value) in enumerate(chunk)
+#         )
+#         lines.append(line.rstrip())
+#
+#     return '\n'.join(lines)
+#
+#
+#
+#
+# def xinzang_zhibiao22(ai_indicator, max_width=110):
+#     """
+#     心脏超声指标排版输出（自动列数 + 自动列宽）。
+#
+#     规则：
+#       · 自动读取 ai_indicator 中所有「有值」的指标，按出现顺序排版；
+#       · 优先每行 4 组「名称 + 数值」；
+#       · 若 4 组总视觉宽度 > max_width，则尝试每行 3 组；若仍超宽，再尝试每行 2 组；
+#       · 名称列最小宽度 18，数值列固定宽度 8（终端视觉宽度，中文按 2 计）；
+#       · 若某名称超过最小宽度，则该列自动加宽，保证同行其余数据不错位。
+#     """
+#     KEY_WIDTH = 18       # 名称列最小宽度
+#     VAL_WIDTH = 8        # 数值列固定宽度
+#
+#     # 名称 -> 展示文案（需要带参考范围 / 别名时在此登记；未登记的按 name 原样输出）
+#     LABELS = {
+#         '左房前后径':     '左房前后径[25-40]',
+#         '右室前后径':     '右室前后径[16-30]',
+#         '主肺动脉径':     '主肺动脉径[16-30]',
+#         '室间隔厚度':     '室间隔厚度[8-12]',
+#         '左室射血分数':   '左室射血分数[50-60]',
+#         '二尖瓣环间隔测': '二尖瓣环间隔侧',
+#         '二尖瓣环侧隔测': '二尖瓣环侧隔侧',
+#     }
+#
+#     def visual_len(text):
+#         """按 GBK 编码统计终端视觉宽度（中文 2，ASCII 1）。"""
+#         return len(str(text).encode('gbk', errors='ignore'))
+#
+#     def pad_by_visual(text, width):
+#         """右侧补空格到指定视觉宽度；已超宽则原样返回。"""
+#         text = str(text)
+#         gap = width - visual_len(text)
+#         return text + ' ' * gap if gap > 0 else text
+#
+#     # ---------- 1. 解析数据 ----------
+#     data = {}
+#     try:
+#         for item in ai_indicator:
+#             name = (item.get('name') or '').strip()
+#             value = item.get('value')
+#             if not name or not value:
+#                 continue
+#
+#             unit = item.get('unit') or ''
+#             abnormal = item.get('abnormal')
+#             text = f"{value}{unit}"
+#             if abnormal and str(abnormal) not in ('null', 'None'):
+#                 text += f" {abnormal}"
+#
+#             data[LABELS.get(name, name)] = text.strip()
+#     except Exception:
+#         print("指标数据解析异常")
+#         return ''
+#
+#     if not data:
+#         return ''
+#
+#     items = list(data.items())
+#
+#     # ---------- 2. 根据每行指标数计算列宽与总宽度 ----------
+#     def try_layout(per_row):
+#         """返回 (列宽列表, 满行总视觉宽度)。"""
+#         cols = min(per_row, len(items))
+#         col_widths = [KEY_WIDTH] * cols
+#         for idx, (label, _) in enumerate(items):
+#             col = idx % per_row
+#             if col < cols:
+#                 col_widths[col] = max(col_widths[col], visual_len(label))
+#         total_width = sum(w + VAL_WIDTH for w in col_widths)
+#         return col_widths, total_width
+#
+#     # ---------- 3. 选择每行指标数：4 -> 3 -> 2 ----------
+#     chosen_per_row = 2
+#     chosen_col_widths = None
+#     for pr in (4, 3, 2):
+#         col_widths, total_width = try_layout(pr)
+#         if total_width <= max_width:
+#             chosen_per_row = pr
+#             chosen_col_widths = col_widths
+#             break
+#     else:
+#         # 即使 2 列也超宽，仍按 2 列输出
+#         chosen_per_row = 2
+#         chosen_col_widths, _ = try_layout(2)
+#
+#     # ---------- 4. 逐行拼接 ----------
+#     lines = []
+#     for start in range(0, len(items), chosen_per_row):
+#         chunk = items[start:start + chosen_per_row]
+#         line_parts = []
+#         for j, (label, value) in enumerate(chunk):
+#             key_w = chosen_col_widths[j]
+#             line_parts.append(pad_by_visual(label, key_w))
+#             line_parts.append(pad_by_visual(value, VAL_WIDTH))
+#         lines.append(''.join(line_parts).rstrip())
+#
+#     return '\n'.join(lines)
+#
+#
+#
+#
+# def xinzang_zhibiao33(ai_indicator, max_width=110):
+#     """
+#     心脏超声指标排版输出（自动列数 + 自动列宽 + 值列强制分隔）。
+#
+#     规则：
+#       · 自动读取 ai_indicator 中所有「有值」的指标，按出现顺序排版；
+#       · 优先每行 4 组；若总宽 > max_width，降为 3 组；仍超宽再降为 2 组；
+#       · 名称列最小宽度 18，数值列固定宽度 8；
+#       · 数值列之后强制保留 1 个空格（VAL_GAP），避免值正好占满 8 宽时与下一列粘连；
+#       · 名称列超过最小宽度时自动加宽，保证同行对齐。
+#     """
+#     KEY_WIDTH = 18       # 名称列最小宽度
+#     VAL_WIDTH = 8        # 数值列固定宽度
+#     VAL_GAP   = 1        # 数值列与下一名称列之间的强制分隔空格
+#     PER_ROW_MAX = 4
+#     PER_ROW_MIN = 2
+#
+#     LABELS = {
+#         '左房前后径':     '左房前后径[25-40]',
+#         '右室前后径':     '右室前后径[16-30]',
+#         '主肺动脉径':     '主肺动脉径[16-30]',
+#         '室间隔厚度':     '室间隔厚度[8-12]',
+#         '左室射血分数':   '左室射血分数[50-60]',
+#         '二尖瓣环间隔测': '二尖瓣环间隔侧',
+#         '二尖瓣环侧隔测': '二尖瓣环侧隔侧',
+#     }
+#
+#     def visual_len(text):
+#         return len(str(text).encode('gbk', errors='ignore'))
+#
+#     def pad_by_visual(text, width):
+#         text = str(text)
+#         gap = width - visual_len(text)
+#         return text + ' ' * gap if gap > 0 else text
+#
+#     # ---------- 1. 解析数据 ----------
+#     data = {}
+#     try:
+#         for item in ai_indicator:
+#             name = (item.get('name') or '').strip()
+#             value = item.get('value')
+#             if not name or not value:
+#                 continue
+#             unit = item.get('unit') or ''
+#             abnormal = item.get('abnormal')
+#             text = f"{value}{unit}"
+#             if abnormal and str(abnormal) not in ('null', 'None'):
+#                 text += f" {abnormal}"
+#             data[LABELS.get(name, name)] = text.strip()
+#     except Exception:
+#         print("指标数据解析异常")
+#         return ''
+#
+#     if not data:
+#         return ''
+#
+#     items = list(data.items())
+#     val_slot = VAL_WIDTH + VAL_GAP   # 值列实际占位
+#
+#     # ---------- 2. 按每行数计算列宽与总宽 ----------
+#     def try_layout(per_row):
+#         cols = min(per_row, len(items))
+#         col_widths = [KEY_WIDTH] * cols
+#         for idx, (label, _) in enumerate(items):
+#             col = idx % per_row
+#             if col < cols:
+#                 col_widths[col] = max(col_widths[col], visual_len(label))
+#         total_width = sum(w + val_slot for w in col_widths)
+#         return col_widths, total_width
+#
+#     # ---------- 3. 选择每行数：4 -> 3 -> 2 ----------
+#     chosen_per_row = PER_ROW_MIN
+#     chosen_col_widths = None
+#     for pr in range(PER_ROW_MAX, PER_ROW_MIN - 1, -1):
+#         col_widths, total_width = try_layout(pr)
+#         if total_width <= max_width:
+#             chosen_per_row = pr
+#             chosen_col_widths = col_widths
+#             break
+#     else:
+#         chosen_col_widths, _ = try_layout(PER_ROW_MIN)
+#
+#     # ---------- 4. 逐行拼接 ----------
+#     lines = []
+#     for start in range(0, len(items), chosen_per_row):
+#         chunk = items[start:start + chosen_per_row]
+#         parts = []
+#         for j, (label, value) in enumerate(chunk):
+#             parts.append(pad_by_visual(label, chosen_col_widths[j]))
+#             # 值列填充到 VAL_WIDTH，再强制追加 VAL_GAP 个空格
+#             v = pad_by_visual(value, VAL_WIDTH)
+#             if visual_len(v) <= VAL_WIDTH:
+#                 v += ' ' * VAL_GAP
+#             else:
+#                 # 值本身已超过 8 宽，也至少补 1 个分隔空格
+#                 v += ' ' * VAL_GAP
+#             parts.append(v)
+#         lines.append(''.join(parts).rstrip())
+#
+#     return '\n'.join(lines)
+#
+#
+#
+#
+#
+# def xinzang_zhibiao(ai_indicator):
+#     try:
+#         str_d = {}
+#         for item in ai_indicator:
+#             if item.get('value'):
+#                 str_d[item.get('name')] = f"{item.get('value')} {item.get('unit')} {item.get('abnormal')}" if item.get('abnormal') and item.get('abnormal', '') not in ['null', "None"] else f"{item.get('value')} {item.get('unit')}"
+#
+#         str_f = f"""
+# 二维及M型超声测量值:
+# 左房前后径[25-40]: {str_d.get('左房前后径')}  左房容积: {str_d.get('左房容积')}  主动脉瓣环: {str_d.get('主动脉瓣环')}  升主动脉: {str_d.get('升主动脉内径')}
+# 右室前后径[16-30]: {str_d.get('右室前后径')}  主肺动脉径[16-30]: {str_d.get('主肺动脉径')}
+# 室间隔厚度[8-12]: {str_d.get('室间隔厚度')}  运动幅度：{str_d.get('运动幅度-室间隔')}  左室后壁厚度: {str_d.get('左室后壁厚度')}  运动幅度：{str_d.get('运动幅度-左室后壁')}
+# 左室舒张期内径[20-50(女)/55（男）]: {str_d.get('左室舒张期内径')}  左室收缩期内径: {str_d.get('左室收缩期内径')}
+# 频谱多普勒:
+# 主动脉流速: {str_d.get('主动脉流速')}  肺动脉流速: {str_d.get('肺动脉流速')}  二尖瓣: E {str_d.get('二尖瓣E峰')}  A {str_d.get('二尖瓣A峰')}
+# 组织多普勒： 二尖瓣环间隔侧e': {str_d.get('二尖瓣环间隔测')}  二尖瓣环侧隔侧e': {str_d.get('二尖瓣环侧隔测')}  E/e: {str_d.get('E/e')}
+# 三尖瓣反流流速: {str_d.get('三尖瓣反流流速')}  压力阶差: {str_d.get('压力阶差')}  估测肺动脉压约: {str_d.get('估测肺动脉压约')}
+# 左心收缩功能测定:
+# 左室舒张期容积: {str_d.get('左室舒张期容积')}  左室收缩期容积: {str_d.get('左室收缩期容积')}  左室射血分数[50-80]: {str_d.get('左室射血分数')}  左室短轴缩短率: {str_d.get('左室短轴缩短率')}
+# 每搏输出量: {str_d.get('每搏输出量')}  每分输出量: {str_d.get('每分钟输出量')}  即时心率: {str_d.get('即时心率')}
+#                     """
+#     except Exception:
+#         print("指标数据解析异常")
+#         pass
+#     return str_f.replace('None', ' ')
+#
+#
+#
+# sql = "select * from V_XT_BG_TESTRESULT@xuetang where 住院号 = '163298' Order By 记录时间"
+# patient_info = global_tools.call_new_his(sql, sys='nshis')
+#
+# for item in patient_info:
+#     print(item)
+
+# auto dip
+API_KEY1 = "sk-34e7c54119f847258d43f40bc24111bd"
+
+# pacs
+API_KEY2 = "sk-f4e288071c6647d3976067bb48b3133f"
+
+
+def query_balance():
+    headers = {'Accept': 'application/json', 'Authorization': f'Bearer {API_KEY2}'}
+    response = requests.request("GET", "https://api.deepseek.com/user/balance", headers=headers, data={})
+    print(f" {datetime.now()} 查询余额结果：{response.text}")
+    if response:
+        response = response.json()
+        if Decimal(response['balance_infos'][0]['total_balance']) < Decimal('1'):
+            return False
+        return True
+    return False
+
+
+query_balance()
+
+
+#  2026-10-16 10:11:03.974197 查询余额结果：{"is_available":true,"balance_infos":[{"currency":"CNY","total_balance":"457.25","granted_balance":"401.71","topped_up_balance":"55.53"}]}
+#  2026-10-16 10:18:13.014760 查询余额结果：{"is_available":true,"balance_infos":[{"currency":"CNY","total_balance":"456.63","granted_balance":"401.10","topped_up_balance":"55.53"}]}
+#  2026-10-16 14:46:37.659281 查询余额结果：{"is_available":true,"balance_infos":[{"currency":"CNY","total_balance":"454.89","granted_balance":"399.36","topped_up_balance":"55.53"}]}
 
 
 
-print(str_f)
-print()
-print()
-print()
-print()
-print()
-
-
-
-
-
-
-
-
-str_f = ''
-# 设定第一列视觉宽度为 22，第二列视觉宽度为 12，第三列视觉宽度为 22（可根据数据调整）
-str_f = str_f + "心脏结构与尺寸".ljust(55) + "\n"
-str_f = str_f + "-"*75 + "\n"
-str_f += pad_by_visual("左房前后径[25-40]", 18) + pad_by_visual(f"{str_d.get('1')} mm", 10) + pad_by_visual("左房容积", 18) + pad_by_visual(f"{str_d.get('2')} m/s ", 10) + pad_by_visual("左室舒张期容积", 23) + pad_by_visual(f"{str_d.get('13')} mm", 15) + pad_by_visual("即时心率", 23) + f"{str_d.get('14')} m/s \n"
-str_f += pad_by_visual("右室前后径[16-30]", 18) + pad_by_visual(f"{str_d.get('5')} mm", 10) + pad_by_visual("主动脉瓣环", 18) + pad_by_visual(f"{str_d.get('6')} m/s ", 10) + pad_by_visual("左室收缩期容积", 23) + pad_by_visual(f"{str_d.get('15')} mm", 15) + pad_by_visual("每搏输出量", 23) + f"{str_d.get('16')} ml \n"
-str_f += pad_by_visual("主肺动脉径[16-30]", 18) + pad_by_visual(f"{str_d.get('7')} mm", 10) + pad_by_visual("左室后壁厚度", 18) + pad_by_visual(f"{str_d.get('8')} mmHg ", 10) + pad_by_visual("左室射血分数[50-80]", 23) + pad_by_visual(f"{str_d.get('17')} mm", 15) + pad_by_visual("每分钟输出量", 23) + f"{str_d.get('18')} ml \n"
-str_f += pad_by_visual("室间隔厚度[8-12]", 18) + pad_by_visual(f"{str_d.get('9')} mm", 10) + pad_by_visual("升主动脉内径", 18) + pad_by_visual(f"{str_d.get('10')} m/s ", 10) + pad_by_visual("左室短轴缩短率", 23) + pad_by_visual(f"{str_d.get('19')} mm", 15) + '\n'
-str_f += pad_by_visual("运动幅度-左室后壁", 18) + pad_by_visual(f"{str_d.get('11')} mm", 10) + pad_by_visual("左室舒张期内径", 18) + f"{str_d.get('12')} mmHg \n"
-str_f += pad_by_visual("运动幅度-室间隔", 18) + pad_by_visual(f"{str_d.get('3')} ml", 10) + pad_by_visual("左室收缩期内径", 18) + f"{str_d.get('4')} m/s \n"
-
-# 血液流动与瓣膜
-str_f = str_f + "\n"
-str_f = str_f + "血液流动与瓣膜".ljust(55) + "\n"
-str_f = str_f + "-"*75 + "\n"
-str_f += pad_by_visual("二尖瓣环间隔测", 23) + pad_by_visual(f"{str_d.get('21')} mm", 15) + pad_by_visual("二尖瓣A峰", 23) + f"{str_d.get('22')} L/min \n"
-str_f += pad_by_visual("二尖瓣环侧隔测", 23) + pad_by_visual(f"{str_d.get('23')} mm", 15) + pad_by_visual("二尖瓣E峰", 23) + f"{str_d.get('24')} m/s \n"
-str_f += pad_by_visual("三尖瓣反流流速", 23) + pad_by_visual(f"{str_d.get('25')} m/s", 15) + pad_by_visual("E/e'", 23) + f"{str_d.get('26')} bpm \n"
-str_f += pad_by_visual("肺动脉流速", 23) + pad_by_visual(f"{str_d.get('29')} m/s", 15) + pad_by_visual("主动脉流速", 23) + f"{str_d.get('28')} % \n"
-str_f += pad_by_visual("估测肺动脉压约", 23) + pad_by_visual(f"{str_d.get('27')} m/s", 15) + pad_by_visual("压力阶差", 23) + f"{str_d.get('28')} % \n"
-
-
-
-print(str_f)
-print()
-print()
-print()
-print()
-print()
-
-
-
-
-
-def xinzang_zhibiao(ai_indicator):
-    def pad_by_visual(text, target_width):
-        # 使用 GBK 编码计算视觉宽度（终端通常如此）
-        visual_len = len(text.encode('gbk', errors='ignore'))
-        if visual_len >= target_width:
-            return text
-        return text + ' ' * (target_width - visual_len)
-
-    str_f = ''
-    try:
-        str_d = {}
-        for item in ai_indicator:
-            if item.get('value'):
-                str_d[item.get('name')] = f"{item.get('value')}{item.get('unit')} {item.get('abnormal')}" if item.get('abnormal') and item.get('abnormal', '') not in ['null', "None"] else f"{item.get('value')}{item.get('unit')}"
-
-        str_f += (pad_by_visual("左房前后径[25-40]", 18) + pad_by_visual(f"{str_d.get('左房前后径')}", 8) +
-                  pad_by_visual("右室前后径[16-30]", 18) + pad_by_visual(f"{str_d.get('右室前后径')}", 8) +
-                  pad_by_visual("主肺动脉径[16-30]", 18) + pad_by_visual(f"{str_d.get('主肺动脉径')}", 8) +
-                  pad_by_visual("室间隔厚度[8-12]", 18) + pad_by_visual(f"{str_d.get('室间隔厚度')}", 8) +
-                  '\n')
-        str_f += (
-                pad_by_visual("左室射血分数[50-60]", 18) + pad_by_visual(f"{str_d.get('左室射血分数')}", 8) +
-                pad_by_visual("运动幅度-左室后壁", 18) + pad_by_visual(f"{str_d.get('运动幅度-左室后壁')}", 8) +
-                pad_by_visual("运动幅度-室间隔", 18) + pad_by_visual(f"{str_d.get('运动幅度-室间隔')}", 8) +
-                pad_by_visual("估测肺动脉压约", 18) + pad_by_visual(f"{str_d.get('估测肺动脉压约')}", 8) +
-                '\n')
-
-        str_f += (
-                pad_by_visual("左室舒张期内径", 18) + pad_by_visual(f"{str_d.get('左室舒张期内径')} ", 8) +
-                pad_by_visual("左室收缩期内径", 18) + pad_by_visual(f"{str_d.get('左室收缩期内径')} ", 8) +
-                pad_by_visual("左室短轴缩短率", 18) + pad_by_visual(f"{str_d.get('左室短轴缩短率')}", 8) +
-                pad_by_visual("二尖瓣环间隔侧", 18) + pad_by_visual(f"{str_d.get('二尖瓣环间隔测')}", 8) +
-                '\n')
-
-        str_f += (
-                pad_by_visual("二尖瓣环侧隔侧", 18) + pad_by_visual(f"{str_d.get('二尖瓣环侧隔测')}", 8) +
-                pad_by_visual("三尖瓣反流流速", 18) + pad_by_visual(f"{str_d.get('三尖瓣反流流速')}", 8) +
-                pad_by_visual("左室舒张期容积", 18) + pad_by_visual(f"{str_d.get('左室舒张期容积')}", 8) +
-                pad_by_visual("左室收缩期容积", 18) + pad_by_visual(f"{str_d.get('左室收缩期容积')}", 8) +
-                '\n')
-        str_f += (
-                pad_by_visual("左室后壁厚度", 18) + pad_by_visual(f"{str_d.get('左室后壁厚度')} ", 8) +
-                pad_by_visual("升主动脉内径", 18) + pad_by_visual(f"{str_d.get('升主动脉内径')} ", 8) +
-                pad_by_visual("每分钟输出量", 18) + pad_by_visual(f"{str_d.get('每分钟输出量')} ", 8) +
-                pad_by_visual("每搏输出量", 18) + pad_by_visual(f"{str_d.get('每搏输出量')} ", 8) +
-                '\n')
-
-        str_f += (
-                pad_by_visual("主动脉瓣环", 18) + pad_by_visual(f"{str_d.get('主动脉瓣环')} ", 8) +
-                pad_by_visual("肺动脉流速", 18) + pad_by_visual(f"{str_d.get('肺动脉流速')}", 8) +
-                pad_by_visual("主动脉流速", 18) + pad_by_visual(f"{str_d.get('主动脉流速')} ", 8) +
-                pad_by_visual("二尖瓣A峰", 18) + pad_by_visual(f"{str_d.get('二尖瓣A峰')} ", 8) +
-                '\n')
-
-        str_f += (
-                pad_by_visual("二尖瓣E峰", 18) + pad_by_visual(f"{str_d.get('二尖瓣E峰')} ", 8) +
-                pad_by_visual("压力阶差", 18) + pad_by_visual(f"{str_d.get('压力阶差')} ", 8) +
-                pad_by_visual("即时心率", 18) + pad_by_visual(f"{str_d.get('即时心率')} ", 8) +
-                pad_by_visual("左房容积", 18) + pad_by_visual(f"{str_d.get('左房容积')} ", 8) +
-                '\n')
-
-        str_f += (
-                pad_by_visual("E/e", 18) + pad_by_visual(f"{str_d.get('E/e')} ", 8) +
-
-                '\n\n')
-
-    except Exception:
-        print("指标数据解析异常")
-        pass
-    return str_f.replace('None', ' ')
-
-
-
-def xinzang_zhibiao11(ai_indicator):
-    """
-    指标排版输出。
-    规则：
-      · 自动读取 ai_indicator 中所有「有值」的指标，按出现顺序排版；
-      · 每行固定 4 组「名称 + 数值」；
-      · 名称列最小宽度 18，数值列固定宽度 8（终端视觉宽度，中文按 2 计）；
-      · 若某名称超过 18，则该列自动加宽，保证同行其余数据不错位。
-    """
-    KEY_WIDTH = 18       # 名称列最小宽度
-    VAL_WIDTH = 8        # 数值列固定宽度
-    PER_ROW   = 4        # 每行数据组数
-
-    # 名称 -> 展示文案（需要带参考范围 / 别名时在此登记；未登记的按 name 原样输出）
-    LABELS = {
-        '左房前后径':     '左房前后径[25-40]',
-        '右室前后径':     '右室前后径[16-30]',
-        '主肺动脉径':     '主肺动脉径[16-30]',
-        '室间隔厚度':     '室间隔厚度[8-12]',
-        '左室射血分数':   '左室射血分数[50-60]',
-        '二尖瓣环间隔测': '二尖瓣环间隔侧',
-        '二尖瓣环侧隔测': '二尖瓣环侧隔侧',
-    }
-
-    def visual_len(text):
-        """按 GBK 编码统计终端视觉宽度（中文 2，ASCII 1）。"""
-        return len(str(text).encode('gbk', errors='ignore'))
-
-    def pad_by_visual(text, width):
-        """右侧补空格到指定视觉宽度；已超宽则原样返回。"""
-        text = str(text)
-        gap = width - visual_len(text)
-        return text + ' ' * gap if gap > 0 else text
-
-    # ---------- 1. 解析数据 ----------
-    data = {}
-    try:
-        for item in ai_indicator:
-            name = (item.get('name') or '').strip()
-            value = item.get('value')
-            if not name or not value:
-                continue
-
-            unit = item.get('unit') or ''
-            abnormal = item.get('abnormal')
-            text = f"{value}{unit}"
-            if abnormal and str(abnormal) not in ('null', 'None'):
-                text += f" {abnormal}"
-
-            data[LABELS.get(name, name)] = text.strip()
-    except Exception:
-        print("指标数据解析异常")
-        return ''
-
-    if not data:
-        return ''
-
-    # ---------- 2. 计算每一列的名称宽度 ----------
-    items = list(data.items())
-    col_widths = [KEY_WIDTH] * PER_ROW
-    for idx, (label, _) in enumerate(items):
-        col = idx % PER_ROW
-        col_widths[col] = max(col_widths[col], visual_len(label))
-
-    # ---------- 3. 逐行拼接 ----------
-    lines = []
-    for start in range(0, len(items), PER_ROW):
-        chunk = items[start:start + PER_ROW]
-        line = ''.join(
-            pad_by_visual(label, col_widths[i]) + pad_by_visual(value, VAL_WIDTH)
-            for i, (label, value) in enumerate(chunk)
-        )
-        lines.append(line.rstrip())
-
-    return '\n'.join(lines)
-
-
-
-
-def xinzang_zhibiao22(ai_indicator, max_width=110):
-    """
-    心脏超声指标排版输出（自动列数 + 自动列宽）。
-
-    规则：
-      · 自动读取 ai_indicator 中所有「有值」的指标，按出现顺序排版；
-      · 优先每行 4 组「名称 + 数值」；
-      · 若 4 组总视觉宽度 > max_width，则尝试每行 3 组；若仍超宽，再尝试每行 2 组；
-      · 名称列最小宽度 18，数值列固定宽度 8（终端视觉宽度，中文按 2 计）；
-      · 若某名称超过最小宽度，则该列自动加宽，保证同行其余数据不错位。
-    """
-    KEY_WIDTH = 18       # 名称列最小宽度
-    VAL_WIDTH = 8        # 数值列固定宽度
-
-    # 名称 -> 展示文案（需要带参考范围 / 别名时在此登记；未登记的按 name 原样输出）
-    LABELS = {
-        '左房前后径':     '左房前后径[25-40]',
-        '右室前后径':     '右室前后径[16-30]',
-        '主肺动脉径':     '主肺动脉径[16-30]',
-        '室间隔厚度':     '室间隔厚度[8-12]',
-        '左室射血分数':   '左室射血分数[50-60]',
-        '二尖瓣环间隔测': '二尖瓣环间隔侧',
-        '二尖瓣环侧隔测': '二尖瓣环侧隔侧',
-    }
-
-    def visual_len(text):
-        """按 GBK 编码统计终端视觉宽度（中文 2，ASCII 1）。"""
-        return len(str(text).encode('gbk', errors='ignore'))
-
-    def pad_by_visual(text, width):
-        """右侧补空格到指定视觉宽度；已超宽则原样返回。"""
-        text = str(text)
-        gap = width - visual_len(text)
-        return text + ' ' * gap if gap > 0 else text
-
-    # ---------- 1. 解析数据 ----------
-    data = {}
-    try:
-        for item in ai_indicator:
-            name = (item.get('name') or '').strip()
-            value = item.get('value')
-            if not name or not value:
-                continue
-
-            unit = item.get('unit') or ''
-            abnormal = item.get('abnormal')
-            text = f"{value}{unit}"
-            if abnormal and str(abnormal) not in ('null', 'None'):
-                text += f" {abnormal}"
-
-            data[LABELS.get(name, name)] = text.strip()
-    except Exception:
-        print("指标数据解析异常")
-        return ''
-
-    if not data:
-        return ''
-
-    items = list(data.items())
-
-    # ---------- 2. 根据每行指标数计算列宽与总宽度 ----------
-    def try_layout(per_row):
-        """返回 (列宽列表, 满行总视觉宽度)。"""
-        cols = min(per_row, len(items))
-        col_widths = [KEY_WIDTH] * cols
-        for idx, (label, _) in enumerate(items):
-            col = idx % per_row
-            if col < cols:
-                col_widths[col] = max(col_widths[col], visual_len(label))
-        total_width = sum(w + VAL_WIDTH for w in col_widths)
-        return col_widths, total_width
-
-    # ---------- 3. 选择每行指标数：4 -> 3 -> 2 ----------
-    chosen_per_row = 2
-    chosen_col_widths = None
-    for pr in (4, 3, 2):
-        col_widths, total_width = try_layout(pr)
-        if total_width <= max_width:
-            chosen_per_row = pr
-            chosen_col_widths = col_widths
-            break
-    else:
-        # 即使 2 列也超宽，仍按 2 列输出
-        chosen_per_row = 2
-        chosen_col_widths, _ = try_layout(2)
-
-    # ---------- 4. 逐行拼接 ----------
-    lines = []
-    for start in range(0, len(items), chosen_per_row):
-        chunk = items[start:start + chosen_per_row]
-        line_parts = []
-        for j, (label, value) in enumerate(chunk):
-            key_w = chosen_col_widths[j]
-            line_parts.append(pad_by_visual(label, key_w))
-            line_parts.append(pad_by_visual(value, VAL_WIDTH))
-        lines.append(''.join(line_parts).rstrip())
-
-    return '\n'.join(lines)
-
-
-
-
-def xinzang_zhibiao33(ai_indicator, max_width=110):
-    """
-    心脏超声指标排版输出（自动列数 + 自动列宽 + 值列强制分隔）。
-
-    规则：
-      · 自动读取 ai_indicator 中所有「有值」的指标，按出现顺序排版；
-      · 优先每行 4 组；若总宽 > max_width，降为 3 组；仍超宽再降为 2 组；
-      · 名称列最小宽度 18，数值列固定宽度 8；
-      · 数值列之后强制保留 1 个空格（VAL_GAP），避免值正好占满 8 宽时与下一列粘连；
-      · 名称列超过最小宽度时自动加宽，保证同行对齐。
-    """
-    KEY_WIDTH = 18       # 名称列最小宽度
-    VAL_WIDTH = 8        # 数值列固定宽度
-    VAL_GAP   = 1        # 数值列与下一名称列之间的强制分隔空格
-    PER_ROW_MAX = 4
-    PER_ROW_MIN = 2
-
-    LABELS = {
-        '左房前后径':     '左房前后径[25-40]',
-        '右室前后径':     '右室前后径[16-30]',
-        '主肺动脉径':     '主肺动脉径[16-30]',
-        '室间隔厚度':     '室间隔厚度[8-12]',
-        '左室射血分数':   '左室射血分数[50-60]',
-        '二尖瓣环间隔测': '二尖瓣环间隔侧',
-        '二尖瓣环侧隔测': '二尖瓣环侧隔侧',
-    }
-
-    def visual_len(text):
-        return len(str(text).encode('gbk', errors='ignore'))
-
-    def pad_by_visual(text, width):
-        text = str(text)
-        gap = width - visual_len(text)
-        return text + ' ' * gap if gap > 0 else text
-
-    # ---------- 1. 解析数据 ----------
-    data = {}
-    try:
-        for item in ai_indicator:
-            name = (item.get('name') or '').strip()
-            value = item.get('value')
-            if not name or not value:
-                continue
-            unit = item.get('unit') or ''
-            abnormal = item.get('abnormal')
-            text = f"{value}{unit}"
-            if abnormal and str(abnormal) not in ('null', 'None'):
-                text += f" {abnormal}"
-            data[LABELS.get(name, name)] = text.strip()
-    except Exception:
-        print("指标数据解析异常")
-        return ''
-
-    if not data:
-        return ''
-
-    items = list(data.items())
-    val_slot = VAL_WIDTH + VAL_GAP   # 值列实际占位
-
-    # ---------- 2. 按每行数计算列宽与总宽 ----------
-    def try_layout(per_row):
-        cols = min(per_row, len(items))
-        col_widths = [KEY_WIDTH] * cols
-        for idx, (label, _) in enumerate(items):
-            col = idx % per_row
-            if col < cols:
-                col_widths[col] = max(col_widths[col], visual_len(label))
-        total_width = sum(w + val_slot for w in col_widths)
-        return col_widths, total_width
-
-    # ---------- 3. 选择每行数：4 -> 3 -> 2 ----------
-    chosen_per_row = PER_ROW_MIN
-    chosen_col_widths = None
-    for pr in range(PER_ROW_MAX, PER_ROW_MIN - 1, -1):
-        col_widths, total_width = try_layout(pr)
-        if total_width <= max_width:
-            chosen_per_row = pr
-            chosen_col_widths = col_widths
-            break
-    else:
-        chosen_col_widths, _ = try_layout(PER_ROW_MIN)
-
-    # ---------- 4. 逐行拼接 ----------
-    lines = []
-    for start in range(0, len(items), chosen_per_row):
-        chunk = items[start:start + chosen_per_row]
-        parts = []
-        for j, (label, value) in enumerate(chunk):
-            parts.append(pad_by_visual(label, chosen_col_widths[j]))
-            # 值列填充到 VAL_WIDTH，再强制追加 VAL_GAP 个空格
-            v = pad_by_visual(value, VAL_WIDTH)
-            if visual_len(v) <= VAL_WIDTH:
-                v += ' ' * VAL_GAP
-            else:
-                # 值本身已超过 8 宽，也至少补 1 个分隔空格
-                v += ' ' * VAL_GAP
-            parts.append(v)
-        lines.append(''.join(parts).rstrip())
-
-    return '\n'.join(lines)
-
-
-
-
-
-def xinzang_zhibiao(ai_indicator):
-    try:
-        str_d = {}
-        for item in ai_indicator:
-            if item.get('value'):
-                str_d[item.get('name')] = f"{item.get('value')} {item.get('unit')} {item.get('abnormal')}" if item.get('abnormal') and item.get('abnormal', '') not in ['null', "None"] else f"{item.get('value')} {item.get('unit')}"
-
-        str_f = f"""
-二维及M型超声测量值:
-左房前后径[25-40]: {str_d.get('左房前后径')}  左房容积: {str_d.get('左房容积')}  主动脉瓣环: {str_d.get('主动脉瓣环')}  升主动脉: {str_d.get('升主动脉内径')}
-右室前后径[16-30]: {str_d.get('右室前后径')}  主肺动脉径[16-30]: {str_d.get('主肺动脉径')}
-室间隔厚度[8-12]: {str_d.get('室间隔厚度')}  运动幅度：{str_d.get('运动幅度-室间隔')}  左室后壁厚度: {str_d.get('左室后壁厚度')}  运动幅度：{str_d.get('运动幅度-左室后壁')}
-左室舒张期内径[20-50(女)/55（男）]: {str_d.get('左室舒张期内径')}  左室收缩期内径: {str_d.get('左室收缩期内径')}
-频谱多普勒:
-主动脉流速: {str_d.get('主动脉流速')}  肺动脉流速: {str_d.get('肺动脉流速')}  二尖瓣: E {str_d.get('二尖瓣E峰')}  A {str_d.get('二尖瓣A峰')}  
-组织多普勒： 二尖瓣环间隔侧e': {str_d.get('二尖瓣环间隔测')}  二尖瓣环侧隔侧e': {str_d.get('二尖瓣环侧隔测')}  E/e: {str_d.get('E/e')} 
-三尖瓣反流流速: {str_d.get('三尖瓣反流流速')}  压力阶差: {str_d.get('压力阶差')}  估测肺动脉压约: {str_d.get('估测肺动脉压约')}  
-左心收缩功能测定:
-左室舒张期容积: {str_d.get('左室舒张期容积')}  左室收缩期容积: {str_d.get('左室收缩期容积')}  左室射血分数[50-80]: {str_d.get('左室射血分数')}  左室短轴缩短率: {str_d.get('左室短轴缩短率')}
-每搏输出量: {str_d.get('每搏输出量')}  每分输出量: {str_d.get('每分钟输出量')}  即时心率: {str_d.get('即时心率')}  
-                    """
-    except Exception:
-        print("指标数据解析异常")
-        pass
-    return str_f.replace('None', ' ')
-
-
-
-sql = "select * from V_XT_BG_TESTRESULT@xuetang where 住院号 = '163298' Order By 记录时间"
-patient_info = global_tools.call_new_his(sql, sys='nshis')
-
-for item in patient_info:
-    print(item)

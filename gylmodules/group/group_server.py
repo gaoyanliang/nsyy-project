@@ -14,7 +14,7 @@ from gylmodules.workstation.mail import mail_server
 from gylmodules.workstation.message.message_server import send_notification_message, send_message
 
 pool = redis.ConnectionPool(host=global_config.REDIS_HOST, port=global_config.REDIS_PORT,
-                            db=global_config.REDIS_DB, decode_responses=True)
+                            db=global_config.REDIS_DB, decode_responses=True, protocol=2)
 logger = logging.getLogger(__name__)
 
 
@@ -27,24 +27,23 @@ def create_group(group_name: str, owner_id: str, owner_name: str, members, desc:
     if not redis_client.set(group_config.create_key.format(owner_id), 1, ex=70, nx=True):
         raise Exception('系统繁忙：请勿频繁创建群组，请于1分钟后再次尝试')
 
-    db = DbUtil(global_config.DB_HOST, global_config.DB_USERNAME, global_config.DB_PASSWORD,
-                global_config.DB_DATABASE_GYL)
+    with DbUtil(global_config.DB_HOST, global_config.DB_USERNAME, global_config.DB_PASSWORD,
+                global_config.DB_DATABASE_GYL) as db:
 
-    # 随机生成邮箱群组账号
-    while True:
-        mail_account = generate_maillist_code(5)
-        query_sql = f"select group_id from nsyy_gyl.group where mail_account = '{mail_account}' "
-        if not db.query_one(query_sql):
-            break
+        # 随机生成邮箱群组账号
+        while True:
+            mail_account = generate_maillist_code(5)
+            query_sql = f"select group_id from nsyy_gyl.group where mail_account = '{mail_account}' "
+            if not db.query_one(query_sql):
+                break
 
-    created_at = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-    args = (group_name, owner_id, owner_name, created_at, created_at, desc, mail_account, user_mail_account, is_public)
-    insert_sql = ("INSERT INTO nsyy_gyl.group (group_name, owner_id, owner_name, created_at, updated_at, description, "
-                  "mail_account, user_mail_account, is_public) VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s)")
-    group_id = db.execute(insert_sql, args, need_commit=True)
-    if group_id == -1:
-        del db
-        raise Exception(f"群组 {group_name} 创建失败! 请检查群组数据，确保无误后重试！")
+        created_at = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        args = (group_name, owner_id, owner_name, created_at, created_at, desc, mail_account, user_mail_account, is_public)
+        insert_sql = ("INSERT INTO nsyy_gyl.group (group_name, owner_id, owner_name, created_at, updated_at, description, "
+                      "mail_account, user_mail_account, is_public) VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s)")
+        group_id = db.execute(insert_sql, args, need_commit=True)
+        if group_id == -1:
+            raise Exception(f"群组 {group_name} 创建失败! 请检查群组数据，确保无误后重试！")
 
     redis_client.set(group_config.group_key.format(group_id), json.dumps({
         "group_id": group_id, "group_name": group_name, "owner_id": owner_id, "owner_name": owner_name,
@@ -65,8 +64,10 @@ def create_group(group_name: str, owner_id: str, owner_name: str, members, desc:
                 state, is_reply, allow_edit, created_at, updated_at) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s) 
                 ON DUPLICATE KEY UPDATE state = VALUES(state), is_reply = VALUES(is_reply), 
                 allow_edit = VALUES(allow_edit), updated_at = VALUES(updated_at)"""
-    db.execute_many(insert_sql, args=values, need_commit=True)
-    del db
+
+    with DbUtil(global_config.DB_HOST, global_config.DB_USERNAME, global_config.DB_PASSWORD,
+                global_config.DB_DATABASE_GYL) as db:
+        db.execute_many(insert_sql, args=values, need_commit=True)
 
     group_notification = {"type": 110, "title": "入群邀请", "description": f"用户 {owner_name} 邀请您加入群聊 {group_name}",
                           "time": created_at, "group_info": { "group_id": group_id, "group_name": group_name,
@@ -110,16 +111,14 @@ def generate_maillist_code(length):
 
 
 def update_group(group_id: int, group_name: str, desc: str, is_public, cur_user_id, members):
-    db = DbUtil(global_config.DB_HOST, global_config.DB_USERNAME, global_config.DB_PASSWORD,
-                global_config.DB_DATABASE_GYL)
     redis_client = redis.Redis(connection_pool=pool)
-    group = db.query_one(f"select * from nsyy_gyl.group where group_id = {group_id} ")
-    if not group:
-        del db
-        raise Exception("群组不存在，请仔细确认后重试")
-    if not db.query_one(f"select * from nsyy_gyl.group_member where group_id = {group_id} and user_id = {cur_user_id} and allow_edit >= 1"):
-        del db
-        raise Exception("您没有权限编辑此群组, 请联系管理员")
+    with DbUtil(global_config.DB_HOST, global_config.DB_USERNAME, global_config.DB_PASSWORD,
+                global_config.DB_DATABASE_GYL) as db:
+        group = db.query_one(f"select * from nsyy_gyl.group where group_id = {group_id} ")
+        if not group:
+            raise Exception("群组不存在，请仔细确认后重试")
+        if not db.query_one(f"select * from nsyy_gyl.group_member where group_id = {group_id} and user_id = {cur_user_id} and allow_edit >= 1"):
+            raise Exception("您没有权限编辑此群组, 请联系管理员")
 
     # 构建更新字段
     update_fields = []
@@ -158,9 +157,9 @@ def update_group(group_id: int, group_name: str, desc: str, is_public, cur_user_
         insert_sql = """INSERT INTO nsyy_gyl.group_member (group_id, user_id, user_name, user_mail_account, 
                     state, allow_edit, is_reply,  created_at, updated_at) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s) 
                     ON DUPLICATE KEY UPDATE allow_edit = VALUES(allow_edit), updated_at = VALUES(updated_at), state = VALUES(state), is_reply = VALUES(is_reply)"""
-        db.execute_many(insert_sql, args=values, need_commit=True)
-
-    del db
+        with DbUtil(global_config.DB_HOST, global_config.DB_USERNAME, global_config.DB_PASSWORD,
+                    global_config.DB_DATABASE_GYL) as db:
+            db.execute_many(insert_sql, args=values, need_commit=True)
 
     for member in members:
         if member.get('state') == 0:
@@ -199,23 +198,20 @@ def update_group(group_id: int, group_name: str, desc: str, is_public, cur_user_
 
 
 def disband_group(group_id, user_id):
-    db = DbUtil(global_config.DB_HOST, global_config.DB_USERNAME, global_config.DB_PASSWORD,
-                global_config.DB_DATABASE_GYL)
     redis_client = redis.Redis(connection_pool=pool)
-    group = db.query_one(f"select * from nsyy_gyl.group where group_id = {group_id} ")
-    if not group:
-        del db
-        raise Exception("群组不存在，请仔细确认后重试")
-    if not db.query_one(f"select * from nsyy_gyl.group_member where group_id = {group_id} and user_id = {user_id} and allow_edit >= 1"):
-        del db
-        raise Exception("您没有权限解散此群组, 请联系管理员")
+    with DbUtil(global_config.DB_HOST, global_config.DB_USERNAME, global_config.DB_PASSWORD,
+                global_config.DB_DATABASE_GYL) as db:
+        group = db.query_one(f"select * from nsyy_gyl.group where group_id = {group_id} ")
+        if not group:
+            raise Exception("群组不存在，请仔细确认后重试")
+        if not db.query_one(f"select * from nsyy_gyl.group_member where group_id = {group_id} and user_id = {user_id} and allow_edit >= 1"):
+            raise Exception("您没有权限解散此群组, 请联系管理员")
 
-    db.execute(f"update nsyy_gyl.group set group_state = 0, updated_at = '{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}' where group_id = {group_id}", need_commit=True)
-    redis_client.delete(group_config.group_key.format(group_id))
+        db.execute(f"update nsyy_gyl.group set group_state = 0, updated_at = '{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}' where group_id = {group_id}", need_commit=True)
+        redis_client.delete(group_config.group_key.format(group_id))
 
-    db.execute(f"update nsyy_gyl.group_member set state = 2, updated_at = '{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}' where group_id = {group_id}", need_commit=True)
-    redis_client.delete(group_config.group_member_ids_key.format(group_id))
-    del db
+        db.execute(f"update nsyy_gyl.group_member set state = 2, updated_at = '{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}' where group_id = {group_id}", need_commit=True)
+        redis_client.delete(group_config.group_member_ids_key.format(group_id))
 
     mail_server.delete_mail_group(group.get('mail_account'), group.get('group_name'))
 
@@ -224,20 +220,17 @@ def disband_group(group_id, user_id):
 
 
 def query_group(group_id):
-    db = DbUtil(global_config.DB_HOST, global_config.DB_USERNAME, global_config.DB_PASSWORD,
-                global_config.DB_DATABASE_GYL)
-    group = db.query_one(f"select * from nsyy_gyl.group where group_id = {group_id} ")
-    if group is None:
-        del db
-        raise Exception('群聊不存在')
-    if group.get('group_state') == 0:
-        del db
-        raise Exception('群聊已解散')
+    with DbUtil(global_config.DB_HOST, global_config.DB_USERNAME, global_config.DB_PASSWORD,
+                global_config.DB_DATABASE_GYL) as db:
+        group = db.query_one(f"select * from nsyy_gyl.group where group_id = {group_id} ")
+        if group is None:
+            raise Exception('群聊不存在')
+        if group.get('group_state') == 0:
+            raise Exception('群聊已解散')
 
-    query_sql = (f"select user_id, user_name, user_mail_account, state, allow_edit, mail_state "
-                 f"from nsyy_gyl.group_member where group_id = {group_id} and state = 1")
-    members = db.query_all(query_sql)
-    del db
+        query_sql = (f"select user_id, user_name, user_mail_account, state, allow_edit, mail_state "
+                     f"from nsyy_gyl.group_member where group_id = {group_id} and state = 1")
+        members = db.query_all(query_sql)
 
     group["member"] = members
     return group
@@ -247,11 +240,10 @@ def query_group(group_id):
 
 
 def query_user_group(user_id, group_type: int = 1):
-    db = DbUtil(global_config.DB_HOST, global_config.DB_USERNAME, global_config.DB_PASSWORD,
-                global_config.DB_DATABASE_GYL)
-    groups = db.query_all(f"select * from nsyy_gyl.group where group_id in (select group_id from nsyy_gyl.group_member "
-                          f"where user_id = {user_id} and state = 1) and group_state = 1 and group_type = {group_type}")
-    del db
+    with DbUtil(global_config.DB_HOST, global_config.DB_USERNAME, global_config.DB_PASSWORD,
+                global_config.DB_DATABASE_GYL) as db:
+        groups = db.query_all(f"select * from nsyy_gyl.group where group_id in (select group_id from nsyy_gyl.group_member "
+                              f"where user_id = {user_id} and state = 1) and group_state = 1 and group_type = {group_type}")
     return groups
 
 
@@ -259,22 +251,20 @@ def query_user_group(user_id, group_type: int = 1):
 
 
 def confirm_join_group(group_id, user_id, user_name, confirm: int):
-    db = DbUtil(global_config.DB_HOST, global_config.DB_USERNAME, global_config.DB_PASSWORD,
-                global_config.DB_DATABASE_GYL)
+    with DbUtil(global_config.DB_HOST, global_config.DB_USERNAME, global_config.DB_PASSWORD,
+                global_config.DB_DATABASE_GYL) as db:
 
-    timer = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-    query_sql = f"select * from nsyy_gyl.group_member where group_id = {group_id} and user_id = {user_id} "
-    group_member = db.query_one(query_sql)
-    if group_member is None:
-        del db
-        raise Exception("不存在邀请记录，请仔细检查. ")
-    if int(group_member.get('is_reply')) == 1:
-        del db
-        raise Exception("邀请记录已响应，请勿重复操作，入要加入群聊请联系群主重新邀请")
+        timer = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        query_sql = f"select * from nsyy_gyl.group_member where group_id = {group_id} and user_id = {user_id} "
+        group_member = db.query_one(query_sql)
+        if group_member is None:
+            raise Exception("不存在邀请记录，请仔细检查. ")
+        if int(group_member.get('is_reply')) == 1:
+            raise Exception("邀请记录已响应，请勿重复操作，入要加入群聊请联系群主重新邀请")
 
-    update_sql = f"UPDATE nsyy_gyl.group_member SET state = {confirm}, is_reply = 1, " \
-                 f"updated_at = '{timer}' WHERE group_id = {group_id} AND user_id = {user_id} "
-    db.execute(update_sql, need_commit=True)
+        update_sql = f"UPDATE nsyy_gyl.group_member SET state = {confirm}, is_reply = 1, " \
+                     f"updated_at = '{timer}' WHERE group_id = {group_id} AND user_id = {user_id} "
+        db.execute(update_sql, need_commit=True)
 
     # 放入缓存
     if confirm == 1:
@@ -302,12 +292,11 @@ def confirm_join_group(group_id, user_id, user_name, confirm: int):
                 update_sql = (f"UPDATE nsyy_gyl.group_member SET mail_state = 1, "
                               f"updated_at = '{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}' "
                               f"WHERE group_id = {group_id} AND user_id = {user_id} ")
-                db.execute(update_sql, need_commit=True)
+                with DbUtil(global_config.DB_HOST, global_config.DB_USERNAME, global_config.DB_PASSWORD,
+                            global_config.DB_DATABASE_GYL) as db:
+                    db.execute(update_sql, need_commit=True)
         except Exception as e:
             logger.error(f"加入邮箱群 {group_id} 失败")
-
-    del db
-
 
 
 """创建急诊会诊群聊"""
@@ -319,24 +308,23 @@ def create_group(group_name: str, owner_id: str, owner_name: str, members, desc:
     if not redis_client.set(group_config.create_key.format(owner_id), 1, ex=70, nx=True):
         raise Exception('系统繁忙：请勿频繁创建群组，请于1分钟后再次尝试')
 
-    db = DbUtil(global_config.DB_HOST, global_config.DB_USERNAME, global_config.DB_PASSWORD,
-                global_config.DB_DATABASE_GYL)
+    with DbUtil(global_config.DB_HOST, global_config.DB_USERNAME, global_config.DB_PASSWORD,
+                global_config.DB_DATABASE_GYL) as db:
 
-    # 随机生成邮箱群组账号
-    while True:
-        mail_account = generate_maillist_code(5)
-        query_sql = f"select group_id from nsyy_gyl.group where mail_account = '{mail_account}' "
-        if not db.query_one(query_sql):
-            break
+        # 随机生成邮箱群组账号
+        while True:
+            mail_account = generate_maillist_code(5)
+            query_sql = f"select group_id from nsyy_gyl.group where mail_account = '{mail_account}' "
+            if not db.query_one(query_sql):
+                break
 
-    created_at = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-    args = (group_name, owner_id, owner_name, created_at, created_at, desc, mail_account, user_mail_account, is_public)
-    insert_sql = ("INSERT INTO nsyy_gyl.group (group_name, owner_id, owner_name, created_at, updated_at, description, "
-                  "mail_account, user_mail_account, is_public) VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s)")
-    group_id = db.execute(insert_sql, args, need_commit=True)
-    if group_id == -1:
-        del db
-        raise Exception(f"群组 {group_name} 创建失败! 请检查群组数据，确保无误后重试！")
+        created_at = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        args = (group_name, owner_id, owner_name, created_at, created_at, desc, mail_account, user_mail_account, is_public)
+        insert_sql = ("INSERT INTO nsyy_gyl.group (group_name, owner_id, owner_name, created_at, updated_at, description, "
+                      "mail_account, user_mail_account, is_public) VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s)")
+        group_id = db.execute(insert_sql, args, need_commit=True)
+        if group_id == -1:
+            raise Exception(f"群组 {group_name} 创建失败! 请检查群组数据，确保无误后重试！")
 
     redis_client.set(group_config.group_key.format(group_id), json.dumps({
         "group_id": group_id, "group_name": group_name, "owner_id": owner_id, "owner_name": owner_name,
@@ -357,8 +345,10 @@ def create_group(group_name: str, owner_id: str, owner_name: str, members, desc:
                 state, is_reply, allow_edit, created_at, updated_at) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s) 
                 ON DUPLICATE KEY UPDATE state = VALUES(state), is_reply = VALUES(is_reply), 
                 allow_edit = VALUES(allow_edit), updated_at = VALUES(updated_at)"""
-    db.execute_many(insert_sql, args=values, need_commit=True)
-    del db
+
+    with DbUtil(global_config.DB_HOST, global_config.DB_USERNAME, global_config.DB_PASSWORD,
+                global_config.DB_DATABASE_GYL) as db:
+        db.execute_many(insert_sql, args=values, need_commit=True)
 
     group_notification = {"type": 110, "title": "入群邀请", "description": f"用户 {owner_name} 邀请您加入群聊 {group_name}",
                           "time": created_at, "group_info": { "group_id": group_id, "group_name": group_name,

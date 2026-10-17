@@ -295,7 +295,7 @@ def tax_login_qrcode_update():
     if global_config.run_in_local:
         save_dir = "/Users/gaoyanliang/nsyy/nsyy-project/gylmodules/a_special/upload"
     else:
-        save_dir = "/home/gyl/gyl_server/tax/login"
+        save_dir = "/home/gyl/312/tax/login"
 
     # 确保目录存在
     if not os.path.exists(save_dir):
@@ -1093,3 +1093,50 @@ def rescue_record():
     data = global_tools.call_new_his_pg(sql)
 
     return jsonify({"code": 20000, "data": data})
+
+
+
+"""
+根据医生名字查询他所负责的患者 区分已处理/未处理
+已处理: 1. AI和最终入组一致; 2. 不一致，但人工进行确认未处理:处理方式 1.AI正确，后继HIS中修改 2.AI不正确，原因:xxxx 分类:诊断问题、操作不能入组，分组不存在
+"""
+@special_system.route("/doc_patient_list", methods=["GET", "POST"])
+def doc_patient_list_query():
+    req_json = request.get_json()
+    if not req_json:
+        return jsonify({"error": "请求体必须是 JSON 格式", 'code': 50000})
+    data = special_server.doc_patient_list(req_json)
+
+    if 'page_no' in req_json and 'no_on_page' in req_json:
+        return jsonify(data)
+    else:
+        # 转 DataFrame（字段映射 + datetime 格式化）
+        df = pd.DataFrame(data.get('patient_l'))
+
+        def safe_file_name(name: str) -> str:
+            import re
+            # 将 逗号、空格、斜杠等替换为 _
+            return re.sub(r'[\\/*?:"<>|]', '_', name)
+
+        file_name = safe_file_name('_'.join(req_json.get('doc_name', [])))
+        start_d = req_json.get('start_d', '')
+        end_d = req_json.get('end_d', '')
+        download_name = f"{file_name}_{start_d}_{end_d}_主管患者清单.xlsx"
+
+        # 内存写出 xlsx 并下载
+        buffer = BytesIO()
+        with pd.ExcelWriter(buffer, engine="openpyxl") as writer:
+            df.to_excel(writer, index=False, sheet_name="患者列表")
+        buffer.seek(0)
+
+        return send_file(buffer, as_attachment=True, download_name=download_name)
+
+
+@special_system.route("/doc_feedback", methods=["GET", "POST"])
+def doctor_feedback():
+    req_json = request.get_json()
+    if not req_json:
+        return jsonify({"error": "请求体必须是 JSON 格式", 'code': 50000})
+    special_server.doc_feedback(req_json)
+
+    return jsonify({"data": "success", 'code': 20000})

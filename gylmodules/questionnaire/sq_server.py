@@ -27,7 +27,7 @@ def call_third_systems_obtain_data(url: str, type: str, param: dict):
     try:
         req_url = f"http://127.0.0.1:6080/{url}"
         if global_config.run_in_local:
-            req_url = f"http://192.168.124.53:6080/{url}"
+            req_url = f"http://192.168.124.8:6080/{url}"
         response = requests.post(req_url, timeout=20, json=param)
         data = json.loads(response.text)
         if type != 'his_pers_reg':
@@ -1017,7 +1017,7 @@ def call_ai_api(param: dict):
     data = None
     url = f"http://192.168.9.35:6063/aichat/api_aichat"
     if global_config.run_in_local:
-        url = f"http://192.168.124.53:6080/aichat/api_aichat"
+        url = f"http://192.168.124.8:6080/aichat/api_aichat"
 
     max_retries = 3
     delay = 1

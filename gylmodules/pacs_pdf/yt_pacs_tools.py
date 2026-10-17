@@ -2,7 +2,7 @@
 pacs_router 随项目一起启动
 
 yt_pacs_tools 单独执行， 通过接口调用 auto——pacs 会造成阻塞 无法生成pdf  使用crontab -e
-/home/gyl/.conda/envs/gg/bin/python /home/gyl/gyl_server/gylmodules/pacs_pdf/yt_pacs_tools.py > /home/gyl/pacs_pdf.log 2>&1
+/home/gyl/.conda/envs/312/bin/python /home/gyl/312/gylmodules/pacs_pdf/yt_pacs_tools.py > /home/gyl/pacs_pdf.log 2>&1
 """
 
 import threading

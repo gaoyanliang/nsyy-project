@@ -18,7 +18,7 @@ from gylmodules.workstation.message.message_server import send_message
 """
 
 pool = redis.ConnectionPool(host=global_config.REDIS_HOST, port=global_config.REDIS_PORT,
-                            db=global_config.REDIS_DB, decode_responses=True)
+                            db=global_config.REDIS_DB, decode_responses=True, protocol=2)
 
 cv_id_lock = threading.Lock()
 

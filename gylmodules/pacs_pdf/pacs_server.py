@@ -3,7 +3,7 @@ import logging
 import sys
 from gylmodules import global_config
 
-sys.path.insert(0, '/home/gyl/gyl_server')  # 就这一行！
+sys.path.insert(0, '/home/gyl/312')  # 就这一行！
 
 handlers = [
     logging.StreamHandler(sys.stdout)  # 控制台日志，始终保留

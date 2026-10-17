@@ -2,11 +2,9 @@
 import logging
 import os
 import uuid
-import threading
 from contextlib import asynccontextmanager
-from datetime import datetime
+from datetime import datetime, timezone
 
-from apscheduler.schedulers.asyncio import AsyncIOScheduler
 from apscheduler.schedulers.background import BackgroundScheduler
 from starlette.middleware.base import BaseHTTPMiddleware
 from starlette.responses import JSONResponse
@@ -46,13 +44,13 @@ class RequestIDMiddleware(BaseHTTPMiddleware):
         # 为当前线程/协程的 logger 添加上下文（简单实现）
         # 这里使用 logging 的 extra 方式在实际 logger 调用时传入
         response = None
-        start_time = datetime.utcnow()
+        start_time = datetime.now(timezone.utc)
 
         try:
             response = await call_next(request)
         finally:
             # 计算耗时
-            duration = (datetime.utcnow() - start_time).total_seconds() * 1000
+            duration = (datetime.now(timezone.utc) - start_time).total_seconds() * 1000
             # 记录请求日志
             logger.debug(
                 f"{request.method} {request.url.path} {response.status_code if response else 500}",
@@ -101,7 +99,7 @@ app.add_middleware(
 # ====================== 全局异常处理器 ======================
 @app.exception_handler(Exception)
 async def global_exception_handler(request: Request, exc: Exception):
-    logging.error(f"全局异常: {exc}", exc_info=True)
+    logger.error(f"全局异常: {exc}", exc_info=True)
     return JSONResponse(
         status_code=500,
         content={"code": 50000, "res": str(exc)}
@@ -140,16 +138,6 @@ if os.path.exists(asr_dir):
 @app.get("/mz/index", response_class=FileResponse)
 async def root():
     return FileResponse("index.html")
-
-# ====================== 定时任务启动（在 FastAPI 启动时） ======================
-@app.on_event("startup")
-def startup_event():
-    def run_scheduler():
-        logger.info("FastAPI 启动...")
-
-    t = threading.Thread(target=run_scheduler, daemon=True)
-    t.start()
-    logger.info("FastAPI startup 启动")
 
 # ====================== 启动入口 ======================
 if __name__ == "__main__":

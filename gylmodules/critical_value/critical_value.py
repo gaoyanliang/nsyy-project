@@ -5,10 +5,7 @@ import redis
 import json
 import threading
 import requests
-from aiohttp import ClientTimeout
-from ping3 import ping as sync_ping
 from suds.client import Client
-from contextlib import suppress
 
 from datetime import datetime, timedelta
 import time
@@ -19,14 +16,11 @@ from gylmodules import global_config, global_tools
 from gylmodules.critical_value import cv_config
 from gylmodules.critical_value.cv_notice import alert_async
 from gylmodules.utils.db_utils import DbUtil
-import asyncio
-import aiohttp
 
-from gylmodules.utils.event_loop import GlobalEventLoop
 from gylmodules.workstation.message import message_server
 
 pool = redis.ConnectionPool(host=global_config.REDIS_HOST, port=global_config.REDIS_PORT,
-                            db=global_config.REDIS_DB, decode_responses=True)
+                            db=global_config.REDIS_DB, decode_responses=True, protocol=2)
 
 scheduler = BackgroundScheduler()
 cv_id_lock = threading.Lock()
@@ -41,7 +35,7 @@ def call_third_systems_obtain_data(type: str, param: dict):
     while retry_count < max_retries:
         try:
             if global_config.run_in_local:
-                response = requests.post(f"http://192.168.124.53:6080/int_api", timeout=3, json=param)
+                response = requests.post(f"http://192.168.124.8:6080/int_api", timeout=3, json=param)
             else:
                 response = requests.post(f"http://127.0.0.1:6080/int_api", timeout=3, json=param)
             # 检查 HTTP 状态码
@@ -578,7 +572,7 @@ def manual_report_cv(json_data):
         if not pno:
             pno = ''
         pno = pno.replace('U', '').replace('u', '')
-        param = {"type": "his_dept_pers", "pers_no": pno, "comp_id": 12,
+        param = {"type": "his_dept_pers", "his_no": pno, "comp_id": 12,
                  "randstr": "XPFDFZDF7193CIONS1PD7XCJ3AD4ORRC"}
         json_data['alert_dept_id'], json_data['alert_dept_name'], \
             json_data['alertman_name'], json_data['alertman_pers_id'] = \
@@ -751,7 +745,7 @@ def create_cv_by_system(json_data, cv_source):
         if not pno:
             pno = ''
         pno = pno.replace('U', '').replace('u', '')
-        param = {"type": "his_dept_pers", "pers_no": pno, "comp_id": 12,
+        param = {"type": "his_dept_pers", "his_no": pno, "comp_id": 12,
                  "randstr": "XPFDFZDF7193CIONS1PD7XCJ3AD4ORRC"}
         cvd['alert_dept_id'], cvd['alert_dept_name'], cvd['alertman_name'], cvd['alertman_pers_id'] = \
             call_third_systems_obtain_data('get_dept_info_by_emp_num', param)
@@ -788,7 +782,7 @@ def create_cv_by_system(json_data, cv_source):
     cvd['req_docno'] = json_data.get('REQ_DOCNO') if json_data.get('REQ_DOCNO') else '0'
     if str(cvd['req_docno']).isdigit() and str(cvd['req_docno']) != '0':
         _, _, name, _ = call_third_systems_obtain_data('get_dept_info_by_emp_num', {
-            "type": "his_dept_pers", "pers_no": str(cvd['req_docno']), "comp_id": 12,
+            "type": "his_dept_pers", "his_no": str(cvd['req_docno']), "comp_id": 12,
             "randstr": "XPFDFZDF7193CIONS1PD7XCJ3AD4ORRC"})
         cvd['req_docno'] = name if name != 'unkonw' else json_data.get('REQ_DOCNO')
 
@@ -1042,112 +1036,6 @@ def query_process_cv_and_notice(dept_id, ward_id):
                    f'以下危急值未及时处理 <br> [患者-主管医生-住院/门诊号-床号] <br> ' + ' <br> '.join(
                        msgs) + ' <br> <br> <br> 点击 [确认] 跳转至危急值页面')
 
-
-"""推送弹框通知 type = 1 通知护士， type = 2 通知医生"""
-def write_alert_fail_log(fail_ips, fail_log):
-    redis_client = redis.Redis(connection_pool=pool)
-    db = DbUtil(global_config.DB_HOST, global_config.DB_USERNAME, global_config.DB_PASSWORD,
-                global_config.DB_DATABASE_GYL)
-    try:
-        failed_log = []
-        for ip in fail_ips:
-            if redis_client.sismember(cv_config.ALERT_FAIL_IPS_REDIS_KEY, ip):
-                continue
-            failed_log.append({"ip": ip, "time": datetime.now().strftime("%Y-%m-%d %H:%M:%S"), "log": fail_log})
-
-        for log in failed_log:
-            keys = ','.join(log.keys())
-            values = tuple(log.values())
-            # 存在则更新 不存在则插入
-            insert_sql = f'INSERT INTO nsyy_gyl.alert_fail_log ({keys}) VALUE {str(values)} '
-            db.execute(insert_sql, need_commit=True)
-            redis_client.sadd(cv_config.ALERT_FAIL_IPS_REDIS_KEY, ip)
-        del db
-    except Exception:
-        del db
-        pass
-
-
-async def async_ping(ip):
-    loop = asyncio.get_event_loop()
-    try:
-        return await loop.run_in_executor(None, lambda: sync_ping(ip, timeout=1))
-    except Exception:
-        return None
-
-
-async def call_remote_auto_start_script(ip, url, payload):
-    try:
-        timeout = ClientTimeout(total=3)  # 设置总超时时间为3秒
-        async with aiohttp.ClientSession(timeout=timeout) as session:
-            url = str(url).replace('8085', '8091')
-            async with session.post(url, json=payload, timeout=2) as response:
-                response.raise_for_status()
-    except Exception:
-        with suppress(Exception):
-            write_alert_fail_log([ip], "调用自动启动程序失败")
-
-
-async def send_request(ip, url, payload):
-    try:
-        timeout = ClientTimeout(total=3)  # 设置总超时时间为3秒
-        async with aiohttp.ClientSession(timeout=timeout) as session:
-            async with session.post(url, json=payload, timeout=2) as response:
-                response.raise_for_status()
-    except Exception:
-        if payload.get('type') == 'popup':
-            await call_remote_auto_start_script(ip, url, payload)
-
-
-async def alert(dept_id, ward_id, msg):
-    redis_client = redis.Redis(connection_pool=pool)
-    dept_sites = set()
-    if dept_id is not None and dept_id != '' and int(dept_id):
-        dept_sites = redis_client.smembers(cv_config.CV_SITES_REDIS_KEY[2].format(str(dept_id)))
-    ward_sites = set()
-    if ward_id is not None and ward_id != '' and int(ward_id):
-        ward_sites = redis_client.smembers(cv_config.CV_SITES_REDIS_KEY[1].format(str(ward_id)))
-    merged_ips = dept_sites.union(ward_sites)
-    if not merged_ips:
-        return
-
-    ips = [ip.decode() if isinstance(ip, bytes) else ip for ip in merged_ips]
-    ping_tasks = [async_ping(ip) for ip in ips]
-    ping_results = await asyncio.gather(*ping_tasks)
-    reachable_ips = [ip for ip, ok in zip(ips, ping_results) if ok]
-
-    send_tasks = [
-        send_request(ip, f'http://{ip}:8085/opera_wiki', {'type': 'popup', 'wiki_info': msg})
-        for ip in reachable_ips
-    ]
-
-    if send_tasks:
-        await asyncio.gather(*send_tasks, return_exceptions=True)
-
-
-"""同步调用入口"""
-def sync_alert(dept_id, ward_id, msg):
-    loop = GlobalEventLoop().get_loop()
-    future = asyncio.run_coroutine_threadsafe(
-        alert(dept_id, ward_id, msg),
-        loop
-    )
-    try:
-        return future.result(timeout=10)
-    except Exception as e:
-        logger.error(f"Alert failed: {str(e)}")
-
-
-def main_alert(dept_id, ward_id, msg):
-    try:
-        loop = GlobalEventLoop().get_loop()
-        # 非阻塞式提交任务
-        asyncio.run_coroutine_threadsafe(
-            alert(dept_id, ward_id, msg),
-            loop
-        )
-    except Exception as e:
-        logger.error(f"Submit alert task failed: {str(e)}")
 
 
 """

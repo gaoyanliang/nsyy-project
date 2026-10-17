@@ -19,7 +19,7 @@ from gylmodules.composite_appointment.appt_config import \
     APPT_ROOMS_BY_PROJ_KEY
 
 pool = redis.ConnectionPool(host=global_config.REDIS_HOST, port=global_config.REDIS_PORT,
-                            db=global_config.REDIS_DB, decode_responses=True)
+                            db=global_config.REDIS_DB, decode_responses=True, protocol=2)
 
 lock_redis_client = redis.Redis(connection_pool=pool)
 logger = logging.getLogger(__name__)
@@ -123,32 +123,54 @@ def init_cache():
 def call_third_systems_obtain_data(url: str, type: str, param: dict):
     data = []
     max_retries, retry_count, retry_delay = 3, 0, 1
+
+    base_url = "http://192.168.124.8:6080" if global_config.run_in_local else "http://127.0.0.1:6080"
+    full_url = f"{base_url}/{url}"
+
     while retry_count < max_retries:
+        attempt_no = retry_count + 1
         try:
-            if global_config.run_in_local:
-                response = requests.post(f"http://192.168.124.53:6080/{url}", timeout=3, json=param)
-            else:
-                response = requests.post(f"http://127.0.0.1:6080/{url}", timeout=3, json=param)
-            # 检查 HTTP 状态码
+            response = requests.post(full_url, timeout=10, json=param)
+
+            logger.info(
+                f"[三方调用] 收到响应 url={full_url}, "
+                f"第 {attempt_no}/{max_retries} 次尝试, "
+                f"status_code={response.status_code}, "
+                f"elapsed={response.elapsed}, "
+                f"text={response.text}"
+            )
+
             response.raise_for_status()
-            data = response.json()
+
+            raw = response.json()
             if type == 'his_visit_reg':
-                logger.info(f'his 取号返回: {data}, 取号参数： {param}')
-                data = data[2]
-            elif type == 'reg_refund_apply':
-                data = data
+                logger.info(f'his 取号返回: {raw}, 取号参数： {param}')
+
+                # 注意：这里原代码 data = data[2] 会报 KeyError: 2
+                # 因为 raw 是 dict，不是 list
+                data = raw['data'][2]
             else:
-                data = data.get('data')
+                data = raw.get('data')
 
             return data
+
         except Exception as e:
+            logger.exception(
+                f"[三方调用] 请求异常 url={full_url}, type={type}, "
+                f"第 {attempt_no}/{max_retries} 次尝试, "
+                f"异常类型={e.__class__.__name__}, 异常信息={e}, param={param}"
+            )
+
             retry_count += 1
+
             if retry_count < max_retries:
-                sleep_time = retry_delay * (2 ** (retry_count - 1))  # 指数退避
-                logger.warning(f"{url} 第 {retry_count}/{max_retries} 次重试... {sleep_time} 秒后重试")
+                sleep_time = retry_delay * (2 ** (retry_count - 1))
                 time.sleep(sleep_time)
             else:
-                logger.error(f"{url} 已达最大重试次数 {max_retries}。最后错误: {str(e)}\n")
+                logger.error(
+                    f"{url} 已达最大重试次数 {max_retries}。"
+                    f"最后错误: {e.__class__.__name__}: {e}\n"
+                )
                 return []
 
 

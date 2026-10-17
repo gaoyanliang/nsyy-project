@@ -9,7 +9,7 @@ from topsdk.ability2940.request.alibaba_alihealth_drugtrace_top_yljg_query_coded
 
 logger = logging.getLogger(__name__)
 pool = redis.ConnectionPool(host=global_config.REDIS_HOST, port=global_config.REDIS_PORT,
-                            db=global_config.REDIS_DB, decode_responses=True)
+                            db=global_config.REDIS_DB, decode_responses=True, protocol=2)
 
 redis_key = "zhuisuma_redis_key"
 

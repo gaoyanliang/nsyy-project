@@ -8,30 +8,28 @@ import redis
 import requests
 from apscheduler.executors.pool import ThreadPoolExecutor
 from ping3 import ping
-import asyncio
 
 from gylmodules import global_config
 from gylmodules.composite_appointment.ca_server import run_everyday
 from gylmodules.composite_appointment.update_doc_scheduling import do_update, update_today_doc_info
 from gylmodules.critical_value import cv_config
-from gylmodules.critical_value.critical_value import write_cache, \
-    call_third_systems_obtain_data, notiaction_alert_man, alert, query_baogao_sj
+from gylmodules.critical_value.critical_value import call_third_systems_obtain_data, \
+    notiaction_alert_man, query_baogao_sj
 from apscheduler.schedulers.background import BackgroundScheduler
 
 from gylmodules.critical_value.cv_manage import fetch_cv_record
+from gylmodules.critical_value.cv_notice import alert_notice
 from gylmodules.eye_util.eye_util import flush_token, auto_fetch_eye_data
 from gylmodules.parking.parking_server import auto_freeze_car, auto_fetch_data
 from gylmodules.questionnaire.sq_server import fetch_ai_result
 from gylmodules.shift_change.shift_change_server import fetch_doctor_title
 from gylmodules.utils.db_utils import DbUtil
-from gylmodules.utils.event_loop import GlobalEventLoop
 from gylmodules.workstation.mail.mail_server import cache_flags, close_idle_connections
 from gylmodules.workstation.message.message_server import flush_msg_cache, batch_flush_worker
-from datetime import datetime
 
 
 pool = redis.ConnectionPool(host=global_config.REDIS_HOST, port=global_config.REDIS_PORT,
-                            db=global_config.REDIS_DB, decode_responses=True)
+                            db=global_config.REDIS_DB, decode_responses=True, protocol=2)
 
 # 配置调度器，设置执行器，ThreadPoolExecutor 管理线程池并发
 executors = {'default': ThreadPoolExecutor(10), }
@@ -65,7 +63,7 @@ timeout_d = {1: {'check_time': 'time', 'timeout_filed': 'doctor_recv_timeout',
 def handle_timeout_cv():
     # 初始化时间和 Redis 连接
     cur_time = datetime.now()
-    redis_client = redis.Redis(connection_pool=pool)
+    redis_client = redis.Redis(connection_pool=pool, protocol=2)
 
     # 批量获取并处理数据
     values = redis_client.hvals(cv_config.RUNNING_CVS_REDIS_KEY)
@@ -90,14 +88,21 @@ def handle_timeout_cv():
             if state not in state_processors:
                 continue
 
+            if not value.get('dept_id') and not value.get('ward_id'):
+                continue
+
             processor = state_processors[state]
             check_time_str = value.get(processor['check_time'])
             if not check_time_str:
                 continue
 
             check_time = datetime.strptime(check_time_str, "%Y-%m-%d %H:%M:%S")
-            timeout = value.get(processor['timeout_filed'], 600)
-            if (cur_time - check_time).seconds <= timeout:
+            try:
+                timeout = int(value.get(processor['timeout_filed'], 600) or 600)
+            except (TypeError, ValueError):
+                timeout = 600
+            elapsed = (cur_time - check_time).total_seconds()
+            if elapsed <= timeout:
                 continue
 
             # 信息提取优化
@@ -124,7 +129,11 @@ def handle_timeout_cv():
             # 报警信息收集
             if value.get('alertman_pers_id'):
                 msg = f"患者 {patient_info['name']} 的危急值，超时未处理，请通知相关人员处理"
-                alert_messages.append((msg, int(value.get('alertman_pers_id')), value.get('alertman_name')))
+                try:
+                    pers_id = int(value.get('alertman_pers_id') or 0)
+                except (TypeError, ValueError):
+                    pers_id = 0
+                alert_messages.append((msg, pers_id, value.get('alertman_name')))
 
             # 更新超时状态
             if value.get(processor['timeout_flag']) == 0:
@@ -179,26 +188,9 @@ def handle_timeout_cv():
                            f"超时危急值，请及时通知科室处理<br>[患者-主管医生-住院/门诊号-床号]<br>" +
                            "<br>".join(msgs) + "<br><br><br>点击 [确认] 跳转至危急值页面"))
 
-    if alert_list:
-        # 使用全局事件循环处理异步任务
-        loop = GlobalEventLoop().get_loop()
-        future = asyncio.run_coroutine_threadsafe(run_alert(alert_list), loop)
-        try:
-            future.result(timeout=30)  # 设置合理超时
-        except TimeoutError:
-            logger.warning("处理危急值超时")
+    for dept, ward, msg in alert_list:
+        alert_notice(dept, ward, msg)
 
-
-async def run_alert(alert_list):
-    tasks = []
-    for alert_info in alert_list:
-        task = asyncio.create_task(alert(alert_info[0], alert_info[1], alert_info[2]))
-        tasks.append(task)
-    try:
-        # 等待所有任务完成
-        await asyncio.gather(*tasks, return_exceptions=True)
-    except Exception as e:
-        logger.error(f"超时危急值通知异常 task execution: {e}")
 
 
 def regular_update_dept_info():
@@ -231,7 +223,7 @@ def re_alert_fail_ip_log():
     db = DbUtil(global_config.DB_HOST, global_config.DB_USERNAME, global_config.DB_PASSWORD,
                 global_config.DB_DATABASE_GYL)
     # 使用连接池和上下文管理器确保资源正确释放
-    with redis.Redis(connection_pool=pool) as redis_client:
+    with redis.Redis(connection_pool=pool, protocol=2) as redis_client:
         pipe = redis_client.pipeline()
         pipe.delete(cv_config.ALERT_FAIL_IPS_REDIS_KEY)
 

@@ -811,13 +811,18 @@ async def websocket_pharmacy(websocket: WebSocket):
 # =================================================================================================================
 
 pool = redis.ConnectionPool(host=global_config.REDIS_HOST, port=global_config.REDIS_PORT,
-                            db=global_config.REDIS_DB, decode_responses=True)
+                            db=global_config.REDIS_DB, decode_responses=True, protocol=2)
 INDICATOR_TASK_KEY = 'pacs_indicator_task'
 INDICATOR_TASK_RUNNING_KEY = 'pacs_indicator_task_running'
 
 REPORT_TASK_KEY = 'pacs_report_task'
 REPORT_TASK_RUNNING_KEY = 'pacs_report_task_running'
 
+# 18569931434
+# API_KEY = "sk-ws-H.PYMXLIL.qTrS.MEQCIHNAk1ezJ8qKwDSH3UQHSxUIRLcEQpB7FZLaHkzMprnbAiBTnyl1DHbgh0ls5taM50x6BVlD6UbdVJ9CSIaKcNBvEQ"
+# WORKSPACE_ID = "ws-sue4d7sab87tve6b"
+
+# 13027751873
 API_KEY = "sk-1d02e5ab8bc5420aa4c6c7d2ac9464dd"
 WORKSPACE_ID = "ws-nzup4ofn31zrv9f9"
 ASR_WS_URL = (
@@ -840,7 +845,8 @@ async def websocket_transcribe(websocket: WebSocket):
         headers = {"Authorization": f"Bearer {API_KEY}"}
         asr_ws = await websockets.connect(
             ASR_WS_URL,
-            extra_headers=headers,
+            additional_headers=headers,
+            proxy=None,  # 显式禁用代理，避免自动检测
             ping_interval=20,
             ping_timeout=60,
         )
@@ -1264,7 +1270,7 @@ def get_pacs_ai_prompt(check_items):
     }
 
     # 动态 URL
-    query_url = "http://192.168.124.53:6080/chaosheng_bingli" if global_config.run_in_local else "http://127.0.0.1:6080/chaosheng_bingli"
+    query_url = "http://192.168.124.8:6080/chaosheng_bingli" if global_config.run_in_local else "http://127.0.0.1:6080/chaosheng_bingli"
     data = []
     max_retries, retry_count, retry_delay = 3, 0, 1
     while retry_count < max_retries:
@@ -1300,7 +1306,14 @@ def pacs_indicator_data_task():
         logger.info("有正在执行的指标任务")
         return
 
+    if not ai_tool.query_balance():
+        logger.info("ai 余额不足，暂停执行 pacs auto report 任务")
+        return
+
     while True:
+        if not ai_tool.query_balance():
+            logger.info("ai 余额不足，暂停执行 pacs auto report 任务")
+            break
         with DbUtil(global_config.DB_HOST, global_config.DB_USERNAME,
                     global_config.DB_PASSWORD, global_config.DB_DATABASE_GYL) as db:
             records = db.query_all(f"select id, check_items, patient_info from nsyy_gyl.pacs_ai_report "
@@ -1350,21 +1363,22 @@ def pacs_indicator_data_task():
                         is_json_bool = True
 
                 ai_indicator = ai_tool.call_ai_for_patient(text, is_json=is_json_bool)
-                indicator_status = ", indicator_status = 1"
-                try:
-                    if isinstance(ai_indicator, dict):
-                        for item in ai_indicator:
-                            if not item.get('value', ''):
-                                indicator_status = ""
-                                break
-                    ai_indicator = json.dumps(ai_indicator, ensure_ascii=False, default=str)
-                except Exception:
-                    pass
-                logging.info(f"pacs 指标任务 {record.get('id')} - 耗时: {time.time() - start_time}")
-                with DbUtil(global_config.DB_HOST, global_config.DB_USERNAME,
-                            global_config.DB_PASSWORD, global_config.DB_DATABASE_GYL) as db:
-                    db.execute(f""" update nsyy_gyl.pacs_ai_report set indicator_data = %s {indicator_status} where id = %s """,
-                                        (ai_indicator, record.get('id')), need_commit=True)
+                if ai_indicator:
+                    indicator_status = ", indicator_status = 1"
+                    try:
+                        if isinstance(ai_indicator, dict):
+                            for item in ai_indicator:
+                                if not item.get('value', ''):
+                                    indicator_status = ""
+                                    break
+                        ai_indicator = json.dumps(ai_indicator, ensure_ascii=False, default=str)
+                    except Exception:
+                        pass
+                    logging.info(f"pacs 指标任务 {record.get('id')} - 耗时: {time.time() - start_time}")
+                    with DbUtil(global_config.DB_HOST, global_config.DB_USERNAME,
+                                global_config.DB_PASSWORD, global_config.DB_DATABASE_GYL) as db:
+                        db.execute(f""" update nsyy_gyl.pacs_ai_report set indicator_data = %s {indicator_status} where id = %s """,
+                                            (ai_indicator, record.get('id')), need_commit=True)
 
             except Exception as e:
                 logger.error(f"pacs 指标任务 - 异常: {e.__str__()}")
@@ -1513,8 +1527,15 @@ def pacs_auto_report_task():
     if redis_client.exists(REPORT_TASK_RUNNING_KEY):
         logger.info("有正在执行的 pacs auto report 任务")
         return
+    if not ai_tool.query_balance():
+        logger.info("ai 余额不足，暂停执行 pacs auto report 任务")
+        return
 
     while True:
+        if not ai_tool.query_balance():
+            logger.info("ai 余额不足，暂停执行 pacs auto report 任务")
+            break
+
         with DbUtil(global_config.DB_HOST, global_config.DB_USERNAME,
                     global_config.DB_PASSWORD, global_config.DB_DATABASE_GYL) as db:
             records = db.query_all(f"select id, patient_age, patient_sex, check_items, patient_info from nsyy_gyl.pacs_ai_report "
@@ -1582,17 +1603,18 @@ def pacs_auto_report_task():
 
                 start_time = time.time()
                 ai_report = ai_tool.call_ai_for_patient(prompt, is_json=True)
-                try:
-                    if isinstance(ai_report, dict):
-                        ai_report = json.dumps(ai_report, ensure_ascii=False, default=str)
-                except Exception:
-                    pass
-                logging.info(f"pacs auto report 任务 {record.get('id')} - 耗时: {time.time() - start_time}")
+                if ai_report:
+                    try:
+                        if isinstance(ai_report, dict):
+                            ai_report = json.dumps(ai_report, ensure_ascii=False, default=str)
+                    except Exception:
+                        pass
+                    logging.info(f"pacs auto report 任务 {record.get('id')} - 耗时: {time.time() - start_time}")
 
-                with DbUtil(global_config.DB_HOST, global_config.DB_USERNAME,
-                            global_config.DB_PASSWORD, global_config.DB_DATABASE_GYL) as db:
-                    db.execute(""" update nsyy_gyl.pacs_ai_report set ai_report = %s where id = %s """,
-                                        (ai_report, record.get('id')), need_commit=True)
+                    with DbUtil(global_config.DB_HOST, global_config.DB_USERNAME,
+                                global_config.DB_PASSWORD, global_config.DB_DATABASE_GYL) as db:
+                        db.execute(""" update nsyy_gyl.pacs_ai_report set ai_report = %s where id = %s """,
+                                            (ai_report, record.get('id')), need_commit=True)
 
             except Exception as e:
                 logger.error(f"pacs auto report 任务 - 异常: {e.__str__()}")

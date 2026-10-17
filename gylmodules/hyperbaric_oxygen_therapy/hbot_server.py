@@ -11,7 +11,7 @@ from gylmodules.hyperbaric_oxygen_therapy import hbot_config, huizong
 from gylmodules.utils.db_utils_new import DbUtil
 
 pool = redis.ConnectionPool(host=global_config.REDIS_HOST, port=global_config.REDIS_PORT,
-                            db=global_config.REDIS_DB, decode_responses=True)
+                            db=global_config.REDIS_DB, decode_responses=True, protocol=2)
 
 
 """根据住院号和登记时间，查询病人医嘱信息"""
@@ -743,7 +743,7 @@ def hbot_charge(json_data):
         try:
             url = "http://192.168.3.12:6080/his_webservice"
             if global_config.run_in_local:
-                url = "http://192.168.124.53:6080/his_webservice"
+                url = "http://192.168.124.8:6080/his_webservice"
             data = ''
             headers = {"Content-Type": "application/xml; charset=utf-8"}
             with requests.Session() as session:
