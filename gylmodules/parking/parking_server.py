@@ -9,13 +9,54 @@ import redis
 from gylmodules import global_config, global_tools
 from gylmodules.parking import parking_tools, parking_config
 from gylmodules.utils.db_utils_new import DbUtil
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
+from email.utils import parsedate_to_datetime
 
 from gylmodules.workstation.message import message_server
 
 logger = logging.getLogger(__name__)
 pool = redis.ConnectionPool(host=global_config.REDIS_HOST, port=global_config.REDIS_PORT,
                             db=global_config.REDIS_DB, decode_responses=True, protocol=2)
+
+def normalize_datetime(value, fmt='%Y-%m-%d %H:%M:%S'):
+    """
+    将各种来源的时间字符串统一转换为 MySQL 可识别的 datetime 字符串。
+    兼容：
+      - datetime 对象
+      - 'YYYY-MM-DD HH:MM:SS' / 'YYYY-MM-DD HH:MM' / 'YYYY-MM-DD' / 'YYYY-MM-DDTHH:MM:SS'
+      - RFC 2822 / JS toUTCString() 输出，如 'Tue, 21 Oct 2025 17:22:52 GMT'
+      - None / 空字符串 / 'None' / 'null'
+    """
+    if value is None:
+        return None
+    s = str(value).strip()
+    if s == '' or s.lower() in ('none', 'null'):
+        return None
+    if isinstance(value, datetime):
+        return value.strftime(fmt)
+
+    # 常见标准格式
+    for f in ('%Y-%m-%d %H:%M:%S', '%Y-%m-%d %H:%M', '%Y-%m-%d',
+              '%Y-%m-%dT%H:%M:%S', '%Y-%m-%dT%H:%M:%S.%f',
+              '%Y/%m/%d %H:%M:%S', '%Y/%m/%d'):
+        try:
+            return datetime.strptime(s, f).strftime(fmt)
+        except ValueError:
+            continue
+
+    # RFC 2822 / GMT（前端 toUTCString 输出）
+    try:
+        dt = parsedate_to_datetime(s)
+        if dt is None:
+            return None
+        if dt.tzinfo is not None:
+            # 统一转成东八区时间（如果服务器本身是东八区，也可以换成 dt.astimezone()）
+            dt = dt.astimezone(timezone(timedelta(hours=8))).replace(tzinfo=None)
+        return dt.strftime(fmt)
+    except (TypeError, ValueError):
+        pass
+
+    raise ValueError(f"无法识别的时间格式: {value!r}")
 
 """查询预警/停用清单/申请清单"""
 
@@ -79,10 +120,15 @@ def approval_and_enable(json_data, type):
             # 启用车辆
             if car.get('vip_status') != 0:
                 raise Exception("会员车辆未审批, 请先联系总务科审批")
-            update_sql = f"update nsyy_gyl.parking_vip_cars SET vip_status = 1, " \
-                         f"start_date = '{json_data.get('start_date')}', end_date = '{json_data.get('end_date')}', " \
-                         f"pay_amount = {json_data.get('pay_amount')}, pay_time = '{json_data.get('pay_time')}' " \
-                         f"WHERE plate_no = '{car_id}'"
+            start_date = normalize_datetime(json_data.get('start_date'), '%Y-%m-%d')
+            end_date = normalize_datetime(json_data.get('end_date'), '%Y-%m-%d')
+            pay_time = normalize_datetime(json_data.get('pay_time'))  # 关键：兼容 GMT
+            pay_amount = json_data.get('pay_amount') or 0
+            pay_time_sql = f"'{pay_time}'" if pay_time else 'NULL'  # 空值写 NULL
+            update_sql = (f"update nsyy_gyl.parking_vip_cars SET vip_status = 1, "
+                          f"start_date = '{start_date}', end_date = '{end_date}', "
+                          f"pay_amount = {pay_amount}, pay_time = {pay_time_sql} "
+                          f"WHERE plate_no = '{car_id}'")
         elif type == 'refuse':
             # 拒绝车辆
             if car.get('vip_status') != -1:
@@ -434,7 +480,9 @@ def update_vip_car(json_data):
     if json_data.get('pay_amount'):
         update_condition.append(f"pay_amount = {json_data.get('pay_amount')}")
     if json_data.get('pay_time'):
-        update_condition.append(f"pay_time = '{json_data.get('pay_time')}'")
+        pay_time = normalize_datetime(json_data.get('pay_time'))
+        if pay_time:
+            update_condition.append(f"pay_time = '{pay_time}'")
     if json_data.get('driver_license'):
         update_condition.append(f"driver_license = '{json_data.get('driver_license')}'")
     if json_data.get('relationship'):

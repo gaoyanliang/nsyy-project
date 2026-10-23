@@ -37,7 +37,7 @@ def call_third_systems_obtain_data(type: str, param: dict):
             if global_config.run_in_local:
                 response = requests.post(f"http://192.168.124.8:6080/int_api", timeout=3, json=param)
             else:
-                response = requests.post(f"http://127.0.0.1:6080/int_api", timeout=3, json=param)
+                response = requests.post(f"http://127.0.0.1:6080/int_api", timeout=6, json=param)
             # 检查 HTTP 状态码
             response.raise_for_status()
             data = response.text

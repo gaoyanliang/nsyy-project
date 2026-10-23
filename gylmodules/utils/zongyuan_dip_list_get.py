@@ -497,6 +497,7 @@ def query_change_patients():
     and zb.dangqianbqmc not like '%测试%'
     and zb.quxiaorybz=0 and zb.yingerbz=0
     and zb.chuyuanrq>=now() -interval '1 day'
+    -- and zb.zhuyuanysxm = '王永'
     and zb.feiyongxzmc <> '自费'
             union all 
     select zb.bingrenzyid, zb.zhuyuanhao,zb.zhuyuancs ,null 病历名称,null 病历内容,'清单变化患者' as fl 
@@ -508,6 +509,7 @@ def query_change_patients():
         and zb.dangqianbqmc not like '%测试%'
         and zb.quxiaorybz = '0' and zb.yingerbz=0
          and zb.feiyongxzmc <> '自费'
+         -- and zb.zhuyuanysxm = '王永'
         and exists  (
         select 1 from df_yiliaogl.gy_maidianrz gm where
             gm.mokuai = '病案首页'
@@ -523,6 +525,7 @@ def query_change_patients():
     join df_jj_zhuyuan.zy_bingrenxx zb on wb.bingrenzyid =zb.bingrenzyid   and zb.xingming not like '%测试%'
         and zb.dangqianksmc not like '%测试%'
         and zb.dangqianbqmc not like '%测试%'
+        -- and zb.zhuyuanysxm = '王永'
         and zb.quxiaorybz = '0' and zb.yingerbz=0 and zb.chuyuanrq>=now() -interval '1 day'  and zb.feiyongxzmc <> '自费'
     join df_yiliaogl.gy_maidianrz gm on wb.binglijlid =gm.shujulyid and mokuai='病历文书' and gm.chuangjiansj>=now() - interval '1 day' and gm.xingwei = '保存'
     join df_bingli.ws_binglijlnr wb2 on wb.binglijlid =wb2.binglijlid 

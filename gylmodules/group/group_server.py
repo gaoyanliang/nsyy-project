@@ -8,7 +8,7 @@ import redis
 
 from gylmodules import global_config
 from gylmodules.group import group_config
-from gylmodules.utils.db_utils import DbUtil
+from gylmodules.utils.db_utils_new import DbUtil
 from gylmodules.workstation import ws_config
 from gylmodules.workstation.mail import mail_server
 from gylmodules.workstation.message.message_server import send_notification_message, send_message

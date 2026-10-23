@@ -267,7 +267,11 @@ def call_ai_for_patient(patient_list, p_muluku):
                 """
 
     # 每个线程独立的OpenAI客户端（线程安全）
-    client = OpenAI(api_key=API_KEY, base_url=BASE_URL)
+    # client = OpenAI(api_key=API_KEY, base_url=BASE_URL)
+    client = OpenAI(api_key=API_KEY, base_url=BASE_URL,
+        timeout=180,  # 单次请求 180s 上限，避免卡 600s 默认值
+        max_retries=3,  # SDK 内置重试，能处理部分 SSL / 连接错误
+    )
 
     ai_data = []
     batches = split_into_batches(patient_list)
@@ -357,16 +361,53 @@ def call_ai_for_patient(patient_list, p_muluku):
 """查询余额"""
 
 
+# def query_balance():
+#     headers = {'Accept': 'application/json', 'Authorization': f'Bearer {API_KEY}'}
+#     response = requests.request("GET", "https://api.deepseek.com/user/balance", headers=headers, data={})
+#     logger.info(f"查询余额结果：{response.text}")
+#     if response:
+#         response = response.json()
+#         if Decimal(response['balance_infos'][0]['total_balance']) < Decimal('1'):
+#             return False
+#         return True
+#     return False
+
 def query_balance():
+    """
+    查询余额。
+    任何网络/解析异常都按"有余额"处理，绝不阻断主流程。
+    连续失败 3 次才认定为余额不足（保守策略）。
+    """
     headers = {'Accept': 'application/json', 'Authorization': f'Bearer {API_KEY}'}
-    response = requests.request("GET", "https://api.deepseek.com/user/balance", headers=headers, data={})
-    logger.info(f"查询余额结果：{response.text}")
-    if response:
-        response = response.json()
-        if Decimal(response['balance_infos'][0]['total_balance']) < Decimal('1'):
-            return False
-        return True
-    return False
+    last_exc = None
+    for attempt in range(3):
+        try:
+            response = requests.get("https://api.deepseek.com/user/balance", headers=headers,
+                timeout=10,                      # ← 必须加，否则会永久 hang
+            )
+            logger.info(f"查询余额结果：{response.text[:200]}")
+            data = response.json()
+            balance = Decimal(str(data['balance_infos'][0]['total_balance']))
+            logger.info(f"当前余额: {balance}")
+            return balance >= Decimal('1')
+
+        except (requests.exceptions.SSLError,
+                requests.exceptions.ConnectionError,
+                requests.exceptions.Timeout) as e:
+            last_exc = e
+            wait = 2 * (attempt + 1)
+            logger.warning(f"余额查询网络异常(第 {attempt+1}/3 次)，{wait}s 后重试: {e}")
+            time.sleep(wait)
+
+        except Exception as e:
+            # 解析异常 / 接口结构变化，不阻断，按有余额处理
+            logger.warning(f"余额查询未知异常，按有余额继续: {e}")
+            return True
+
+    logger.warning(f"余额查询连续 3 次失败，按有余额继续处理。最后一次错误: {last_exc}")
+    return True
+
+
 
 
 def extract_json_from_response(response_text: str):
@@ -862,14 +903,24 @@ if __name__ == "__main__":
 
         logger.info(f"共有 {len(patient_list)} 条数据需要处理， 其中共有 {len(patients.keys())} 个科室")
         for dept_name, pats in patients.items():
-            if not query_balance():
-                logger.info("deepseek 没有余额 该充值了")
-                break
+            # 余额查询永远不应该阻断整体流程
+            try:
+                has_balance = query_balance()
+            except BaseException as e:
+                logger.error(f"余额检查异常，跳过检查继续: {e}", exc_info=True)
+                has_balance = True
+
+            if not has_balance:
+                logger.warning(f"deepseek 余额不足，跳过科室 {dept_name}（可充值后重跑）")
+                continue  # ← 不要 break，保留后续科室
+
+            logger.info(f"===== 开始处理科室 {dept_name}, 患者数 {len(pats)} =====")
             try:
                 process_all_patients(pats)
-                logger.info(f"{dept_name} 所有患者 DIP 数据处理结束")
-            except Exception as e:
-                logger.error(f"{dept_name} 处理失败: {e}")
+                logger.info(f"===== 科室 {dept_name} 处理结束 =====")
+            except BaseException as e:
+                logger.error(f"科室 {dept_name} 处理失败", exc_info=True)
+                continue
 
 
 

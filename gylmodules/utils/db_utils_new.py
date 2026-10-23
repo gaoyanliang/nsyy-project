@@ -1,30 +1,70 @@
+# gylmodules/utils/db_utils_new.py
 import logging
+import random
+import threading
 import time
 from contextlib import contextmanager
 
 import pymysql
 from pymysql.constants import CLIENT
 from pymysql.cursors import DictCursor
+from pymysql.err import InterfaceError, OperationalError
 
 from gylmodules import global_config
 
 logger = logging.getLogger(__name__)
 
+# 只对这些错误码重试：连接类 + 死锁 + 锁等待
+_RETRYABLE_ERRNOS = frozenset({
+    2003,  # Can't connect to MySQL server
+    2006,  # MySQL server has gone away
+    2013,  # Lost connection to MySQL server during query
+    2055,  # Lost connection to MySQL server
+    1040,  # Too many connections
+    1205,  # Lock wait timeout exceeded
+    1213,  # Deadlock found
+})
+
+
+class DbError(Exception):
+    """数据库异常基类"""
+    pass
+
+
+class DbConnectionError(DbError):
+    """连接类错误（可重试）"""
+    pass
+
 
 class DbUtil:
-    """数据库工具类（每个实例独立连接，支持上下文管理器，保证资源安全释放）"""
+    """
+    生产级 MySQL 工具类。
 
-    def __init__(self, host: str, user: str, password: str, database: str, port: int = 3306,
-                 connect_timeout: int = 5, read_timeout: int = 30, write_timeout: int = 30,
-                 max_retries: int = 2, retry_delay: float = 0.5, max_idle_time: int = 300,     # 最大空闲时间（秒）
-             max_lifetime: int = 1800):
-        """
-        :param connect_timeout: 连接超时（秒）
-        :param read_timeout: 读超时（秒）
-        :param write_timeout: 写超时（秒）
-        :param max_retries: 执行失败最大重试次数
-        :param retry_delay: 重试间隔（秒）
-        """
+    设计约定：
+    - 每个实例对应一个独立连接，实例内部**不是线程安全**的；
+      多线程场景请每个线程一个实例（用 ThreadLocalDbPool）或
+      用连接池版本。
+    - 上下文管理器 `with DbUtil(...) as db:` 自动关闭。
+    - `execute` / `query_*` 均支持 `args` 参数化，务必使用参数化防注入。
+    """
+
+    def __init__(
+        self,
+        host: str,
+        user: str,
+        password: str,
+        database: str,
+        port: int = 3306,
+        connect_timeout: int = 5,
+        read_timeout: int = 30,
+        write_timeout: int = 30,
+        max_retries: int = 2,
+        retry_delay: float = 0.5,
+        connect_retries: int = 3,
+        max_idle_time: int = 300,     # 空闲超过则主动重连（秒），0 表示不检查
+        max_lifetime: int = 1800,     # 连接寿命上限（秒），0 表示不检查
+        slow_query_threshold: float = 2.0,
+    ):
         self.host = host
         self.port = port
         self.user = user
@@ -35,231 +75,374 @@ class DbUtil:
         self.write_timeout = write_timeout
         self.max_retries = max_retries
         self.retry_delay = retry_delay
+        self.connect_retries = connect_retries
         self.max_idle_time = max_idle_time
         self.max_lifetime = max_lifetime
+        self.slow_query_threshold = slow_query_threshold
 
         self._conn = None
         self._cursor = None
-        # self._connect()  # 构造时立即连接
+        self._created_at = 0.0     # 连接创建时间（monotonic）
+        self._last_used = 0.0      # 最后一次使用时间
+        self._in_tx = False        # 事务标志
+
+    # ============================================================
+    #  连接管理
+    # ============================================================
 
     def _connect(self):
-        """建立数据库连接（内部使用）"""
-        try:
-            self._conn = pymysql.connect(
-                host=self.host,
-                port=self.port,
-                user=self.user,
-                password=self.password,
-                database=self.database,
-                connect_timeout=self.connect_timeout,
-                read_timeout=self.read_timeout,
-                write_timeout=self.write_timeout,
-                cursorclass=DictCursor,
-                autocommit=False,
-                client_flag=CLIENT.MULTI_STATEMENTS
-            )
-            self._cursor = self._conn.cursor()
-            logger.debug(f"数据库连接成功: {self.host}:{self.port}/{self.database}")
-        except Exception as e:
-            logger.error(f"数据库连接失败: {self.host}:{self.port}/{self.database}, 错误: {e}")
-            raise
-
-    def _ensure_connection(self):
-        """确保连接有效，无效则重连"""
-        try:
-            """真正需要时才连接"""
-            if self._conn is None or not self._conn.open:
-                self._connect()
+        """建立连接，带独立重试与指数退避"""
+        last_err = None
+        for attempt in range(self.connect_retries):
+            try:
+                self._conn = pymysql.connect(
+                    host=self.host,
+                    port=self.port,
+                    user=self.user,
+                    password=self.password,
+                    database=self.database,
+                    connect_timeout=self.connect_timeout,
+                    read_timeout=self.read_timeout,
+                    write_timeout=self.write_timeout,
+                    cursorclass=DictCursor,
+                    autocommit=False,
+                    client_flag=CLIENT.MULTI_STATEMENTS,
+                )
+                self._cursor = self._conn.cursor()
+                now = time.monotonic()
+                self._created_at = now
+                self._last_used = now
+                logger.debug(
+                    "数据库连接成功: %s:%s/%s", self.host, self.port, self.database
+                )
                 return
-            # ping 检查连接是否存活，reconnect=True 会在断开时自动重连
-            # self._conn.ping(reconnect=True)
-        except Exception as e:
-            logger.warning(f"数据库连接已断开，尝试重连: {e}")
-            self._close_resources()
-            self._connect()
+            except Exception as e:
+                last_err = e
+                # 只有连接类错误才值得重试
+                if not self._is_retryable(e):
+                    break
+                if attempt < self.connect_retries - 1:
+                    sleep = self.retry_delay * (2 ** attempt) + random.uniform(0, 0.1)
+                    logger.warning(
+                        "数据库连接失败 (尝试 %d/%d)，%.2fs 后重试: %s",
+                        attempt + 1, self.connect_retries, sleep, e,
+                    )
+                    time.sleep(sleep)
+
+        logger.error(
+            "数据库连接最终失败: %s:%s/%s, 错误: %s",
+            self.host, self.port, self.database, last_err,
+        )
+        raise DbConnectionError(str(last_err)) from last_err
 
     def _close_resources(self):
-        """关闭游标和连接（不抛出异常）"""
-        if self._cursor:
+        """幂等关闭连接与游标，不抛异常"""
+        if self._cursor is not None:
             try:
                 self._cursor.close()
             except Exception:
                 pass
             self._cursor = None
-        if self._conn:
+
+        if self._conn is not None:
             try:
                 self._conn.close()
             except Exception:
                 pass
             self._conn = None
 
-    def close(self):
-        """手动关闭连接（推荐使用上下文管理器，无需手动调用）"""
-        self._close_resources()
+        self._in_tx = False
+        self._created_at = 0.0
+        self._last_used = 0.0
+
+    def _ensure_connection(self):
+        """
+        确保连接可用。检测顺序：
+        1. 从未连接 / 已关闭 → 新建
+        2. 空闲超时 → 主动丢弃重建
+        3. 寿命超时 → 主动丢弃重建
+        4. ping 服务端 → 失败则重建
+        """
+        now = time.monotonic()
+
+        # 从未连接 或 已被关闭
+        if self._conn is None or not getattr(self._conn, "open", False):
+            self._close_resources()
+            self._connect()
+            return
+
+        # 空闲超时
+        if (
+            self.max_idle_time > 0
+            and self._last_used > 0
+            and now - self._last_used > self.max_idle_time
+        ):
+            logger.debug(
+                "连接空闲超过 %ss，主动重连", self.max_idle_time
+            )
+            self._close_resources()
+            self._connect()
+            return
+
+        # 寿命超时
+        if (
+            self.max_lifetime > 0
+            and self._created_at > 0
+            and now - self._created_at > self.max_lifetime
+        ):
+            logger.debug(
+                "连接超过最大生命周期 %ss，主动重连", self.max_lifetime
+            )
+            self._close_resources()
+            self._connect()
+            return
+
+        # 服务端活性检测（不自动重连，我们自己管理重连逻辑）
+        try:
+            self._conn.ping(reconnect=False)
+        except Exception:
+            logger.debug("连接 ping 失败，主动重连")
+            self._close_resources()
+            self._connect()
+
+    def _is_retryable(self, e: BaseException) -> bool:
+        """只有连接类错误 / 死锁 才重试"""
+        if isinstance(e, InterfaceError):
+            return True
+        if isinstance(e, OperationalError):
+            return bool(e.args) and e.args[0] in _RETRYABLE_ERRNOS
+        return False
+
+    # ============================================================
+    #  上下文管理器
+    # ============================================================
 
     def __enter__(self):
-        """上下文管理器入口"""
         self._ensure_connection()
         return self
 
     def __exit__(self, exc_type, exc_val, exc_tb):
-        """上下文管理器退出时自动关闭连接"""
-        self.close()
+        # 事务上下文中发生异常 → 回滚
+        if exc_type is not None and self._conn is not None and self._in_tx:
+            try:
+                self._conn.rollback()
+            except Exception:
+                pass
+        self._close_resources()
+
+    def close(self):
+        self._close_resources()
 
     def __del__(self):
-        """析构函数，确保资源释放（作为后备，不保证立即执行）"""
-        self.close()
+        # 解释器关闭时属性可能已清理，必须 try/except
+        try:
+            self._close_resources()
+        except Exception:
+            pass
+
+    # ============================================================
+    #  写操作
+    # ============================================================
+
+    def execute(self, sql, args=None, need_commit=False, print_log=True):
+        """单条 SQL（INSERT/UPDATE/DELETE）。返回 lastrowid，失败返回 -1。"""
+        return self._execute_with_retry(
+            sql, args, need_commit, is_many=False, print_log=print_log
+        )
+
+    def execute_many(self, sql, args=None, need_commit=False, print_log=True):
+        """批量执行。args 必须是 list[tuple]。"""
+        return self._execute_with_retry(
+            sql, args, need_commit, is_many=True, print_log=print_log
+        )
 
     def _execute_with_retry(self, sql, args, need_commit, is_many, print_log):
-        """
-        执行SQL（带重试机制）
-        :return: lastrowid 或 -1
-        """
-        last_error = None
         for attempt in range(self.max_retries + 1):
             try:
                 self._ensure_connection()
-                start_time = time.time()
+                start = time.monotonic()
+
                 if is_many:
                     self._cursor.executemany(sql, args)
+                elif args is None:
+                    self._cursor.execute(sql)
                 else:
                     self._cursor.execute(sql, args)
+
                 last_rowid = self._cursor.lastrowid
-                if need_commit:
+
+                # 只有在非事务上下文中才自动提交
+                if need_commit and not self._in_tx:
                     self._conn.commit()
-                # 慢查询记录（超过2秒）
-                elapsed = time.time() - start_time
-                if elapsed > 2.0:
-                    logger.warning(f"慢查询 ({elapsed:.2f}s): {sql[:200]}")
+
+                self._last_used = time.monotonic()
+                elapsed = self._last_used - start
+                if elapsed > self.slow_query_threshold:
+                    logger.warning("慢查询 (%.2fs): %s", elapsed, sql[:200])
                 return last_rowid
+
             except Exception as e:
-                last_error = e
-                if print_log:
-                    logger.warning(f"SQL执行失败 (尝试 {attempt + 1}/{self.max_retries + 1}): {e}")
-                else:
-                    logger.debug(f"SQL执行失败: {e}")
-                if attempt < self.max_retries:
-                    time.sleep(self.retry_delay)
-                    self._close_resources()  # 关闭旧连接，下次重连
-                else:
-                    # 最后一次失败，回滚
-                    if need_commit and self._conn:
+                retryable = self._is_retryable(e)
+
+                # 非连接类错误：立刻放弃，回滚
+                if not retryable:
+                    if need_commit and self._conn and not self._in_tx:
                         try:
                             self._conn.rollback()
                         except Exception:
                             pass
-                    logger.error(f"SQL执行最终失败: {sql[:200]}, 错误: {e}")
+                    if print_log:
+                        logger.error("SQL执行失败（不可重试）: %s, SQL: %s", e, sql[:200])
+                    else:
+                        logger.debug("SQL执行失败: %s", e)
+                    return -1
+
+                # 连接类错误：可重试
+                if attempt < self.max_retries:
+                    sleep = self.retry_delay * (2 ** attempt) + random.uniform(0, 0.1)
+                    if print_log:
+                        logger.warning(
+                            "SQL执行失败 (可重试 %d/%d)，%.2fs 后重试: %s",
+                            attempt + 1, self.max_retries + 1, sleep, e,
+                        )
+                    self._close_resources()
+                    time.sleep(sleep)
+                    continue
+
+                # 重试耗尽
+                if need_commit and self._conn and not self._in_tx:
+                    try:
+                        self._conn.rollback()
+                    except Exception:
+                        pass
+                logger.error(
+                    "SQL执行最终失败 (重试 %d 次后放弃): %s, SQL: %s",
+                    self.max_retries, e, sql[:200],
+                )
+                return -1
+
         return -1
 
-    def execute(self, sql, args=None, need_commit=False, print_log=True):
-        """
-        执行单条SQL（INSERT/UPDATE/DELETE）
-        :return: lastrowid 或 -1
-        """
-        return self._execute_with_retry(sql, args, need_commit, is_many=False, print_log=print_log)
+    # ============================================================
+    #  读操作
+    # ============================================================
 
-    def execute_many(self, sql, args=None, need_commit=False, print_log=True):
-        """
-        批量执行SQL
-        :return: lastrowid 或 -1
-        """
-        return self._execute_with_retry(sql, args, need_commit, is_many=True, print_log=print_log)
+    def query_one(self, sql, args=None, print_log=True):
+        """查询单条，返回 dict 或 None。"""
+        return self._query_with_retry(sql, args, fetch_one=True, print_log=print_log)
 
-    def query_one(self, sql, print_log=True):
-        """
-        查询单条数据，返回字典或 None
-        """
-        try:
-            self._ensure_connection()
-            start_time = time.time()
-            self._cursor.execute(sql)
-            result = self._cursor.fetchone()
-            elapsed = time.time() - start_time
-            if elapsed > 2.0:
-                logger.warning(f"慢查询 ({elapsed:.2f}s): {sql[:200]}")
-            return result
-        except Exception as e:
-            if print_log:
-                logger.warning(f"查询单条失败: {e}, SQL: {sql[:200]}")
-            else:
-                logger.debug(f"查询单条失败: {e}")
-            return None
+    def query_all(self, sql, args=None, print_log=True):
+        """查询多条，返回 tuple[dict]。"""
+        return self._query_with_retry(sql, args, fetch_one=False, print_log=print_log)
 
-    def query_all(self, sql, print_log=True):
-        """
-        查询多条数据，返回列表
-        """
-        try:
-            self._ensure_connection()
-            start_time = time.time()
-            self._cursor.execute(sql)
-            result = self._cursor.fetchall()
-            elapsed = time.time() - start_time
-            if elapsed > 2.0:
-                logger.warning(f"慢查询 ({elapsed:.2f}s): {sql[:200]}")
-            return result
-        except Exception as e:
-            if print_log:
-                logger.warning(f"查询多条失败: {e}, SQL: {sql[:200]}")
-            else:
-                logger.debug(f"查询多条失败: {e}")
-            return ()
+    def _query_with_retry(self, sql, args, fetch_one, print_log):
+        for attempt in range(self.max_retries + 1):
+            try:
+                self._ensure_connection()
+                start = time.monotonic()
+
+                if args is None:
+                    self._cursor.execute(sql)
+                else:
+                    self._cursor.execute(sql, args)
+
+                result = self._cursor.fetchone() if fetch_one else self._cursor.fetchall()
+
+                self._last_used = time.monotonic()
+                elapsed = self._last_used - start
+                if elapsed > self.slow_query_threshold:
+                    logger.warning("慢查询 (%.2fs): %s", elapsed, sql[:200])
+                return result
+
+            except Exception as e:
+                retryable = self._is_retryable(e)
+
+                if not retryable:
+                    if print_log:
+                        logger.warning("查询失败（不可重试）: %s, SQL: %s", e, sql[:200])
+                    else:
+                        logger.debug("查询失败: %s", e)
+                    return None if fetch_one else ()
+
+                if attempt < self.max_retries:
+                    sleep = self.retry_delay * (2 ** attempt)
+                    if print_log:
+                        logger.warning(
+                            "查询失败 (可重试 %d/%d)，%.2fs 后重试: %s",
+                            attempt + 1, self.max_retries + 1, sleep, e,
+                        )
+                    self._close_resources()
+                    time.sleep(sleep)
+                    continue
+
+                logger.error("查询最终失败: %s, SQL: %s", e, sql[:200])
+                return None if fetch_one else ()
+
+        return None if fetch_one else ()
+
+    # ============================================================
+    #  事务
+    # ============================================================
 
     @contextmanager
     def transaction(self):
         """
-        事务上下文管理器，自动提交或回滚
+        事务上下文。内部的 execute/query 不会自动 commit，
+        由 with 块结束时统一 commit / 异常时 rollback。
+
         用法：
             with db.transaction():
-                db.execute(...)
-                db.execute(...)
+                db.execute(sql1, args1, need_commit=True)
+                db.execute(sql2, args2, need_commit=True)
         """
         self._ensure_connection()
+        self._in_tx = True
         try:
-            yield
+            yield self
             self._conn.commit()
         except Exception:
-            self._conn.rollback()
+            try:
+                self._conn.rollback()
+            except Exception:
+                pass
             raise
+        finally:
+            self._in_tx = False
 
 
-# 可选：线程本地连接池（每个线程一个独立连接，减少重复创建开销）
-import threading
-
+# ============================================================
+#  线程本地连接池（单线程内复用）
+# ============================================================
 
 class ThreadLocalDbPool:
     """
-    线程本地数据库连接池
-    每个线程拥有自己独立的 DbUtil 实例，线程之间不共享，无需加锁。
-    用法：
-        pool = ThreadLocalDbPool(global_config.DB_HOST, ...)
-        db = pool.get_connection()  # 每个线程第一次调用时创建新实例，之后复用
-        # 使用完毕后不需要 close，线程结束时会自动清理（需手动调用 close_all 或依赖线程局部变量回收）
+    每个线程一个 DbUtil，避免跨线程共享连接。
+    适合：Flask 多线程 + 每个请求自己 close 的旧代码改造。
     """
 
-    def __init__(self, host: str, user: str, password: str, database: str, port: int = 3306, **kwargs):
-        self.config = {
-            'host': host,
-            'user': user,
-            'password': password,
-            'database': database,
-            'port': port,
-            **kwargs
+    def __init__(self, host, user, password, database, port=3306, **kwargs):
+        self._config = {
+            "host": host,
+            "user": user,
+            "password": password,
+            "database": database,
+            "port": port,
+            **kwargs,
         }
         self._local = threading.local()
 
     def get_connection(self) -> DbUtil:
-        """获取当前线程的 DbUtil 实例（自动创建并缓存）"""
-        if not hasattr(self._local, 'db'):
-            self._local.db = DbUtil(**self.config)
-        return self._local.db
+        db = getattr(self._local, "db", None)
+        if db is None:
+            db = DbUtil(**self._config)
+            self._local.db = db
+        return db
 
-    def close_all(self):
-        """关闭当前线程的连接（线程结束时调用，或者定期调用）"""
-        if hasattr(self._local, 'db'):
-            self._local.db.close()
-            delattr(self._local, 'db')
-
+    def close(self):
+        db = getattr(self._local, "db", None)
+        if db is not None:
+            db.close()
+            self._local.db = None
 
 if __name__ == "__main__":
     # 使用示例1：上下文管理器（推荐，自动释放）

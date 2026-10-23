@@ -596,6 +596,18 @@ def ls_to_search(search_list, action=1, setl=0):
 
 """查询科室已完成dip分析的患者清单"""
 def completed_dip_patients(jdata):
+    jdata = jdata or {}
+
+    # ---- 1. 统一取参 + 校验 ----
+    dept_name = jdata.get('dept_name')
+    start_d = jdata.get('start_d')
+    end_d = jdata.get('end_d')
+    comp_name = jdata.get('comp_name') or "南阳南石医院"
+
+    dept_sql = ""
+    if dept_name:
+        dept_sql = f' and 出院科室 {ls_to_search(dept_name)}'
+
     needl = ['医保结算流水号', '年龄', '性别', '住院号', '住院次数', '总费用', '出院科室', '住院医师', '入院时间',
              '出院时间']
     needl = ['姓名', 'AI方案分析'] + needl
@@ -605,19 +617,19 @@ def completed_dip_patients(jdata):
     needl += ['诊断', '病案诊断', '患者费别', '手术', '医嘱', '出院记录', '手术记录']  # , '入院记录'
 
     rs = " and AI方案1DIP代码 is not null order by 出院时间 desc "
-    sql = f"select {ld_to_searchcol(needl)} from nsyy_gyl.dip_patient where 出院科室 {ls_to_search(jdata['dept_name'])} and " \
-          f"出院时间 between '{jdata['start_d']} 00:00:00' and '{jdata['end_d']} 23:59:59' and 来源='{jdata.get('comp_name', '南阳南石医院')}' {rs}"
+    sql = f"select {ld_to_searchcol(needl)} from nsyy_gyl.dip_patient where " \
+          f"出院时间 between '{start_d} 00:00:00' and '{end_d} 23:59:59' and 来源='{comp_name}' {dept_sql} {rs}"
 
-    count_sql = f"select count(*) from nsyy_gyl.dip_patient where 出院科室 {ls_to_search(jdata['dept_name'])} and " \
-          f"出院时间 between '{jdata['start_d']} 00:00:00' and '{jdata['end_d']} 23:59:59' and 来源='{jdata.get('comp_name', '南阳南石医院')}' {rs}"
+    count_sql = f"select count(*) from nsyy_gyl.dip_patient where " \
+          f"出院时间 between '{start_d} 00:00:00' and '{end_d} 23:59:59' and 来源='{comp_name}' {dept_sql} {rs}"
 
     if 'page_no' in jdata and 'no_on_page' in jdata:
         sql = sql + f" limit {jdata['no_on_page']} offset {(jdata['page_no'] - 1) * jdata['no_on_page']}"
 
     total = 0
-    with DbUtil("192.168.3.12", "gyl", "123456", "nsyy_gyl") as db:
-    # with DbUtil(global_config.DB_HOST, global_config.DB_USERNAME,
-    #             global_config.DB_PASSWORD, global_config.DB_DATABASE_GYL) as db:
+    # with DbUtil("192.168.3.12", "gyl", "123456", "nsyy_gyl") as db:
+    with DbUtil(global_config.DB_HOST, global_config.DB_USERNAME,
+                global_config.DB_PASSWORD, global_config.DB_DATABASE_GYL) as db:
 
         # 分页查询数据
         patient_list = db.query_all(sql)

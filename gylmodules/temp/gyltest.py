@@ -2735,8 +2735,8 @@ query_balance()
 
 
 #  2026-10-16 10:11:03.974197 查询余额结果：{"is_available":true,"balance_infos":[{"currency":"CNY","total_balance":"457.25","granted_balance":"401.71","topped_up_balance":"55.53"}]}
-#  2026-10-16 10:18:13.014760 查询余额结果：{"is_available":true,"balance_infos":[{"currency":"CNY","total_balance":"456.63","granted_balance":"401.10","topped_up_balance":"55.53"}]}
-#  2026-10-16 14:46:37.659281 查询余额结果：{"is_available":true,"balance_infos":[{"currency":"CNY","total_balance":"454.89","granted_balance":"399.36","topped_up_balance":"55.53"}]}
-
-
+# 2026-10-19 15:00:52.868312 查询余额结果：{"is_available":true,"balance_infos":[{"currency":"CNY","total_balance":"435.87","granted_balance":"380.33","topped_up_balance":"55.53"}]}
+#  2026-10-20 17:02:25.223044 查询余额结果：{"is_available":true,"balance_infos":[{"currency":"CNY","total_balance":"419.93","granted_balance":"364.39","topped_up_balance":"55.53"}]}
+#  2026-10-21 08:17:22.004091 查询余额结果：{"is_available":true,"balance_infos":[{"currency":"CNY","total_balance":"417.90","granted_balance":"362.37","topped_up_balance":"55.53"}]}
+#  2026-10-21 14:24:12.607775 查询余额结果：{"is_available":true,"balance_infos":[{"currency":"CNY","total_balance":"410.14","granted_balance":"354.60","topped_up_balance":"55.53"}]}
 
