@@ -1769,7 +1769,9 @@ def timed_shift_change():
 
     redis_client = redis.Redis(connection_pool=pool)
     # 尝试设置键，只有当键不存在时才设置成功.  ex=600 表示过期时间 120 秒（2 分钟），nx=True 表示不存在时才设置
-    redis_client.set(f"timed_shift_change", 1, ex=180, nx=True)
+    if not redis_client.set("timed_shift_change", 1, ex=180, nx=True):
+        logger.warning("已有交接班任务在执行，本次跳过")
+        return
 
     shift_groups = []
     try:
