@@ -18,7 +18,7 @@ from gylmodules.critical_value.critical_value import call_third_systems_obtain_d
 from apscheduler.schedulers.background import BackgroundScheduler
 
 from gylmodules.critical_value.cv_manage import fetch_cv_record
-from gylmodules.critical_value.cv_notice import alert_notice
+from gylmodules.critical_value.cv_notice import alert_async
 from gylmodules.eye_util.eye_util import flush_token, auto_fetch_eye_data
 from gylmodules.parking.parking_server import auto_freeze_car, auto_fetch_data
 from gylmodules.questionnaire.sq_server import fetch_ai_result
@@ -189,7 +189,7 @@ def handle_timeout_cv():
                            "<br>".join(msgs) + "<br><br><br>点击 [确认] 跳转至危急值页面"))
 
     for dept, ward, msg in alert_list:
-        alert_notice(dept, ward, msg)
+        alert_async(dept, ward, msg)
 
 
 

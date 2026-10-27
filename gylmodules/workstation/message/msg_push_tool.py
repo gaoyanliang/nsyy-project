@@ -16,7 +16,7 @@ from datetime import datetime
 
 from gylmodules import global_config
 from gylmodules.global_tools import timed_lru_cache
-from gylmodules.utils.db_utils import DbUtil
+from gylmodules.utils.db_utils_new import DbUtil
 from gylmodules.workstation.message.ios_push import send_apns_batch
 
 # Android manufacturer
@@ -435,11 +435,10 @@ def push_msg_to_devices(pers_ids, title, body, is_ringtone: bool=False):
 
     start_time = time.time()
 
-    db = DbUtil(global_config.DB_HOST, global_config.DB_USERNAME, global_config.DB_PASSWORD,
-                global_config.DB_DATABASE_GYL)
-    device_tokens = db.query_all(f"select * from nsyy_gyl.app_token_info where pers_id "
-                                 f"in ({','.join([f'{item}' for item in pers_ids])}) and device_token IS NOT NULL and online = 1 ")
-    del db
+    with DbUtil(global_config.DB_HOST, global_config.DB_USERNAME, global_config.DB_PASSWORD,
+                global_config.DB_DATABASE_GYL) as db:
+        device_tokens = db.query_all(f"select * from nsyy_gyl.app_token_info where pers_id "
+                                     f"in ({','.join([f'{item}' for item in pers_ids])}) and device_token IS NOT NULL and online = 1 ")
     if not device_tokens:
         logger.debug(f"No devices found for pers_id: {pers_ids}")
         return []

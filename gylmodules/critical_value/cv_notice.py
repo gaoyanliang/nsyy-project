@@ -19,7 +19,7 @@ _ALERT_EXECUTOR = concurrent.futures.ThreadPoolExecutor(max_workers=32,thread_na
 
 _PING_TIMEOUT = 1        # 秒
 _HTTP_TIMEOUT = 3        # 秒
-_ALERT_TOTAL_WAIT = 8    # 同步等待所有站点通知完成的总超时
+_ALERT_TOTAL_WAIT = 10    # 同步等待所有站点通知完成的总超时
 
 
 
@@ -76,7 +76,7 @@ def write_alert_fail_log(fail_ips, fail_log):
                 # 存在则更新 不存在则插入
                 insert_sql = f'INSERT INTO nsyy_gyl.alert_fail_log ({keys}) VALUE {str(values)} '
                 db.execute(insert_sql, need_commit=True)
-                redis_client.sadd(cv_config.ALERT_FAIL_IPS_REDIS_KEY, ip)
+                redis_client.sadd(cv_config.ALERT_FAIL_IPS_REDIS_KEY, log["ip"])
     except Exception:
         pass
 
@@ -104,16 +104,16 @@ def alert_notice(dept_id, ward_id, msg: str) -> None:
     可以在任何线程里直接调用，不需要事件循环。
     """
     try:
-        redis_client = redis.Redis(connection_pool=pool)
-        sites = set()
-        if dept_id and str(dept_id).strip().isdigit() and int(dept_id):
-            sites |= redis_client.smembers(
-                cv_config.CV_SITES_REDIS_KEY[2].format(str(dept_id))
-            )
-        if ward_id and str(ward_id).strip().isdigit() and int(ward_id):
-            sites |= redis_client.smembers(
-                cv_config.CV_SITES_REDIS_KEY[1].format(str(ward_id))
-            )
+        with redis.Redis(connection_pool=pool) as redis_client:
+            sites = set()
+            if dept_id and str(dept_id).strip().isdigit() and int(dept_id):
+                sites |= redis_client.smembers(
+                    cv_config.CV_SITES_REDIS_KEY[2].format(str(dept_id))
+                )
+            if ward_id and str(ward_id).strip().isdigit() and int(ward_id):
+                sites |= redis_client.smembers(
+                    cv_config.CV_SITES_REDIS_KEY[1].format(str(ward_id))
+                )
     except Exception:
         logger.exception("alert: 读取站点失败 dept=%s ward=%s", dept_id, ward_id)
         return
