@@ -5,6 +5,7 @@ from flask import Blueprint
 from gylmodules.a_special.special_router import special_system
 from gylmodules.app_version.app_version_router import app_version
 from gylmodules.critical_value.critical_value_router import cv
+from gylmodules.discharge_risk.dr_router import dr_system
 from gylmodules.file_system.file_router import file_system
 from gylmodules.group.group_router import group_router
 from gylmodules.hospital_class.hosp_class_router import hosp_class
@@ -162,6 +163,12 @@ gylroute.register_blueprint(group_router)
 # ============================
 logger.info('19. 急诊会诊系统路由')
 gylroute.register_blueprint(on_call)
+
+# ============================
+# === 20. 出院风险预警系统路由 ===
+# ============================
+logger.info('20. 出院风险预警系统路由')
+gylroute.register_blueprint(dr_system)
 
 
 logger.info("=============== End 路由注册完成 =====================")
